@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]"
+
+      - name: Lint with ruff
+        run: |
+          ruff check tf_eu_guard/
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: |
+          pytest
+
+      - name: Validate registry schema
+        run: |
+          python -c "from tf_eu_guard.mapping.loader import validate_all; print(validate_all())"
+
+  example-scan:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tf-eu-guard
+        run: |
+          pip install -e .
+
+      - name: Scan vulnerable examples
+        run: |
+          tf-eu-guard scan examples/vulnerable-aws/ --output all
+
+      - name: Scan Azure/GCP examples
+        run: |
+          set -euo pipefail
+          for d in vulnerable-azure vulnerable-gcp; do
+            tf-eu-guard scan "examples/$d/" --output json > "scan-$d.json"
+            count=$(jq 'length' "scan-$d.json")
+            if [ "$count" -lt 1 ]; then
+              echo "::error::$d produced $count mapped findings (expected several)"
+              exit 1
+            fi
+            echo "OK: $d -> $count mapped findings"
+          done
+
+      - name: Scan end2end test suite
+        run: |
+          tf-eu-guard scan examples/end2end/ --output dev
+
+      - name: Assert custom EU-compliance checks fire
+        run: |
+          set -euo pipefail
+          tf-eu-guard scan examples/end2end/ --output json > scan.json
+          for id in EUGUARD_GDPR_001 EUGUARD_NIS2_001; do
+            if grep -q "\"$id\"" scan.json; then
+              echo "OK: $id fired and was enriched"
+            else
+              echo "::error::Custom check $id did not fire against examples/end2end/ (external-check loading may be broken)"
+              exit 1
+            fi
+          done
+
+      - name: Scan compliant examples (should be clean)
+        run: |
+          set -euo pipefail
+          tf-eu-guard scan examples/compliant-aws/ --output json > compliant-scan.json
+          # --output json emits a top-level array of enriched findings
+          finding_count=$(jq 'length' compliant-scan.json)
+          if [ "$finding_count" -le 2 ]; then
+            echo "OK: Compliant example has $finding_count mapped findings (acceptable threshold)"
+          else
+            echo "::warning::Compliant example has $finding_count mapped findings (expected 0-2)"
+          fi
+
+      - name: Upload HTML reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-reports
+          path: |
+            dev-report.html
+            scan-report.html
+            auditor-report.html
+          retention-days: 30

@@ -1,0 +1,4 @@
+# Transient test transcripts and cached scans written by run_all_tests.sh.
+# Keep the directory tracked, ignore everything produced inside it.
+*
+!.gitignore

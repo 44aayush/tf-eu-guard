@@ -1,0 +1,412 @@
+# =============================================================================
+# GCP Compliance Mapping Registry: Checkov Check ID -> EU Regulations
+# =============================================================================
+# NIS2 Art. 21(2) and GDPR Art. 32(1)/44 mappings for Checkov GCP checks.
+# Article letters verified against Directive (EU) 2022/2555 and Regulation
+# (EU) 2016/679. Severity is authored here (Checkov leaves it null).
+# Check IDs confirmed to exist in Checkov 3.3.13's Terraform policy registry.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Encryption at rest / in transit
+# -----------------------------------------------------------------------------
+CKV_GCP_62:
+  check_name: "Ensure Bucket does not exist without encryption configuration"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: "Buckets without a CMEK configuration rely solely on default encryption keys, weakening key-rotation control over personal data."
+  remediation: |
+    resource "google_storage_bucket" "example" {
+      encryption {
+        default_kms_key_name = google_kms_crypto_key.bucket.id
+      }
+    }
+  severity: HIGH
+
+CKV_GCP_11:
+  check_name: "Ensure 'require_ssl' is set to 'ON' for Cloud SQL databases"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: "Cloud SQL instances that accept unencrypted connections expose queries — including personal data — to interception."
+  remediation: |
+    resource "google_sql_database_instance" "example" {
+      settings {
+        ip_configuration {
+          require_ssl = true
+        }
+      }
+    }
+  severity: HIGH
+
+CKV_GCP_51:
+  check_name: "Ensure Cloud SQL database instance uses a customer-managed encryption key (CMEK)"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: "Database data encrypted only with Google-default keys cannot be rotated or revoked by the data controller."
+  remediation: |
+    resource "google_sql_database_instance" "example" {
+      encryption_key_name = google_kms_crypto_key.sql.id
+    }
+  severity: MEDIUM
+
+# -----------------------------------------------------------------------------
+# Network exposure / access control
+# -----------------------------------------------------------------------------
+CKV_GCP_6:
+  check_name: "Ensure that Cloud SQL database Instances are not publicly exposed"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(g)"
+      title: "Network security"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity and availability"
+  risk: "A Cloud SQL instance with a public IP is reachable from any host on the internet, inviting brute-force and exploitation."
+  remediation: |
+    resource "google_sql_database_instance" "example" {
+      settings {
+        ip_configuration {
+          ipv4_enabled = false
+          private_network = google_compute_network.default.id
+        }
+      }
+    }
+  severity: CRITICAL
+
+CKV_GCP_26:
+  check_name: "Ensure that VPC Flow Logs is enabled for every subnet in a VPC Network"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity and availability"
+  risk: "Without VPC flow logs, network traffic needed to detect and investigate intrusions is not recorded."
+  remediation: |
+    resource "google_compute_subnetwork" "example" {
+      log_config {
+        aggregation_interval = "INTERVAL_10_MIN"
+        flow_sampling        = 0.5
+        metadata             = "INCLUDE_ALL_METADATA"
+      }
+    }
+  severity: MEDIUM
+
+CKV_GCP_88:
+  check_name: "Ensure that VPC Flow Logs is enabled for every VPC subnet in use"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity and availability"
+  risk: "Subnets without flow logging produce no network audit trail for incident forensics."
+  remediation: |
+    resource "google_compute_subnetwork" "example" {
+      log_config {
+        aggregation_interval = "INTERVAL_10_MIN"
+        flow_sampling        = 0.5
+        metadata             = "INCLUDE_ALL_METADATA"
+      }
+    }
+  severity: MEDIUM
+
+CKV_GCP_28:
+  check_name: "Ensure that Cloud Storage bucket is not anonymously or publicly accessible"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Access control and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity and availability"
+  risk: "A bucket IAM binding that includes allUsers or allAuthenticatedUsers exposes personal data without authentication — a direct GDPR breach risk."
+  remediation: |
+    # Remove 'allUsers' and 'allAuthenticatedUsers' members from
+    # google_storage_bucket_iam_binding / _member resources.
+  severity: CRITICAL
+
+CKV_GCP_49:
+  check_name: "Ensure that project-wide legacy permissions are not granted to service accounts"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Access control and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity and availability"
+  risk: "Project-level editor or owner roles on service accounts violate least privilege and amplify the blast radius of any compromised workload."
+  remediation: |
+    # Replace project_iam_binding roles 'roles/owner' and 'roles/editor' on
+    # serviceAccount members with the minimal predefined role required.
+  severity: HIGH
+
+CKV_GCP_27:
+  check_name: "Ensure that the default network does not exist in a project"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(g)"
+      title: "Network security"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity and availability"
+  risk: "The GCP default network uses permissive firewall rules and broad subnets that conflict with a segmented, least-privilege network design."
+  remediation: |
+    # Set 'auto_create_network = false' on google_project resources and create
+    # an explicit google_compute_network with restricted subnets.
+  severity: MEDIUM
+
+# -----------------------------------------------------------------------------
+# Kubernetes / GKE hardening
+# -----------------------------------------------------------------------------
+CKV_GCP_13:
+  check_name: "Ensure a Client certificate is used for clients to authenticate to Kubernetes Engine Clusters"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(j)"
+      title: "Authentication and secured communications"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity and availability"
+  risk: "Clusters relying only on static credentials for client authentication weaken access control to the workload control plane."
+  remediation: |
+    resource "google_container_cluster" "example" {
+      master_auth {
+        client_certificate_config {
+          issue_client_certificate = true
+        }
+      }
+    }
+  severity: MEDIUM
+
+CKV_GCP_18:
+  check_name: "Ensure Kubernetes Clusters created with Legacy Authorization (ABAC) is set to disabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Access control and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity and availability"
+  risk: "Legacy ABAC authorization is difficult to audit and can grant broader access than intended, unlike RBAC."
+  remediation: |
+    resource "google_container_cluster" "example" {
+      enable_legacy_abac = false
+    }
+  severity: HIGH
+
+CKV_GCP_25:
+  check_name: "Ensure Kubernetes Cluster is created with Private cluster enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(g)"
+      title: "Network security"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity and availability"
+  risk: "A cluster with public control-plane endpoints is reachable from any network and can be probed or attacked."
+  remediation: |
+    resource "google_container_cluster" "example" {
+      private_cluster_config {
+        enable_private_endpoint = true
+        enable_private_nodes     = true
+      }
+    }
+  severity: HIGH
+
+CKV_GCP_20:
+  check_name: "Ensure master authorized networks is set to enabled in GKE clusters"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(g)"
+      title: "Network security"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity and availability"
+  risk: "Without authorized networks, the Kubernetes API endpoint is reachable from any IP address."
+  remediation: |
+    resource "google_container_cluster" "example" {
+      master_authorized_networks_config {
+        cidr_blocks {
+          cidr_block   = "10.0.0.0/8"
+          display_name = "internal"
+        }
+      }
+    }
+  severity: MEDIUM
+
+CKV_GCP_68:
+  check_name: "Ensure Security Bucket Access Logging is set to 'Enabled' on Kubernetes Engine Clusters"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity and availability"
+  risk: "Without audit and access logging configured on the cluster, Kubernetes API activity cannot be reviewed after an incident."
+  remediation: |
+    resource "google_container_cluster" "example" {
+      logging_service    = "logging.googleapis.com/kubernetes"
+      monitoring_service = "monitoring.googleapis.com/kubernetes"
+    }
+  severity: MEDIUM
+
+CKV_GCP_10:
+  check_name: "Ensure 'Automatic node repair' is enabled for Kubernetes Clusters"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity and resilience"
+    - framework: GDPR
+      article: "Art. 32(1)(c)"
+      title: "Ability to restore availability and access in a timely manner"
+  risk: "Without automatic node repair, unhealthy nodes persist and degrade workload availability until manually fixed."
+  remediation: |
+    resource "google_container_node_pool" "example" {
+      management {
+        auto_repair = true
+      }
+    }
+  severity: LOW
+
+CKV_GCP_22:
+  check_name: "Ensure Container-Optimized OS (cos) is used for Kubernetes Engine Clusters Node image"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(d)"
+      title: "Supply chain security"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity and availability"
+  risk: "General-purpose node images run unnecessary software, enlarging the attack surface compared to the minimal Container-Optimized OS."
+  remediation: |
+    resource "google_container_node_pool" "example" {
+      node_config {
+        image_type = "COS_CONTAINERD"
+      }
+    }
+  severity: LOW
+
+# -----------------------------------------------------------------------------
+# Compute / IAM / secrets
+# -----------------------------------------------------------------------------
+CKV_GCP_30:
+  check_name: "Ensure 'Block Project-wide SSH keys' is enabled for VM instances"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Access control and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity and availability"
+  risk: "Project-wide SSH keys grant shell access to every VM that allows them, breaking per-instance access control."
+  remediation: |
+    resource "google_compute_instance" "example" {
+      metadata = {
+        block-project-ssh-keys = true
+      }
+    }
+  severity: MEDIUM
+
+CKV_GCP_33:
+  check_name: "Ensure 'oslogin' is enabled for a Project"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Access control and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity and availability"
+  risk: "Without OS Login, SSH access relies on key metadata that is hard to audit and revoke centrally."
+  remediation: |
+    resource "google_compute_project_metadata" "example" {
+      metadata = {
+        enable-oslogin = true
+      }
+    }
+  severity: LOW
+
+CKV_GCP_38:
+  check_name: "Ensure 'Enable connecting to serial ports' is not enabled for VM Instances"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(g)"
+      title: "Network security"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity and availability"
+  risk: "Serial console access without authentication lets anyone with access read sensitive boot output or issue a root shell."
+  remediation: |
+    resource "google_compute_instance" "example" {
+      metadata = {
+        serial-port-enable = false
+      }
+    }
+  severity: MEDIUM
+
+CKV_GCP_78:
+  check_name: "Ensure that Cloud Storage buckets aren't publicly accessible through IAM policies"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Access control and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity and availability"
+  risk: "Bucket IAM policy members 'allUsers' / 'allAuthenticatedUsers' make data public — a frequent cause of personal-data exposure."
+  remediation: |
+    # Remove public members from google_storage_bucket_iam_policy bindings.
+  severity: CRITICAL
+
+CKV_GCP_16:
+  check_name: "Ensure that DNSSEC is enabled for Cloud DNS"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: "Without DNSSEC, DNS responses for the zone can be spoofed, redirecting users to attacker-controlled hosts."
+  remediation: |
+    resource "google_dns_managed_zone" "example" {
+      dnssec_config {
+        state = "on"
+      }
+    }
+  severity: MEDIUM
+
+CKV_GCP_23:
+  check_name: "Ensure Kubernetes Cluster is created with Alias IP ranges enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(g)"
+      title: "Network security"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity and availability"
+  risk: "Without alias IP ranges, pod traffic cannot be filtered by network policy at the VPC level, weakening segmentation."
+  remediation: |
+    resource "google_container_cluster" "example" {
+      networking_mode = "VPC_NATIVE"
+      ip_allocation_policy { }
+    }
+  severity: MEDIUM

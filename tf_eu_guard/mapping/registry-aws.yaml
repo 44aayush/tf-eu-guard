@@ -1,0 +1,2511 @@
+# =============================================================================
+# AWS Compliance Mapping Registry: Checkov Check ID -> EU Regulations
+# =============================================================================
+# NIS2 Art. 21(2) and GDPR Art. 32(1)/44 mappings for Checkov AWS checks.
+# Article letters verified against Directive (EU) 2022/2555 and Regulation
+# (EU) 2016/679 — see docs/nis2-mapping.md, docs/gdpr-mapping.md and
+# docs/check-mapping-table.md for the reasoning and verification status.
+# Severity is authored here (Checkov 3.3.13 leaves `severity` null).
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# IAM / Access control  (iam.tf)  ->  NIS2 Art. 21(2)(i), GDPR Art. 32(1)(b)
+# -----------------------------------------------------------------------------
+
+CKV_AWS_273:
+  check_name: "Ensure access is controlled through SSO and not AWS IAM defined users"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+  risk: >
+    Long-lived IAM users bypass centralized identity management and SSO, making it
+    difficult to enforce MFA, audit access centrally, and revoke credentials quickly
+    during an incident. NIS2 Art. 21(2)(i) requires effective access control policies.
+  remediation: |
+    Delete standing IAM users and federate access through AWS IAM Identity Center (SSO):
+      # Remove:
+      # resource "aws_iam_user" "admin" { ... }
+      # Use Identity Center permission sets + account assignments instead
+      # (managed via aws_ssoadmin_* resources or the Identity Center console).
+  severity: HIGH
+
+CKV_AWS_287:
+  check_name: "Ensure IAM policies does not allow credentials exposure"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Policies that permit credential-generation actions (sts:GetFederationToken,
+    iam:CreateAccessKey, ec2:GetPasswordData, etc.) let an attacker mint new
+    credentials and pivot, undermining the confidentiality controls GDPR
+    Art. 32(1)(b) requires and the access control NIS2 Art. 21(2)(i) mandates.
+  remediation: |
+    Remove credential-exposing actions and scope to least privilege:
+      # Before:
+      "Action": ["sts:*", "iam:CreateAccessKey"]
+      # After:
+      "Action": ["s3:GetObject", "s3:PutObject"]
+      "Resource": "arn:aws:s3:::my-app-data/*"
+  severity: CRITICAL
+
+CKV_AWS_288:
+  check_name: "Ensure IAM policies does not allow data exfiltration"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Broad read actions on all resources (s3:GetObject, secretsmanager:GetSecretValue,
+    rds:DownloadDBLogFilePortion on "*") enable bulk exfiltration of data, which for
+    personal data is a reportable breach under GDPR and a direct failure of the
+    access control expected by NIS2 Art. 21(2)(i).
+  remediation: |
+    Constrain read actions to specific resource ARNs, never "*":
+      "Action": ["s3:GetObject"]
+      "Resource": "arn:aws:s3:::approved-bucket/*"
+  severity: CRITICAL
+
+CKV_AWS_62:
+  check_name: "Ensure IAM policies that allow full \"*-*\" administrative privileges are not created"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    A policy granting Action "*" on Resource "*" is unrestricted administrative
+    access. It violates least privilege, defeats access segregation, and gives any
+    holder the ability to read, alter, or destroy all data - contrary to both
+    NIS2 Art. 21(2)(i) and the confidentiality/integrity goals of GDPR Art. 32(1)(b).
+  remediation: |
+    Replace the wildcard grant with explicit, scoped statements:
+      # Before:
+      "Action": "*"
+      "Resource": "*"
+      # After:
+      "Action": ["s3:GetObject", "s3:PutObject"]
+      "Resource": "arn:aws:s3:::my-app-data/*"
+  severity: CRITICAL
+
+CKV_AWS_286:
+  check_name: "Ensure IAM policies does not allow privilege escalation"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Actions such as iam:PassRole, iam:AttachUserPolicy, or iam:PutUserPolicy allow a
+    low-privileged principal to grant itself higher privileges, collapsing access
+    control (NIS2 Art. 21(2)(i)) and putting the confidentiality of all data at risk.
+  remediation: |
+    Remove privilege-management actions from workload policies, or constrain them
+    with a permissions boundary and explicit resource ARNs:
+      "Action": ["iam:PassRole"]
+      "Resource": "arn:aws:iam::123456789012:role/app-task-role"
+      "Condition": { "StringEquals": { "iam:PassedToService": "ecs-tasks.amazonaws.com" } }
+  severity: CRITICAL
+
+CKV_AWS_63:
+  check_name: "Ensure no IAM policies documents allow \"*\" as a statement's actions"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    A statement with Action "*" grants every API action the principal can hold.
+    Even when the resource is scoped, an unrestricted action set defeats least
+    privilege and lets a compromised identity read or alter any reachable data -
+    contrary to the access control of NIS2 Art. 21(2)(i) and the confidentiality
+    goal of GDPR Art. 32(1)(b).
+  remediation: |
+    Enumerate only the actions the workload needs:
+      # Before:
+      "Action": "*"
+      # After:
+      "Action": ["s3:GetObject", "s3:PutObject"]
+  severity: CRITICAL
+
+CKV_AWS_355:
+  check_name: "Ensure no IAM policies documents allow \"*\" as a statement's resource for restrictable actions"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Using Resource "*" for actions that support resource-level scoping lets the
+    policy reach every object in the account, not just those the workload owns.
+    This over-broad reach undermines the access segregation NIS2 Art. 21(2)(i)
+    expects and the data confidentiality GDPR Art. 32(1)(b) requires.
+  remediation: |
+    Constrain each statement to specific resource ARNs:
+      # Before:
+      "Resource": "*"
+      # After:
+      "Resource": "arn:aws:s3:::my-app-data/*"
+  severity: HIGH
+
+CKV_AWS_289:
+  check_name: "Ensure IAM policies does not allow permissions management / resource exposure without constraints"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Permissions-management actions (iam:PutUserPolicy, iam:AttachUserPolicy,
+    s3:PutBucketPolicy, etc.) on unconstrained resources let a principal rewrite
+    who can access what, collapsing access control (NIS2 Art. 21(2)(i)) and putting
+    the confidentiality of all data at risk (GDPR Art. 32(1)(b)).
+  remediation: |
+    Remove permissions-management actions from workload policies, or bound them
+    with a permissions boundary and explicit resource ARNs:
+      "Action": ["iam:AttachUserPolicy"]
+      "Resource": "arn:aws:iam::123456789012:user/app-*"
+  severity: CRITICAL
+
+CKV_AWS_290:
+  check_name: "Ensure IAM policies does not allow write access without constraints"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Write actions (Create/Put/Update/Delete) allowed on Resource "*" let a principal
+    modify or destroy any resource in the account, threatening the integrity and
+    availability of personal data (GDPR Art. 32(1)(b)) and breaking the least-privilege
+    access control of NIS2 Art. 21(2)(i).
+  remediation: |
+    Scope write actions to the specific resources the workload manages:
+      "Action": ["dynamodb:PutItem", "dynamodb:UpdateItem"]
+      "Resource": "arn:aws:dynamodb:eu-west-1:123456789012:table/app-*"
+  severity: HIGH
+
+CKV_AWS_274:
+  check_name: "Disallow IAM roles, users, and groups from using the AWS AdministratorAccess policy"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+  risk: >
+    Attaching the AWS-managed AdministratorAccess policy grants unrestricted control
+    over the account. It is the managed-policy equivalent of "*:*" and breaks the
+    least-privilege access control required by NIS2 Art. 21(2)(i).
+  remediation: |
+    Attach a scoped, purpose-built policy instead of AdministratorAccess:
+      # Before:
+      policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+      # After:
+      policy_arn = aws_iam_policy.app_least_privilege.arn
+  severity: HIGH
+
+CKV_AWS_40:
+  check_name: "Ensure IAM policies are attached only to groups or roles (Reducing access management complexity may in-turn reduce opportunity for a principal to inadvertently receive or retain excessive privileges.)"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+  risk: >
+    Attaching policies directly to individual IAM users makes entitlements hard to
+    review and revoke at scale, weakening the asset- and access-management discipline
+    NIS2 Art. 21(2)(i) expects. Group/role attachment keeps privileges auditable.
+  remediation: |
+    Attach the policy to a group or role and add the user to the group:
+      resource "aws_iam_group_policy_attachment" "app" {
+        group      = aws_iam_group.app.name
+        policy_arn = aws_iam_policy.app.arn
+      }
+  severity: MEDIUM
+
+CKV_AWS_9:
+  check_name: "Ensure IAM password policy expires passwords within 90 days or less"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+  risk: >
+    Without a password-expiry policy, compromised or leaked console passwords stay
+    valid indefinitely. A rotation ceiling is a baseline access control hygiene
+    measure under NIS2 Art. 21(2)(i). (Represents the account password-policy family:
+    CKV_AWS_9-15.)
+  remediation: |
+    Define an account password policy with rotation and strength requirements:
+      resource "aws_iam_account_password_policy" "strict" {
+        max_password_age               = 90
+        minimum_password_length        = 14
+        require_symbols                = true
+        require_numbers                = true
+        require_uppercase_characters   = true
+        require_lowercase_characters   = true
+      }
+  severity: MEDIUM
+
+
+# -----------------------------------------------------------------------------
+# S3 storage  (s3.tf)  ->  encryption / public exposure / logging / resilience
+# -----------------------------------------------------------------------------
+
+CKV_AWS_145:
+  check_name: "Ensure that S3 buckets are encrypted with KMS by default"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    Buckets without KMS-managed encryption at rest lack the auditable key control and
+    key-rotation guarantees expected of encrypted personal data. GDPR Art. 32(1)(a)
+    names encryption explicitly; NIS2 Art. 21(2)(h) requires cryptography policies.
+  remediation: |
+    Configure default SSE-KMS on the bucket:
+      resource "aws_s3_bucket_server_side_encryption_configuration" "this" {
+        bucket = aws_s3_bucket.data.id
+        rule {
+          apply_server_side_encryption_by_default {
+            sse_algorithm     = "aws:kms"
+            kms_master_key_id = aws_kms_key.s3.arn
+          }
+        }
+      }
+  severity: HIGH
+
+CKV_AWS_20:
+  check_name: "S3 Bucket has an ACL defined which allows public READ access."
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    A public-READ ACL exposes every object in the bucket to anonymous internet users.
+    If the bucket holds personal data this is a direct confidentiality breach under
+    GDPR Art. 32(1)(b) and a failure of access control under NIS2 Art. 21(2)(i).
+  remediation: |
+    Remove the public ACL and keep the bucket private:
+      # Before:
+      acl = "public-read"
+      # After: omit the ACL (buckets are private by default) or set:
+      acl = "private"
+      # and enforce with an aws_s3_bucket_public_access_block (see CKV2_AWS_6).
+  severity: CRITICAL
+
+CKV_AWS_53:
+  check_name: "Ensure S3 bucket has block public ACLS enabled"
+  articles:
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    With block_public_acls disabled, a future ACL change can silently make objects
+    public, defeating the confidentiality control GDPR Art. 32(1)(b) requires. The
+    public access block is the account-level guardrail that prevents that drift.
+  remediation: |
+    Enable the guardrail on the bucket's public access block:
+      resource "aws_s3_bucket_public_access_block" "this" {
+        bucket                  = aws_s3_bucket.data.id
+        block_public_acls       = true
+        ignore_public_acls      = true
+        block_public_policy     = true
+        restrict_public_buckets = true
+      }
+  severity: HIGH
+
+CKV2_AWS_6:
+  check_name: "Ensure that S3 bucket has a Public Access block"
+  articles:
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    A bucket with no aws_s3_bucket_public_access_block has no safety net against
+    accidental public exposure via ACLs or bucket policy - a standing confidentiality
+    risk for any personal data under GDPR Art. 32(1)(b).
+  remediation: |
+    Attach a public access block that denies all public access (see CKV_AWS_53 for the
+    full resource); at minimum:
+      block_public_acls       = true
+      block_public_policy     = true
+      ignore_public_acls      = true
+      restrict_public_buckets = true
+  severity: HIGH
+
+CKV_AWS_54:
+  check_name: "Ensure S3 bucket has block public policy enabled"
+  articles:
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    With block_public_policy disabled, a bucket policy can grant anonymous access
+    to objects, silently exposing personal data. It is the policy-side counterpart
+    to CKV_AWS_53 and a direct confidentiality risk under GDPR Art. 32(1)(b).
+  remediation: |
+    Enable the guardrail on the bucket's public access block:
+      block_public_policy = true
+  severity: HIGH
+
+CKV_AWS_55:
+  check_name: "Ensure S3 bucket has ignore public ACLs enabled"
+  articles:
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    With ignore_public_acls disabled, public ACLs applied to the bucket or its
+    objects are honoured rather than neutralised, allowing anonymous read/write and
+    undermining the confidentiality control of GDPR Art. 32(1)(b).
+  remediation: |
+    Enable the guardrail on the bucket's public access block:
+      ignore_public_acls = true
+  severity: HIGH
+
+CKV_AWS_56:
+  check_name: "Ensure S3 bucket has 'restrict_public_buckets' enabled"
+  articles:
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    With restrict_public_buckets disabled, a public bucket policy grants access to
+    all principals and anonymous users rather than only authorised AWS services and
+    users, widening exposure of personal data contrary to GDPR Art. 32(1)(b).
+  remediation: |
+    Enable the guardrail on the bucket's public access block:
+      restrict_public_buckets = true
+  severity: HIGH
+
+CKV_AWS_18:
+  check_name: "Ensure the S3 bucket has access logging enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+  risk: >
+    Without S3 server access logging there is no record of who read or wrote objects,
+    so a data-access incident cannot be detected, scoped, or investigated. NIS2
+    Art. 21(2)(b) requires the ability to handle and analyse incidents.
+  remediation: |
+    Send access logs to a dedicated logging bucket:
+      resource "aws_s3_bucket_logging" "this" {
+        bucket        = aws_s3_bucket.data.id
+        target_bucket = aws_s3_bucket.logs.id
+        target_prefix = "s3-access/"
+      }
+  severity: MEDIUM
+
+CKV_AWS_21:
+  check_name: "Ensure all data stored in the S3 bucket have versioning enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+    - framework: GDPR
+      article: "Art. 32(1)(c)"
+      title: "Ability to restore availability and access to personal data in a timely manner"
+  risk: >
+    Without versioning, an accidental or malicious overwrite/delete is unrecoverable.
+    Versioning provides point-in-time restore, supporting the recovery obligation in
+    GDPR Art. 32(1)(c) and business continuity under NIS2 Art. 21(2)(c).
+  remediation: |
+    Enable bucket versioning:
+      resource "aws_s3_bucket_versioning" "this" {
+        bucket = aws_s3_bucket.data.id
+        versioning_configuration { status = "Enabled" }
+      }
+  severity: MEDIUM
+
+
+# -----------------------------------------------------------------------------
+# RDS database  (rds.tf)  ->  encryption / exposure / backup / logging / auth
+# -----------------------------------------------------------------------------
+
+CKV_AWS_16:
+  check_name: "Ensure all data stored in the RDS is securely encrypted at rest"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    An unencrypted RDS instance leaves personal data readable on the underlying
+    storage and in snapshots. GDPR Art. 32(1)(a) names encryption explicitly and
+    NIS2 Art. 21(2)(h) requires cryptography controls for data at rest.
+  remediation: |
+    Enable storage encryption (immutable - requires recreate/restore):
+      resource "aws_db_instance" "this" {
+        storage_encrypted = true
+        kms_key_id        = aws_kms_key.rds.arn
+        # ...
+      }
+  severity: HIGH
+
+CKV_AWS_17:
+  check_name: "Ensure all data stored in RDS is not publicly accessible"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    A publicly accessible database is reachable from the internet, exposing personal
+    data to credential-stuffing and exploitation. This is a confidentiality failure
+    under GDPR Art. 32(1)(b) and an access control failure under NIS2 Art. 21(2)(i).
+  remediation: |
+    Keep the instance private and reach it only from within the VPC:
+      publicly_accessible = false
+      # place the instance in private subnets via a db_subnet_group and
+      # restrict the security group to internal CIDRs only.
+  severity: CRITICAL
+
+CKV_AWS_133:
+  check_name: "Ensure that RDS instances has backup policy"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+    - framework: GDPR
+      article: "Art. 32(1)(c)"
+      title: "Ability to restore availability and access to personal data in a timely manner"
+  risk: >
+    A zero-day backup retention means no point-in-time recovery: hardware failure,
+    corruption, or ransomware results in permanent data loss. Both NIS2 Art. 21(2)(c)
+    and GDPR Art. 32(1)(c) require the ability to restore availability of data.
+  remediation: |
+    Set a non-zero backup retention window (>= 7 days recommended):
+      backup_retention_period = 7
+      backup_window           = "03:00-04:00"
+  severity: HIGH
+
+CKV_AWS_129:
+  check_name: "Ensure that respective logs of Amazon Relational Database Service (Amazon RDS) are enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+  risk: >
+    Without database engine logs exported to CloudWatch, suspicious queries and
+    authentication failures leave no trail, so a data-access incident cannot be
+    detected or investigated - contrary to NIS2 Art. 21(2)(b).
+  remediation: |
+    Export the relevant engine logs:
+      enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
+      # (for MySQL: ["audit", "error", "general", "slowquery"])
+  severity: MEDIUM
+
+CKV_AWS_161:
+  check_name: "Ensure RDS database has IAM authentication enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Relying only on static database passwords means no centralized revocation or
+    rotation and passwords that are easily shared or leaked. IAM database
+    authentication ties DB access to IAM identities, strengthening the access control
+    of NIS2 Art. 21(2)(i) and the confidentiality control of GDPR Art. 32(1)(b).
+  remediation: |
+    Enable IAM database authentication:
+      iam_database_authentication_enabled = true
+  severity: MEDIUM
+
+CKV_AWS_293:
+  check_name: "Ensure that AWS database instances have deletion protection enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+    - framework: GDPR
+      article: "Art. 32(1)(c)"
+      title: "Ability to restore availability and access to personal data in a timely manner"
+  risk: >
+    Without deletion protection, a mistaken or malicious destroy removes the database
+    and its data with no confirmation barrier, threatening the availability that both
+    NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c) require.
+  remediation: |
+    Enable deletion protection on the instance:
+      deletion_protection = true
+  severity: MEDIUM
+
+CKV_AWS_118:
+  check_name: "Ensure that enhanced monitoring is enabled for Amazon RDS instances"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+  risk: >
+    Without enhanced monitoring, OS-level metrics (CPU, memory, process and I/O
+    activity) are unavailable, so resource-exhaustion attacks or anomalous database
+    host behaviour cannot be detected or investigated - contrary to the incident
+    detection and handling required by NIS2 Art. 21(2)(b).
+  remediation: |
+    Enable enhanced monitoring with a monitoring role and a non-zero interval:
+      monitoring_interval = 60
+      monitoring_role_arn = aws_iam_role.rds_monitoring.arn
+  severity: MEDIUM
+
+CKV_AWS_157:
+  check_name: "Ensure that RDS instances have Multi-AZ enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+    - framework: GDPR
+      article: "Art. 32(1)(c)"
+      title: "Ability to restore availability and access to personal data in a timely manner"
+  risk: >
+    A single-AZ database has no standby: an availability-zone failure takes the data
+    offline until manual recovery. Multi-AZ provides automatic failover, supporting
+    the availability obligation of GDPR Art. 32(1)(c) and business continuity under
+    NIS2 Art. 21(2)(c).
+  remediation: |
+    Enable Multi-AZ deployment:
+      multi_az = true
+  severity: MEDIUM
+
+
+# -----------------------------------------------------------------------------
+# Network  (network.tf)  ->  security groups / flow logging / subnet exposure
+# -----------------------------------------------------------------------------
+
+CKV2_AWS_11:
+  check_name: "Ensure VPC flow logging is enabled in all VPCs"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+  risk: >
+    Without VPC flow logs there is no network-level record of accepted/rejected
+    connections, so lateral movement and exfiltration attempts cannot be detected or
+    reconstructed. NIS2 Art. 21(2)(b) requires detection and analysis of incidents.
+  remediation: |
+    Enable flow logs for the VPC:
+      resource "aws_flow_log" "this" {
+        vpc_id          = aws_vpc.main.id
+        traffic_type    = "ALL"
+        log_destination = aws_cloudwatch_log_group.vpc_flow.arn
+        iam_role_arn    = aws_iam_role.vpc_flow.arn
+      }
+  severity: MEDIUM
+
+# NOTE: CKV_AWS_24 / CKV_AWS_25 / CKV_AWS_260 are authored from the Checkov 3.3.13
+# policy index and were NOT present in the source scan (the earlier fixture set had
+# no open-ingress security groups). Confirm the exact IDs against a scan of
+# vulnerable_tf/ before treating these as verified — see docs/check-mapping-table.md.
+CKV_AWS_24:
+  check_name: "Ensure no security groups allow ingress from 0.0.0.0:0 to port 22"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    SSH (port 22) open to 0.0.0.0/0 exposes administrative shell access to the entire
+    internet, inviting brute-force and exploitation of any host that may process
+    personal data. This is a failure of network access control (NIS2 Art. 21(2)(i))
+    and of the confidentiality safeguards GDPR Art. 32(1)(b) requires.
+  remediation: |
+    Restrict SSH to a bastion or corporate CIDR, never the internet:
+      # Before:
+      cidr_blocks = ["0.0.0.0/0"]
+      # After:
+      cidr_blocks = ["10.0.0.0/8"]   # or a specific admin range / use SSM Session Manager
+  severity: HIGH
+
+CKV_AWS_25:
+  check_name: "Ensure no security groups allow ingress from 0.0.0.0:0 to port 3389"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    RDP (port 3389) open to 0.0.0.0/0 exposes remote desktop to the internet, a
+    heavily targeted vector for credential attacks and ransomware. It breaks the
+    network access control of NIS2 Art. 21(2)(i) and the confidentiality control of
+    GDPR Art. 32(1)(b).
+  remediation: |
+    Restrict RDP to a bastion or corporate CIDR, or remove it entirely:
+      # Before:
+      cidr_blocks = ["0.0.0.0/0"]
+      # After:
+      cidr_blocks = ["10.0.0.0/8"]   # or use SSM Session Manager / a VPN
+  severity: HIGH
+
+CKV_AWS_260:
+  check_name: "Ensure no security groups allow ingress from 0.0.0.0:0 to port 80"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+  risk: >
+    Plain-HTTP (port 80) open to the world serves traffic unencrypted and widens the
+    attack surface. Where it fronts systems processing personal data it weakens the
+    network access control expected by NIS2 Art. 21(2)(i); traffic should terminate
+    TLS at a load balancer instead.
+  remediation: |
+    Front the service with HTTPS and restrict or redirect port 80:
+      # Terminate TLS (443) at an ALB and redirect 80 -> 443, or scope the CIDR:
+      cidr_blocks = ["10.0.0.0/8"]
+  severity: MEDIUM
+
+CKV_AWS_382:
+  check_name: "Ensure no security groups allow egress from 0.0.0.0:0 to port -1"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+  risk: >
+    Unrestricted egress (all ports/protocols to 0.0.0.0/0) gives a compromised host a
+    clear path to exfiltrate data or reach command-and-control infrastructure. Egress
+    filtering is part of the network segmentation and access control under NIS2
+    Art. 21(2)(i).
+  remediation: |
+    Scope egress to the destinations and ports the workload actually needs:
+      egress {
+        from_port   = 443
+        to_port     = 443
+        protocol    = "tcp"
+        cidr_blocks = ["10.0.0.0/8"]
+      }
+  severity: MEDIUM
+
+CKV2_AWS_12:
+  check_name: "Ensure the default security group of every VPC restricts all traffic"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+  risk: >
+    An unmanaged default security group can implicitly allow traffic between any
+    resources that fall back to it, bypassing intended segmentation. NIS2
+    Art. 21(2)(i) expects deliberate, least-privilege network access control.
+  remediation: |
+    Manage the default SG and strip all ingress/egress:
+      resource "aws_default_security_group" "default" {
+        vpc_id = aws_vpc.main.id
+        # no ingress or egress blocks = deny all
+      }
+  severity: MEDIUM
+
+CKV_AWS_130:
+  check_name: "Ensure VPC subnets do not assign public IP by default"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Subnets that auto-assign public IPs place workloads directly on the internet by
+    default, widening the attack surface for systems that may process personal data -
+    a confidentiality risk (GDPR Art. 32(1)(b)) and weak network segmentation under
+    NIS2 Art. 21(2)(i).
+  remediation: |
+    Disable automatic public IP assignment; use NAT for egress:
+      map_public_ip_on_launch = false
+  severity: MEDIUM
+
+
+# -----------------------------------------------------------------------------
+# Custom tf-eu-guard checks (Phase 3)  ->  EU-specific requirements not covered
+# by stock Checkov policies. Implemented under tf_eu_guard/checks/ and loaded via
+# `--external-checks-dir tf_eu_guard/checks` (wired into checkov_runner.py).
+#   EUGUARD_GDPR_001  provider-level EU data-residency (GDPR Chapter V)
+#   EUGUARD_NIS2_001  hardcoded secrets in IaC (NIS2 secure development)
+# -----------------------------------------------------------------------------
+
+EUGUARD_GDPR_001:
+  check_name: "Ensure the AWS provider region is in the EU (GDPR data residency)"
+  articles:
+    - framework: GDPR
+      article: "Art. 44"
+      title: "General principle for transfers of personal data to third countries"
+  risk: >
+    Deploying resources through an AWS provider pinned to a non-EU region stores
+    personal data outside the EU/EEA - a transfer to a third country. GDPR
+    Chapter V (Art. 44-49) permits this only under specific safeguards (an
+    adequacy decision, Standard Contractual Clauses, or Binding Corporate Rules);
+    an unqualified non-EU region is a data-residency violation that must be
+    justified under one of those mechanisms or corrected.
+  remediation: |
+    Pin every aws provider block to an EU region, or gate a non-EU provider
+    behind a documented Chapter V transfer mechanism:
+      # Before:
+      provider "aws" { region = "us-east-1" }
+      # After:
+      provider "aws" { region = "eu-west-1" }
+  severity: HIGH
+
+EUGUARD_NIS2_001:
+  check_name: "Ensure secrets are not hardcoded in Terraform configuration"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(e)"
+      title: "Security in network and information systems acquisition, development and maintenance"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    A literal credential (database password, auth token, private key) committed
+    to Terraform is readable by anyone with repository or state access, cannot be
+    rotated centrally, and frequently leaks through CI logs. Storing secrets in
+    code is an insecure-development practice under NIS2 Art. 21(2)(e) and, where
+    the secret protects personal data, a confidentiality risk under GDPR
+    Art. 32(1)(b).
+  remediation: |
+    Never inline secrets. Source them from a secrets manager or a sensitive
+    variable injected at apply time:
+      # Before:
+      password = "ChangeMe123!"
+      # After:
+      password = data.aws_secretsmanager_secret_version.db.secret_string
+      # or a variable marked `sensitive` and sourced from the environment/a vault.
+  severity: CRITICAL
+
+
+# =============================================================================
+# Registry extension (2026-08-30): every remaining Checkov AWS check that fires
+# against the in-repo stacks (vulnerable_tf/, vulnerable_tf/end2end/,
+# examples/vulnerable-aws/) is now mapped. 76 additional mappings, grouped by
+# theme. Same citation rules as above: NIS2 Art. 21(2) letters (b) incident
+# handling, (c) backup/DR, (e) secure development and maintenance,
+# (h) cryptography, (i) access control; GDPR Art. 32(1)(a)-(c).
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Encryption at rest  ->  NIS2 Art. 21(2)(h), GDPR Art. 32(1)(a)
+# -----------------------------------------------------------------------------
+
+CKV2_AWS_2:
+  check_name: "Ensure that only encrypted EBS volumes are attached to EC2 instances"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    An unencrypted EBS volume attached to an EC2 instance leaves all data on that
+    volume readable by anyone who obtains the snapshot or the physical disk. Data at
+    rest without encryption defeats the encryption policies NIS2 Art. 21(2)(h)
+    requires and the pseudonymisation/encryption safeguards of GDPR Art. 32(1)(a).
+  remediation: |
+    Enable encryption on every EBS volume (and default encryption at the account level):
+      resource "aws_ebs_volume" "data" {
+        encrypted = true
+        # kms_key_id = aws_kms_key.ebs.arn  # for a customer-managed key
+      }
+  severity: HIGH
+
+CKV_AWS_3:
+  check_name: "Ensure all data stored in the EBS is securely encrypted"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    EBS volumes hold filesystem data — including databases and application state —
+    in plaintext when not encrypted. Snapshots of unencrypted volumes inherit that
+    plaintext exposure. NIS2 Art. 21(2)(h) mandates encryption policies and GDPR
+    Art. 32(1)(a) names encryption of personal data as a core safeguard.
+  remediation: |
+    Set encrypted = true on the volume (existing volumes must be re-created):
+      resource "aws_ebs_volume" "data" {
+        encrypted   = true
+        kms_key_id  = aws_kms_key.ebs.arn
+      }
+  severity: HIGH
+
+CKV_AWS_8:
+  check_name: "Ensure all data stored in the Launch configuration or instance Elastic Blocks Store is securely encrypted"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    Launch configurations and launch templates that omit EBS encryption propagate
+    unencrypted root and data volumes to every instance they create, so a single
+    omission scales into fleet-wide plaintext storage — contrary to NIS2 Art. 21(2)(h)
+    encryption policies and GDPR Art. 32(1)(a).
+  remediation: |
+    Enable EBS encryption in the launch template block device mapping:
+      resource "aws_launch_template" "app" {
+        block_device_mappings {
+          device_name = "/dev/xvda"
+          ebs {
+            encrypted = true
+          }
+        }
+      }
+  severity: HIGH
+
+CKV_AWS_96:
+  check_name: "Ensure all data stored in Aurora is securely encrypted at rest"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    An Aurora cluster without storage encryption keeps personal data in plaintext on
+    the cluster volume, its snapshots, and replicas. Databases are the most common
+    location of personal data, making this a direct GDPR Art. 32(1)(a) failure and a
+    breach of the encryption policy NIS2 Art. 21(2)(h) requires.
+  remediation: |
+    Enable encryption when creating the cluster (cannot be enabled later):
+      resource "aws_rds_cluster" "main" {
+        storage_encrypted = true
+        kms_key_id        = aws_kms_key.rds.arn
+      }
+  severity: CRITICAL
+
+CKV_AWS_5:
+  check_name: "Ensure all data stored in the Elasticsearch is securely encrypted at rest"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    Elasticsearch/OpenSearch domains frequently index personal data (search logs,
+    profiles, events) and store it in plaintext when at-rest encryption is disabled.
+    NIS2 Art. 21(2)(h) requires encryption policies; GDPR Art. 32(1)(a) names
+    encryption as a primary technical measure.
+  remediation: |
+    Enable at-rest encryption at domain creation:
+      resource "aws_elasticsearch_domain" "main" {
+        encrypt_at_rest {
+          enabled = true
+        }
+      }
+  severity: CRITICAL
+
+CKV_AWS_247:
+  check_name: "Ensure all data stored in the Elasticsearch is encrypted with a CMK"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    Encryption with the default AWS-managed key still leaves key policy, rotation,
+    and audit trail outside the organisation's control. A customer-managed key lets
+    the organisation enforce rotation and revoke access as NIS2 Art. 21(2)(h)
+    cryptography procedures and GDPR Art. 32(1)(a) encryption expects.
+  remediation: |
+    Point encrypt_at_rest at a customer-managed KMS key:
+      resource "aws_elasticsearch_domain" "main" {
+        encrypt_at_rest {
+          enabled    = true
+          kms_key_id = aws_kms_key.es.arn
+        }
+      }
+  severity: HIGH
+
+CKV_AWS_44:
+  check_name: "Ensure Neptune storage is securely encrypted"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    A Neptune graph database without storage encryption stores its vertices, edges,
+    and property data — often relationship graphs of individuals — in plaintext on
+    disk and in snapshots, contrary to NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a).
+  remediation: |
+    Enable encryption at cluster creation (immutable afterwards):
+      resource "aws_neptune_cluster" "main" {
+        storage_encrypted = true
+      }
+  severity: CRITICAL
+
+CKV_AWS_347:
+  check_name: "Ensure Neptune is encrypted by KMS using a customer managed Key (CMK)"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    Using the AWS-managed key rather than a customer-managed key deprives the
+    organisation of key-policy control, rotation schedules, and cross-account audit —
+    the cryptographic governance NIS2 Art. 21(2)(h) requires and GDPR Art. 32(1)(a)
+    encryption should be able to demonstrate.
+  remediation: |
+    Specify a customer-managed KMS key for the Neptune cluster:
+      resource "aws_neptune_cluster" "main" {
+        storage_encrypted = true
+        kms_key_arn       = aws_kms_key.neptune.arn
+      }
+  severity: HIGH
+
+CKV_AWS_279:
+  check_name: "Ensure Neptune snapshot is securely encrypted"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    Unencrypted snapshots can be copied to any account or region in plaintext,
+    removing the cluster's encryption boundary exactly where data is most portable.
+    NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) expect encryption to follow the data
+    into backups.
+  remediation: |
+    Create snapshots only from encrypted clusters (snapshots inherit the source
+    cluster's encryption); re-encrypt manual copies under a CMK:
+      resource "aws_neptune_cluster_snapshot" "main" {
+        db_cluster_identifier = aws_neptune_cluster.main.id  # source is encrypted
+      }
+  severity: HIGH
+
+CKV_AWS_280:
+  check_name: "Ensure Neptune snapshot is encrypted by KMS using a customer managed Key (CMK)"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    Snapshots under the AWS-managed key cannot carry the organisation's key policy or
+    rotation regime, weakening the demonstrable encryption governance of NIS2
+    Art. 21(2)(h) and GDPR Art. 32(1)(a) once data leaves the live cluster.
+  remediation: |
+    Copy manual snapshots under a customer-managed key:
+      resource "aws_neptune_cluster_snapshot" "main" {
+        db_cluster_identifier = aws_neptune_cluster.main.id
+      }
+      # copy with: aws neptune copy-db-cluster-snapshot \
+      #   --source-... --target-... --kms-key-id <cmk-arn>
+  severity: MEDIUM
+
+CKV_AWS_327:
+  check_name: "Ensure RDS Clusters are encrypted using KMS CMKs"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    An RDS/Aurora cluster encrypted only with the default key gives the organisation
+    no key policy, rotation, or grant-revocation control. NIS2 Art. 21(2)(h) expects
+    governed cryptography and GDPR Art. 32(1)(a) expects encryption as a real,
+    auditable control over personal data.
+  remediation: |
+    Create the cluster with a customer-managed KMS key:
+      resource "aws_rds_cluster" "main" {
+        storage_encrypted = true
+        kms_key_id        = aws_kms_key.rds.arn
+      }
+  severity: HIGH
+
+CKV_AWS_136:
+  check_name: "Ensure that ECR repositories are encrypted using KMS"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    Container images bundle application code, configuration, and sometimes embedded
+    secrets. An ECR repository on the default AES256 alias keeps that content outside
+    the organisation's key governance, contrary to the cryptography policy of NIS2
+    Art. 21(2)(h) and the encryption safeguard of GDPR Art. 32(1)(a).
+  remediation: |
+    Set a KMS key on the repository:
+      resource "aws_ecr_repository" "app" {
+        encryption_configuration {
+          encryption_type = "KMS"
+          kms_key         = aws_kms_key.ecr.arn
+        }
+      }
+  severity: HIGH
+
+CKV_AWS_189:
+  check_name: "Ensure that EBS Volume is encrypted by KMS using a customer managed Key (CMK)"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    Volumes encrypted with the AWS-managed key cannot demonstrate organisation-level
+    key rotation, policy, or revocation — the governance NIS2 Art. 21(2)(h) expects
+    of cryptography and GDPR Art. 32(1)(a) relies on for encryption of personal data.
+  remediation: |
+    Encrypt volumes with a customer-managed key:
+      resource "aws_ebs_volume" "data" {
+        encrypted  = true
+        kms_key_id = aws_kms_key.ebs.arn
+      }
+  severity: MEDIUM
+
+CKV_AWS_186:
+  check_name: "Ensure S3 bucket Object is encrypted by KMS using a customer managed Key (CMK)"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    Default SSE with AWS-managed keys encrypts objects but keeps key policy, grants,
+    and rotation outside the organisation's control. A CMK lets access to personal
+    data in S3 be revoked and audited, as the cryptography governance of NIS2
+    Art. 21(2)(h) and GDPR Art. 32(1)(a) expects.
+  remediation: |
+    Require a customer-managed key in the bucket SSE configuration:
+      resource "aws_s3_bucket_server_side_encryption_configuration" "data" {
+        bucket = aws_s3_bucket.data.id
+        rule {
+          apply_server_side_encryption_by_default {
+            sse_algorithm     = "aws:kms"
+            kms_master_key_id = aws_kms_key.s3.arn
+          }
+        }
+      }
+  severity: MEDIUM
+
+CKV_AWS_173:
+  check_name: "Check encryption settings for Lambda environmental variable"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    Lambda environment variables frequently carry connection strings, tokens, and
+    personal-data processing flags; without envelope encryption via a customer-managed
+    key they are protected only by default AWS keys. NIS2 Art. 21(2)(h) and GDPR
+    Art. 32(1)(a) expect governed encryption of that material.
+  remediation: |
+    Set a KMS key for the function's environment variables:
+      resource "aws_lambda_function" "app" {
+        kms_key_arn = aws_kms_key.lambda.arn
+      }
+  severity: HIGH
+
+CKV_AWS_58:
+  check_name: "Ensure EKS Cluster has Secrets Encryption Enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    Kubernetes secrets — API keys, credentials, personal-data access tokens — are
+    stored by default only with etcd's disk encryption. Envelope encryption with a
+    KMS provider is the encryption-at-rest control NIS2 Art. 21(2)(h) expects and
+    GDPR Art. 32(1)(a) requires for personal data.
+  remediation: |
+    Enable KMS envelope encryption for secrets at cluster creation:
+      resource "aws_eks_cluster" "main" {
+        encryption_config {
+          resources = ["secrets"]
+          provider {
+            key_arn = aws_kms_key.eks.arn
+          }
+        }
+      }
+  severity: HIGH
+
+CKV_AWS_7:
+  check_name: "Ensure rotation for customer created CMKs is enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    A customer-managed key that never rotates extends the lifetime of any compromised
+    key material indefinitely. Key rotation is the operational half of a cryptography
+    policy under NIS2 Art. 21(2)(h) and underpins the ongoing effectiveness of the
+    encryption GDPR Art. 32(1)(a) requires.
+  remediation: |
+    Enable automatic annual rotation for every CMK:
+      resource "aws_kms_key" "main" {
+        is_enabled                = true
+        enable_key_rotation       = true
+        rotation_period_in_days   = 365
+      }
+  severity: MEDIUM
+
+CKV2_AWS_64:
+  check_name: "Ensure KMS key Policy is defined"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    A KMS key without an explicit policy inherits account-root defaults, so nobody
+    can prove who may use or administer the key that protects personal data. Key
+    policy is access control over the encryption itself (NIS2 Art. 21(2)(i)) and a
+    prerequisite for the confidentiality GDPR Art. 32(1)(b) demands.
+  remediation: |
+    Attach a least-privilege policy to every key:
+      resource "aws_kms_key" "main" {
+        policy = data.aws_iam_policy_document.kms.json
+      }
+  severity: MEDIUM
+
+# -----------------------------------------------------------------------------
+# Encryption in transit  ->  NIS2 Art. 21(2)(h), GDPR Art. 32(1)(a)
+# -----------------------------------------------------------------------------
+
+CKV_AWS_127:
+  check_name: "Ensure that Elastic Load Balancer(s) uses SSL certificates provided by AWS Certificate Manager"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    An ELB listener without an ACM-managed certificate either serves traffic over
+    plaintext or with ungoverned certificates that may expire silently, breaking TLS
+    for personal data in transit — contrary to NIS2 Art. 21(2)(h) and GDPR
+    Art. 32(1)(a).
+  remediation: |
+    Terminate TLS on the load balancer with an ACM certificate:
+      resource "aws_lb_listener" "https" {
+        protocol    = "HTTPS"
+        ssl_policy = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+        certificate_arn = aws_acm_certificate.main.arn
+      }
+  severity: HIGH
+
+CKV_AWS_376:
+  check_name: "Ensure AWS Elastic Load Balancer listener uses TLS/SSL"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    A plaintext HTTP listener forwards credentials, session tokens, and personal data
+    across the network unencrypted, where they can be intercepted. NIS2 Art. 21(2)(h)
+    requires cryptography to protect transmissions; GDPR Art. 32(1)(a) names
+    encryption as the safeguard for personal data in transit.
+  remediation: |
+    Change the listener to HTTPS with a certificate:
+      resource "aws_lb_listener" "front" {
+        protocol         = "HTTPS"
+        port             = 443
+        ssl_policy       = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+        certificate_arn  = aws_acm_certificate.main.arn
+      }
+  severity: CRITICAL
+
+CKV_AWS_228:
+  check_name: "Verify Elasticsearch domain is using an up to date TLS policy"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    Old TLS policies (TLS 1.0/1.1) are vulnerable to downgrade and decryption
+    attacks, so personal data queried against the domain travels under broken
+    cryptography. NIS2 Art. 21(2)(h) requires up-to-date cryptographic policies and
+    GDPR Art. 32(1)(a) an effective encryption measure.
+  remediation: |
+    Set the domain to a modern TLS policy:
+      resource "aws_elasticsearch_domain" "main" {
+        domain_endpoint_options {
+          tls_security_policy = "Policy-Min-TLS-1-2-PFS-2023-10"
+        }
+      }
+  severity: MEDIUM
+
+CKV_AWS_379:
+  check_name: "Ensure AWS S3 bucket is configured with secure data transport policy"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    Without a bucket policy denying aws:SecureTransport = false, clients may read and
+    write objects over plain HTTP, exposing personal data on the wire. NIS2
+    Art. 21(2)(h) expects cryptographic transport policies and GDPR Art. 32(1)(a)
+    expects encryption of personal data in transit.
+  remediation: |
+    Deny non-TLS requests at the bucket policy:
+      {
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "s3:*",
+        "Resource": ["arn:aws:s3:::bucket", "arn:aws:s3:::bucket/*"],
+        "Condition": { "Bool": { "aws:SecureTransport": "false" } }
+      }
+  severity: HIGH
+
+CKV2_AWS_69:
+  check_name: "Ensure AWS RDS database instance configured with encryption in transit"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    An RDS instance without an SSL-enforcing parameter (rds.force_ssl) accepts
+    plaintext database sessions, so queries carrying personal data cross the network
+    unencrypted — a failure of the cryptography policy NIS2 Art. 21(2)(h) requires
+    and the encryption GDPR Art. 32(1)(a) names.
+  remediation: |
+    Force TLS on the instance's parameter group:
+      resource "aws_db_parameter_group" "main" {
+        parameter { name = "rds.force_ssl" value = "1" }
+      }
+  severity: HIGH
+
+# -----------------------------------------------------------------------------
+# Logging, monitoring and detection  ->  NIS2 Art. 21(2)(b), GDPR Art. 32(1)(b)
+# -----------------------------------------------------------------------------
+
+CKV_AWS_101:
+  check_name: "Ensure Neptune logging is enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+  risk: >
+    Without audit logging on the Neptune cluster, graph queries and administrative
+    actions leave no trace, so incidents involving personal data in the graph cannot
+    be detected, analysed, or reconstructed as NIS2 Art. 21(2)(b) incident handling
+    requires.
+  remediation: |
+    Export all audit logs from the cluster:
+      resource "aws_neptune_cluster" "main" {
+        enable_cloudwatch_logs_exports = ["audit"]
+      }
+  severity: HIGH
+
+CKV_AWS_84:
+  check_name: "Ensure Elasticsearch Domain Logging is enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+  risk: >
+    An Elasticsearch/OpenSearch domain without log publishing produces no record of
+    searches or administrative changes, so misuse of personal-data indices is
+    undetectable and uninvestigable — undermining the detection and analysis duties
+    of NIS2 Art. 21(2)(b).
+  remediation: |
+    Publish all log types to CloudWatch:
+      resource "aws_elasticsearch_domain" "main" {
+        log_publishing_options {
+          cloudwatch_log_group_arn = aws_cloudwatch_log_group.es.arn
+          log_type                 = "AUDIT_LOGS"
+        }
+      }
+  severity: HIGH
+
+CKV_AWS_317:
+  check_name: "Ensure Elasticsearch Domain Audit Logging is enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Audit logs are the only record of who queried or changed documents in the domain.
+    Without them, unauthorised access to personal data cannot be established —
+    blocking the incident handling NIS2 Art. 21(2)(b) requires and weakening the
+    accountability GDPR Art. 32(1)(b) processing security relies on.
+  remediation: |
+    Enable fine-grained access control and audit logging:
+      resource "aws_elasticsearch_domain" "main" {
+        log_publishing_options {
+          log_type                 = "AUDIT_LOGS"
+          cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_audit.arn
+        }
+      }
+  severity: HIGH
+
+CKV_AWS_324:
+  check_name: "Ensure that RDS Cluster log capture is enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    An RDS cluster that exports no logs leaves connection attempts, slow queries, and
+    errors unrecorded. Detection and analysis of an incident touching personal data
+    becomes impossible, contrary to NIS2 Art. 21(2)(b) and the resilience of
+    processing GDPR Art. 32(1)(b) expects.
+  remediation: |
+    Export engine logs to CloudWatch:
+      resource "aws_rds_cluster" "main" {
+        enabled_cloudwatch_logs_exports = ["postgresql", "slowquery"]
+      }
+  severity: HIGH
+
+CKV_AWS_325:
+  check_name: "Ensure that RDS Cluster audit logging is enabled for MySQL engine"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    MySQL audit logging is what records who read or modified which personal data.
+    Without it, a breach investigation cannot establish scope — failing the incident
+    handling duty of NIS2 Art. 21(2)(b) and the security-of-processing account GDPR
+    Art. 32(1)(b) implies.
+  remediation: |
+    Enable the audit log export on the cluster:
+      resource "aws_rds_cluster" "main" {
+        enabled_cloudwatch_logs_exports = ["audit"]
+      }
+  severity: HIGH
+
+CKV_AWS_92:
+  check_name: "Ensure the ELB has access logging enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+  risk: >
+    Classic load balancer access logs are the record of every request that reached
+    the service. Disabling them removes the evidence needed to detect and analyse
+    attacks or data-access anomalies under NIS2 Art. 21(2)(b).
+  remediation: |
+    Enable access logging to S3:
+      resource "aws_elb" "main" {
+        access_logs {
+          enabled = true
+          bucket  = aws_s3_bucket.logs.id
+        }
+      }
+  severity: MEDIUM
+
+CKV_AWS_37:
+  check_name: "Ensure Amazon EKS control plane logging is enabled for all log types"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+  risk: >
+    With control-plane log types (api, audit, authenticator, controllerManager,
+    scheduler) disabled, the Kubernetes audit trail is incomplete — API abuse and
+    privilege escalation in the cluster cannot be detected or reconstructed as
+    NIS2 Art. 21(2)(b) incident handling requires.
+  remediation: |
+    Enable every log type on the cluster:
+      resource "aws_eks_cluster" "main" {
+        enabled_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+      }
+  severity: HIGH
+
+CKV_AWS_50:
+  check_name: "X-Ray tracing is enabled for Lambda"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+  risk: >
+    Without tracing, requests that span Lambda functions cannot be followed during
+    an incident, so the blast radius of a fault or intrusion is guesswork. Tracing
+    supports the analysis stage of NIS2 Art. 21(2)(b) incident handling.
+  remediation: |
+    Enable active tracing on the function:
+      resource "aws_lambda_function" "app" {
+        tracing_config { mode = "Active" }
+      }
+  severity: LOW
+
+CKV_AWS_126:
+  check_name: "Ensure that detailed monitoring is enabled for EC2 instances"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+  risk: >
+    Basic 5-minute metrics miss short anomalies; detailed monitoring gives the
+    one-minute resolution needed to detect and time-line incidents, supporting the
+    detection duty of NIS2 Art. 21(2)(b).
+  remediation: |
+    Enable detailed monitoring on the instance:
+      resource "aws_instance" "app" {
+        monitoring = true
+      }
+  severity: LOW
+
+CKV_AWS_353:
+  check_name: "Ensure that RDS instances have performance insights enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+  risk: >
+    Performance Insights records query-level activity over time — the evidence
+    needed to spot anomalous access patterns and analyse database incidents under
+    NIS2 Art. 21(2)(b).
+  remediation: |
+    Enable Performance Insights on the instance:
+      resource "aws_db_instance" "main" {
+        performance_insights_enabled = true
+      }
+  severity: LOW
+
+CKV2_AWS_30:
+  check_name: "Ensure Postgres RDS as aws_db_instance has Query Logging enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Without Postgres log capture (log_connections, log_disconnections, log_statement)
+    there is no record of who touched personal data in the database, defeating the
+    incident detection and analysis NIS2 Art. 21(2)(b) requires and the accountable
+    processing security of GDPR Art. 32(1)(b).
+  remediation: |
+    Enable the logging parameters in the instance's parameter group:
+      resource "aws_db_parameter_group" "main" {
+        parameter { name = "log_connections"  value = "1" }
+        parameter { name = "log_disconnections" value = "1" }
+      }
+  severity: MEDIUM
+
+CKV2_AWS_62:
+  check_name: "Ensure S3 buckets should have event notifications enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+  risk: >
+    Without event notifications, writes to a bucket holding personal data raise no
+    signal — unexpected mass downloads or deletions go unnoticed instead of feeding
+    the detection capability NIS2 Art. 21(2)(b) requires.
+  remediation: |
+    Subscribe at least one notification target to bucket events:
+      resource "aws_s3_bucket_notification" "data" {
+        bucket = aws_s3_bucket.data.id
+        lambda_function { lambda_function_arn = aws_lambda_function.auditor.arn
+                          events = ["s3:ObjectCreated:*"] }
+      }
+  severity: LOW
+
+# -----------------------------------------------------------------------------
+# Backup, resilience and recovery  ->  NIS2 Art. 21(2)(c), GDPR Art. 32(1)(b)/(c)
+# -----------------------------------------------------------------------------
+
+CKV_AWS_144:
+  check_name: "Ensure that S3 bucket has cross-region replication enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+    - framework: GDPR
+      article: "Art. 32(1)(c)"
+      title: "Ability to restore availability and access to personal data in a timely manner"
+  risk: >
+    A bucket replicated only in one region is lost with that region. Cross-region
+    replication is the mechanism that keeps personal data available and restorable
+    after a regional outage, as NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c) require.
+  remediation: |
+    Replicate the bucket to a second region:
+      resource "aws_s3_bucket_replication_configuration" "data" {
+        role   = aws_iam_role.replication.arn
+        bucket = aws_s3_bucket.data.id
+        rule { destination { bucket = aws_s3_bucket.replica.arn } }
+      }
+  severity: MEDIUM
+
+CKV2_AWS_8:
+  check_name: "Ensure that RDS clusters has backup plan of AWS Backup"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+    - framework: GDPR
+      article: "Art. 32(1)(c)"
+      title: "Ability to restore availability and access to personal data in a timely manner"
+  risk: >
+    Relying only on automated DB snapshots leaves database recovery outside a managed,
+    tested backup regime. AWS Backup plans provide the scheduled, retention-managed,
+    cross-account backups that NIS2 Art. 21(2)(c) backup management and GDPR
+    Art. 32(1)(c) restoration depend on.
+  remediation: |
+    Add the cluster to an AWS Backup plan:
+      resource "aws_backup_selection" "rds" {
+        plan_id      = aws_backup_plan.daily.id
+        iam_role_arn = aws_iam_role.backup.arn
+        resource { arn = aws_rds_cluster.main.arn }
+      }
+  severity: HIGH
+
+CKV_AWS_326:
+  check_name: "Ensure that RDS Aurora Clusters have backtracking enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+    - framework: GDPR
+      article: "Art. 32(1)(c)"
+      title: "Ability to restore availability and access to personal data in a timely manner"
+  risk: >
+    Without backtracking, undoing a bad write on Aurora means a point-in-time restore
+    measured in tens of minutes; backtracking rewinds the cluster in minutes. Fast
+    recovery from data corruption is exactly the restoration ability GDPR Art. 32(1)(c)
+    and NIS2 Art. 21(2)(c) target.
+  remediation: |
+    Enable backtracking at cluster creation:
+      resource "aws_rds_cluster" "main" {
+        backtrack_window = 24
+      }
+  severity: LOW
+
+CKV_AWS_361:
+  check_name: "Ensure that Neptune DB cluster has automated backups enabled with adequate retention"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+    - framework: GDPR
+      article: "Art. 32(1)(c)"
+      title: "Ability to restore availability and access to personal data in a timely manner"
+  risk: >
+    A Neptune cluster with short or disabled backup retention cannot be restored to a
+    recent point in time, so accidental deletion or corruption of personal data
+    becomes permanent — failing the backup management of NIS2 Art. 21(2)(c) and the
+    restore ability of GDPR Art. 32(1)(c).
+  remediation: |
+    Set an adequate backup retention window:
+      resource "aws_neptune_cluster" "main" {
+        backup_retention_period = 14
+      }
+  severity: HIGH
+
+CKV_AWS_139:
+  check_name: "Ensure that RDS clusters have deletion protection enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Without deletion protection a single API call or console click destroys the
+    cluster (and with it the availability of all personal data it holds). Protection
+    against accidental or hostile deletion is the availability side of GDPR
+    Art. 32(1)(b) and the continuity planning of NIS2 Art. 21(2)(c).
+  remediation: |
+    Enable deletion protection on the cluster:
+      resource "aws_rds_cluster" "main" {
+        deletion_protection = true
+      }
+  severity: MEDIUM
+
+CKV2_AWS_58:
+  check_name: "Ensure AWS Neptune cluster deletion protection is enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    A Neptune graph of personal relationships can be destroyed in one call without
+    deletion protection. The safeguard preserves the availability GDPR Art. 32(1)(b)
+    requires and the business continuity NIS2 Art. 21(2)(c) plans for.
+  remediation: |
+    Enable deletion protection on the cluster:
+      resource "aws_neptune_cluster" "main" {
+        deletion_protection = true
+      }
+  severity: MEDIUM
+
+CKV_AWS_115:
+  check_name: "Ensure that AWS Lambda function is configured for function-level concurrent execution limit"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Without a reserved-concurrency limit, one runaway or attacked function can
+    exhaust the account's shared concurrency and starve every other workload — a
+    self-inflicted availability incident that GDPR Art. 32(1)(b) resilience and NIS2
+    Art. 21(2)(c) continuity expect to be prevented.
+  remediation: |
+    Reserve a concurrency budget for the function:
+      resource "aws_lambda_function" "app" {
+        reserved_concurrent_executions = 100
+      }
+  severity: LOW
+
+CKV_AWS_116:
+  check_name: "Ensure that AWS Lambda function is configured for a Dead Letter Queue(DLQ)"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+  risk: >
+    Failed invocations vanish after their retries without a DLQ — records of personal
+    data processed in batches are silently dropped rather than preserved for replay.
+    A DLQ is the failure-mode handling that keeps processing recoverable under NIS2
+    Art. 21(2)(c).
+  remediation: |
+    Route failed events to an SQS dead-letter queue:
+      resource "aws_lambda_function" "app" {
+        dead_letter_config { target_arn = aws_sqs_queue.dlq.arn }
+      }
+  severity: LOW
+
+CKV_AWS_135:
+  check_name: "Ensure that EC2 is EBS optimized"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Instances without dedicated EBS throughput share network bandwidth between disk
+    and traffic, so storage I/O can saturate under load and degrade the service that
+    processes personal data — the resilience concern of GDPR Art. 32(1)(b) and NIS2
+    Art. 21(2)(c).
+  remediation: |
+    Request dedicated EBS throughput on the instance:
+      resource "aws_instance" "app" {
+        ebs_optimized = true
+      }
+  severity: LOW
+
+CKV2_AWS_59:
+  check_name: "Ensure AWS ElasticSearch/OpenSearch has dedicated master node enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+  risk: >
+    Without dedicated master nodes, cluster-management work competes with indexing
+    and search on the data nodes, so load spikes can destabilise the whole domain.
+    Separating the master role is standard resilience engineering under NIS2
+    Art. 21(2)(c).
+  remediation: |
+    Configure dedicated master nodes:
+      resource "aws_elasticsearch_domain" "main" {
+        cluster_config {
+          dedicated_master_enabled = true
+          dedicated_master_count   = 3
+        }
+      }
+  severity: LOW
+
+CKV_AWS_318:
+  check_name: "Ensure Elasticsearch domains are configured with at least three dedicated master nodes for HA"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Two master nodes cannot survive a split vote; three are the minimum for quorum
+    after a failure. Sub-quorum master configs convert one node loss into a full
+    domain outage — the opposite of the high availability NIS2 Art. 21(2)(c) and
+    GDPR Art. 32(1)(b) resilience require.
+  remediation: |
+    Run an odd number (>= 3) of dedicated masters:
+      resource "aws_elasticsearch_domain" "main" {
+        cluster_config {
+          dedicated_master_enabled = true
+          dedicated_master_count   = 3
+        }
+      }
+  severity: LOW
+
+CKV2_AWS_61:
+  check_name: "Ensure that an S3 bucket has a lifecycle configuration"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+  risk: >
+    Without lifecycle rules, log and backup objects accumulate indefinitely or are
+    manually purged ad hoc, so retention for data protection and continuity purposes
+    is unmanaged. Lifecycle configuration is the disciplined data lifecycle NIS2
+    Art. 21(2)(c) backup management expects.
+  remediation: |
+    Define lifecycle rules (transition + expiry) for the bucket:
+      resource "aws_s3_bucket_lifecycle_configuration" "logs" {
+        bucket = aws_s3_bucket.logs.id
+        rule {
+          id     = "expire-logs"
+          status = "Enabled"
+          expiration { days = 365 }
+        }
+      }
+  severity: LOW
+
+CKV_AWS_313:
+  check_name: "Ensure RDS cluster configured to copy tags to snapshots"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+  risk: >
+    Snapshots that lose the cluster's tags cannot be located or governed by retention
+    or data-classification automation — backups become untracked assets. Tag
+    propagation keeps backup management (NIS2 Art. 21(2)(c)) accountable.
+  remediation: |
+    Copy tags onto snapshots:
+      resource "aws_rds_cluster" "main" {
+        copy_tags_to_snapshot = true
+      }
+  severity: LOW
+
+CKV_AWS_362:
+  check_name: "Neptune DB clusters should be configured to copy tags to snapshots"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+  risk: >
+    Untagged Neptune snapshots escape the retention and classification rules applied
+    to the live cluster, leaving backups ungoverned — the opposite of the backup
+    management NIS2 Art. 21(2)(c) requires.
+  remediation: |
+    Copy tags onto snapshots:
+      resource "aws_neptune_cluster" "main" {
+        copy_tags_to_snapshot = true
+      }
+  severity: LOW
+
+CKV2_AWS_60:
+  check_name: "Ensure RDS instance with copy tags to snapshots is enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity, backup management and disaster recovery"
+  risk: >
+    Snapshots without the instance's tags cannot be found by restore runbooks or
+    retention policies, so recovery depends on tribal knowledge. Tag propagation is
+    part of accountable backup management under NIS2 Art. 21(2)(c).
+  remediation: |
+    Copy tags onto snapshots:
+      resource "aws_db_instance" "main" {
+        copy_tags_to_snapshot = true
+      }
+  severity: LOW
+
+# -----------------------------------------------------------------------------
+# Secure development, maintenance and supply chain
+#   ->  NIS2 Art. 21(2)(e), GDPR Art. 32(1)(b)
+# -----------------------------------------------------------------------------
+
+CKV_AWS_226:
+  check_name: "Ensure DB instance gets all minor upgrades automatically"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(e)"
+      title: "Security in network and information systems acquisition, development and maintenance"
+  risk: >
+    Postponing minor engine patches leaves known database vulnerabilities in place —
+    often for months. Automatic minor upgrades implement the ongoing maintenance and
+    vulnerability handling NIS2 Art. 21(2)(e) requires of systems in production.
+  remediation: |
+    Enable automatic minor version upgrades:
+      resource "aws_db_instance" "main" {
+        auto_minor_version_upgrade = true
+      }
+  severity: MEDIUM
+
+CKV_AWS_363:
+  check_name: "Ensure Lambda Runtime is not deprecated"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(e)"
+      title: "Security in network and information systems acquisition, development and maintenance"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    A deprecated Lambda runtime no longer receives security patches, so the function
+    that processes personal data runs on software with known, unfixable
+    vulnerabilities — squarely against the maintenance duties of NIS2 Art. 21(2)(e)
+    and the security of processing GDPR Art. 32(1)(b) expects.
+  remediation: |
+    Rebuild the function on a supported runtime:
+      resource "aws_lambda_function" "app" {
+        runtime = "python3.12"   # a currently supported runtime
+        handler = "app.handler"
+      }
+  severity: HIGH
+
+CKV_AWS_272:
+  check_name: "Ensure AWS Lambda function is configured to validate code-signing"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(e)"
+      title: "Security in network and information systems acquisition, development and maintenance"
+  risk: >
+    Without code-signing validation, any code that reaches the deployment package —
+    including a compromised dependency or CI runner — executes with the function's
+    permissions. Signature validation is the supply-chain integrity control NIS2
+    Art. 21(2)(e) expects in development and deployment.
+  remediation: |
+    Attach a code-signing configuration to the function:
+      resource "aws_lambda_code_signing_config" "main" {
+        allowed_publishers {
+          signing_profile_version_arns = [aws_signer_signing_profile.app.arn]
+        }
+      }
+      resource "aws_lambda_function" "app" {
+        code_signing_config_arn = aws_lambda_code_signing_config.main.arn
+      }
+  severity: MEDIUM
+
+CKV_AWS_51:
+  check_name: "Ensure ECR Image Tags are immutable"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(e)"
+      title: "Security in network and information systems acquisition and development and maintenance"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Mutable tags mean the image behind "latest" can silently change, so what is
+    deployed cannot be reproduced or audited and a poisoned build propagates under a
+    trusted name. Tag immutability is a basic integrity control for the supply chain
+    under NIS2 Art. 21(2)(e).
+  remediation: |
+    Make repository tags immutable:
+      resource "aws_ecr_repository" "app" {
+        image_tag_mutability = "IMMUTABLE"
+      }
+  severity: MEDIUM
+
+CKV_AWS_163:
+  check_name: "Ensure ECR image scanning on push is enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(e)"
+      title: "Security in network and information systems acquisition, development and maintenance"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Images pushed without scanning carry known CVEs straight into production,
+    including into workloads that process personal data. Scan-on-push implements the
+    vulnerability detection in development that NIS2 Art. 21(2)(e) requires before
+    systems go live.
+  remediation: |
+    Enable scan-on-push for the repository:
+      resource "aws_ecr_repository" "app" {
+        image_scanning_configuration { scan_on_push = true }
+      }
+  severity: HIGH
+
+# -----------------------------------------------------------------------------
+# Secrets in code  ->  NIS2 Art. 21(2)(e), GDPR Art. 32(1)(b)
+# -----------------------------------------------------------------------------
+
+CKV_AWS_41:
+  check_name: "Ensure no hard coded AWS access key and secret key exists in provider"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(e)"
+      title: "Security in network and information systems acquisition, development and maintenance"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Hard-coded AWS credentials in the provider block are committed to version control,
+    readable by everyone with repo access and impossible to revoke safely. Insecure
+    handling of secrets is a development-practice failure under NIS2 Art. 21(2)(e)
+    and gives uncontrolled access to personal data, contrary to GDPR Art. 32(1)(b).
+  remediation: |
+    Never inline credentials — use ambient roles or injected variables:
+      provider "aws" {
+        # in CI: assume-role / OIDC; locally: aws sso login
+        region = var.region
+      }
+  severity: CRITICAL
+
+CKV_AWS_45:
+  check_name: "Ensure no hard-coded secrets exist in lambda environment"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(e)"
+      title: "Security in network and information systems acquisition, development and maintenance"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Secrets pasted into Lambda environment variables end up in templates, state, and
+    console visibility for anyone with read access. That is an insecure development
+    practice under NIS2 Art. 21(2)(e) and a direct confidentiality risk to personal
+    data under GDPR Art. 32(1)(b).
+  remediation: |
+    Fetch secrets at runtime from Secrets Manager:
+      resource "aws_lambda_function" "app" {
+        environment {
+          variables = { DB_PASSWORD = "${aws_secretsmanager_secret_version.db.secret_string}" }
+        }
+      }
+  severity: CRITICAL
+
+CKV_AWS_46:
+  check_name: "Ensure no hard-coded secrets exist in EC2 user data"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(e)"
+      title: "Security in network and information systems acquisition, development and maintenance"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    user_data scripts are stored in plaintext in the Terraform state and visible in
+    the console; secrets baked into them leak with every plan/apply and cannot be
+    rotated without rebuilding instances — against NIS2 Art. 21(2)(e) secure
+    development and GDPR Art. 32(1)(b) confidentiality.
+  remediation: |
+    Bootstrap with a role and fetch secrets at boot:
+      resource "aws_instance" "app" {
+        iam_instance_profile = aws_iam_instance_profile.app.name
+        user_data = templatefile("init.sh.tpl", {
+          secret_arn = aws_secretsmanager_secret.db.arn  # fetched at runtime
+        })
+      }
+  severity: CRITICAL
+
+# -----------------------------------------------------------------------------
+# IAM and access control  ->  NIS2 Art. 21(2)(i), GDPR Art. 32(1)(b)
+# -----------------------------------------------------------------------------
+
+CKV2_AWS_40:
+  check_name: "Ensure AWS IAM policy does not allow full IAM privileges"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    A policy granting full iam:* lets its holder create users, roles, and policies —
+    including new admin access — so privilege escalation is one API call away. This
+    defeats the access control NIS2 Art. 21(2)(i) requires and endangers all personal
+    data under GDPR Art. 32(1)(b).
+  remediation: |
+    Never grant iam:* ; scope the few IAM actions genuinely needed:
+      # Before:
+      "Action": "iam:*"
+      # After:
+      "Action": ["iam:PassRole"]
+      "Resource": aws_iam_role.app.arn
+  severity: CRITICAL
+
+CKV_AWS_109:
+  check_name: "Ensure IAM policies does not allow permissions management / resource exposure without constraints"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Permissions-management actions (iam:PutRolePolicy, s3:PutBucketPolicy, etc.)
+    without resource constraints let a principal rewrite who may access what —
+    collapsing the access control NIS2 Art. 21(2)(i) mandates and exposing personal
+    data, contrary to GDPR Art. 32(1)(b).
+  remediation: |
+    Bound permission-management actions with explicit resources and conditions:
+      {
+        "Effect": "Allow",
+        "Action": ["iam:AttachRolePolicy"],
+        "Resource": "arn:aws:iam::123456789012:role/app-*"
+      }
+  severity: HIGH
+
+CKV_AWS_111:
+  check_name: "Ensure IAM policies does not allow write access without constraints"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Unconstrained write access (Action "s3:*" or "logs:*" on Resource "*") lets a
+    compromised principal modify or destroy any matching resource — an integrity and
+    availability risk to personal data under GDPR Art. 32(1)(b) and a least-
+    privilege failure under NIS2 Art. 21(2)(i).
+  remediation: |
+    Constrain writes to named resources:
+      {
+        "Effect": "Allow",
+        "Action": ["s3:PutObject"],
+        "Resource": "arn:aws:s3:::my-app-data/*"
+      }
+  severity: HIGH
+
+CKV_AWS_283:
+  check_name: "Ensure no IAM policies documents allow ALL or any AWS principal permissions to the resource"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    A Principal of "*" (or any AWS principal) in a resource policy hands the resource
+    to every account on the planet — for S3/KMS resources that means public access to
+    personal data, a total failure of the access control NIS2 Art. 21(2)(i) requires
+    and of confidentiality under GDPR Art. 32(1)(b).
+  remediation: |
+    Name the exact principals that need access:
+      # Before:
+      "Principal": "*"
+      # After:
+      "Principal": { "AWS": "arn:aws:iam::123456789012:root" }
+  severity: CRITICAL
+
+CKV_AWS_356:
+  check_name: "Ensure no IAM policies documents allow \"*\" as a statement's resource for restrictable actions"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Restrictable actions on Resource "*" apply to every resource in the account, so a
+    single statement can grant read or write reach over all personal data. Least
+    privilege under NIS2 Art. 21(2)(i) and confidentiality under GDPR Art. 32(1)(b)
+    both require scoping resources.
+  remediation: |
+    Scope every restrictable action to explicit ARNs:
+      {
+        "Action": ["logs:PutLogEvents"],
+        "Resource": "${aws_cloudwatch_log_group.app.arn}:*"
+      }
+  severity: HIGH
+
+CKV_AWS_70:
+  check_name: "Ensure S3 bucket does not allow an action with any Principal"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    A bucket policy statement whose Principal is "*" makes the bucket world-accessible
+    for the listed actions — public exposure of personal data and a direct breach of
+    the access control NIS2 Art. 21(2)(i) and confidentiality GDPR Art. 32(1)(b)
+    require.
+  remediation: |
+    Restrict the bucket policy to named principals:
+      {
+        "Effect": "Allow",
+        "Principal": { "AWS": "arn:aws:iam::123456789012:role/app" },
+        "Action": ["s3:GetObject"],
+        "Resource": "arn:aws:s3:::my-app-data/*"
+      }
+  severity: CRITICAL
+
+CKV2_AWS_41:
+  check_name: "Ensure an IAM role is attached to EC2 instance"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+  risk: >
+    An instance with no IAM role forces workloads to ship static credentials (access
+    keys) instead of short-lived role credentials — the exact anti-pattern the access
+    control policies of NIS2 Art. 21(2)(i) are meant to eliminate.
+  remediation: |
+    Attach a least-privilege instance profile:
+      resource "aws_instance" "app" {
+        iam_instance_profile = aws_iam_instance_profile.app.name
+      }
+  severity: MEDIUM
+
+CKV_AWS_79:
+  check_name: "Ensure Instance Metadata Service Version 1 is not enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    IMDSv1 answers metadata requests without authentication, so an SSRF bug on the
+    host is enough to steal the instance's role credentials and with them access to
+    personal data. Requiring IMDSv2 (token-based) is a credential-theft control under
+    NIS2 Art. 21(2)(i) and GDPR Art. 32(1)(b).
+  remediation: |
+    Require IMDSv2 on the instance:
+      resource "aws_instance" "app" {
+        metadata_options {
+          http_tokens = "required"
+        }
+      }
+  severity: HIGH
+
+CKV_AWS_162:
+  check_name: "Ensure RDS cluster has IAM authentication enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+  risk: >
+    Without IAM database authentication, access to the cluster rests on long-lived
+    database passwords that are shared, rarely rotated, and impossible to revoke per
+    identity. Token-based authentication is the centralised access control NIS2
+    Art. 21(2)(i) expects.
+  remediation: |
+    Enable IAM authentication on the cluster:
+      resource "aws_rds_cluster" "main" {
+        iam_database_authentication_enabled = true
+      }
+  severity: MEDIUM
+
+CKV_AWS_359:
+  check_name: "Neptune DB clusters should have IAM database authentication enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+  risk: >
+    Password-only access to a graph of personal data means untraceable shared
+    credentials. IAM authentication ties every session to an auditable identity, as
+    the access control policies of NIS2 Art. 21(2)(i) require.
+  remediation: |
+    Enable IAM authentication on the cluster:
+      resource "aws_neptune_cluster" "main" {
+        iam_database_authentication_enabled = true
+      }
+  severity: MEDIUM
+
+CKV2_AWS_52:
+  check_name: "Ensure AWS ElasticSearch/OpenSearch Fine-grained access control is enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Without fine-grained access control every domain user can read every index — no
+    document-level, role-based segregation exists for personal data held in the
+    domain. That fails the access control NIS2 Art. 21(2)(i) requires and exposes data
+    under GDPR Art. 32(1)(b).
+  remediation: |
+    Enable fine-grained access control with internal or IAM users:
+      resource "aws_elasticsearch_domain" "main" {
+        advanced_security_options {
+          enabled                        = true
+          internal_user_database_enabled = true
+        }
+      }
+  severity: HIGH
+
+# -----------------------------------------------------------------------------
+# Network segmentation and exposure  ->  NIS2 Art. 21(2)(i), GDPR Art. 32(1)(b)
+# -----------------------------------------------------------------------------
+
+CKV_AWS_137:
+  check_name: "Ensure that Elasticsearch is configured inside a VPC"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    A public-facing Elasticsearch endpoint is internet-reachable and is one of the
+    most exploited services for bulk personal-data exfiltration. Placing the domain
+    inside a VPC applies the network access control NIS2 Art. 21(2)(i) requires and
+    the confidentiality GDPR Art. 32(1)(b) demands.
+  remediation: |
+    Deploy the domain inside private VPC subnets:
+      resource "aws_elasticsearch_domain" "main" {
+        vpc_options {
+          subnet_ids = [aws_subnet.private_a.id, aws_subnet.private_b.id]
+        }
+      }
+  severity: HIGH
+
+CKV_AWS_248:
+  check_name: "Ensure that Elasticsearch is not using the default Security Group"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+  risk: >
+    The default security group's rules apply to every resource that references it,
+    so the domain inherits whatever broad access other teams opened there — network
+    access control by accident rather than by policy (NIS2 Art. 21(2)(i)).
+  remediation: |
+    Attach a dedicated, least-privilege security group:
+      resource "aws_elasticsearch_domain" "main" {
+        vpc_options {
+          security_group_ids = [aws_security_group.es.id]
+          subnet_ids         = [aws_subnet.private_a.id]
+        }
+      }
+  severity: HIGH
+
+CKV_AWS_38:
+  check_name: "Ensure Amazon EKS public endpoint not accessible to 0.0.0.0/0"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    An EKS API endpoint open to 0.0.0.0/0 lets anyone on the internet attempt
+    credential attacks against the cluster that hosts workloads processing personal
+    data — a network access control failure under NIS2 Art. 21(2)(i) and a direct
+    exposure under GDPR Art. 32(1)(b).
+  remediation: |
+    Restrict the endpoint to known CIDRs:
+      resource "aws_eks_cluster" "main" {
+        vpc_config {
+          endpoint_public_access = true
+          public_access_cidrs    = ["203.0.113.0/24"]
+        }
+      }
+  severity: HIGH
+
+CKV_AWS_39:
+  check_name: "Ensure Amazon EKS public endpoint disabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+  risk: >
+    A public control-plane endpoint is an internet-reachable administrative surface;
+    keeping it private routes all cluster administration over the VPC, the tighter
+    network access control NIS2 Art. 21(2)(i) expects for systems handling personal
+    data.
+  remediation: |
+    Disable public access to the endpoint:
+      resource "aws_eks_cluster" "main" {
+        vpc_config {
+          endpoint_public_access = false
+        }
+      }
+  severity: MEDIUM
+
+CKV_AWS_117:
+  check_name: "Ensure that AWS Lambda function is configured inside a VPC"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+  risk: >
+    A Lambda outside the VPC reaches data stores over the public internet path and
+    cannot be restricted by security groups, so network-level access control over
+    personal data access (NIS2 Art. 21(2)(i)) is unavailable for that function.
+  remediation: |
+    Attach the function to private subnets:
+      resource "aws_lambda_function" "app" {
+        vpc_config {
+          subnet_ids         = [aws_subnet.private_a.id]
+          security_group_ids = [aws_security_group.lambda.id]
+        }
+      }
+  severity: LOW
+
+CKV2_AWS_5:
+  check_name: "Ensure that Security Groups are attached to another resource"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+  risk: >
+    Orphaned security groups accumulate stale rules that later get attached "because
+    they were there", importing unintended access into live environments — an
+    unmanaged asset under the access control and asset management of NIS2
+    Art. 21(2)(i).
+  remediation: |
+    Reference every security group from the resource it guards (and delete the rest):
+      resource "aws_instance" "app" {
+        vpc_security_group_ids = [aws_security_group.app.id]
+      }
+  severity: LOW
+
+CKV_AWS_23:
+  check_name: "Ensure every security group and rule has a description"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Human resources security, access control policies and asset management"
+  risk: >
+    Undocumented rules cannot be reviewed: nobody can tell which rule is a deliberate
+    control and which is leftover access. Descriptions are what make rule review —
+    and therefore accountable access control under NIS2 Art. 21(2)(i) — possible.
+  remediation: |
+    Describe the purpose of every group and rule:
+      resource "aws_security_group" "web" {
+        description = "Web tier: HTTP from office CIDR only"
+        ingress {
+          description = "HTTP from office"
+          cidr_blocks = ["203.0.113.0/24"]
+        }
+      }
+  severity: LOW
+
+CKV_AWS_158:
+  check_name: "Ensure that CloudWatch Log Group is encrypted by KMS"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    Log groups commonly contain personal data (request logs, audit events, query
+    trails) and are encrypted only with the AWS-managed key by default, outside the
+    organisation's key governance. NIS2 Art. 21(2)(h) expects governed encryption;
+    GDPR Art. 32(1)(a) names encryption of personal data as the safeguard.
+  remediation: |
+    Encrypt the log group with a customer-managed key:
+      resource "aws_cloudwatch_log_group" "app" {
+        kms_key_id = aws_kms_key.logs.arn
+      }
+  severity: MEDIUM
+
+CKV_AWS_338:
+  check_name: "Ensure CloudWatch log groups retains logs for at least 1 year"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Short log retention destroys the evidence trail before many incidents are
+    discovered (breaches are frequently detected months after the fact), defeating
+    the post-incident analysis NIS2 Art. 21(2)(b) requires and the accountable
+    processing security of GDPR Art. 32(1)(b).
+  remediation: |
+    Retain logs for at least a year:
+      resource "aws_cloudwatch_log_group" "app" {
+        retention_in_days = 365
+      }
+  severity: MEDIUM

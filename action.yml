@@ -1,0 +1,35 @@
+name: 'tf-eu-guard'
+description: 'EU compliance security linter for Terraform (NIS2 + GDPR)'
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  path:
+    description: 'Path to Terraform directory'
+    required: true
+    default: './terraform'
+  output:
+    description: 'Report format (dev, security, auditor, json, all)'
+    required: false
+    default: 'json'
+  framework:
+    description: 'Framework filter (nis2, gdpr, all)'
+    required: false
+    default: 'all'
+  fail-on-severity:
+    description: 'Fail the build if findings at or above this severity exist (CRITICAL, HIGH, MEDIUM, LOW); empty disables gating'
+    required: false
+    default: 'HIGH'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.path }}
+    - --output
+    - ${{ inputs.output }}
+    - --framework
+    - ${{ inputs.framework }}
+    - --fail-on-severity
+    - ${{ inputs.fail-on-severity }}

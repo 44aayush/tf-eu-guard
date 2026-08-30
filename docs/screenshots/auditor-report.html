@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tf-eu-guard Compliance Audit Report</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    max-width: 980px; margin: 40px auto; padding: 0 24px;
+    color: #1a1a1a; background: #fff; line-height: 1.6;
+  }
+  header { border-bottom: 3px double #2c3e50; padding-bottom: 18px; margin-bottom: 24px; }
+  header h1 { margin: 0 0 6px; font-size: 1.8rem; }
+  header .meta { color: #555; font-size: 0.9rem; font-family: system-ui, sans-serif; }
+  header .meta span { margin-right: 18px; }
+  h2 { font-size: 1.35rem; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 40px; }
+  h3 { font-size: 1.1rem; margin: 28px 0 6px; }
+
+  .scope {
+    background: #fff8e1; border: 1px solid #f0d98c; border-radius: 6px;
+    padding: 12px 16px; font-family: system-ui, sans-serif; font-size: 0.9rem; margin: 18px 0;
+  }
+  table { border-collapse: collapse; width: 100%; font-family: system-ui, sans-serif; font-size: 0.92rem; margin: 12px 0; }
+  th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #f2f4f7; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  nav.toc { font-family: system-ui, sans-serif; font-size: 0.92rem; background: #f7f8fa; border: 1px solid #e2e2e2; border-radius: 6px; padding: 14px 20px; }
+  nav.toc ul { margin: 6px 0; padding-left: 20px; }
+  nav.toc a { color: #2c3e50; text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+
+  .article { margin-bottom: 8px; }
+  .article .title-note { color: #555; font-weight: normal; }
+  .status {
+    display: inline-block; font-family: system-ui, sans-serif; font-size: 0.8rem; font-weight: 700;
+    background: #fdecea; color: #b03a2e; border: 1px solid #f5b7b1; border-radius: 12px; padding: 2px 10px;
+  }
+  .badge {
+    display: inline-block; color: #fff; font-size: 0.7rem; font-weight: 700; font-family: system-ui, sans-serif;
+    padding: 1px 7px; border-radius: 10px; text-transform: uppercase;
+  }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88rem; }
+  .doclink { font-family: system-ui, sans-serif; font-size: 0.85rem; }
+  .backtop { font-family: system-ui, sans-serif; font-size: 0.78rem; margin-left: 10px; }
+  .backtop a { color: #888; text-decoration: none; }
+  footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #ccc; color: #777; font-size: 0.82rem; font-family: system-ui, sans-serif; }
+  .empty { background: #eafaf1; border: 1px solid #abebc6; color: #1e6b43; padding: 24px; border-radius: 8px; text-align: center; font-family: system-ui, sans-serif; }
+  @media print { body { max-width: none; margin: 0; } nav.toc { page-break-after: always; } }
+</style>
+</head>
+<body>
+<a id="top"></a>
+<header>
+  <h1>tf-eu-guard &mdash; Compliance Audit Report</h1>
+  <p style="margin:4px 0 8px;font-family:system-ui,sans-serif">NIS2 (Directive 2022/2555, Art. 21) &amp; GDPR (Reg. 2016/679, Art. 32 &amp; 44)</p>
+  <div class="meta"><span>Target: <code>examples/vulnerable-aws</code></span><span>Generated: 2026-08-30 16:53 UTC</span></div>
+</header>
+<div class="scope"><strong>Scope &amp; limitations.</strong> This report lists only Checkov control failures that map to a NIS2 or GDPR article. It is an evidence aid for an auditor, not a certification. An article not listed here was not exercised by a failing check &mdash; that is <em>not</em> evidence of compliance.</div>
+<h2>Executive summary</h2>
+<p>This scan surfaced <strong>52</strong> compliance findings across <strong>5</strong> file(s). Each finding is a Checkov control failure mapped to one or more NIS2 / GDPR articles. The table below counts, per framework, the distinct articles with at least one open finding and the total findings citing that framework.</p>
+<table>
+<thead><tr><th>Framework</th><th>Articles with open findings</th><th>Total findings</th></tr></thead>
+<tbody>
+<tr><td>NIS2</td><td class="num">5</td><td class="num">45</td></tr>
+<tr><td>GDPR</td><td class="num">4</td><td class="num">32</td></tr>
+</tbody>
+</table>
+<nav class="toc"><strong>Contents</strong>
+<strong>NIS2</strong>
+<ul>
+<li><a href="#nis2-art-21-2-b">Art. 21(2)(b) &mdash; Incident handling</a> (9)</li>
+<li><a href="#nis2-art-21-2-c">Art. 21(2)(c) &mdash; Business continuity, backup management and disaster recovery</a> (10)</li>
+<li><a href="#nis2-art-21-2-e">Art. 21(2)(e) &mdash; Security in network and information systems acquisition, development and maintenance</a> (2)</li>
+<li><a href="#nis2-art-21-2-h">Art. 21(2)(h) &mdash; Policies and procedures on the use of cryptography and encryption</a> (3)</li>
+<li><a href="#nis2-art-21-2-i">Art. 21(2)(i) &mdash; Human resources security, access control policies and asset management</a> (21)</li>
+</ul>
+<strong>GDPR</strong>
+<ul>
+<li><a href="#gdpr-art-32-1-a">Art. 32(1)(a) &mdash; Pseudonymisation and encryption of personal data</a> (3)</li>
+<li><a href="#gdpr-art-32-1-b">Art. 32(1)(b) &mdash; Confidentiality, integrity, availability and resilience of processing systems</a> (21)</li>
+<li><a href="#gdpr-art-32-1-c">Art. 32(1)(c) &mdash; Ability to restore availability and access to personal data in a timely manner</a> (7)</li>
+<li><a href="#gdpr-art-44">Art. 44 &mdash; General principle for transfers of personal data to third countries</a> (1)</li>
+</ul>
+</nav>
+<h2>NIS2 controls</h2>
+<div class="article" id="nis2-art-21-2-b">
+<h3>NIS2 Art. 21(2)(b) <span class="title-note">&mdash; Incident handling</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
+<p><span class="status">OPEN &mdash; 9 finding(s)</span></p>
+<table>
+<thead><tr><th>Severity</th><th>Resource</th><th>Location</th><th>Failed control</th></tr></thead>
+<tbody>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_vpc.main</code></td><td><code>/network.tf:2-11</code></td><td><code>CKV2_AWS_11</code><br>Ensure VPC flow logging is enabled in all VPCs</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV2_AWS_30</code><br>Ensure Postgres RDS as aws_db_instance has Query Logging enabled</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_118</code><br>Ensure that enhanced monitoring is enabled for Amazon RDS instances</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_129</code><br>Ensure that respective logs of Amazon Relational Database Service (Amazon RDS) are enabled</td></tr>
+<tr><td><span class="badge sev-low" style="background:#2980b9">LOW</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_353</code><br>Ensure that RDS instances have performance insights enabled</td></tr>
+<tr><td><span class="badge sev-low" style="background:#2980b9">LOW</span></td><td><code>aws_s3_bucket.data</code></td><td><code>/s3.tf:2-9</code></td><td><code>CKV2_AWS_62</code><br>Ensure S3 buckets should have event notifications enabled</td></tr>
+<tr><td><span class="badge sev-low" style="background:#2980b9">LOW</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV2_AWS_62</code><br>Ensure S3 buckets should have event notifications enabled</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_s3_bucket.data</code></td><td><code>/s3.tf:2-9</code></td><td><code>CKV_AWS_18</code><br>Ensure the S3 bucket has access logging enabled</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV_AWS_18</code><br>Ensure the S3 bucket has access logging enabled</td></tr>
+</tbody>
+</table>
+<p class="doclink">Mapping rationale: <code>docs/nis2-mapping.md</code></p>
+</div>
+<div class="article" id="nis2-art-21-2-c">
+<h3>NIS2 Art. 21(2)(c) <span class="title-note">&mdash; Business continuity, backup management and disaster recovery</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
+<p><span class="status">OPEN &mdash; 10 finding(s)</span></p>
+<table>
+<thead><tr><th>Severity</th><th>Resource</th><th>Location</th><th>Failed control</th></tr></thead>
+<tbody>
+<tr><td><span class="badge sev-low" style="background:#2980b9">LOW</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV2_AWS_60</code><br>Ensure RDS instance with copy tags to snapshots is enabled</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_133</code><br>Ensure that RDS instances has backup policy</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_157</code><br>Ensure that RDS instances have Multi-AZ enabled</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_293</code><br>Ensure that AWS database instances have deletion protection enabled</td></tr>
+<tr><td><span class="badge sev-low" style="background:#2980b9">LOW</span></td><td><code>aws_s3_bucket.data</code></td><td><code>/s3.tf:2-9</code></td><td><code>CKV2_AWS_61</code><br>Ensure that an S3 bucket has a lifecycle configuration</td></tr>
+<tr><td><span class="badge sev-low" style="background:#2980b9">LOW</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV2_AWS_61</code><br>Ensure that an S3 bucket has a lifecycle configuration</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_s3_bucket.data</code></td><td><code>/s3.tf:2-9</code></td><td><code>CKV_AWS_144</code><br>Ensure that S3 bucket has cross-region replication enabled</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV_AWS_144</code><br>Ensure that S3 bucket has cross-region replication enabled</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_s3_bucket.data</code></td><td><code>/s3.tf:2-9</code></td><td><code>CKV_AWS_21</code><br>Ensure all data stored in the S3 bucket have versioning enabled</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV_AWS_21</code><br>Ensure all data stored in the S3 bucket have versioning enabled</td></tr>
+</tbody>
+</table>
+<p class="doclink">Mapping rationale: <code>docs/nis2-mapping.md</code></p>
+</div>
+<div class="article" id="nis2-art-21-2-e">
+<h3>NIS2 Art. 21(2)(e) <span class="title-note">&mdash; Security in network and information systems acquisition, development and maintenance</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
+<p><span class="status">OPEN &mdash; 2 finding(s)</span></p>
+<table>
+<thead><tr><th>Severity</th><th>Resource</th><th>Location</th><th>Failed control</th></tr></thead>
+<tbody>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_226</code><br>Ensure DB instance gets all minor upgrades automatically</td></tr>
+<tr><td><span class="badge sev-critical" style="background:#c0392b">CRITICAL</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>EUGUARD_NIS2_001</code><br>Ensure secrets are not hardcoded in Terraform (use variables/Secrets Manager)</td></tr>
+</tbody>
+</table>
+<p class="doclink">Mapping rationale: <code>docs/nis2-mapping.md</code></p>
+</div>
+<div class="article" id="nis2-art-21-2-h">
+<h3>NIS2 Art. 21(2)(h) <span class="title-note">&mdash; Policies and procedures on the use of cryptography and encryption</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
+<p><span class="status">OPEN &mdash; 3 finding(s)</span></p>
+<table>
+<thead><tr><th>Severity</th><th>Resource</th><th>Location</th><th>Failed control</th></tr></thead>
+<tbody>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_16</code><br>Ensure all data stored in the RDS is securely encrypted at rest</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_s3_bucket.data</code></td><td><code>/s3.tf:2-9</code></td><td><code>CKV_AWS_145</code><br>Ensure that S3 buckets are encrypted with KMS by default</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV_AWS_145</code><br>Ensure that S3 buckets are encrypted with KMS by default</td></tr>
+</tbody>
+</table>
+<p class="doclink">Mapping rationale: <code>docs/nis2-mapping.md</code></p>
+</div>
+<div class="article" id="nis2-art-21-2-i">
+<h3>NIS2 Art. 21(2)(i) <span class="title-note">&mdash; Human resources security, access control policies and asset management</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
+<p><span class="status">OPEN &mdash; 21 finding(s)</span></p>
+<table>
+<thead><tr><th>Severity</th><th>Resource</th><th>Location</th><th>Failed control</th></tr></thead>
+<tbody>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_iam_user.app_user</code></td><td><code>/iam.tf:2-8</code></td><td><code>CKV_AWS_273</code><br>Ensure access is controlled through SSO and not AWS IAM defined users</td></tr>
+<tr><td><span class="badge sev-critical" style="background:#c0392b">CRITICAL</span></td><td><code>aws_iam_user_policy.app_user_policy</code></td><td><code>/iam.tf:11-29</code></td><td><code>CKV_AWS_287</code><br>Ensure IAM policies does not allow credentials exposure</td></tr>
+<tr><td><span class="badge sev-critical" style="background:#c0392b">CRITICAL</span></td><td><code>aws_iam_user_policy.app_user_policy</code></td><td><code>/iam.tf:11-29</code></td><td><code>CKV_AWS_288</code><br>Ensure IAM policies does not allow data exfiltration</td></tr>
+<tr><td><span class="badge sev-critical" style="background:#c0392b">CRITICAL</span></td><td><code>aws_iam_user_policy.app_user_policy</code></td><td><code>/iam.tf:11-29</code></td><td><code>CKV_AWS_289</code><br>Ensure IAM policies does not allow permissions management / resource exposure without constraints</td></tr>
+<tr><td><span class="badge sev-critical" style="background:#c0392b">CRITICAL</span></td><td><code>aws_iam_role_policy.app_role_policy</code></td><td><code>/iam.tf:53-67</code></td><td><code>CKV_AWS_289</code><br>Ensure IAM policies does not allow permissions management / resource exposure without constraints</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_iam_user_policy.app_user_policy</code></td><td><code>/iam.tf:11-29</code></td><td><code>CKV_AWS_290</code><br>Ensure IAM policies does not allow write access without constraints</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_iam_role_policy.app_role_policy</code></td><td><code>/iam.tf:53-67</code></td><td><code>CKV_AWS_290</code><br>Ensure IAM policies does not allow write access without constraints</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_iam_user_policy.app_user_policy</code></td><td><code>/iam.tf:11-29</code></td><td><code>CKV_AWS_355</code><br>Ensure no IAM policies documents allow &quot;*&quot; as a statement&#x27;s resource for restrictable actions</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_iam_role_policy.app_role_policy</code></td><td><code>/iam.tf:53-67</code></td><td><code>CKV_AWS_355</code><br>Ensure no IAM policies documents allow &quot;*&quot; as a statement&#x27;s resource for restrictable actions</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_iam_user_policy.app_user_policy</code></td><td><code>/iam.tf:11-29</code></td><td><code>CKV_AWS_40</code><br>Ensure IAM policies are attached only to groups or roles (Reducing access management complexity may in-turn reduce opportunity for a principal to inadvertently receive or retain excessive privileges.)</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_vpc.main</code></td><td><code>/network.tf:2-11</code></td><td><code>CKV2_AWS_12</code><br>Ensure the default security group of every VPC restricts all traffic</td></tr>
+<tr><td><span class="badge sev-low" style="background:#2980b9">LOW</span></td><td><code>aws_security_group.web</code></td><td><code>/network.tf:61-93</code></td><td><code>CKV2_AWS_5</code><br>Ensure that Security Groups are attached to another resource</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_subnet.public_a</code></td><td><code>/network.tf:14-24</code></td><td><code>CKV_AWS_130</code><br>Ensure VPC subnets do not assign public IP by default</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_subnet.public_b</code></td><td><code>/network.tf:26-36</code></td><td><code>CKV_AWS_130</code><br>Ensure VPC subnets do not assign public IP by default</td></tr>
+<tr><td><span class="badge sev-low" style="background:#2980b9">LOW</span></td><td><code>aws_security_group.rds</code></td><td><code>/network.tf:96-119</code></td><td><code>CKV_AWS_23</code><br>Ensure every security group and rule has a description</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_security_group.web</code></td><td><code>/network.tf:61-93</code></td><td><code>CKV_AWS_24</code><br>Ensure no security groups allow ingress from 0.0.0.0:0 to port 22</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_security_group.web</code></td><td><code>/network.tf:61-93</code></td><td><code>CKV_AWS_260</code><br>Ensure no security groups allow ingress from 0.0.0.0:0 to port 80</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_security_group.web</code></td><td><code>/network.tf:61-93</code></td><td><code>CKV_AWS_382</code><br>Ensure no security groups allow egress from 0.0.0.0:0 to port -1</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_security_group.rds</code></td><td><code>/network.tf:96-119</code></td><td><code>CKV_AWS_382</code><br>Ensure no security groups allow egress from 0.0.0.0:0 to port -1</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_161</code><br>Ensure RDS database has IAM authentication enabled</td></tr>
+<tr><td><span class="badge sev-critical" style="background:#c0392b">CRITICAL</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_17</code><br>Ensure all data stored in RDS is not publicly accessible</td></tr>
+</tbody>
+</table>
+<p class="doclink">Mapping rationale: <code>docs/nis2-mapping.md</code></p>
+</div>
+<h2>GDPR controls</h2>
+<div class="article" id="gdpr-art-32-1-a">
+<h3>GDPR Art. 32(1)(a) <span class="title-note">&mdash; Pseudonymisation and encryption of personal data</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
+<p><span class="status">OPEN &mdash; 3 finding(s)</span></p>
+<table>
+<thead><tr><th>Severity</th><th>Resource</th><th>Location</th><th>Failed control</th></tr></thead>
+<tbody>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_16</code><br>Ensure all data stored in the RDS is securely encrypted at rest</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_s3_bucket.data</code></td><td><code>/s3.tf:2-9</code></td><td><code>CKV_AWS_145</code><br>Ensure that S3 buckets are encrypted with KMS by default</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV_AWS_145</code><br>Ensure that S3 buckets are encrypted with KMS by default</td></tr>
+</tbody>
+</table>
+<p class="doclink">Mapping rationale: <code>docs/gdpr-mapping.md</code></p>
+</div>
+<div class="article" id="gdpr-art-32-1-b">
+<h3>GDPR Art. 32(1)(b) <span class="title-note">&mdash; Confidentiality, integrity, availability and resilience of processing systems</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
+<p><span class="status">OPEN &mdash; 21 finding(s)</span></p>
+<table>
+<thead><tr><th>Severity</th><th>Resource</th><th>Location</th><th>Failed control</th></tr></thead>
+<tbody>
+<tr><td><span class="badge sev-critical" style="background:#c0392b">CRITICAL</span></td><td><code>aws_iam_user_policy.app_user_policy</code></td><td><code>/iam.tf:11-29</code></td><td><code>CKV_AWS_287</code><br>Ensure IAM policies does not allow credentials exposure</td></tr>
+<tr><td><span class="badge sev-critical" style="background:#c0392b">CRITICAL</span></td><td><code>aws_iam_user_policy.app_user_policy</code></td><td><code>/iam.tf:11-29</code></td><td><code>CKV_AWS_288</code><br>Ensure IAM policies does not allow data exfiltration</td></tr>
+<tr><td><span class="badge sev-critical" style="background:#c0392b">CRITICAL</span></td><td><code>aws_iam_user_policy.app_user_policy</code></td><td><code>/iam.tf:11-29</code></td><td><code>CKV_AWS_289</code><br>Ensure IAM policies does not allow permissions management / resource exposure without constraints</td></tr>
+<tr><td><span class="badge sev-critical" style="background:#c0392b">CRITICAL</span></td><td><code>aws_iam_role_policy.app_role_policy</code></td><td><code>/iam.tf:53-67</code></td><td><code>CKV_AWS_289</code><br>Ensure IAM policies does not allow permissions management / resource exposure without constraints</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_iam_user_policy.app_user_policy</code></td><td><code>/iam.tf:11-29</code></td><td><code>CKV_AWS_290</code><br>Ensure IAM policies does not allow write access without constraints</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_iam_role_policy.app_role_policy</code></td><td><code>/iam.tf:53-67</code></td><td><code>CKV_AWS_290</code><br>Ensure IAM policies does not allow write access without constraints</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_iam_user_policy.app_user_policy</code></td><td><code>/iam.tf:11-29</code></td><td><code>CKV_AWS_355</code><br>Ensure no IAM policies documents allow &quot;*&quot; as a statement&#x27;s resource for restrictable actions</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_iam_role_policy.app_role_policy</code></td><td><code>/iam.tf:53-67</code></td><td><code>CKV_AWS_355</code><br>Ensure no IAM policies documents allow &quot;*&quot; as a statement&#x27;s resource for restrictable actions</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_subnet.public_a</code></td><td><code>/network.tf:14-24</code></td><td><code>CKV_AWS_130</code><br>Ensure VPC subnets do not assign public IP by default</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_subnet.public_b</code></td><td><code>/network.tf:26-36</code></td><td><code>CKV_AWS_130</code><br>Ensure VPC subnets do not assign public IP by default</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_security_group.web</code></td><td><code>/network.tf:61-93</code></td><td><code>CKV_AWS_24</code><br>Ensure no security groups allow ingress from 0.0.0.0:0 to port 22</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV2_AWS_30</code><br>Ensure Postgres RDS as aws_db_instance has Query Logging enabled</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_161</code><br>Ensure RDS database has IAM authentication enabled</td></tr>
+<tr><td><span class="badge sev-critical" style="background:#c0392b">CRITICAL</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_17</code><br>Ensure all data stored in RDS is not publicly accessible</td></tr>
+<tr><td><span class="badge sev-critical" style="background:#c0392b">CRITICAL</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>EUGUARD_NIS2_001</code><br>Ensure secrets are not hardcoded in Terraform (use variables/Secrets Manager)</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_s3_bucket.data</code></td><td><code>/s3.tf:2-9</code></td><td><code>CKV2_AWS_6</code><br>Ensure that S3 bucket has a Public Access block</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV2_AWS_6</code><br>Ensure that S3 bucket has a Public Access block</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_s3_bucket_public_access_block.data</code></td><td><code>/s3.tf:12-19</code></td><td><code>CKV_AWS_53</code><br>Ensure S3 bucket has block public ACLS enabled</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_s3_bucket_public_access_block.data</code></td><td><code>/s3.tf:12-19</code></td><td><code>CKV_AWS_54</code><br>Ensure S3 bucket has block public policy enabled</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_s3_bucket_public_access_block.data</code></td><td><code>/s3.tf:12-19</code></td><td><code>CKV_AWS_55</code><br>Ensure S3 bucket has ignore public ACLs enabled</td></tr>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_s3_bucket_public_access_block.data</code></td><td><code>/s3.tf:12-19</code></td><td><code>CKV_AWS_56</code><br>Ensure S3 bucket has &#x27;restrict_public_buckets&#x27; enabled</td></tr>
+</tbody>
+</table>
+<p class="doclink">Mapping rationale: <code>docs/gdpr-mapping.md</code></p>
+</div>
+<div class="article" id="gdpr-art-32-1-c">
+<h3>GDPR Art. 32(1)(c) <span class="title-note">&mdash; Ability to restore availability and access to personal data in a timely manner</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
+<p><span class="status">OPEN &mdash; 7 finding(s)</span></p>
+<table>
+<thead><tr><th>Severity</th><th>Resource</th><th>Location</th><th>Failed control</th></tr></thead>
+<tbody>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_133</code><br>Ensure that RDS instances has backup policy</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_157</code><br>Ensure that RDS instances have Multi-AZ enabled</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_293</code><br>Ensure that AWS database instances have deletion protection enabled</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_s3_bucket.data</code></td><td><code>/s3.tf:2-9</code></td><td><code>CKV_AWS_144</code><br>Ensure that S3 bucket has cross-region replication enabled</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV_AWS_144</code><br>Ensure that S3 bucket has cross-region replication enabled</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_s3_bucket.data</code></td><td><code>/s3.tf:2-9</code></td><td><code>CKV_AWS_21</code><br>Ensure all data stored in the S3 bucket have versioning enabled</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d">MEDIUM</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV_AWS_21</code><br>Ensure all data stored in the S3 bucket have versioning enabled</td></tr>
+</tbody>
+</table>
+<p class="doclink">Mapping rationale: <code>docs/gdpr-mapping.md</code></p>
+</div>
+<div class="article" id="gdpr-art-44">
+<h3>GDPR Art. 44 <span class="title-note">&mdash; General principle for transfers of personal data to third countries</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
+<p><span class="status">OPEN &mdash; 1 finding(s)</span></p>
+<table>
+<thead><tr><th>Severity</th><th>Resource</th><th>Location</th><th>Failed control</th></tr></thead>
+<tbody>
+<tr><td><span class="badge sev-high" style="background:#e67e22">HIGH</span></td><td><code>aws.default</code></td><td><code>/main.tf:11-13</code></td><td><code>EUGUARD_GDPR_001</code><br>Ensure the AWS provider region is in the EU (GDPR data residency, Art. 44-49)</td></tr>
+</tbody>
+</table>
+<p class="doclink">Mapping rationale: <code>docs/gdpr-mapping.md</code></p>
+</div>
+<footer>Generated by tf-eu-guard v0.1.0 on 2026-08-30 16:53 UTC.</footer>
+</body>
+</html>

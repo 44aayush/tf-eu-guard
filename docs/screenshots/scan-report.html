@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tf-eu-guard Security Report</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    max-width: 1100px; margin: 40px auto; padding: 0 20px;
+    color: #1a1a1a; background: #fafafa; line-height: 1.5;
+  }
+  header { border-bottom: 3px solid #2c3e50; padding-bottom: 16px; margin-bottom: 28px; }
+  header h1 { margin: 0 0 6px; font-size: 1.7rem; }
+  header .meta { color: #555; font-size: 0.9rem; }
+  header .meta span { margin-right: 18px; white-space: nowrap; }
+  h2 { font-size: 1.25rem; margin: 32px 0 12px; }
+
+  .summary { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
+  .stat {
+    flex: 1 1 120px; background: #fff; border: 1px solid #e2e2e2; border-radius: 8px;
+    padding: 14px 16px; box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  }
+  .stat .num { font-size: 1.7rem; font-weight: 700; line-height: 1; }
+  .stat .label { font-size: 0.78rem; color: #666; text-transform: uppercase; letter-spacing: .04em; }
+
+  .chart { background: #fff; border: 1px solid #e2e2e2; border-radius: 8px; padding: 18px 20px; }
+  .chart .row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+  .chart .rlabel { flex: 0 0 90px; font-size: 0.85rem; font-weight: 600; }
+  .chart .track { flex: 1; background: #eee; border-radius: 4px; overflow: hidden; }
+  .chart .bar { height: 20px; border-radius: 4px 0 0 4px; min-width: 2px; }
+  .chart .rcount { flex: 0 0 40px; text-align: right; font-variant-numeric: tabular-nums; }
+
+  .finding {
+    background: #fff; border: 1px solid #e2e2e2; border-left-width: 5px;
+    border-radius: 6px; padding: 14px 18px; margin: 12px 0;
+  }
+  .finding-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+  .finding-head .cid { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }
+  .finding-head .cname { color: #333; }
+  .badge {
+    display: inline-block; color: #fff; font-size: 0.7rem; font-weight: 700;
+    padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: .03em;
+  }
+  dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; margin: 10px 0; font-size: 0.9rem; }
+  dl.meta dt { color: #777; font-weight: 600; }
+  dl.meta dd { margin: 0; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .art {
+    display: inline-block; background: #eef2f7; border: 1px solid #d6e0ea; color: #2c3e50;
+    font-size: 0.78rem; padding: 1px 7px; border-radius: 4px; margin: 1px 4px 1px 0;
+  }
+  .risk { margin: 8px 0; }
+  .remediation h4 { margin: 10px 0 4px; font-size: 0.85rem; text-transform: uppercase; color: #777; letter-spacing: .04em; }
+  .remediation pre {
+    background: #f5f5f5; border: 1px solid #e2e2e2; border-radius: 6px;
+    padding: 10px 12px; overflow-x: auto; margin: 0; font-size: 0.85rem;
+  }
+  .doc { display: inline-block; margin-top: 10px; font-size: 0.85rem; color: #2980b9; text-decoration: none; }
+  .doc:hover { text-decoration: underline; }
+  .empty { background: #eafaf1; border: 1px solid #abebc6; color: #1e6b43; padding: 24px; border-radius: 8px; text-align: center; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e2e2; color: #888; font-size: 0.82rem; }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e6e6e6; background: #16181c; }
+    .stat, .chart, .finding { background: #21242b; border-color: #33373f; }
+    .chart .track { background: #33373f; }
+    dl.meta dt, .stat .label, header .meta { color: #aab; }
+    .remediation pre { background: #1b1d22; border-color: #33373f; }
+    .art { background: #2b3140; border-color: #3a4256; color: #cdd7e5; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>tf-eu-guard &mdash; Security Report</h1>
+  <div class="meta"><span>Target: <code>examples/vulnerable-aws</code></span><span>Generated: 2026-08-30 16:53 UTC</span><span>Findings: 52</span></div>
+</header>
+<section class="summary">
+<div class="stat"><div class="num">52</div><div class="label">Findings</div></div>
+<div class="stat"><div class="num">5</div><div class="label">Files</div></div>
+<div class="stat"><div class="num" style="color:#c0392b">6</div><div class="label">CRITICAL</div></div>
+<div class="stat"><div class="num" style="color:#e67e22">17</div><div class="label">HIGH</div></div>
+<div class="stat"><div class="num" style="color:#d4ac0d">21</div><div class="label">MEDIUM</div></div>
+<div class="stat"><div class="num" style="color:#2980b9">8</div><div class="label">LOW</div></div>
+<div class="stat"><div class="num">45</div><div class="label">NIS2</div></div>
+<div class="stat"><div class="num">32</div><div class="label">GDPR</div></div>
+</section>
+<h2>Finding distribution</h2>
+<section class="chart">
+<div class="row"><span class="rlabel">CRITICAL</span><span class="track"><span class="bar" style="width:29%;background:#c0392b"></span></span><span class="rcount">6</span></div>
+<div class="row"><span class="rlabel">HIGH</span><span class="track"><span class="bar" style="width:81%;background:#e67e22"></span></span><span class="rcount">17</span></div>
+<div class="row"><span class="rlabel">MEDIUM</span><span class="track"><span class="bar" style="width:100%;background:#d4ac0d"></span></span><span class="rcount">21</span></div>
+<div class="row"><span class="rlabel">LOW</span><span class="track"><span class="bar" style="width:38%;background:#2980b9"></span></span><span class="rcount">8</span></div>
+</section>
+<h2>Findings by severity</h2>
+<h3 style="color:#c0392b">CRITICAL (6)</h3>
+<article class="finding sev-critical" style="border-left-color:#c0392b">
+  <div class="finding-head">
+    <span class="badge" style="background:#c0392b">CRITICAL</span>
+    <span class="cid">CKV_AWS_287</span>
+    <span class="cname">Ensure IAM policies does not allow credentials exposure</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_iam_user_policy.app_user_policy</code></dd>
+    <dt>File</dt><dd><code>/iam.tf:11-29</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span> <span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">Policies that permit credential-generation actions (sts:GetFederationToken, iam:CreateAccessKey, ec2:GetPasswordData, etc.) let an attacker mint new credentials and pivot, undermining the confidentiality controls GDPR Art. 32(1)(b) requires and the access control NIS2 Art. 21(2)(i) mandates.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Remove credential-exposing actions and scope to least privilege:
+  # Before:
+  &quot;Action&quot;: [&quot;sts:*&quot;, &quot;iam:CreateAccessKey&quot;]
+  # After:
+  &quot;Action&quot;: [&quot;s3:GetObject&quot;, &quot;s3:PutObject&quot;]
+  &quot;Resource&quot;: &quot;arn:aws:s3:::my-app-data/*&quot;</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-287" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-critical" style="border-left-color:#c0392b">
+  <div class="finding-head">
+    <span class="badge" style="background:#c0392b">CRITICAL</span>
+    <span class="cid">CKV_AWS_288</span>
+    <span class="cname">Ensure IAM policies does not allow data exfiltration</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_iam_user_policy.app_user_policy</code></dd>
+    <dt>File</dt><dd><code>/iam.tf:11-29</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span> <span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">Broad read actions on all resources (s3:GetObject, secretsmanager:GetSecretValue, rds:DownloadDBLogFilePortion on &quot;*&quot;) enable bulk exfiltration of data, which for personal data is a reportable breach under GDPR and a direct failure of the access control expected by NIS2 Art. 21(2)(i).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Constrain read actions to specific resource ARNs, never &quot;*&quot;:
+  &quot;Action&quot;: [&quot;s3:GetObject&quot;]
+  &quot;Resource&quot;: &quot;arn:aws:s3:::approved-bucket/*&quot;</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-288" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-critical" style="border-left-color:#c0392b">
+  <div class="finding-head">
+    <span class="badge" style="background:#c0392b">CRITICAL</span>
+    <span class="cid">CKV_AWS_289</span>
+    <span class="cname">Ensure IAM policies does not allow permissions management / resource exposure without constraints</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_iam_user_policy.app_user_policy</code></dd>
+    <dt>File</dt><dd><code>/iam.tf:11-29</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span> <span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">Permissions-management actions (iam:PutUserPolicy, iam:AttachUserPolicy, s3:PutBucketPolicy, etc.) on unconstrained resources let a principal rewrite who can access what, collapsing access control (NIS2 Art. 21(2)(i)) and putting the confidentiality of all data at risk (GDPR Art. 32(1)(b)).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Remove permissions-management actions from workload policies, or bound them
+with a permissions boundary and explicit resource ARNs:
+  &quot;Action&quot;: [&quot;iam:AttachUserPolicy&quot;]
+  &quot;Resource&quot;: &quot;arn:aws:iam::123456789012:user/app-*&quot;</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-289" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-critical" style="border-left-color:#c0392b">
+  <div class="finding-head">
+    <span class="badge" style="background:#c0392b">CRITICAL</span>
+    <span class="cid">CKV_AWS_289</span>
+    <span class="cname">Ensure IAM policies does not allow permissions management / resource exposure without constraints</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_iam_role_policy.app_role_policy</code></dd>
+    <dt>File</dt><dd><code>/iam.tf:53-67</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span> <span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">Permissions-management actions (iam:PutUserPolicy, iam:AttachUserPolicy, s3:PutBucketPolicy, etc.) on unconstrained resources let a principal rewrite who can access what, collapsing access control (NIS2 Art. 21(2)(i)) and putting the confidentiality of all data at risk (GDPR Art. 32(1)(b)).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Remove permissions-management actions from workload policies, or bound them
+with a permissions boundary and explicit resource ARNs:
+  &quot;Action&quot;: [&quot;iam:AttachUserPolicy&quot;]
+  &quot;Resource&quot;: &quot;arn:aws:iam::123456789012:user/app-*&quot;</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-289" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-critical" style="border-left-color:#c0392b">
+  <div class="finding-head">
+    <span class="badge" style="background:#c0392b">CRITICAL</span>
+    <span class="cid">CKV_AWS_17</span>
+    <span class="cname">Ensure all data stored in RDS is not publicly accessible</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_db_instance.main</code></dd>
+    <dt>File</dt><dd><code>/rds.tf:2-30</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span> <span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">A publicly accessible database is reachable from the internet, exposing personal data to credential-stuffing and exploitation. This is a confidentiality failure under GDPR Art. 32(1)(b) and an access control failure under NIS2 Art. 21(2)(i).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Keep the instance private and reach it only from within the VPC:
+  publicly_accessible = false
+  # place the instance in private subnets via a db_subnet_group and
+  # restrict the security group to internal CIDRs only.</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/public-policies/public-2" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-critical" style="border-left-color:#c0392b">
+  <div class="finding-head">
+    <span class="badge" style="background:#c0392b">CRITICAL</span>
+    <span class="cid">EUGUARD_NIS2_001</span>
+    <span class="cname">Ensure secrets are not hardcoded in Terraform (use variables/Secrets Manager)</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_db_instance.main</code></dd>
+    <dt>File</dt><dd><code>/rds.tf:2-30</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(e)</span> <span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">A literal credential (database password, auth token, private key) committed to Terraform is readable by anyone with repository or state access, cannot be rotated centrally, and frequently leaks through CI logs. Storing secrets in code is an insecure-development practice under NIS2 Art. 21(2)(e) and, where the secret protects personal data, a confidentiality risk under GDPR Art. 32(1)(b).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Never inline secrets. Source them from a secrets manager or a sensitive
+variable injected at apply time:
+  # Before:
+  password = &quot;ChangeMe123!&quot;
+  # After:
+  password = data.aws_secretsmanager_secret_version.db.secret_string
+  # or a variable marked `sensitive` and sourced from the environment/a vault.</pre></div>
+</article>
+<h3 style="color:#e67e22">HIGH (17)</h3>
+<article class="finding sev-high" style="border-left-color:#e67e22">
+  <div class="finding-head">
+    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="cid">CKV_AWS_273</span>
+    <span class="cname">Ensure access is controlled through SSO and not AWS IAM defined users</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_iam_user.app_user</code></dd>
+    <dt>File</dt><dd><code>/iam.tf:2-8</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span></dd>
+  </dl>
+  <p class="risk">Long-lived IAM users bypass centralized identity management and SSO, making it difficult to enforce MFA, audit access centrally, and revoke credentials quickly during an incident. NIS2 Art. 21(2)(i) requires effective access control policies.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Delete standing IAM users and federate access through AWS IAM Identity Center (SSO):
+  # Remove:
+  # resource &quot;aws_iam_user&quot; &quot;admin&quot; { ... }
+  # Use Identity Center permission sets + account assignments instead
+  # (managed via aws_ssoadmin_* resources or the Identity Center console).</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-273" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-high" style="border-left-color:#e67e22">
+  <div class="finding-head">
+    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="cid">CKV_AWS_290</span>
+    <span class="cname">Ensure IAM policies does not allow write access without constraints</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_iam_user_policy.app_user_policy</code></dd>
+    <dt>File</dt><dd><code>/iam.tf:11-29</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span> <span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">Write actions (Create/Put/Update/Delete) allowed on Resource &quot;*&quot; let a principal modify or destroy any resource in the account, threatening the integrity and availability of personal data (GDPR Art. 32(1)(b)) and breaking the least-privilege access control of NIS2 Art. 21(2)(i).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Scope write actions to the specific resources the workload manages:
+  &quot;Action&quot;: [&quot;dynamodb:PutItem&quot;, &quot;dynamodb:UpdateItem&quot;]
+  &quot;Resource&quot;: &quot;arn:aws:dynamodb:eu-west-1:123456789012:table/app-*&quot;</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-290" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-high" style="border-left-color:#e67e22">
+  <div class="finding-head">
+    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="cid">CKV_AWS_290</span>
+    <span class="cname">Ensure IAM policies does not allow write access without constraints</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_iam_role_policy.app_role_policy</code></dd>
+    <dt>File</dt><dd><code>/iam.tf:53-67</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span> <span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">Write actions (Create/Put/Update/Delete) allowed on Resource &quot;*&quot; let a principal modify or destroy any resource in the account, threatening the integrity and availability of personal data (GDPR Art. 32(1)(b)) and breaking the least-privilege access control of NIS2 Art. 21(2)(i).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Scope write actions to the specific resources the workload manages:
+  &quot;Action&quot;: [&quot;dynamodb:PutItem&quot;, &quot;dynamodb:UpdateItem&quot;]
+  &quot;Resource&quot;: &quot;arn:aws:dynamodb:eu-west-1:123456789012:table/app-*&quot;</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-290" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-high" style="border-left-color:#e67e22">
+  <div class="finding-head">
+    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="cid">CKV_AWS_355</span>
+    <span class="cname">Ensure no IAM policies documents allow &quot;*&quot; as a statement&#x27;s resource for restrictable actions</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_iam_user_policy.app_user_policy</code></dd>
+    <dt>File</dt><dd><code>/iam.tf:11-29</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span> <span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">Using Resource &quot;*&quot; for actions that support resource-level scoping lets the policy reach every object in the account, not just those the workload owns. This over-broad reach undermines the access segregation NIS2 Art. 21(2)(i) expects and the data confidentiality GDPR Art. 32(1)(b) requires.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Constrain each statement to specific resource ARNs:
+  # Before:
+  &quot;Resource&quot;: &quot;*&quot;
+  # After:
+  &quot;Resource&quot;: &quot;arn:aws:s3:::my-app-data/*&quot;</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-355" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-high" style="border-left-color:#e67e22">
+  <div class="finding-head">
+    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="cid">CKV_AWS_355</span>
+    <span class="cname">Ensure no IAM policies documents allow &quot;*&quot; as a statement&#x27;s resource for restrictable actions</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_iam_role_policy.app_role_policy</code></dd>
+    <dt>File</dt><dd><code>/iam.tf:53-67</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span> <span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">Using Resource &quot;*&quot; for actions that support resource-level scoping lets the policy reach every object in the account, not just those the workload owns. This over-broad reach undermines the access segregation NIS2 Art. 21(2)(i) expects and the data confidentiality GDPR Art. 32(1)(b) requires.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Constrain each statement to specific resource ARNs:
+  # Before:
+  &quot;Resource&quot;: &quot;*&quot;
+  # After:
+  &quot;Resource&quot;: &quot;arn:aws:s3:::my-app-data/*&quot;</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-355" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-high" style="border-left-color:#e67e22">
+  <div class="finding-head">
+    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="cid">EUGUARD_GDPR_001</span>
+    <span class="cname">Ensure the AWS provider region is in the EU (GDPR data residency, Art. 44-49)</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws.default</code></dd>
+    <dt>File</dt><dd><code>/main.tf:11-13</code></dd>
+    <dt>Compliance</dt><dd><span class="art">GDPR Art. 44</span></dd>
+  </dl>
+  <p class="risk">Deploying resources through an AWS provider pinned to a non-EU region stores personal data outside the EU/EEA - a transfer to a third country. GDPR Chapter V (Art. 44-49) permits this only under specific safeguards (an adequacy decision, Standard Contractual Clauses, or Binding Corporate Rules); an unqualified non-EU region is a data-residency violation that must be justified under one of those mechanisms or corrected.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Pin every aws provider block to an EU region, or gate a non-EU provider
+behind a documented Chapter V transfer mechanism:
+  # Before:
+  provider &quot;aws&quot; { region = &quot;us-east-1&quot; }
+  # After:
+  provider &quot;aws&quot; { region = &quot;eu-west-1&quot; }</pre></div>
+</article>
+<article class="finding sev-high" style="border-left-color:#e67e22">
+  <div class="finding-head">
+    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="cid">CKV_AWS_24</span>
+    <span class="cname">Ensure no security groups allow ingress from 0.0.0.0:0 to port 22</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_security_group.web</code></dd>
+    <dt>File</dt><dd><code>/network.tf:61-93</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span> <span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">SSH (port 22) open to 0.0.0.0/0 exposes administrative shell access to the entire internet, inviting brute-force and exploitation of any host that may process personal data. This is a failure of network access control (NIS2 Art. 21(2)(i)) and of the confidentiality safeguards GDPR Art. 32(1)(b) requires.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Restrict SSH to a bastion or corporate CIDR, never the internet:
+  # Before:
+  cidr_blocks = [&quot;0.0.0.0/0&quot;]
+  # After:
+  cidr_blocks = [&quot;10.0.0.0/8&quot;]   # or a specific admin range / use SSM Session Manager</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/networking-1-port-security" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-high" style="border-left-color:#e67e22">
+  <div class="finding-head">
+    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="cid">CKV_AWS_133</span>
+    <span class="cname">Ensure that RDS instances has backup policy</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_db_instance.main</code></dd>
+    <dt>File</dt><dd><code>/rds.tf:2-30</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(c)</span> <span class="art">GDPR Art. 32(1)(c)</span></dd>
+  </dl>
+  <p class="risk">A zero-day backup retention means no point-in-time recovery: hardware failure, corruption, or ransomware results in permanent data loss. Both NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c) require the ability to restore availability of data.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Set a non-zero backup retention window (&gt;= 7 days recommended):
+  backup_retention_period = 7
+  backup_window           = &quot;03:00-04:00&quot;</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-rds-instances-have-backup-policy" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-high" style="border-left-color:#e67e22">
+  <div class="finding-head">
+    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="cid">CKV_AWS_16</span>
+    <span class="cname">Ensure all data stored in the RDS is securely encrypted at rest</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_db_instance.main</code></dd>
+    <dt>File</dt><dd><code>/rds.tf:2-30</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(h)</span> <span class="art">GDPR Art. 32(1)(a)</span></dd>
+  </dl>
+  <p class="risk">An unencrypted RDS instance leaves personal data readable on the underlying storage and in snapshots. GDPR Art. 32(1)(a) names encryption explicitly and NIS2 Art. 21(2)(h) requires cryptography controls for data at rest.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Enable storage encryption (immutable - requires recreate/restore):
+  resource &quot;aws_db_instance&quot; &quot;this&quot; {
+    storage_encrypted = true
+    kms_key_id        = aws_kms_key.rds.arn
+    # ...
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-4" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-high" style="border-left-color:#e67e22">
+  <div class="finding-head">
+    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="cid">CKV2_AWS_6</span>
+    <span class="cname">Ensure that S3 bucket has a Public Access block</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket.data</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:2-9</code></dd>
+    <dt>Compliance</dt><dd><span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">A bucket with no aws_s3_bucket_public_access_block has no safety net against accidental public exposure via ACLs or bucket policy - a standing confidentiality risk for any personal data under GDPR Art. 32(1)(b).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Attach a public access block that denies all public access (see CKV_AWS_53 for the
+full resource); at minimum:
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/s3-bucket-should-have-public-access-blocks-defaults-to-false-if-the-public-access-block-is-not-attached" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-high" style="border-left-color:#e67e22">
+  <div class="finding-head">
+    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="cid">CKV2_AWS_6</span>
+    <span class="cname">Ensure that S3 bucket has a Public Access block</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket.logs</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:22-28</code></dd>
+    <dt>Compliance</dt><dd><span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">A bucket with no aws_s3_bucket_public_access_block has no safety net against accidental public exposure via ACLs or bucket policy - a standing confidentiality risk for any personal data under GDPR Art. 32(1)(b).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Attach a public access block that denies all public access (see CKV_AWS_53 for the
+full resource); at minimum:
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/s3-bucket-should-have-public-access-blocks-defaults-to-false-if-the-public-access-block-is-not-attached" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-high" style="border-left-color:#e67e22">
+  <div class="finding-head">
+    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="cid">CKV_AWS_145</span>
+    <span class="cname">Ensure that S3 buckets are encrypted with KMS by default</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket.data</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:2-9</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(h)</span> <span class="art">GDPR Art. 32(1)(a)</span></dd>
+  </dl>
+  <p class="risk">Buckets without KMS-managed encryption at rest lack the auditable key control and key-rotation guarantees expected of encrypted personal data. GDPR Art. 32(1)(a) names encryption explicitly; NIS2 Art. 21(2)(h) requires cryptography policies.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Configure default SSE-KMS on the bucket:
+  resource &quot;aws_s3_bucket_server_side_encryption_configuration&quot; &quot;this&quot; {
+    bucket = aws_s3_bucket.data.id
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm     = &quot;aws:kms&quot;
+        kms_master_key_id = aws_kms_key.s3.arn
+      }
+    }
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-buckets-are-encrypted-with-kms-by-default" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-high" style="border-left-color:#e67e22">
+  <div class="finding-head">
+    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="cid">CKV_AWS_145</span>
+    <span class="cname">Ensure that S3 buckets are encrypted with KMS by default</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket.logs</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:22-28</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(h)</span> <span class="art">GDPR Art. 32(1)(a)</span></dd>
+  </dl>
+  <p class="risk">Buckets without KMS-managed encryption at rest lack the auditable key control and key-rotation guarantees expected of encrypted personal data. GDPR Art. 32(1)(a) names encryption explicitly; NIS2 Art. 21(2)(h) requires cryptography policies.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Configure default SSE-KMS on the bucket:
+  resource &quot;aws_s3_bucket_server_side_encryption_configuration&quot; &quot;this&quot; {
+    bucket = aws_s3_bucket.data.id
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm     = &quot;aws:kms&quot;
+        kms_master_key_id = aws_kms_key.s3.arn
+      }
+    }
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-buckets-are-encrypted-with-kms-by-default" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-high" style="border-left-color:#e67e22">
+  <div class="finding-head">
+    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="cid">CKV_AWS_53</span>
+    <span class="cname">Ensure S3 bucket has block public ACLS enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket_public_access_block.data</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:12-19</code></dd>
+    <dt>Compliance</dt><dd><span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">With block_public_acls disabled, a future ACL change can silently make objects public, defeating the confidentiality control GDPR Art. 32(1)(b) requires. The public access block is the account-level guardrail that prevents that drift.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Enable the guardrail on the bucket&#x27;s public access block:
+  resource &quot;aws_s3_bucket_public_access_block&quot; &quot;this&quot; {
+    bucket                  = aws_s3_bucket.data.id
+    block_public_acls       = true
+    ignore_public_acls      = true
+    block_public_policy     = true
+    restrict_public_buckets = true
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/bc-aws-s3-19" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-high" style="border-left-color:#e67e22">
+  <div class="finding-head">
+    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="cid">CKV_AWS_54</span>
+    <span class="cname">Ensure S3 bucket has block public policy enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket_public_access_block.data</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:12-19</code></dd>
+    <dt>Compliance</dt><dd><span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">With block_public_policy disabled, a bucket policy can grant anonymous access to objects, silently exposing personal data. It is the policy-side counterpart to CKV_AWS_53 and a direct confidentiality risk under GDPR Art. 32(1)(b).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Enable the guardrail on the bucket&#x27;s public access block:
+  block_public_policy = true</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/bc-aws-s3-20" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-high" style="border-left-color:#e67e22">
+  <div class="finding-head">
+    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="cid">CKV_AWS_55</span>
+    <span class="cname">Ensure S3 bucket has ignore public ACLs enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket_public_access_block.data</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:12-19</code></dd>
+    <dt>Compliance</dt><dd><span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">With ignore_public_acls disabled, public ACLs applied to the bucket or its objects are honoured rather than neutralised, allowing anonymous read/write and undermining the confidentiality control of GDPR Art. 32(1)(b).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Enable the guardrail on the bucket&#x27;s public access block:
+  ignore_public_acls = true</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/bc-aws-s3-21" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-high" style="border-left-color:#e67e22">
+  <div class="finding-head">
+    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="cid">CKV_AWS_56</span>
+    <span class="cname">Ensure S3 bucket has &#x27;restrict_public_buckets&#x27; enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket_public_access_block.data</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:12-19</code></dd>
+    <dt>Compliance</dt><dd><span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">With restrict_public_buckets disabled, a public bucket policy grants access to all principals and anonymous users rather than only authorised AWS services and users, widening exposure of personal data contrary to GDPR Art. 32(1)(b).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Enable the guardrail on the bucket&#x27;s public access block:
+  restrict_public_buckets = true</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/bc-aws-s3-22" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<h3 style="color:#d4ac0d">MEDIUM (21)</h3>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV_AWS_40</span>
+    <span class="cname">Ensure IAM policies are attached only to groups or roles (Reducing access management complexity may in-turn reduce opportunity for a principal to inadvertently receive or retain excessive privileges.)</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_iam_user_policy.app_user_policy</code></dd>
+    <dt>File</dt><dd><code>/iam.tf:11-29</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span></dd>
+  </dl>
+  <p class="risk">Attaching policies directly to individual IAM users makes entitlements hard to review and revoke at scale, weakening the asset- and access-management discipline NIS2 Art. 21(2)(i) expects. Group/role attachment keeps privileges auditable.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Attach the policy to a group or role and add the user to the group:
+  resource &quot;aws_iam_group_policy_attachment&quot; &quot;app&quot; {
+    group      = aws_iam_group.app.name
+    policy_arn = aws_iam_policy.app.arn
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/iam-16-iam-policy-privileges-1" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV2_AWS_11</span>
+    <span class="cname">Ensure VPC flow logging is enabled in all VPCs</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_vpc.main</code></dd>
+    <dt>File</dt><dd><code>/network.tf:2-11</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(b)</span></dd>
+  </dl>
+  <p class="risk">Without VPC flow logs there is no network-level record of accepted/rejected connections, so lateral movement and exfiltration attempts cannot be detected or reconstructed. NIS2 Art. 21(2)(b) requires detection and analysis of incidents.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Enable flow logs for the VPC:
+  resource &quot;aws_flow_log&quot; &quot;this&quot; {
+    vpc_id          = aws_vpc.main.id
+    traffic_type    = &quot;ALL&quot;
+    log_destination = aws_cloudwatch_log_group.vpc_flow.arn
+    iam_role_arn    = aws_iam_role.vpc_flow.arn
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/logging-9-enable-vpc-flow-logging" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV2_AWS_12</span>
+    <span class="cname">Ensure the default security group of every VPC restricts all traffic</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_vpc.main</code></dd>
+    <dt>File</dt><dd><code>/network.tf:2-11</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span></dd>
+  </dl>
+  <p class="risk">An unmanaged default security group can implicitly allow traffic between any resources that fall back to it, bypassing intended segmentation. NIS2 Art. 21(2)(i) expects deliberate, least-privilege network access control.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Manage the default SG and strip all ingress/egress:
+  resource &quot;aws_default_security_group&quot; &quot;default&quot; {
+    vpc_id = aws_vpc.main.id
+    # no ingress or egress blocks = deny all
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/networking-4" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV_AWS_130</span>
+    <span class="cname">Ensure VPC subnets do not assign public IP by default</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_subnet.public_a</code></dd>
+    <dt>File</dt><dd><code>/network.tf:14-24</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span> <span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">Subnets that auto-assign public IPs place workloads directly on the internet by default, widening the attack surface for systems that may process personal data - a confidentiality risk (GDPR Art. 32(1)(b)) and weak network segmentation under NIS2 Art. 21(2)(i).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Disable automatic public IP assignment; use NAT for egress:
+  map_public_ip_on_launch = false</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-vpc-subnets-do-not-assign-public-ip-by-default" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV_AWS_130</span>
+    <span class="cname">Ensure VPC subnets do not assign public IP by default</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_subnet.public_b</code></dd>
+    <dt>File</dt><dd><code>/network.tf:26-36</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span> <span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">Subnets that auto-assign public IPs place workloads directly on the internet by default, widening the attack surface for systems that may process personal data - a confidentiality risk (GDPR Art. 32(1)(b)) and weak network segmentation under NIS2 Art. 21(2)(i).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Disable automatic public IP assignment; use NAT for egress:
+  map_public_ip_on_launch = false</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-vpc-subnets-do-not-assign-public-ip-by-default" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV_AWS_260</span>
+    <span class="cname">Ensure no security groups allow ingress from 0.0.0.0:0 to port 80</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_security_group.web</code></dd>
+    <dt>File</dt><dd><code>/network.tf:61-93</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span></dd>
+  </dl>
+  <p class="risk">Plain-HTTP (port 80) open to the world serves traffic unencrypted and widens the attack surface. Where it fronts systems processing personal data it weakens the network access control expected by NIS2 Art. 21(2)(i); traffic should terminate TLS at a load balancer instead.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Front the service with HTTPS and restrict or redirect port 80:
+  # Terminate TLS (443) at an ALB and redirect 80 -&gt; 443, or scope the CIDR:
+  cidr_blocks = [&quot;10.0.0.0/8&quot;]</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-aws-security-groups-do-not-allow-ingress-from-00000-to-port-80" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV_AWS_382</span>
+    <span class="cname">Ensure no security groups allow egress from 0.0.0.0:0 to port -1</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_security_group.web</code></dd>
+    <dt>File</dt><dd><code>/network.tf:61-93</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span></dd>
+  </dl>
+  <p class="risk">Unrestricted egress (all ports/protocols to 0.0.0.0/0) gives a compromised host a clear path to exfiltrate data or reach command-and-control infrastructure. Egress filtering is part of the network segmentation and access control under NIS2 Art. 21(2)(i).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Scope egress to the destinations and ports the workload actually needs:
+  egress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = &quot;tcp&quot;
+    cidr_blocks = [&quot;10.0.0.0/8&quot;]
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/bc-aws-382" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV_AWS_382</span>
+    <span class="cname">Ensure no security groups allow egress from 0.0.0.0:0 to port -1</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_security_group.rds</code></dd>
+    <dt>File</dt><dd><code>/network.tf:96-119</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span></dd>
+  </dl>
+  <p class="risk">Unrestricted egress (all ports/protocols to 0.0.0.0/0) gives a compromised host a clear path to exfiltrate data or reach command-and-control infrastructure. Egress filtering is part of the network segmentation and access control under NIS2 Art. 21(2)(i).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Scope egress to the destinations and ports the workload actually needs:
+  egress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = &quot;tcp&quot;
+    cidr_blocks = [&quot;10.0.0.0/8&quot;]
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/bc-aws-382" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV2_AWS_30</span>
+    <span class="cname">Ensure Postgres RDS as aws_db_instance has Query Logging enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_db_instance.main</code></dd>
+    <dt>File</dt><dd><code>/rds.tf:2-30</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(b)</span> <span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">Without Postgres log capture (log_connections, log_disconnections, log_statement) there is no record of who touched personal data in the database, defeating the incident detection and analysis NIS2 Art. 21(2)(b) requires and the accountable processing security of GDPR Art. 32(1)(b).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Enable the logging parameters in the instance&#x27;s parameter group:
+  resource &quot;aws_db_parameter_group&quot; &quot;main&quot; {
+    parameter { name = &quot;log_connections&quot;  value = &quot;1&quot; }
+    parameter { name = &quot;log_disconnections&quot; value = &quot;1&quot; }
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-postgres-rds-has-query-logging-enabled" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV_AWS_118</span>
+    <span class="cname">Ensure that enhanced monitoring is enabled for Amazon RDS instances</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_db_instance.main</code></dd>
+    <dt>File</dt><dd><code>/rds.tf:2-30</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(b)</span></dd>
+  </dl>
+  <p class="risk">Without enhanced monitoring, OS-level metrics (CPU, memory, process and I/O activity) are unavailable, so resource-exhaustion attacks or anomalous database host behaviour cannot be detected or investigated - contrary to the incident detection and handling required by NIS2 Art. 21(2)(b).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Enable enhanced monitoring with a monitoring role and a non-zero interval:
+  monitoring_interval = 60
+  monitoring_role_arn = aws_iam_role.rds_monitoring.arn</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/ensure-that-enhanced-monitoring-is-enabled-for-amazon-rds-instances" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV_AWS_129</span>
+    <span class="cname">Ensure that respective logs of Amazon Relational Database Service (Amazon RDS) are enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_db_instance.main</code></dd>
+    <dt>File</dt><dd><code>/rds.tf:2-30</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(b)</span></dd>
+  </dl>
+  <p class="risk">Without database engine logs exported to CloudWatch, suspicious queries and authentication failures leave no trail, so a data-access incident cannot be detected or investigated - contrary to NIS2 Art. 21(2)(b).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Export the relevant engine logs:
+  enabled_cloudwatch_logs_exports = [&quot;postgresql&quot;, &quot;upgrade&quot;]
+  # (for MySQL: [&quot;audit&quot;, &quot;error&quot;, &quot;general&quot;, &quot;slowquery&quot;])</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/ensure-that-respective-logs-of-amazon-relational-database-service-amazon-rds-are-enabled" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV_AWS_157</span>
+    <span class="cname">Ensure that RDS instances have Multi-AZ enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_db_instance.main</code></dd>
+    <dt>File</dt><dd><code>/rds.tf:2-30</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(c)</span> <span class="art">GDPR Art. 32(1)(c)</span></dd>
+  </dl>
+  <p class="risk">A single-AZ database has no standby: an availability-zone failure takes the data offline until manual recovery. Multi-AZ provides automatic failover, supporting the availability obligation of GDPR Art. 32(1)(c) and business continuity under NIS2 Art. 21(2)(c).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Enable Multi-AZ deployment:
+  multi_az = true</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-73" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV_AWS_161</span>
+    <span class="cname">Ensure RDS database has IAM authentication enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_db_instance.main</code></dd>
+    <dt>File</dt><dd><code>/rds.tf:2-30</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span> <span class="art">GDPR Art. 32(1)(b)</span></dd>
+  </dl>
+  <p class="risk">Relying only on static database passwords means no centralized revocation or rotation and passwords that are easily shared or leaked. IAM database authentication ties DB access to IAM identities, strengthening the access control of NIS2 Art. 21(2)(i) and the confidentiality control of GDPR Art. 32(1)(b).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Enable IAM database authentication:
+  iam_database_authentication_enabled = true</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/ensure-rds-database-has-iam-authentication-enabled" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV_AWS_226</span>
+    <span class="cname">Ensure DB instance gets all minor upgrades automatically</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_db_instance.main</code></dd>
+    <dt>File</dt><dd><code>/rds.tf:2-30</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(e)</span></dd>
+  </dl>
+  <p class="risk">Postponing minor engine patches leaves known database vulnerabilities in place — often for months. Automatic minor upgrades implement the ongoing maintenance and vulnerability handling NIS2 Art. 21(2)(e) requires of systems in production.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Enable automatic minor version upgrades:
+  resource &quot;aws_db_instance&quot; &quot;main&quot; {
+    auto_minor_version_upgrade = true
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-db-instance-gets-all-minor-upgrades-automatically" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV_AWS_293</span>
+    <span class="cname">Ensure that AWS database instances have deletion protection enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_db_instance.main</code></dd>
+    <dt>File</dt><dd><code>/rds.tf:2-30</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(c)</span> <span class="art">GDPR Art. 32(1)(c)</span></dd>
+  </dl>
+  <p class="risk">Without deletion protection, a mistaken or malicious destroy removes the database and its data with no confirmation barrier, threatening the availability that both NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c) require.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Enable deletion protection on the instance:
+  deletion_protection = true</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-293" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV_AWS_144</span>
+    <span class="cname">Ensure that S3 bucket has cross-region replication enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket.data</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:2-9</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(c)</span> <span class="art">GDPR Art. 32(1)(c)</span></dd>
+  </dl>
+  <p class="risk">A bucket replicated only in one region is lost with that region. Cross-region replication is the mechanism that keeps personal data available and restorable after a regional outage, as NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c) require.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Replicate the bucket to a second region:
+  resource &quot;aws_s3_bucket_replication_configuration&quot; &quot;data&quot; {
+    role   = aws_iam_role.replication.arn
+    bucket = aws_s3_bucket.data.id
+    rule { destination { bucket = aws_s3_bucket.replica.arn } }
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-bucket-has-cross-region-replication-enabled" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV_AWS_144</span>
+    <span class="cname">Ensure that S3 bucket has cross-region replication enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket.logs</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:22-28</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(c)</span> <span class="art">GDPR Art. 32(1)(c)</span></dd>
+  </dl>
+  <p class="risk">A bucket replicated only in one region is lost with that region. Cross-region replication is the mechanism that keeps personal data available and restorable after a regional outage, as NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c) require.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Replicate the bucket to a second region:
+  resource &quot;aws_s3_bucket_replication_configuration&quot; &quot;data&quot; {
+    role   = aws_iam_role.replication.arn
+    bucket = aws_s3_bucket.data.id
+    rule { destination { bucket = aws_s3_bucket.replica.arn } }
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-bucket-has-cross-region-replication-enabled" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV_AWS_18</span>
+    <span class="cname">Ensure the S3 bucket has access logging enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket.data</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:2-9</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(b)</span></dd>
+  </dl>
+  <p class="risk">Without S3 server access logging there is no record of who read or wrote objects, so a data-access incident cannot be detected, scoped, or investigated. NIS2 Art. 21(2)(b) requires the ability to handle and analyse incidents.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Send access logs to a dedicated logging bucket:
+  resource &quot;aws_s3_bucket_logging&quot; &quot;this&quot; {
+    bucket        = aws_s3_bucket.data.id
+    target_bucket = aws_s3_bucket.logs.id
+    target_prefix = &quot;s3-access/&quot;
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-13-enable-logging" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV_AWS_18</span>
+    <span class="cname">Ensure the S3 bucket has access logging enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket.logs</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:22-28</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(b)</span></dd>
+  </dl>
+  <p class="risk">Without S3 server access logging there is no record of who read or wrote objects, so a data-access incident cannot be detected, scoped, or investigated. NIS2 Art. 21(2)(b) requires the ability to handle and analyse incidents.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Send access logs to a dedicated logging bucket:
+  resource &quot;aws_s3_bucket_logging&quot; &quot;this&quot; {
+    bucket        = aws_s3_bucket.data.id
+    target_bucket = aws_s3_bucket.logs.id
+    target_prefix = &quot;s3-access/&quot;
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-13-enable-logging" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV_AWS_21</span>
+    <span class="cname">Ensure all data stored in the S3 bucket have versioning enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket.data</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:2-9</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(c)</span> <span class="art">GDPR Art. 32(1)(c)</span></dd>
+  </dl>
+  <p class="risk">Without versioning, an accidental or malicious overwrite/delete is unrecoverable. Versioning provides point-in-time restore, supporting the recovery obligation in GDPR Art. 32(1)(c) and business continuity under NIS2 Art. 21(2)(c).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Enable bucket versioning:
+  resource &quot;aws_s3_bucket_versioning&quot; &quot;this&quot; {
+    bucket = aws_s3_bucket.data.id
+    versioning_configuration { status = &quot;Enabled&quot; }
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-16-enable-versioning" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="cid">CKV_AWS_21</span>
+    <span class="cname">Ensure all data stored in the S3 bucket have versioning enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket.logs</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:22-28</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(c)</span> <span class="art">GDPR Art. 32(1)(c)</span></dd>
+  </dl>
+  <p class="risk">Without versioning, an accidental or malicious overwrite/delete is unrecoverable. Versioning provides point-in-time restore, supporting the recovery obligation in GDPR Art. 32(1)(c) and business continuity under NIS2 Art. 21(2)(c).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Enable bucket versioning:
+  resource &quot;aws_s3_bucket_versioning&quot; &quot;this&quot; {
+    bucket = aws_s3_bucket.data.id
+    versioning_configuration { status = &quot;Enabled&quot; }
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-16-enable-versioning" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<h3 style="color:#2980b9">LOW (8)</h3>
+<article class="finding sev-low" style="border-left-color:#2980b9">
+  <div class="finding-head">
+    <span class="badge" style="background:#2980b9">LOW</span>
+    <span class="cid">CKV2_AWS_5</span>
+    <span class="cname">Ensure that Security Groups are attached to another resource</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_security_group.web</code></dd>
+    <dt>File</dt><dd><code>/network.tf:61-93</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span></dd>
+  </dl>
+  <p class="risk">Orphaned security groups accumulate stale rules that later get attached &quot;because they were there&quot;, importing unintended access into live environments — an unmanaged asset under the access control and asset management of NIS2 Art. 21(2)(i).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Reference every security group from the resource it guards (and delete the rest):
+  resource &quot;aws_instance&quot; &quot;app&quot; {
+    vpc_security_group_ids = [aws_security_group.app.id]
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-that-security-groups-are-attached-to-ec2-instances-or-elastic-network-interfaces-enis" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-low" style="border-left-color:#2980b9">
+  <div class="finding-head">
+    <span class="badge" style="background:#2980b9">LOW</span>
+    <span class="cid">CKV_AWS_23</span>
+    <span class="cname">Ensure every security group and rule has a description</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_security_group.rds</code></dd>
+    <dt>File</dt><dd><code>/network.tf:96-119</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span></dd>
+  </dl>
+  <p class="risk">Undocumented rules cannot be reviewed: nobody can tell which rule is a deliberate control and which is leftover access. Descriptions are what make rule review — and therefore accountable access control under NIS2 Art. 21(2)(i) — possible.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Describe the purpose of every group and rule:
+  resource &quot;aws_security_group&quot; &quot;web&quot; {
+    description = &quot;Web tier: HTTP from office CIDR only&quot;
+    ingress {
+      description = &quot;HTTP from office&quot;
+      cidr_blocks = [&quot;203.0.113.0/24&quot;]
+    }
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/networking-31" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-low" style="border-left-color:#2980b9">
+  <div class="finding-head">
+    <span class="badge" style="background:#2980b9">LOW</span>
+    <span class="cid">CKV2_AWS_60</span>
+    <span class="cname">Ensure RDS instance with copy tags to snapshots is enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_db_instance.main</code></dd>
+    <dt>File</dt><dd><code>/rds.tf:2-30</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(c)</span></dd>
+  </dl>
+  <p class="risk">Snapshots without the instance&#x27;s tags cannot be found by restore runbooks or retention policies, so recovery depends on tribal knowledge. Tag propagation is part of accountable backup management under NIS2 Art. 21(2)(c).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Copy tags onto snapshots:
+  resource &quot;aws_db_instance&quot; &quot;main&quot; {
+    copy_tags_to_snapshot = true
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-2-60" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-low" style="border-left-color:#2980b9">
+  <div class="finding-head">
+    <span class="badge" style="background:#2980b9">LOW</span>
+    <span class="cid">CKV_AWS_353</span>
+    <span class="cname">Ensure that RDS instances have performance insights enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_db_instance.main</code></dd>
+    <dt>File</dt><dd><code>/rds.tf:2-30</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(b)</span></dd>
+  </dl>
+  <p class="risk">Performance Insights records query-level activity over time — the evidence needed to spot anomalous access patterns and analyse database incidents under NIS2 Art. 21(2)(b).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Enable Performance Insights on the instance:
+  resource &quot;aws_db_instance&quot; &quot;main&quot; {
+    performance_insights_enabled = true
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-353" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-low" style="border-left-color:#2980b9">
+  <div class="finding-head">
+    <span class="badge" style="background:#2980b9">LOW</span>
+    <span class="cid">CKV2_AWS_61</span>
+    <span class="cname">Ensure that an S3 bucket has a lifecycle configuration</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket.data</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:2-9</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(c)</span></dd>
+  </dl>
+  <p class="risk">Without lifecycle rules, log and backup objects accumulate indefinitely or are manually purged ad hoc, so retention for data protection and continuity purposes is unmanaged. Lifecycle configuration is the disciplined data lifecycle NIS2 Art. 21(2)(c) backup management expects.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Define lifecycle rules (transition + expiry) for the bucket:
+  resource &quot;aws_s3_bucket_lifecycle_configuration&quot; &quot;logs&quot; {
+    bucket = aws_s3_bucket.logs.id
+    rule {
+      id     = &quot;expire-logs&quot;
+      status = &quot;Enabled&quot;
+      expiration { days = 365 }
+    }
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-61" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-low" style="border-left-color:#2980b9">
+  <div class="finding-head">
+    <span class="badge" style="background:#2980b9">LOW</span>
+    <span class="cid">CKV2_AWS_61</span>
+    <span class="cname">Ensure that an S3 bucket has a lifecycle configuration</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket.logs</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:22-28</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(c)</span></dd>
+  </dl>
+  <p class="risk">Without lifecycle rules, log and backup objects accumulate indefinitely or are manually purged ad hoc, so retention for data protection and continuity purposes is unmanaged. Lifecycle configuration is the disciplined data lifecycle NIS2 Art. 21(2)(c) backup management expects.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Define lifecycle rules (transition + expiry) for the bucket:
+  resource &quot;aws_s3_bucket_lifecycle_configuration&quot; &quot;logs&quot; {
+    bucket = aws_s3_bucket.logs.id
+    rule {
+      id     = &quot;expire-logs&quot;
+      status = &quot;Enabled&quot;
+      expiration { days = 365 }
+    }
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-61" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-low" style="border-left-color:#2980b9">
+  <div class="finding-head">
+    <span class="badge" style="background:#2980b9">LOW</span>
+    <span class="cid">CKV2_AWS_62</span>
+    <span class="cname">Ensure S3 buckets should have event notifications enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket.data</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:2-9</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(b)</span></dd>
+  </dl>
+  <p class="risk">Without event notifications, writes to a bucket holding personal data raise no signal — unexpected mass downloads or deletions go unnoticed instead of feeding the detection capability NIS2 Art. 21(2)(b) requires.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Subscribe at least one notification target to bucket events:
+  resource &quot;aws_s3_bucket_notification&quot; &quot;data&quot; {
+    bucket = aws_s3_bucket.data.id
+    lambda_function { lambda_function_arn = aws_lambda_function.auditor.arn
+                      events = [&quot;s3:ObjectCreated:*&quot;] }
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-62" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<article class="finding sev-low" style="border-left-color:#2980b9">
+  <div class="finding-head">
+    <span class="badge" style="background:#2980b9">LOW</span>
+    <span class="cid">CKV2_AWS_62</span>
+    <span class="cname">Ensure S3 buckets should have event notifications enabled</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket.logs</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:22-28</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(b)</span></dd>
+  </dl>
+  <p class="risk">Without event notifications, writes to a bucket holding personal data raise no signal — unexpected mass downloads or deletions go unnoticed instead of feeding the detection capability NIS2 Art. 21(2)(b) requires.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Subscribe at least one notification target to bucket events:
+  resource &quot;aws_s3_bucket_notification&quot; &quot;data&quot; {
+    bucket = aws_s3_bucket.data.id
+    lambda_function { lambda_function_arn = aws_lambda_function.auditor.arn
+                      events = [&quot;s3:ObjectCreated:*&quot;] }
+  }</pre></div>
+  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-62" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
+</article>
+<footer>Generated by tf-eu-guard v0.1.0 on 2026-08-30 16:53 UTC. Only failed checks that map to a NIS2/GDPR control are shown; absence of a finding is not evidence of compliance.</footer>
+</body>
+</html>
