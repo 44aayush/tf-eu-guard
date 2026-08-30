@@ -3,7 +3,7 @@ name = "tf-eu-guard"
 version = "0.1.0"
 description = "EU compliance security linter for Terraform — NIS2 and GDPR mapping"
 authors = [
-    {name = "Aayush", email = "your.email@example.com"}
+    {name = "44aayush", email = "k44aayush.official@gmail.com"}
 ]
 readme = "README.md"
 requires-python = ">=3.10"
