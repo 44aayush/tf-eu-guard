@@ -40,7 +40,16 @@ Most organizations scan infrastructure-as-code with tools like Checkov or tfsec,
 Requires **Python ≥ 3.10**. Installs Checkov 3.3.13 as a dependency.
 
 ```bash
+pip install tf-eu-guard
+```
+
+Also available on PyPI: [tf-eu-guard](https://pypi.org/project/tf-eu-guard/)
+
+For development (from a clone of this repo):
+
+```bash
 pip install -e .
+```
 ```
 
 ### Basic Scan
