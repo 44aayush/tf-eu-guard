@@ -1,4 +1,4 @@
-"""Phase 2 — validate the compliance registry (tf_eu_guard/mapping/registry.yaml).
+"""Phase 2 — validate the compliance registry (tf_eu_guard/mapping/registry-{aws,azure,gcp}.yaml).
 
 Hermetic: no Checkov, no network. These tests assert the registry loads, that
 every entry is structurally complete, that article references are well-formed,

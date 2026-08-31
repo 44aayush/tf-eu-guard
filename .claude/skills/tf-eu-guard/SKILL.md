@@ -65,7 +65,7 @@ When reporting back to the user:
 3. For remediation detail, point to `docs/nis2-mapping.md` and `docs/gdpr-mapping.md`.
 
 ## Notes
-- The compliance mappings live in `tf_eu_guard/mapping/registry.yaml`.
+- The compliance mappings live in `tf_eu_guard/mapping/`, split per provider: `registry-aws.yaml`, `registry-azure.yaml`, and `registry-gcp.yaml`.
 - `examples/vulnerable-aws/` (and the broader `examples/end2end/` suite) are intentionally-insecure stacks you can use to demo the tool.
 - If Bash permission prompts are noisy, the user can allow `Bash(tf-eu-guard scan:*)` and
   `Bash(checkov:*)` in `.claude/settings.local.json`.

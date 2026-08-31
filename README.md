@@ -1,6 +1,6 @@
 # tf-eu-guard
 
-[![CI](https://github.com/44aayush/tf-eu-guard-omni/actions/workflows/ci.yml/badge.svg)](https://github.com/44aayush/tf-eu-guard-omni/actions/workflows/ci.yml)
+[![CI](https://github.com/44aayush/tf-eu-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/44aayush/tf-eu-guard/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![Checkov 3.3.13](https://img.shields.io/badge/checkov-3.3.13-8A2BE2)](https://www.checkov.io/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -109,7 +109,7 @@ Quick terminal output for engineers fixing issues:
 tf-eu-guard scan ./terraform --output dev
 ```
 
-![Dev report terminal output](docs/screenshots/vulnerable-scan.png)
+![Dev report terminal output](https://raw.githubusercontent.com/44aayush/tf-eu-guard/main/docs/screenshots/vulnerable-scan.png)
 
 ### Security Dashboard
 
@@ -119,9 +119,9 @@ HTML report with severity breakdown and compliance tags:
 tf-eu-guard scan ./terraform --output security
 ```
 
-![Security dashboard](docs/screenshots/security-dashboard.png)
+![Security dashboard](https://raw.githubusercontent.com/44aayush/tf-eu-guard/main/docs/screenshots/security-dashboard.png)
 
-> Live HTML version: [`docs/screenshots/scan-report.html`](docs/screenshots/scan-report.html)
+> Live HTML version: [`docs/screenshots/scan-report.html`](https://github.com/44aayush/tf-eu-guard/blob/main/docs/screenshots/scan-report.html)
 
 ### Auditor Compliance Matrix
 
@@ -131,9 +131,9 @@ Article-by-article view for audit preparation:
 tf-eu-guard scan ./terraform --output auditor
 ```
 
-![Auditor report](docs/screenshots/auditor-report.png)
+![Auditor report](https://raw.githubusercontent.com/44aayush/tf-eu-guard/main/docs/screenshots/auditor-report.png)
 
-> Live HTML version: [`docs/screenshots/auditor-report.html`](docs/screenshots/auditor-report.html)
+> Live HTML version: [`docs/screenshots/auditor-report.html`](https://github.com/44aayush/tf-eu-guard/blob/main/docs/screenshots/auditor-report.html)
 
 ### JSON (CI/CD & Tooling)
 
@@ -161,7 +161,7 @@ tf-eu-guard scan ./terraform --fail-on-any             # fail on any finding
 ### GitHub Action
 
 ```yaml
-- uses: 44aayush/tf-eu-guard-omni@v1
+- uses: 44aayush/tf-eu-guard@v1
   with:
     path: './infra'
     fail-on-severity: 'HIGH'
@@ -171,7 +171,7 @@ tf-eu-guard scan ./terraform --fail-on-any             # fail on any finding
 
 ```yaml
 repos:
-  - repo: https://github.com/44aayush/tf-eu-guard-omni
+  - repo: https://github.com/44aayush/tf-eu-guard
     rev: v0.1.0
     hooks:
       - id: tf-eu-guard
