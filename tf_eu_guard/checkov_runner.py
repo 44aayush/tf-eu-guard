@@ -6,21 +6,35 @@ import sys
 from pathlib import Path
 from typing import Any
 
+#: IaC types tf-eu-guard can scan, mapped to Checkov's ``--framework`` values.
+SUPPORTED_IAC_TYPES = ("terraform", "terraform_plan", "kubernetes")
 
-def run_checkov(target_dir: Path) -> dict[str, Any]:
+
+def run_checkov(target_dir: Path, iac_type: str = "terraform") -> dict[str, Any]:
     """
-    Run Checkov against a Terraform directory and return parsed JSON results.
+    Run Checkov against an IaC directory and return parsed JSON results.
 
     Args:
-        target_dir: Path to directory containing .tf files
+        target_dir: Path to directory containing IaC files
+        iac_type: Which IaC language to scan — one of
+            :data:`SUPPORTED_IAC_TYPES`, passed through to Checkov's
+            ``--framework`` flag. Unrelated to the CLI's ``--framework``
+            compliance-regime filter.
 
     Returns:
         Parsed JSON output from Checkov
 
     Raises:
+        ValueError: If ``iac_type`` is not a supported IaC type
         subprocess.CalledProcessError: If Checkov execution fails
         json.JSONDecodeError: If Checkov output is not valid JSON
     """
+    if iac_type not in SUPPORTED_IAC_TYPES:
+        raise ValueError(
+            f"Unsupported iac_type '{iac_type}' — expected one of "
+            f"{', '.join(SUPPORTED_IAC_TYPES)}"
+        )
+
     # tf-eu-guard's custom EU-compliance checks (EUGUARD_*) live alongside this
     # module; load them so a normal scan produces stock (CKV_AWS_*) *and* custom
     # findings. Each check subdir carries an __init__.py, which Checkov's
@@ -32,7 +46,7 @@ def run_checkov(target_dir: Path) -> dict[str, Any]:
         "-d", str(target_dir),
         "--external-checks-dir", str(checks_dir),
         "--output", "json",
-        "--framework", "terraform",
+        "--framework", iac_type,
         "--quiet",  # Suppress progress bars
     ]
 
@@ -55,20 +69,22 @@ def run_checkov(target_dir: Path) -> dict[str, Any]:
     return json.loads(result.stdout)
 
 
-def load_checkov_json(json_source: Path) -> dict[str, Any]:
+def load_checkov_json(json_source: Path, iac_type: str = "terraform") -> dict[str, Any]:
     """
     Load a pre-generated Checkov JSON result instead of running Checkov.
 
     Accepts a file path, or ``"-"`` to read from stdin — e.g. piped from
-    ``checkov -d <dir> --output json --framework terraform --quiet``.
+    ``checkov -d <dir> --output json --framework <iac_type> --quiet``.
 
     Args:
         json_source: Path to a Checkov JSON file, or ``Path("-")`` for stdin
+        iac_type: Which IaC language the JSON was produced for — used to pick
+            the right element when Checkov returns a multi-framework array
 
     Returns:
         A single Checkov result object (``{"results": {...}, ...}``) ready for
         ``extract_failed_checks``. Multi-check-type Checkov output (a JSON array)
-        is normalized down to the ``terraform`` element.
+        is normalized down to the ``iac_type`` element.
 
     Raises:
         FileNotFoundError: If the file does not exist
@@ -80,15 +96,15 @@ def load_checkov_json(json_source: Path) -> dict[str, Any]:
     else:
         text = Path(json_source).read_text()
 
-    return _normalize_checkov_output(json.loads(text))
+    return _normalize_checkov_output(json.loads(text), iac_type)
 
 
-def _normalize_checkov_output(data: Any) -> dict[str, Any]:
+def _normalize_checkov_output(data: Any, iac_type: str = "terraform") -> dict[str, Any]:
     """
     Normalize Checkov JSON into the single-object form ``extract_failed_checks`` expects.
 
     Checkov emits a single object for one check type, but a JSON *array* of objects
-    when several run (e.g. terraform + secrets). We select the ``terraform`` element,
+    when several run (e.g. terraform + secrets). We select the ``iac_type`` element,
     falling back to the first object present.
     """
     if isinstance(data, dict):
@@ -96,7 +112,7 @@ def _normalize_checkov_output(data: Any) -> dict[str, Any]:
 
     if isinstance(data, list):
         for element in data:
-            if isinstance(element, dict) and element.get("check_type") == "terraform":
+            if isinstance(element, dict) and element.get("check_type") == iac_type:
                 return element
         for element in data:
             if isinstance(element, dict):

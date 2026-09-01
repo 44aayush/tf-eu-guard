@@ -1,0 +1,520 @@
+# =============================================================================
+# Kubernetes Compliance Mapping Registry: Checkov Check ID -> EU Regulations
+# =============================================================================
+# NIS2 Art. 21(2) and GDPR Art. 32(1) mappings for Checkov Kubernetes checks
+# (CKV_K8S_* namespace — no overlap with the AWS/Azure/GCP provider registries).
+# Check IDs are those that actually fire against examples/vulnerable-kubernetes;
+# severities are authored here (Checkov leaves `severity` null), following the
+# same risk/remediation authoring pattern as registry-aws.yaml.
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# Pod security context  (privileged / root / capabilities)  ->  NIS2 21(2)(i)(g), GDPR 32(1)(b)
+# -----------------------------------------------------------------------------
+
+CKV_K8S_16:
+  check_name: "Container should not be privileged"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Access control and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    A privileged container has access to host devices and effectively root
+    power over the node. A single compromised pod can pivot to the host, other
+    pods, and the cluster — collapsing the isolation NIS2 Art. 21(2)(i)
+    requires and exposing all data processed on the node, contrary to GDPR
+    Art. 32(1)(b).
+  remediation: |
+    Run containers unprivileged:
+      securityContext:
+        privileged: false
+  severity: CRITICAL
+
+CKV_K8S_23:
+  check_name: "Minimize the admission of root containers"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Access control and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Containers running as UID 0 share the host root identity: a container
+    escape or filesystem flaw then grants host-level root, defeating the least
+    privilege NIS2 Art. 21(2)(i) expects and endangering personal data
+    processed on the node under GDPR Art. 32(1)(b).
+  remediation: |
+    Run as a non-root user:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+  severity: HIGH
+
+CKV_K8S_40:
+  check_name: "Containers should run as a high UID to avoid host conflict"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Access control and asset management"
+  risk: >
+    Low container UIDs (below 100) overlap with host system accounts, so
+    file-permission boundaries between container and host blur — easing
+    privilege escalation paths against the access control NIS2 Art. 21(2)(i)
+    mandates.
+  remediation: |
+    Use a high, non-system UID:
+      securityContext:
+        runAsUser: 10001
+  severity: MEDIUM
+
+CKV_K8S_20:
+  check_name: "Containers should not run with allowPrivilegeEscalation"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Access control and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    allowPrivilegeEscalation lets a process inside the container gain more
+    privileges than it started with (setuid binaries), re-opening the
+    escalation path that non-root execution was meant to close, against NIS2
+    Art. 21(2)(i) and GDPR Art. 32(1)(b).
+  remediation: |
+    Disable privilege escalation:
+      securityContext:
+        allowPrivilegeEscalation: false
+  severity: HIGH
+
+CKV_K8S_25:
+  check_name: "Minimize the admission of containers with added capability"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Access control and asset management"
+  risk: >
+    Added Linux capabilities (beyond the container default set) widen what a
+    compromised container process can do on the host — a direct least-
+    privilege violation under NIS2 Art. 21(2)(i).
+  remediation: |
+    Drop all capabilities instead of adding:
+      securityContext:
+        capabilities:
+          drop: ["ALL"]
+  severity: HIGH
+
+CKV_K8S_37:
+  check_name: "Minimize the admission of containers with capabilities assigned"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Access control and asset management"
+  risk: >
+    Any capability kept on a container broadens its kernel-level reach; each
+    one is a potential pivot toward the host, against the least-privilege
+    access control NIS2 Art. 21(2)(i) requires.
+  remediation: |
+    Drop all capabilities and re-add only those strictly required:
+      securityContext:
+        capabilities:
+          drop: ["ALL"]
+          # add: ["NET_BIND_SERVICE"]  # only if genuinely needed
+  severity: MEDIUM
+
+CKV_K8S_39:
+  check_name: "Do not use the CAP_SYS_ADMIN linux capability"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Access control and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    CAP_SYS_ADMIN is the most powerful non-root capability — it permits
+    mounting filesystems, loading modules and bypassing most namespaces,
+    effectively granting host administration from inside the container. This
+    defeats NIS2 Art. 21(2)(i) and endangers data on the node (GDPR
+    Art. 32(1)(b)).
+  remediation: |
+    Remove CAP_SYS_ADMIN; no workload should need it:
+      securityContext:
+        capabilities:
+          drop: ["SYS_ADMIN"]
+  severity: CRITICAL
+
+CKV_K8S_28:
+  check_name: "Minimize the admission of containers with the NET_RAW capability"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(g)"
+      title: "Network security"
+  risk: >
+    NET_RAW enables raw-socket crafting (spoofed packets, sniffing, ARP
+    poisoning) from inside the cluster network, undermining the network
+    security measures NIS2 Art. 21(2)(g) requires.
+  remediation: |
+    Drop NET_RAW (it is in the default set — drop ALL, add back only needed):
+      securityContext:
+        capabilities:
+          drop: ["NET_RAW"]
+  severity: MEDIUM
+
+CKV_K8S_19:
+  check_name: "Containers should not share the host network namespace"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(g)"
+      title: "Network security"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    hostNetwork: true removes the container network namespace: the pod sees
+    every host socket, can bind host ports, and bypasses NetworkPolicy —
+    breaking both the network segmentation of NIS2 Art. 21(2)(g) and the
+    confidentiality of co-hosted processing under GDPR Art. 32(1)(b).
+  remediation: |
+    Remove host networking:
+      # Before: hostNetwork: true
+      # After (default):
+      hostNetwork: false
+  severity: HIGH
+
+CKV_K8S_29:
+  check_name: "Apply security context to your pods and containers"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(e)"
+      title: "Security in network and information systems acquisition and development and maintenance"
+  risk: >
+    A pod with no security context runs with container-runtime defaults —
+    often root, with default capabilities and no seccomp. Secure defaults are
+    the baseline the secure-development practice of NIS2 Art. 21(2)(e)
+    expects of workload manifests.
+  remediation: |
+    Set an explicit, restrictive securityContext at pod and container level:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+  severity: MEDIUM
+
+CKV_K8S_31:
+  check_name: "Ensure that the seccomp profile is set to docker/default or runtime/default"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(e)"
+      title: "Security in network and information systems acquisition and development and maintenance"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Without a seccomp profile the container can invoke any syscall the kernel
+    allows, enlarging the kernel attack surface for a compromised process —
+    contrary to secure hardening practice under NIS2 Art. 21(2)(e) and the
+    resilience expected by GDPR Art. 32(1)(b).
+  remediation: |
+    Pin the seccomp profile:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+  severity: LOW
+
+CKV_K8S_22:
+  check_name: "Use read-only filesystem for containers where possible"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(e)"
+      title: "Security in network and information systems acquisition and development and maintenance"
+  risk: >
+    A writable root filesystem lets an attacker persist binaries and tamper
+    with the application in place, surviving container restarts within the
+    same image — undermining the integrity of the processing system (GDPR
+    Art. 32(1)(b)) and secure development practice (NIS2 Art. 21(2)(e)).
+  remediation: |
+    Mount the root filesystem read-only:
+      securityContext:
+        readOnlyRootFilesystem: true
+  severity: LOW
+
+CKV_K8S_38:
+  check_name: "Ensure that Service Account Tokens are only mounted where necessary"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Access control and asset management"
+  risk: >
+    Every pod gets its service account's token by default; a compromised pod
+    inherits that identity's API power, and stolen tokens are valid cluster
+    credentials. Limiting token mounts is basic access hygiene under NIS2
+    Art. 21(2)(i).
+  remediation: |
+    Disable automounting where the API isn't used:
+      automountServiceAccountToken: false
+  severity: MEDIUM
+
+
+# -----------------------------------------------------------------------------
+# RBAC  (over-broad bindings)  ->  NIS2 21(2)(i), GDPR 32(1)(b)
+# -----------------------------------------------------------------------------
+
+CKV_K8S_17:
+  check_name: "Containers should not privilege escalations permissions - RBAC"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(i)"
+      title: "Access control and asset management"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    RBAC rules granting pod exec, pod attach, or privilege-escalating verbs
+    let a subject take control of any pod in scope and inherit its access —
+    a cluster-wide privilege escalation path that defeats NIS2 Art. 21(2)(i)
+    and endangers all data reachable from those pods (GDPR Art. 32(1)(b)).
+  remediation: |
+    Remove exec/attach/privilege-escalating verbs and scope RBAC to one
+    namespace and resource set:
+      rules:
+        - apiGroups: [""]
+          resources: ["pods"]
+          verbs: ["get", "list"]   # never create/exec/patch pods broadly
+  severity: CRITICAL
+
+
+# -----------------------------------------------------------------------------
+# Network policy  ->  NIS2 21(2)(g), GDPR 32(1)(b)
+# -----------------------------------------------------------------------------
+
+CKV2_K8S_6:
+  check_name: "Minimize the admission of pods which lack an associated NetworkPolicy"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(g)"
+      title: "Network security"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Without a NetworkPolicy, any pod in the namespace can reach any other
+    pod's ports — the flat internal network lets a single compromised pod
+    scan and exploit every workload (lateral movement), contrary to the
+    network security measures NIS2 Art. 21(2)(g) mandates and the resilience
+    of processing systems GDPR Art. 32(1)(b) expects.
+  remediation: |
+    Apply a default-deny NetworkPolicy per namespace, then allow explicit
+    flows:
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: default-deny-ingress
+      spec:
+        podSelector: {}
+        policyTypes: ["Ingress"]
+        ingress: []
+  severity: HIGH
+
+
+# -----------------------------------------------------------------------------
+# Secrets  (literal values in manifests / env)  ->  NIS2 21(2)(e), GDPR 32(1)(b)
+# -----------------------------------------------------------------------------
+
+CKV_K8S_35:
+  check_name: "Prefer using secrets as files over secrets as environment variables"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(e)"
+      title: "Security in network and information systems acquisition and development and maintenance"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Secret values injected as environment variables leak into crash dumps,
+    /proc/<pid>/environ, child processes and CI logs far more readily than
+    file mounts — a confidentiality exposure for any personal data the
+    secret protects (GDPR Art. 32(1)(b)).
+  remediation: |
+    Mount secrets as read-only files instead of env vars:
+      volumeMounts:
+        - name: app-credentials
+          mountPath: /etc/secrets
+          readOnly: true
+      volumes:
+        - name: app-credentials
+          secret:
+            secretName: app-credentials
+  severity: MEDIUM
+
+
+# -----------------------------------------------------------------------------
+# Resource limits / resilience  ->  NIS2 21(2)(c), GDPR 32(1)(c)
+# -----------------------------------------------------------------------------
+
+CKV_K8S_10:
+  check_name: "CPU requests should be set"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity and resilience"
+    - framework: GDPR
+      article: "Art. 32(1)(c)"
+      title: "Ability to restore availability and access in a timely manner"
+  risk: >
+    Without CPU requests the scheduler cannot bin-pack predictably: noisy
+    neighbours starve co-tenant pods and node capacity is oversubscribed,
+    degrading the availability guarantees NIS2 Art. 21(2)(c) and GDPR
+    Art. 32(1)(c) expect of the platform.
+  remediation: |
+    Set CPU requests:
+      resources:
+        requests:
+          cpu: 100m
+  severity: LOW
+
+CKV_K8S_11:
+  check_name: "CPU limits should be set"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity and resilience"
+  risk: >
+    A container without a CPU limit can monopolise its node during a runaway
+    loop, degrading or evicting every co-located workload — a resilience
+    failure NIS2 Art. 21(2)(c) requires to be prevented.
+  remediation: |
+    Set CPU limits:
+      resources:
+        limits:
+          cpu: 500m
+  severity: LOW
+
+CKV_K8S_12:
+  check_name: "Memory requests should be set"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity and resilience"
+    - framework: GDPR
+      article: "Art. 32(1)(c)"
+      title: "Ability to restore availability and access in a timely manner"
+  risk: >
+    Memory requests tell the scheduler what a pod truly needs; without them
+    nodes are over-committed and the OOM killer evicts pods unpredictably —
+    harming the availability NIS2 Art. 21(2)(c) / GDPR Art. 32(1)(c) require.
+  remediation: |
+    Set memory requests:
+      resources:
+        requests:
+          memory: 128Mi
+  severity: LOW
+
+CKV_K8S_13:
+  check_name: "Memory limits should be set"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity and resilience"
+  risk: >
+    No memory limit means a leaking container consumes the node's memory until
+    the OOM killer intervenes, taking down co-located pods — a preventable
+    resilience failure under NIS2 Art. 21(2)(c).
+  remediation: |
+    Set memory limits:
+      resources:
+        limits:
+          memory: 512Mi
+  severity: LOW
+
+
+# -----------------------------------------------------------------------------
+# Supply chain / image hygiene  ->  NIS2 21(2)(d)(e), GDPR 32(1)(d)
+# -----------------------------------------------------------------------------
+
+CKV_K8S_15:
+  check_name: "Image Pull Policy should be Always"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(d)"
+      title: "Supply chain security"
+  risk: >
+    With pull policy IfNotPresent, nodes keep running a stale local image even
+    after the registry image is patched — updates and rollbacks silently
+    diverge from the reviewed artifact, undermining the supply-chain integrity
+    NIS2 Art. 21(2)(d) requires.
+  remediation: |
+    Always pull the image:
+      imagePullPolicy: Always
+  severity: LOW
+
+CKV_K8S_43:
+  check_name: "Image should use digest"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(d)"
+      title: "Supply chain security"
+  risk: >
+    A mutable tag (nginx:1.25) can be silently re-pointed to different
+    content; pinning the digest makes the deployed bits verifiable and
+    reproducible — the artifact integrity NIS2 Art. 21(2)(d) expects.
+  remediation: |
+    Pin images by digest:
+      image: nginx:1.25.5@sha256:<digest>
+  severity: LOW
+
+
+# -----------------------------------------------------------------------------
+# Health probes (availability detection)  ->  NIS2 21(2)(c), GDPR 32(1)(c)
+# -----------------------------------------------------------------------------
+
+CKV_K8S_8:
+  check_name: "Liveness Probe Should be Configured"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity and resilience"
+    - framework: GDPR
+      article: "Art. 32(1)(c)"
+      title: "Ability to restore availability and access in a timely manner"
+  risk: >
+    Without a liveness probe a deadlocked or crashed container is never
+    restarted by the kubelet, so the service stays unavailable with no
+    self-healing — the timely restoration of availability NIS2 Art. 21(2)(c)
+    and GDPR Art. 32(1)(c) require.
+  remediation: |
+    Configure a liveness probe:
+      livenessProbe:
+        httpGet:
+          path: /healthz
+          port: 8080
+        periodSeconds: 15
+  severity: LOW
+
+CKV_K8S_9:
+  check_name: "Readiness Probe Should be Configured"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(c)"
+      title: "Business continuity and resilience"
+    - framework: GDPR
+      article: "Art. 32(1)(c)"
+      title: "Ability to restore availability and access in a timely manner"
+  risk: >
+    Without a readiness probe traffic is routed to containers that are not
+    yet (or no longer) able to serve, causing avoidable request failures —
+    a resilience gap against NIS2 Art. 21(2)(c).
+  remediation: |
+    Configure a readiness probe:
+      readinessProbe:
+        httpGet:
+          path: /ready
+          port: 8080
+        periodSeconds: 10
+  severity: LOW

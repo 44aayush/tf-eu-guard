@@ -1,0 +1,115 @@
+# compliant-kubernetes — clean counterpart of the vulnerable manifests
+#
+# Non-privileged non-root containers with dropped capabilities, a scoped
+# Role/RoleBinding (namespace, not cluster-admin), a restrictive
+# NetworkPolicy, no Secret with literal data (values injected via
+# valueFrom.secretKeyRef by the external-secrets operator), and explicit
+# resource requests/limits.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: compliant-example
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: compliant-app
+  namespace: compliant-example
+  labels:
+    app: compliant-app
+spec:
+  serviceAccountName: compliant-sa
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: app
+      image: nginx:1.25.5@sha256:e0ad3d59a90a9c6a0d1c1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1
+      imagePullPolicy: Always
+      livenessProbe:
+        httpGet:
+          path: /healthz
+          port: 8080
+        initialDelaySeconds: 10
+        periodSeconds: 15
+      readinessProbe:
+        httpGet:
+          path: /ready
+          port: 8080
+        initialDelaySeconds: 5
+        periodSeconds: 10
+      securityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        runAsUser: 10001
+        capabilities:
+          drop: ["ALL"]
+      env:
+        - name: DB_PASSWORD_FILE
+          value: /etc/secrets/password
+      volumeMounts:
+        - name: app-credentials
+          mountPath: /etc/secrets
+          readOnly: true
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      ports:
+        - containerPort: 8080
+  volumes:
+    - name: app-credentials
+      secret:
+        secretName: app-credentials
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: compliant-sa
+  namespace: compliant-example
+automountServiceAccountToken: false
+---
+# Namespace-scoped read-only role instead of cluster-admin
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: compliant-reader
+  namespace: compliant-example
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: compliant-reader-binding
+  namespace: compliant-example
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: compliant-reader
+subjects:
+  - kind: ServiceAccount
+    name: compliant-sa
+    namespace: compliant-example
+---
+# Default-deny ingress within the namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: compliant-example
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress: []

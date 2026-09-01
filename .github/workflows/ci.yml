@@ -91,6 +91,44 @@ jobs:
         run: |
           tf-eu-guard scan examples/end2end/ --output dev
 
+      - name: Scan Terraform plan fixture (terraform_plan)
+        run: |
+          set -euo pipefail
+          tf-eu-guard scan --checkov-json tests/fixtures/checkov-vulnerable-plan.json \
+            --iac-type terraform_plan --output json > plan-scan.json
+          count=$(jq 'length' plan-scan.json)
+          if [ "$count" -lt 1 ]; then
+            echo "::error::terraform_plan scan produced $count mapped findings (expected ~30)"
+            exit 1
+          fi
+          echo "OK: terraform_plan -> $count mapped findings"
+
+      - name: Scan Kubernetes fixtures
+        run: |
+          set -euo pipefail
+          tf-eu-guard scan examples/vulnerable-kubernetes/ --iac-type kubernetes \
+            --output json > k8s-scan.json
+          count=$(jq 'length' k8s-scan.json)
+          if [ "$count" -lt 1 ]; then
+            echo "::error::kubernetes scan produced $count mapped findings (expected ~24)"
+            exit 1
+          fi
+          echo "OK: vulnerable-kubernetes -> $count mapped findings"
+          # The custom K8s secrets check must fire on the vulnerable fixture...
+          for expected in EUGUARD_NIS2_001 CKV2_K8S_6; do
+            grep -q "\"$expected\"" k8s-scan.json \
+              || { echo "::error::$expected did not fire on the vulnerable fixture"; exit 1; }
+          done
+          # ...and stay quiet on the compliant one.
+          tf-eu-guard scan examples/compliant-kubernetes/ --iac-type kubernetes \
+            --output json > k8s-clean.json
+          clean=$(jq 'length' k8s-clean.json)
+          if [ "$clean" -ne 0 ]; then
+            echo "::error::compliant-kubernetes produced $clean mapped findings (expected 0)"
+            exit 1
+          fi
+          echo "OK: compliant-kubernetes -> clean"
+
       - name: Assert custom EU-compliance checks fire
         run: |
           set -euo pipefail

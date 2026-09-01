@@ -119,3 +119,105 @@ def test_custom_check_ids_are_registered(registry):
     would be silently dropped by enrich_findings."""
     for check in (EURegionEnforcement(), HardcodedSecrets()):
         assert check.id in registry, f"{check.id} has no registry.yaml mapping"
+
+
+# --- EUGUARD_NIS2_001 (Kubernetes variant) -------------------------------------
+
+from tf_eu_guard.checks.k8s.secrets_in_code import (  # noqa: E402
+    K8sContainerEnvHardcodedSecrets,
+    K8sSecretManifestHardcodedSecrets,
+)
+
+
+def _run_k8s_secret_check(conf: dict) -> CheckResult:
+    check = K8sSecretManifestHardcodedSecrets()
+    check.entity_type = "Secret"
+    return check.scan_spec_conf(conf)
+
+
+def _run_k8s_env_check(conf: dict) -> CheckResult:
+    check = K8sContainerEnvHardcodedSecrets()
+    check.entity_type = "Pod"
+    return check.scan_spec_conf(conf)
+
+
+# Secret-manifest variant
+
+@pytest.mark.parametrize(
+    "field",
+    ["stringData", "data"],
+)
+def test_k8s_secret_manifest_literal_fails(field):
+    assert _run_k8s_secret_check({field: {"password": "ChangeMe123!"}}) == CheckResult.FAILED
+
+
+@pytest.mark.parametrize(
+    "conf",
+    [
+        {"metadata": {"name": "app-credentials"}},  # no data at all (operator-managed)
+        {"data": {}, "stringData": {}},             # empty data
+        {"data": {"password": ""}},                 # blank value
+    ],
+)
+def test_k8s_secret_manifest_clean_passes(conf):
+    assert _run_k8s_secret_check(conf) == CheckResult.PASSED
+
+
+# Container-env variant
+
+@pytest.mark.parametrize(
+    "name",
+    ["DB_PASSWORD", "API_TOKEN", "SECRET_KEY", "aws_access_key_id"],
+)
+def test_k8s_env_literal_sensitive_name_fails(name):
+    conf = {"spec": {"containers": [{"name": "app", "env": [{"name": name, "value": "hunter2"}]}]}}
+    assert _run_k8s_env_check(conf) == CheckResult.FAILED
+
+
+def test_k8s_env_secret_key_ref_passes():
+    conf = {"spec": {"containers": [{"name": "app", "env": [
+        {"name": "DB_PASSWORD", "valueFrom": {"secretKeyRef": {"name": "db", "key": "pw"}}}
+    ]}]}}
+    assert _run_k8s_env_check(conf) == CheckResult.PASSED
+
+
+def test_k8s_env_nonsensitive_literal_passes():
+    conf = {"spec": {"containers": [{"name": "app", "env": [
+        {"name": "LOG_LEVEL", "value": "debug"}
+    ]}]}}
+    assert _run_k8s_env_check(conf) == CheckResult.PASSED
+
+
+@pytest.mark.parametrize("name", ["DB_PASSWORD_FILE", "TLS_KEY_PATH"])
+def test_k8s_env_file_pointer_convention_passes(name):
+    """The _FILE / _PATH suffix points at a mounted secret file, not a literal."""
+    conf = {"spec": {"containers": [{"name": "app", "env": [
+        {"name": name, "value": "/etc/secrets/password"}
+    ]}]}}
+    assert _run_k8s_env_check(conf) == CheckResult.PASSED
+
+
+def test_k8s_env_empty_value_passes():
+    conf = {"spec": {"containers": [{"name": "app", "env": [{"name": "DB_PASSWORD", "value": ""}]}]}}
+    assert _run_k8s_env_check(conf) == CheckResult.PASSED
+
+
+def test_k8s_checks_identity():
+    """Both K8s variants share the Terraform check's ID so the shared registry
+    entry enriches them."""
+    for check in (K8sSecretManifestHardcodedSecrets(), K8sContainerEnvHardcodedSecrets()):
+        assert check.id == "EUGUARD_NIS2_001"
+    assert "Secret" in K8sSecretManifestHardcodedSecrets().supported_specs
+    assert "Pod" in K8sContainerEnvHardcodedSecrets().supported_specs
+
+
+# --- K8s data-residency scope decision -----------------------------------------
+
+def test_k8s_data_residency_is_scoped_out():
+    """EUGUARD_GDPR_001 has no Kubernetes variant by design (DECISIONS.md #9):
+    manifests are cloud-agnostic, region lives at the cluster boundary, not in
+    the manifest. Guard against an accidental future import, which would
+    silently do nothing."""
+    import tf_eu_guard.checks.k8s as k8s_pkg
+
+    assert not hasattr(k8s_pkg, "data_residency")
