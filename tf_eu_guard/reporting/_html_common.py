@@ -55,14 +55,28 @@ def severity_counts(findings: list[EnrichedFinding]) -> dict[Severity, int]:
     return counts
 
 
-def line_range(finding: EnrichedFinding) -> str:
-    """Render a finding's line range as ``start-end`` (or ``start``/``?``)."""
+def line_range(finding: EnrichedFinding) -> str | None:
+    """Render a finding's line range as ``start-end``, or ``None`` if unknown.
+
+    Checkov reports ``[0, 0]`` for frameworks with no meaningful line anchor —
+    e.g. terraform_plan JSON (the whole plan is one line). Returning ``None``
+    lets callers omit the reference instead of printing a meaningless range.
+    """
     lr = finding.file_line_range or []
-    if len(lr) >= 2:
+    if len(lr) >= 2 and (lr[0] or lr[1]):  # non-degenerate range
         return f"{lr[0]}-{lr[1]}"
-    if len(lr) == 1:
+    if len(lr) == 1 and lr[0]:
         return str(lr[0])
-    return "?"
+    return None
+
+
+def file_location(finding: EnrichedFinding) -> str:
+    """Render ``file_path`` plus its line range, omitting the latter if unknown."""
+    location = esc(finding.file_path)
+    lines = line_range(finding)
+    if lines:
+        location = f"{location}:{esc(lines)}"
+    return location
 
 
 def distinct_files(findings: list[EnrichedFinding]) -> int:
@@ -88,7 +102,7 @@ def finding_card(finding: EnrichedFinding) -> str:
         "  </div>",
         '  <dl class="meta">',
         f"    <dt>Resource</dt><dd><code>{esc(finding.resource)}</code></dd>",
-        f"    <dt>File</dt><dd><code>{esc(finding.file_path)}:{esc(line_range(finding))}</code></dd>",
+        f"    <dt>File</dt><dd><code>{file_location(finding)}</code></dd>",
     ]
     if finding.articles:
         badges = " ".join(

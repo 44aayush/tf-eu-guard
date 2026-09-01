@@ -15,13 +15,22 @@ before you invest time in a PR.
 
 ## Proposing a new mapping
 
-The registry is split per provider in `tf_eu_guard/mapping/`:
+The registry is split per *namespace* in `tf_eu_guard/mapping/` — which today
+means cloud provider for Terraform checks, plus a separate file for the
+Kubernetes check namespace:
 
-| File | Provider |
-|------|----------|
-| `registry-aws.yaml` | AWS (116 mappings) |
+| File | Namespace |
+|------|-----------|
+| `registry-aws.yaml` | AWS (116 mappings — covers Terraform source *and* plan JSON, since the same `CKV_AWS_*` IDs fire in both modes) |
 | `registry-azure.yaml` | Azure (23 mappings) |
 | `registry-gcp.yaml` | GCP (22 mappings) |
+| `registry-kubernetes.yaml` | Kubernetes `CKV_K8S_*` (24 mappings) |
+
+Check IDs are globally unique keys, so a mapping works for every IaC type its
+check ID fires under — only genuinely disjoint namespaces (like K8s) get their
+own file. When adding a new IaC target, diff the IDs that actually fire
+against the registry and author only the gap (see
+`docs/DECISIONS.md` #8–9).
 
 ### Schema
 

@@ -8,6 +8,21 @@ from tf_eu_guard.models import EnrichedFinding, ScanReport, Severity
 from tf_eu_guard.reporting.base import BaseReporter
 
 
+def _line_ref(finding: EnrichedFinding) -> str | None:
+    """Line reference for a finding, or ``None`` when none is meaningful.
+
+    Checkov reports ``[0, 0]`` for frameworks with no real line anchor — e.g.
+    terraform_plan JSON or some Kubernetes findings — in which case printing
+    ``Lines: 0-0`` would be misleading.
+    """
+    lr = finding.file_line_range or []
+    if len(lr) >= 2 and (lr[0] or lr[1]):
+        return f"{lr[0]}-{lr[1]}"
+    if len(lr) == 1 and lr[0]:
+        return str(lr[0])
+    return None
+
+
 class DevReporter(BaseReporter):
     """Terminal-first report optimized for developers."""
 
@@ -50,7 +65,9 @@ class DevReporter(BaseReporter):
 
                 output.append(f"\n  [{severity_color}]●[/{severity_color}] {finding.check_id}: {finding.check_name}")
                 output.append(f"    Resource: {finding.resource}")
-                output.append(f"    Lines: {finding.file_line_range[0]}-{finding.file_line_range[1]}")
+                line_ref = _line_ref(finding)
+                if line_ref:
+                    output.append(f"    Lines: {line_ref}")
                 output.append(f"    Severity: [{severity_color}]{finding.severity.value}[/{severity_color}]")
 
                 if finding.articles:
@@ -134,7 +151,9 @@ def generate_dev_report(findings: list[EnrichedFinding]) -> None:
 
             console.print(f"\n  [{severity_color}]●[/{severity_color}] [bold]{finding.check_id}[/bold]: {finding.check_name}")
             console.print(f"    [dim]Resource:[/dim] {finding.resource}")
-            console.print(f"    [dim]Lines:[/dim] {finding.file_line_range[0]}-{finding.file_line_range[1]}")
+            line_ref = _line_ref(finding)
+            if line_ref:
+                console.print(f"    [dim]Lines:[/dim] {line_ref}")
             console.print(f"    [dim]Severity:[/dim] [{severity_color}]{finding.severity.value}[/{severity_color}]")
 
             # Compliance articles

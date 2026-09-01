@@ -19,7 +19,7 @@ from tf_eu_guard.reporting._html_common import (
     SEVERITY_COLOR,
     distinct_files,
     esc,
-    line_range,
+    file_location,
     severity_class,
 )
 
@@ -176,7 +176,7 @@ def _article_section(
             f'<td><span class="badge {severity_class(sev)}" '
             f'style="background:{SEVERITY_COLOR[sev]}">{esc(sev.value)}</span></td>'
             f"<td><code>{esc(f.resource)}</code></td>"
-            f"<td><code>{esc(f.file_path)}:{esc(line_range(f))}</code></td>"
+            f"<td><code>{file_location(f)}</code></td>"
             f"<td><code>{esc(f.check_id)}</code><br>{esc(f.check_name)}</td>"
             "</tr>"
         )

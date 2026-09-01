@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from tf_eu_guard.checkov_runner import (
+    SUPPORTED_IAC_TYPES,
     _normalize_checkov_output,
     extract_failed_checks,
     load_checkov_json,
@@ -98,6 +99,18 @@ MULTI_TYPE = [
     SAMPLE,  # the terraform element — this is the one we want selected
 ]
 
+K8S_ELEMENT = {
+    "check_type": "kubernetes",
+    "results": {"failed_checks": [{"check_id": "CKV_K8S_17"}]},
+}
+
+# A repo with both Terraform and Kubernetes files: Checkov returns one element
+# per framework in a single JSON array.
+MIXED_FRAMEWORKS = [
+    SAMPLE,        # terraform
+    K8S_ELEMENT,   # kubernetes
+]
+
 
 def test_normalize_dict_passthrough():
     assert _normalize_checkov_output(SAMPLE) is SAMPLE
@@ -107,6 +120,28 @@ def test_normalize_array_picks_terraform():
     picked = _normalize_checkov_output(MULTI_TYPE)
     assert picked["check_type"] == "terraform"
     assert [c["check_id"] for c in extract_failed_checks(picked)] == ["CKV_AWS_17", "CKV_AWS_20"]
+
+
+def test_normalize_array_picks_requested_iac_type():
+    """Mixed terraform/kubernetes input selects the right element per request."""
+    assert _normalize_checkov_output(MIXED_FRAMEWORKS, "terraform")["check_type"] == "terraform"
+    assert _normalize_checkov_output(MIXED_FRAMEWORKS, "kubernetes")["check_type"] == "kubernetes"
+
+
+def test_normalize_mixed_array_kubernetes_ids():
+    picked = _normalize_checkov_output(MIXED_FRAMEWORKS, "kubernetes")
+    assert [c["check_id"] for c in extract_failed_checks(picked)] == ["CKV_K8S_17"]
+
+
+def test_normalize_defaults_to_terraform():
+    """Without an explicit iac_type, terraform remains the default selection."""
+    assert _normalize_checkov_output(MIXED_FRAMEWORKS)["check_type"] == "terraform"
+
+
+def test_normalize_missing_requested_type_falls_back():
+    """Requesting kubernetes in a terraform+secrets array falls back to an object."""
+    picked = _normalize_checkov_output(MULTI_TYPE, "kubernetes")
+    assert picked["check_type"] == "secrets"  # first usable element
 
 
 def test_normalize_array_falls_back_to_first_object():
@@ -122,6 +157,24 @@ def test_normalize_empty_array_raises():
 def test_normalize_bad_shape_raises():
     with pytest.raises(ValueError):
         _normalize_checkov_output("not a checkov object")
+
+
+def test_load_checkov_json_threads_iac_type(tmp_path):
+    p = tmp_path / "ckv-mixed.json"
+    p.write_text(json.dumps(MIXED_FRAMEWORKS))
+    out = extract_failed_checks(load_checkov_json(p, "kubernetes"))
+    assert [c["check_id"] for c in out] == ["CKV_K8S_17"]
+
+
+def test_run_checkov_rejects_unknown_iac_type(tmp_path):
+    with pytest.raises(ValueError, match="Unsupported iac_type"):
+        run_checkov(tmp_path, "bogus_framework")
+
+
+def test_supported_iac_types_contents():
+    assert SUPPORTED_IAC_TYPES == (
+        "terraform", "terraform_plan", "kubernetes",
+    )
 
 
 def test_load_checkov_json_from_file(tmp_path):

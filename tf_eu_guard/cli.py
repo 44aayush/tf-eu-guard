@@ -9,7 +9,8 @@ def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
         prog="tf-eu-guard",
-        description="EU compliance security linter for Terraform (NIS2 + GDPR)",
+        description="EU compliance security linter for Terraform (source, plan JSON) "
+                    "and Kubernetes (NIS2 + GDPR)",
     )
     parser.add_argument(
         "command",
@@ -20,7 +21,17 @@ def main():
         "path",
         nargs="?",
         type=Path,
-        help="Path to Terraform directory to scan",
+        help="Path to IaC directory to scan",
+    )
+    parser.add_argument(
+        "--iac-type",
+        choices=["terraform", "terraform_plan", "kubernetes"],
+        default="terraform",
+        help="IaC language to scan (default: terraform). Passed to Checkov's "
+             "--framework flag. NOTE: unrelated to --framework below, which "
+             "selects the compliance regime to REPORT (NIS2/GDPR). "
+             "'terraform_plan' scans a terraform show -json output file via "
+             "--checkov-json, not a directory.",
     )
     parser.add_argument(
         "--output",
@@ -33,7 +44,8 @@ def main():
         "--framework",
         choices=["nis2", "gdpr", "all"],
         default="all",
-        help="Compliance framework filter (default: all)",
+        help="Compliance framework filter (default: all) — which regulatory "
+             "regime to report on. Unrelated to --iac-type (what to scan).",
     )
     parser.add_argument(
         "--checkov-json",
@@ -88,6 +100,14 @@ def main():
                 "scan command requires a PATH, or --checkov-json <file> (use '-' for stdin)"
             )
 
+        # terraform_plan files are single JSON documents, not directories —
+        # Checkov needs -f <file>, which only happens through --checkov-json.
+        if args.iac_type == "terraform_plan" and not args.checkov_json:
+            parser.error(
+                "--iac-type terraform_plan requires --checkov-json <file> "
+                "(the 'terraform show -json' output of a saved plan)"
+            )
+
         # Execute the scan pipeline
         from tf_eu_guard.checkov_runner import (
             extract_failed_checks,
@@ -101,9 +121,9 @@ def main():
             # Step 1: Obtain Checkov results — from a pre-generated JSON if provided,
             # otherwise by running Checkov against the target directory.
             if args.checkov_json:
-                checkov_output = load_checkov_json(args.checkov_json)
+                checkov_output = load_checkov_json(args.checkov_json, args.iac_type)
             else:
-                checkov_output = run_checkov(args.path)
+                checkov_output = run_checkov(args.path, args.iac_type)
             findings = extract_failed_checks(checkov_output)
 
             # Step 2: Load compliance registry (all registry-*.yaml files)

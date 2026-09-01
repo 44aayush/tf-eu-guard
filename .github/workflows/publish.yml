@@ -1,0 +1,47 @@
+name: Publish to PyPI
+
+# Publishes the package when a release tag is pushed (any v-prefixed tag).
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  id-token: write  # OIDC trusted publishing to PyPI — no API token needed
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run the test suite before publishing
+        run: |
+          pip install -e ".[dev]"
+          pytest
+
+      - name: Build distribution
+        run: |
+          pip install --upgrade build
+          python -m build
+
+      - name: Verify the built version matches the tag
+        run: |
+          set -euo pipefail
+          tag_version="${GITHUB_REF_NAME#v}"
+          built_version="$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")"
+          if [ "$tag_version" != "$built_version" ]; then
+            echo "::error::Tag version $tag_version does not match pyproject.toml version $built_version"
+            exit 1
+          fi
+          echo "OK: tag $GITHUB_REF_NAME matches pyproject version $built_version"
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

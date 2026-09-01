@@ -12,6 +12,8 @@ import pytest
 from tf_eu_guard.cli import main
 
 FIXTURE = "tests/fixtures/checkov-vulnerable-tf.json"
+PLAN_FIXTURE = "tests/fixtures/checkov-vulnerable-plan.json"
+K8S_FIXTURE = "tests/fixtures/checkov-vulnerable-k8s.json"
 
 
 def run_cli(monkeypatch, tmp_path, *argv):
@@ -75,6 +77,122 @@ def test_scan_invalid_framework_exits(monkeypatch, tmp_path):
     monkeypatch.setattr("sys.argv", ["tf-eu-guard", "scan", "x/", "--framework", "bogus"])
     with pytest.raises(SystemExit):
         main()  # argparse rejects invalid choice with code 2
+
+
+def test_scan_invalid_iac_type_exits(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", ["tf-eu-guard", "scan", "x/", "--iac-type", "bogus"])
+    with pytest.raises(SystemExit):
+        main()  # argparse rejects invalid choice with code 2
+
+
+# --- --iac-type (which IaC language to scan) ---
+
+
+def test_scan_iac_type_and_framework_both_apply(monkeypatch, tmp_path, repo_root, capsys):
+    """--iac-type (what to scan) and --framework (what to report) are independent."""
+    k8s_doc = {
+        "check_type": "kubernetes",
+        "results": {"failed_checks": [
+            {
+                # a registry-mapped K8s check that cites both frameworks
+                "check_id": "EUGUARD_NIS2_001",  # not yet realistic for K8s, but registry-mapped
+                "check_name": "check",
+                "resource": "Secret/app",
+                "file_path": "/secret.yaml",
+                "file_line_range": [0, 0],
+                "guideline": None,
+            },
+        ]},
+    }
+    f = tmp_path / "k8s.json"
+    f.write_text(json.dumps([{"check_type": "terraform", "results": {"failed_checks": []}}, k8s_doc]))
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(f),
+                 "--iac-type", "kubernetes", "--framework", "nis2", "--output", "json")
+    assert rc == 0
+    data = json.loads(capsys.readouterr().out)
+    assert len(data) == 1
+    assert data[0]["resource"] == "Secret/app"
+    # --framework nis2 keeps findings citing NIS2 (this one cites both NIS2 and GDPR)
+    assert any(a["framework"] == "NIS2" for a in data[0]["articles"])
+    assert {"NIS2", "GDPR"} == {a["framework"] for a in data[0]["articles"]}
+
+
+def test_scan_iac_type_selects_matching_element(monkeypatch, tmp_path, repo_root, capsys):
+    """A mixed-framework JSON array yields the terraform element when iac_type=terraform."""
+    tf_doc = {
+        "check_type": "terraform",
+        "results": {"failed_checks": [{
+            "check_id": "CKV_AWS_18",  # registry-mapped
+            "check_name": "check",
+            "resource": "aws_x.y",
+            "file_path": "/a.tf",
+            "file_line_range": [1, 2],
+            "guideline": None,
+        }]},
+    }
+    k8s_doc = {
+        "check_type": "kubernetes",
+        "results": {"failed_checks": [{
+            "check_id": "CKV_AWS_18",  # same ID, kubernetes element
+            "check_name": "check",
+            "resource": "Pod/x",
+            "file_path": "/p.yaml",
+            "file_line_range": [1, 2],
+            "guideline": None,
+        }]},
+    }
+    f = tmp_path / "mixed.json"
+    f.write_text(json.dumps([k8s_doc, tf_doc]))
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(f),
+                 "--iac-type", "terraform", "--output", "json")
+    assert rc == 0
+    data = json.loads(capsys.readouterr().out)
+    assert [d["resource"] for d in data] == ["aws_x.y"]
+
+
+def test_scan_terraform_plan_requires_checkov_json(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", ["tf-eu-guard", "scan", "plan.json", "--iac-type", "terraform_plan"])
+    with pytest.raises(SystemExit):
+        main()  # argparse error: terraform_plan needs --checkov-json
+
+
+def test_scan_terraform_plan_fixture(monkeypatch, tmp_path, repo_root, capsys):
+    """Plan-mode scan: mapped findings with [0,0] line ranges degrade gracefully."""
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / PLAN_FIXTURE),
+                 "--iac-type", "terraform_plan", "--output", "json")
+    assert rc == 0
+    data = json.loads(capsys.readouterr().out)
+    assert len(data) > 0
+    # plan-mode findings keep Terraform resource addresses...
+    assert any(f["resource"].startswith("aws_") for f in data)
+    # ...and cite both frameworks (same registry entries as source-mode checks)
+    assert {a["framework"] for f in data for a in f["articles"]} == {"NIS2", "GDPR"}
+
+
+def test_scan_kubernetes_fixture(monkeypatch, tmp_path, repo_root, capsys):
+    """Kubernetes scan: kind/namespace/name resources, CKV_K8S_* mappings."""
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / K8S_FIXTURE),
+                 "--iac-type", "kubernetes", "--output", "json")
+    assert rc == 0
+    data = json.loads(capsys.readouterr().out)
+    assert len(data) > 0
+    # K8s resources render as Kind.namespace.name
+    assert any(f["resource"].startswith("Pod.") for f in data)
+    # the K8s registry namespace is mapped
+    assert any(f["check_id"].startswith("CKV_K8S") or f["check_id"].startswith("CKV2_K8S")
+               for f in data)
+    # the custom K8s secrets check fires and enriches
+    assert any(f["check_id"] == "EUGUARD_NIS2_001" for f in data)
+
+
+def test_scan_kubernetes_framework_filter(monkeypatch, tmp_path, repo_root, capsys):
+    """--framework composes with --iac-type kubernetes."""
+    run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / K8S_FIXTURE),
+            "--iac-type", "kubernetes", "--framework", "gdpr", "--output", "json")
+    data = json.loads(capsys.readouterr().out)
+    assert all(any(a["framework"] == "GDPR" for a in f["articles"]) for f in data)
 
 
 def test_scan_missing_file(monkeypatch, tmp_path):

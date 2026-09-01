@@ -1,0 +1,72 @@
+# vulnerable-kubernetes — intentionally-insecure manifests
+#
+# Covers the five categories mapped in registry-kubernetes.yaml:
+#   1. pod security context  — privileged / root containers
+#   2. RBAC                  — over-broad cluster role bindings
+#   3. network policy        — no NetworkPolicy in the namespace
+#   4. secrets               — literal values in a Secret manifest
+#   5. resource limits       — missing requests/limits
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vulnerable-example
+---
+# Privileged, root, no limits
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vulnerable-app
+  namespace: vulnerable-example
+  labels:
+    app: vulnerable-app
+spec:
+  serviceAccountName: vulnerable-sa
+  hostNetwork: true
+  containers:
+    - name: app
+      image: nginx:1.25
+      securityContext:
+        privileged: true
+        runAsNonRoot: false
+        runAsUser: 0
+        allowPrivilegeEscalation: true
+        capabilities:
+          add: ["NET_ADMIN", "SYS_ADMIN"]
+      # Hardcoded env secret instead of valueFrom.secretKeyRef
+      env:
+        - name: DB_PASSWORD
+          value: "ChangeMe123!"
+      ports:
+        - containerPort: 80
+---
+# ClusterAdmin for everyone
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vulnerable-sa
+  namespace: vulnerable-example
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vulnerable-cluster-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: vulnerable-sa
+    namespace: vulnerable-example
+---
+# Literal secrets in a manifest
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-credentials
+  namespace: vulnerable-example
+type: Opaque
+stringData:
+  username: admin
+  password: ChangeMe123!
+  api-token: sk-live-abc123def456ghi789

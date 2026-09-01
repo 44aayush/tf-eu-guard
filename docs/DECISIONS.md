@@ -48,3 +48,29 @@ fields, severity enum, framework enum) in CI and in the test suite.
 CRA (product lifecycle) and DORA (financial-sector operational resilience) are
 out of scope — neither maps naturally onto cloud infrastructure configuration
 checks.
+
+## 8. Kubernetes gets its own registry file
+
+**Decision (2026-09):** `CKV_K8S_*` check IDs live in a dedicated
+`registry-kubernetes.yaml` rather than folding into the provider files. The
+K8s namespace has zero ID overlap with the AWS/Azure/GCP-keyed registries,
+so a separate file costs nothing and makes the (largest single chunk of)
+net-new mapping work visible on its own. `loader.py` glob-loads
+`registry-*.yaml` with a duplicate-key guard, so no loader change was needed.
+
+## 9. EUGUARD_GDPR_001 (data residency) is Terraform-only by design
+
+**Decision (2026-09):** the EU data-residency check (GDPR Chapter V,
+Art. 44–49) applies only to Terraform targets. Kubernetes manifests are
+cloud-agnostic: a manifest doesn't declare where the cluster runs, and region
+context lives at the cluster/cloud-provider level (node labels,
+`topology.kubernetes.io/region`), not per-resource in the manifest. Any
+in-manifest heuristic would be trivially bypassable and mostly noise.
+
+**What to do instead:** enforce data residency for Kubernetes at the cluster
+boundary — cluster placement policy, cloud-provider constraints (e.g. an SCP
+denying cluster creation in non-EU regions), or admission policy on
+node-selector labels for the rare topology-pinned workload.
+
+**Consequence:** the README's scope table claims GDPR Art. 44 coverage for
+Terraform only; the gap is documented rather than silently implied.

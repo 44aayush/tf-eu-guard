@@ -16,9 +16,10 @@ from tf_eu_guard.models import Framework, Severity
 # top-level article like "Art. 44" (GDPR Chapter V transfers have no numbered
 # paragraph). The paragraph and sub-point groups are both optional.
 ARTICLE_RE = re.compile(r"^Art\. \d+(\(\d+\))?(\([a-z]\))?$")
-# Stock Checkov ids ("CKV_AWS_18", "CKV2_AWS_6") plus tf-eu-guard's custom
-# EU-compliance checks ("EUGUARD_GDPR_001", "EUGUARD_NIS2_001").
-CHECK_ID_RE = re.compile(r"^(CKV2?_(AWS|AZURE|GCP)_\d+|EUGUARD_[A-Z0-9]+_\d+)$")
+# Stock Checkov ids ("CKV_AWS_18", "CKV2_AWS_6", "CKV_K8S_16", "CKV2_K8S_6")
+# plus tf-eu-guard's custom EU-compliance checks ("EUGUARD_GDPR_001",
+# "EUGUARD_NIS2_001").
+CHECK_ID_RE = re.compile(r"^(CKV2?_(AWS|AZURE|GCP|K8S)_\d+|EUGUARD_[A-Z0-9]+_\d+)$")
 
 
 def test_registry_loads_nonempty(registry):
@@ -167,14 +168,16 @@ def test_registry_ids_exist_in_checkov(repo_root):
     Guards against silent misses: a renamed/removed Checkov check would leave a
     mapping that never enriches anything.
     """
+    import checkov.kubernetes.checks.resource.k8s  # noqa: F401
     import checkov.terraform.checks.resource  # noqa: F401
     import yaml
+    from checkov.kubernetes.checks.resource.registry import registry as k8s_registry
     from checkov.terraform.checks.data.registry import data_registry
     from checkov.terraform.checks.provider.registry import provider_registry
     from checkov.terraform.checks.resource.registry import resource_registry
 
     checkov_ids = set()
-    for registry in (resource_registry, data_registry, provider_registry):
+    for registry in (resource_registry, data_registry, provider_registry, k8s_registry):
         for checks in registry.checks.values():
             for check in checks:
                 checkov_ids.add(check.id)
@@ -182,17 +185,18 @@ def test_registry_ids_exist_in_checkov(repo_root):
     import json
     from pathlib import Path
 
-    graph_dir = (
-        Path(checkov.__file__).parent / "terraform" / "checks" / "graph_checks"
-    )
-    for provider_dir in graph_dir.iterdir():
-        if provider_dir.is_dir():
-            for jf in provider_dir.glob("*.json"):
-                try:
-                    data = json.loads(jf.read_text())
-                    checkov_ids.add(data.get("id") or data.get("metadata", {}).get("id"))
-                except (json.JSONDecodeError, OSError):
-                    pass
+    for framework in ("terraform", "kubernetes"):
+        graph_dir = Path(checkov.__file__).parent / framework / "checks" / "graph_checks"
+        if not graph_dir.is_dir():
+            continue
+        # Graph checks may sit directly in graph_checks/ (kubernetes) or in
+        # per-provider subdirectories (terraform).
+        for jf in graph_dir.rglob("*.json"):
+            try:
+                data = json.loads(jf.read_text())
+                checkov_ids.add(data.get("id") or data.get("metadata", {}).get("id"))
+            except (json.JSONDecodeError, OSError):
+                pass
 
     mapping_dir = repo_root / "tf_eu_guard" / "mapping"
     registry_ids = set()

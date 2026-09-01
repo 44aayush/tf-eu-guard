@@ -74,6 +74,80 @@ def _is_html_document(doc: str) -> bool:
     return doc.lstrip().startswith("<!DOCTYPE html>") and "</html>" in doc
 
 
+def _zero_line_findings():
+    """One finding per non-Terraform ID format, all with a degenerate [0, 0] range.
+
+    Mirrors what Checkov emits for terraform_plan JSON (whole plan is one line),
+    and covers CloudFormation logical IDs / Kubernetes kind-names, whose
+    ``resource`` values don't follow Terraform's address syntax.
+    """
+    return [
+        _finding(
+            "CKV_AWS_17",
+            Severity.HIGH,
+            [ArticleReference(Framework.NIS2, "Art. 21(2)(h)", "Cryptography")],
+            resource="aws_db_instance.default",
+            file_path="/plan.json",
+            file_line_range=[0, 0],
+        ),
+        _finding(
+            "CKV_AWS_157",
+            Severity.HIGH,
+            [ArticleReference(Framework.GDPR, "Art. 32(1)(c)", "Availability")],
+            resource="MyDBInstance",
+            file_path="/template.yaml",
+            file_line_range=[0, 0],
+        ),
+        _finding(
+            "CKV_K8S_17",
+            Severity.MEDIUM,
+            [ArticleReference(Framework.NIS2, "Art. 21(2)(i)", "Access control")],
+            resource="Pod/app",
+            file_path="/deployment.yaml",
+            file_line_range=[0, 0],
+        ),
+    ]
+
+
+class TestNonTerraformFormats:
+    """Reports must degrade gracefully for plan-JSON / CFN / K8s findings."""
+
+    @staticmethod
+    def _no_zero_line_ref(doc: str) -> bool:
+        # A rendered location is "file:lines" or bare "file" — never "file:0-0".
+        return ":0-0" not in doc
+
+    def test_security_report_omits_zero_lines(self):
+        doc = generate_security_report(_zero_line_findings())
+        assert self._no_zero_line_ref(doc)
+        assert "plan.json" in doc and "template.yaml" in doc
+
+    def test_auditor_report_omits_zero_lines(self):
+        doc = generate_auditor_report(_zero_line_findings())
+        assert self._no_zero_line_ref(doc)
+
+    def test_dev_html_report_omits_zero_lines(self):
+        doc = generate_dev_html_report(_zero_line_findings())
+        assert self._no_zero_line_ref(doc)
+
+    def test_dev_terminal_report_omits_zero_lines(self, capsys):
+        from tf_eu_guard.reporting.dev_report import generate_dev_report
+
+        generate_dev_report(_zero_line_findings())
+        out = capsys.readouterr().out
+        assert "Lines: 0-0" not in out
+        assert "Resource: Pod/app" in out  # non-Terraform ID renders fine
+
+    def test_non_terraform_resource_ids_render(self):
+        for doc in (
+            generate_security_report(_zero_line_findings()),
+            generate_auditor_report(_zero_line_findings()),
+            generate_dev_html_report(_zero_line_findings()),
+        ):
+            for resource in ("MyDBInstance", "Pod/app"):
+                assert resource in doc
+
+
 class TestSecurityReport:
     def test_returns_html_document(self):
         doc = generate_security_report(
