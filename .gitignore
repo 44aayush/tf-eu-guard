@@ -55,3 +55,5 @@ Thumbs.db
 
 # Local task tracking (not part of the shipped repo)
 TASKS.md
+TASKS_HOOKS.md
+PLAN_HARNESS.md

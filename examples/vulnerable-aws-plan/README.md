@@ -3,8 +3,9 @@
 `plan.json` is the `terraform show -json` output of a plan for
 `examples/vulnerable-aws/`, generated offline (provider skip flags + dummy
 credentials, nothing applied). Used by CI and tests to exercise
-`--iac-type terraform_plan` — plan-mode findings report `file_line_range:
-[0, 0]` because the whole plan is one JSON line.
+`--iac-type terraform_plan` (scan the file directly: `tf-eu-guard scan
+plan.json --iac-type terraform_plan`). Plan-mode findings report
+`file_line_range: [0, 0]` because the whole plan is one JSON line.
 
 ## Regenerate
 

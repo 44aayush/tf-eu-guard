@@ -66,9 +66,34 @@ def test_extract_preserves_expected_fields():
     assert first["file_line_range"] == [1, 20]
 
 
-def test_extract_missing_results_is_empty():
-    assert extract_failed_checks({}) == []
-    assert extract_failed_checks({"results": {}}) == []
+def test_extract_empty_failed_checks_is_empty():
+    """A well-formed Checkov result with zero failures is legitimately empty."""
+    assert extract_failed_checks({"results": {"failed_checks": []}}) == []
+
+
+def test_extract_missing_results_raises():
+    """Non-Checkov input (e.g. a raw Terraform plan) must fail loudly, not
+    silently return [] — that's the shape mismatch that shipped as a
+    fake '0 findings' scan."""
+    with pytest.raises(ValueError, match="does not look like Checkov output"):
+        extract_failed_checks({})
+
+
+def test_extract_raw_terraform_plan_raises():
+    """The exact shipped bug: a terraform show -json plan fed to
+    extract_failed_checks must raise instead of returning []."""
+    raw_plan = json.loads(
+        (Path(__file__).parent / "fixtures" / ".." / ".."
+         / "examples" / "vulnerable-aws-plan" / "plan.json").read_text()
+    )
+    assert "format_version" in raw_plan  # sanity: this IS a raw plan
+    with pytest.raises(ValueError, match="does not look like Checkov output"):
+        extract_failed_checks(raw_plan)
+
+
+def test_extract_results_wrong_type_raises():
+    with pytest.raises(ValueError, match="does not look like Checkov output"):
+        extract_failed_checks({"results": "not a dict"})
 
 
 def test_extract_defaults_line_range_when_absent():
@@ -169,6 +194,64 @@ def test_load_checkov_json_threads_iac_type(tmp_path):
 def test_run_checkov_rejects_unknown_iac_type(tmp_path):
     with pytest.raises(ValueError, match="Unsupported iac_type"):
         run_checkov(tmp_path, "bogus_framework")
+
+
+def test_run_checkov_rejects_missing_target(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        run_checkov(tmp_path / "no-such-dir")
+
+
+def test_run_checkov_plan_requires_file(tmp_path):
+    """terraform_plan scans a plan FILE — a directory is a target mismatch."""
+    with pytest.raises(ValueError, match="terraform_plan requires a plan file"):
+        run_checkov(tmp_path, "terraform_plan")
+
+
+def test_run_checkov_plan_builds_file_invocation(repo_root):
+    """Plan mode must invoke checkov -f <plan.json> --framework terraform_plan."""
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        return type("R", (), {"returncode": 0, "stdout": json.dumps(SAMPLE), "stderr": ""})()
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
+    try:
+        plan = repo_root / "examples" / "vulnerable-aws-plan" / "plan.json"
+        if not plan.exists():
+            pytest.skip("examples/vulnerable-aws-plan/plan.json not present")
+        out = run_checkov(plan, "terraform_plan")
+    finally:
+        monkeypatch.undo()
+
+    cmd = captured["cmd"]
+    assert cmd[cmd.index("-f") + 1] == str(plan)
+    assert cmd[cmd.index("--framework") + 1] == "terraform_plan"
+    assert "-d" not in cmd
+    assert extract_failed_checks(out)[0]["check_id"] == "CKV_AWS_17"
+
+
+def test_run_checkov_directory_uses_dash_d(tmp_path):
+    """Non-plan scans keep the -d <directory> invocation."""
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        return type("R", (), {"returncode": 0, "stdout": json.dumps(SAMPLE), "stderr": ""})()
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
+    try:
+        (tmp_path / "main.tf").write_text('resource "aws_x" "y" {}\n')
+        out = run_checkov(tmp_path, "terraform")
+    finally:
+        monkeypatch.undo()
+
+    cmd = captured["cmd"]
+    assert cmd[cmd.index("-d") + 1] == str(tmp_path)
+    assert "-f" not in cmd
+    assert extract_failed_checks(out)[0]["check_id"] == "CKV_AWS_17"
 
 
 def test_supported_iac_types_contents():

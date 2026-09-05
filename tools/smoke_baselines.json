@@ -1,0 +1,27 @@
+{
+  "_comment": "Expected mapped-finding counts per IaC type, measured with the CLI (--output json). Single source of truth for tools/smoke_check.py AND .github/workflows/ci.yml — update both consumers change automatically when these numbers change. min findings are floors (mapped counts can drift up as checks/mappings are added); expected is the last measured count for exact-comparison reporting. vulnerable = must be >= min (and > 0); compliant = must be exactly 0.",
+  "terraform": {
+    "vulnerable": {
+      "examples/vulnerable-aws": {"expected": 52, "min": 30},
+      "examples/vulnerable-azure": {"expected": 7, "min": 1},
+      "examples/vulnerable-gcp": {"expected": 14, "min": 1}
+    },
+    "compliant": {
+      "examples/compliant-aws": {"expected": 0, "max": 0}
+    }
+  },
+  "terraform_plan": {
+    "vulnerable": {
+      "examples/vulnerable-aws-plan/plan.json": {"expected": 31, "min": 1}
+    },
+    "compliant": {}
+  },
+  "kubernetes": {
+    "vulnerable": {
+      "examples/vulnerable-kubernetes": {"expected": 24, "min": 1}
+    },
+    "compliant": {
+      "examples/compliant-kubernetes": {"expected": 0, "max": 0}
+    }
+  }
+}

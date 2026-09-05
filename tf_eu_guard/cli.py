@@ -30,8 +30,8 @@ def main():
         help="IaC language to scan (default: terraform). Passed to Checkov's "
              "--framework flag. NOTE: unrelated to --framework below, which "
              "selects the compliance regime to REPORT (NIS2/GDPR). "
-             "'terraform_plan' scans a terraform show -json output file via "
-             "--checkov-json, not a directory.",
+             "'terraform_plan' scans a 'terraform show -json' plan file "
+             "(pass its path as PATH), not a directory.",
     )
     parser.add_argument(
         "--output",
@@ -52,8 +52,9 @@ def main():
         type=Path,
         default=None,
         metavar="FILE",
-        help="Use a pre-generated Checkov JSON file instead of running Checkov "
-             "(use '-' to read from stdin). PATH becomes optional when this is set.",
+        help="Use a pre-generated Checkov JSON result (NOT a raw Terraform plan "
+             "file) instead of running Checkov. Use '-' to read from stdin. "
+             "PATH becomes optional when this is set.",
     )
     parser.add_argument(
         "--output-file",
@@ -100,14 +101,6 @@ def main():
                 "scan command requires a PATH, or --checkov-json <file> (use '-' for stdin)"
             )
 
-        # terraform_plan files are single JSON documents, not directories —
-        # Checkov needs -f <file>, which only happens through --checkov-json.
-        if args.iac_type == "terraform_plan" and not args.checkov_json:
-            parser.error(
-                "--iac-type terraform_plan requires --checkov-json <file> "
-                "(the 'terraform show -json' output of a saved plan)"
-            )
-
         # Execute the scan pipeline
         from tf_eu_guard.checkov_runner import (
             extract_failed_checks,
@@ -118,8 +111,9 @@ def main():
         from tf_eu_guard.models import Framework
 
         try:
-            # Step 1: Obtain Checkov results — from a pre-generated JSON if provided,
-            # otherwise by running Checkov against the target directory.
+            # Step 1: Obtain Checkov results — from a pre-generated Checkov JSON
+            # if provided, otherwise by running Checkov against the target (a
+            # directory for terraform/kubernetes, a plan file for terraform_plan).
             if args.checkov_json:
                 checkov_output = load_checkov_json(args.checkov_json, args.iac_type)
             else:
