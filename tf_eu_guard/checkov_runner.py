@@ -10,12 +10,16 @@ from typing import Any
 SUPPORTED_IAC_TYPES = ("terraform", "terraform_plan", "kubernetes")
 
 
-def run_checkov(target_dir: Path, iac_type: str = "terraform") -> dict[str, Any]:
+def run_checkov(target: Path, iac_type: str = "terraform") -> dict[str, Any]:
     """
-    Run Checkov against an IaC directory and return parsed JSON results.
+    Run Checkov against an IaC directory **or** a plan file, and return parsed JSON.
+
+    ``terraform_plan`` scans a single ``terraform show -json`` output file via
+    Checkov's ``-f`` flag; every other IaC type scans a directory via ``-d``.
 
     Args:
-        target_dir: Path to directory containing IaC files
+        target: Path to a directory containing IaC files, or — for
+            ``iac_type="terraform_plan"`` — the path of the plan JSON file
         iac_type: Which IaC language to scan — one of
             :data:`SUPPORTED_IAC_TYPES`, passed through to Checkov's
             ``--framework`` flag. Unrelated to the CLI's ``--framework``
@@ -25,7 +29,9 @@ def run_checkov(target_dir: Path, iac_type: str = "terraform") -> dict[str, Any]
         Parsed JSON output from Checkov
 
     Raises:
-        ValueError: If ``iac_type`` is not a supported IaC type
+        ValueError: If ``iac_type`` is not a supported IaC type, or the
+            target doesn't match the invocation shape (directory vs. file)
+        FileNotFoundError: If ``target`` does not exist
         subprocess.CalledProcessError: If Checkov execution fails
         json.JSONDecodeError: If Checkov output is not valid JSON
     """
@@ -34,6 +40,8 @@ def run_checkov(target_dir: Path, iac_type: str = "terraform") -> dict[str, Any]
             f"Unsupported iac_type '{iac_type}' — expected one of "
             f"{', '.join(SUPPORTED_IAC_TYPES)}"
         )
+    if not Path(target).exists():
+        raise FileNotFoundError(f"Scan target does not exist: {target}")
 
     # tf-eu-guard's custom EU-compliance checks (EUGUARD_*) live alongside this
     # module; load them so a normal scan produces stock (CKV_AWS_*) *and* custom
@@ -41,9 +49,25 @@ def run_checkov(target_dir: Path, iac_type: str = "terraform") -> dict[str, Any]
     # external-check loader requires.
     checks_dir = Path(__file__).parent / "checks"
 
+    # terraform_plan files are single JSON documents, not directories —
+    # Checkov needs -f <plan.json> for those, -d <dir> for everything else.
+    if iac_type == "terraform_plan":
+        if not Path(target).is_file():
+            raise ValueError(
+                f"terraform_plan requires a plan file (terraform show -json "
+                f"output), but '{target}' is not a file"
+            )
+        target_flag = ["-f", str(target)]
+    else:
+        if not Path(target).is_dir():
+            raise ValueError(
+                f"iac_type '{iac_type}' scans a directory, but '{target}' is not a directory"
+            )
+        target_flag = ["-d", str(target)]
+
     cmd = [
         "checkov",
-        "-d", str(target_dir),
+        *target_flag,
         "--external-checks-dir", str(checks_dir),
         "--output", "json",
         "--framework", iac_type,
@@ -128,6 +152,43 @@ def _normalize_checkov_output(data: Any, iac_type: str = "terraform") -> dict[st
     )
 
 
+def _validate_checkov_output(checkov_output: dict[str, Any]) -> None:
+    """
+    Assert the input is shaped like Checkov output (has ``results.failed_checks``).
+
+    Silent empty results on non-Checkov input (e.g. raw ``terraform show -json``
+    plan output piped into ``--checkov-json``) previously masked shape
+    mismatches as clean "0 findings" scans — this guard makes those fail loudly.
+    """
+    if not isinstance(checkov_output, dict) or "results" not in checkov_output:
+        got = _describe_json_shape(checkov_output)
+        raise ValueError(
+            "Input does not look like Checkov output: expected an object with "
+            f"a 'results' key, got {got}. If this is a raw "
+            "'terraform show -json' plan file, scan it directly: "
+            "tf-eu-guard scan <plan.json> --iac-type terraform_plan"
+        )
+    results = checkov_output["results"]
+    if not isinstance(results, dict) or "failed_checks" not in results:
+        got = _describe_json_shape(checkov_output)
+        raise ValueError(
+            "Input does not look like Checkov output: expected "
+            f"'results.failed_checks', got {got}. If this is a raw "
+            "'terraform show -json' plan file, scan it directly: "
+            "tf-eu-guard scan <plan.json> --iac-type terraform_plan"
+        )
+
+
+def _describe_json_shape(data: Any) -> str:
+    """One-line human description of a parsed-JSON value's shape for errors."""
+    if isinstance(data, dict):
+        keys = ", ".join(sorted(data.keys())[:5]) or "no keys"
+        return f"an object with keys: {keys}"
+    if isinstance(data, list):
+        return f"an array with {len(data)} element(s)"
+    return f"a {type(data).__name__}"
+
+
 def extract_failed_checks(checkov_output: dict[str, Any]) -> list[dict[str, Any]]:
     """
     Extract failed check details from Checkov JSON output.
@@ -143,7 +204,12 @@ def extract_failed_checks(checkov_output: dict[str, Any]) -> list[dict[str, Any]
         - file_path: Relative path to .tf file
         - file_line_range: [start_line, end_line]
         - guideline: Checkov's remediation link
+
+    Raises:
+        ValueError: If the input is not Checkov-shaped (no
+            ``results.failed_checks``) — e.g. a raw Terraform plan JSON
     """
+    _validate_checkov_output(checkov_output)
     failed = []
 
     # Checkov JSON structure: results -> failed_checks (list)

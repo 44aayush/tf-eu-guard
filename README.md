@@ -40,20 +40,20 @@ Most organizations scan infrastructure-as-code with tools like Checkov or tfsec,
 
 ### Installation
 
-Requires **Python ≥ 3.10**. Installs Checkov 3.3.13 as a dependency.
+Requires **Python ≥ 3.10** and [uv](https://docs.astral.sh/uv/). Installs Checkov 3.3.13 as a dependency.
 
 ```bash
-pip install tf-eu-guard
+uv tool install tf-eu-guard
 ```
 
-Also available on PyPI: [tf-eu-guard](https://pypi.org/project/tf-eu-guard/)
+(Also available on PyPI: [tf-eu-guard](https://pypi.org/project/tf-eu-guard/) if you prefer pip: `pip install tf-eu-guard`.)
 
 For development (from a clone of this repo):
 
 ```bash
-pip install -e .
+uv sync --extra dev
 ```
-```
+
 
 ### Basic Scan
 
@@ -82,14 +82,21 @@ Generate the plan JSON, then scan it:
 ```bash
 terraform plan -out=tfplan.binary
 terraform show -json tfplan.binary > plan.json
-tf-eu-guard scan --checkov-json plan.json --iac-type terraform_plan --output json
+tf-eu-guard scan plan.json --iac-type terraform_plan --output json
 ```
 
-> Plan mode reuses the same `CKV_AWS_*` check IDs as source mode (verified: a plan of
-> `examples/vulnerable-aws` maps 30 findings, all to existing registry entries), minus
-> lifecycle-block checks that plan JSON doesn't store. Findings report `file_line_range: [0, 0]`
-> (the whole plan is one JSON line) — reports omit the line reference in that case.
+> Plan mode runs Checkov against the plan file itself (`checkov -f <plan.json>
+> --framework terraform_plan`). It reuses the same `CKV_AWS_*` check IDs as source
+> mode (verified: a plan of `examples/vulnerable-aws` maps 31 findings, all to
+> existing registry entries), minus lifecycle-block checks that plan JSON doesn't
+> store. Findings report `file_line_range: [0, 0]` (the whole plan is one JSON
+> line) — reports omit the line reference in that case.
 > A committed fixture lives at `examples/vulnerable-aws-plan/`.
+>
+> Note: `--checkov-json` is a *different* feature — it reuses Checkov JSON output
+> you already generated (see below). Passing a raw `terraform show -json` plan
+> file to `--checkov-json` is an error; scan the plan file directly as shown
+> above.
 
 ### Scan Kubernetes
 
@@ -104,7 +111,9 @@ tf-eu-guard scan ./k8s --iac-type kubernetes --output all
 
 ### Use Pre-Generated Checkov JSON
 
-If you already run Checkov in CI or with custom checks, feed tf-eu-guard the JSON directly:
+If you already run Checkov in CI or with custom checks, feed tf-eu-guard the
+**Checkov output** JSON directly (not a raw Terraform plan file — that's what
+`--iac-type terraform_plan` is for):
 
 ```bash
 # From a file
@@ -203,7 +212,7 @@ tf-eu-guard scan ./terraform --fail-on-any             # fail on any finding
 ```yaml
 repos:
   - repo: https://github.com/44aayush/tf-eu-guard
-    rev: v0.1.0
+    rev: v0.2.1
     hooks:
       - id: tf-eu-guard
 ```

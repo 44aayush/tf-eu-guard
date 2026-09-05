@@ -85,6 +85,59 @@ bash install_and_test.sh
 (creates a venv, installs dev extras, runs pytest with coverage, and smoke-tests
 a scan of `examples/vulnerable-aws/`).
 
+## Smoke checks (regression guard)
+
+A past bug (commit `c7e68f6`) shipped a broken `terraform_plan` scan path that
+silently returned 0 findings while unit tests and CI both stayed green — the
+CI smoke test scanned a hand-shaped fixture instead of the real example. To
+keep that class of silent failure from recurring, the expected mapped-finding
+counts for every vulnerable/compliant example pair live in
+**`tools/smoke_baselines.json`** — a single source of truth read by CI
+(`.github/workflows/ci.yml`), by `tools/smoke_check.py`, and by the local
+Claude Code hook (below).
+
+Run the smoke check for one IaC type (takes seconds; scope to one type,
+not `all`, when iterating):
+
+```bash
+python3 tools/smoke_check.py --iac-type terraform
+python3 tools/smoke_check.py --iac-type terraform_plan
+python3 tools/smoke_check.py --iac-type kubernetes
+```
+
+It exits `0` when counts match the baseline, `2` when a vulnerable example
+returns too few findings or a compliant one returns any (the message includes
+the actual and expected counts), and `1` on unexpected errors. It also prints
+a non-fatal note when a count is above baseline — if the change is
+intentional, update `tools/smoke_baselines.json` in the same PR.
+
+When adding a new IaC type or example fixture:
+
+1. add its expected count to `tools/smoke_baselines.json`,
+2. extend the path→iac-type mapping in `tools/hook_smoke_dispatch.py`
+   (examples are mapped by their directory name; registries and custom
+   checks by their file location),
+3. wire it into the CI smoke steps —
+
+— all in the same commit. The failure mode of skipping this is the same
+silent-0 the guard exists to catch.
+
+### Claude Code hook (for contributors using Claude Code)
+
+The repo ships a `PostToolUse` hook (`.claude/settings.json`) that runs
+`tools/hook_smoke_dispatch.py` after every `Edit`/`Write`/`MultiEdit`. The
+dispatcher maps the edited file path to the IaC types it can affect
+(`cli.py`/`checkov_runner.py` → all types; `registry-kubernetes.yaml` →
+kubernetes only; `examples/vulnerable-aws-plan/**` → terraform_plan; etc.)
+and runs only those smoke checks. A failing check exits `2`, which surfaces
+the failure message in the Claude Code session even though the edit already
+landed. Unrelated edits (README, tests, docs) trigger nothing, keeping the
+hook fast enough to not train you to ignore it.
+
+If you don't use Claude Code, running `tools/smoke_check.py` by hand (or
+relying on CI) gives you the same guard — the hook is just automation around
+the same script.
+
 ## Proposing a custom check
 
 Custom `EUGUARD_*` checks live in `tf_eu_guard/checks/`. They must:

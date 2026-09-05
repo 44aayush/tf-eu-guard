@@ -38,10 +38,11 @@ tf-eu-guard scan <k8s-dir> --iac-type kubernetes --output json
 ```bash
 terraform plan -out=tfplan.binary
 terraform show -json tfplan.binary > plan.json
-tf-eu-guard scan --checkov-json plan.json --iac-type terraform_plan --output json
+tf-eu-guard scan plan.json --iac-type terraform_plan --output json
 ```
 
-**Mode 3 — reuse a Checkov JSON the user already has** (no re-scan):
+**Mode 3 — reuse a Checkov JSON the user already has** (no re-scan — Checkov
+*output* JSON, not a raw Terraform plan file):
 
 ```bash
 # from a file
@@ -54,7 +55,8 @@ checkov -d <terraform-dir> --output json --framework terraform --quiet \
 
 Flags:
 - `--iac-type` — `terraform` (default), `terraform_plan`, or `kubernetes`. **What to scan.**
-  `terraform_plan` requires `--checkov-json` (a plan JSON is a single file, not a directory).
+  `terraform_plan` scans a plan file: pass its path as PATH. `--checkov-json` expects
+  Checkov *output* JSON only — a raw `terraform show -json` plan there is an error.
 - `--framework` — `nis2`, `gdpr`, or `all` (default). **Which compliance regime to report.**
   Unrelated to `--iac-type` despite the similar name.
 - `--output` — `dev` (Rich terminal), `json` (machine-readable), `security` (HTML dashboard

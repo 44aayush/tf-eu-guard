@@ -75,13 +75,17 @@ jobs:
           tf-eu-guard scan examples/vulnerable-aws/ --output all
 
       - name: Scan Azure/GCP examples
+        # Baselines live in tools/smoke_baselines.json — the same single
+        # source of truth tools/smoke_check.py (and the local Claude Code
+        # hook) read. Update the counts there, not here.
         run: |
           set -euo pipefail
           for d in vulnerable-azure vulnerable-gcp; do
             tf-eu-guard scan "examples/$d/" --output json > "scan-$d.json"
             count=$(jq 'length' "scan-$d.json")
-            if [ "$count" -lt 1 ]; then
-              echo "::error::$d produced $count mapped findings (expected several)"
+            min=$(jq -r ".terraform.vulnerable[\"examples/$d\"].min" tools/smoke_baselines.json)
+            if [ "$count" -lt "$min" ]; then
+              echo "::error::$d produced $count mapped findings (floor: $min, per tools/smoke_baselines.json)"
               exit 1
             fi
             echo "OK: $d -> $count mapped findings"
@@ -91,14 +95,18 @@ jobs:
         run: |
           tf-eu-guard scan examples/end2end/ --output dev
 
-      - name: Scan Terraform plan fixture (terraform_plan)
+      - name: Scan Terraform plan example (terraform_plan)
+        # Scan the file the README actually tells users to scan — the real
+        # end-to-end plan path (checkov -f <plan.json> --framework terraform_plan),
+        # not the pre-shaped unit fixture.
         run: |
           set -euo pipefail
-          tf-eu-guard scan --checkov-json tests/fixtures/checkov-vulnerable-plan.json \
+          tf-eu-guard scan examples/vulnerable-aws-plan/plan.json \
             --iac-type terraform_plan --output json > plan-scan.json
           count=$(jq 'length' plan-scan.json)
-          if [ "$count" -lt 1 ]; then
-            echo "::error::terraform_plan scan produced $count mapped findings (expected ~30)"
+          min=$(jq -r '.terraform_plan.vulnerable["examples/vulnerable-aws-plan/plan.json"].min' tools/smoke_baselines.json)
+          if [ "$count" -lt "$min" ]; then
+            echo "::error::terraform_plan scan produced $count mapped findings (floor: $min, per tools/smoke_baselines.json)"
             exit 1
           fi
           echo "OK: terraform_plan -> $count mapped findings"
@@ -109,8 +117,9 @@ jobs:
           tf-eu-guard scan examples/vulnerable-kubernetes/ --iac-type kubernetes \
             --output json > k8s-scan.json
           count=$(jq 'length' k8s-scan.json)
-          if [ "$count" -lt 1 ]; then
-            echo "::error::kubernetes scan produced $count mapped findings (expected ~24)"
+          min=$(jq -r '.kubernetes.vulnerable["examples/vulnerable-kubernetes"].min' tools/smoke_baselines.json)
+          if [ "$count" -lt "$min" ]; then
+            echo "::error::kubernetes scan produced $count mapped findings (floor: $min, per tools/smoke_baselines.json)"
             exit 1
           fi
           echo "OK: vulnerable-kubernetes -> $count mapped findings"

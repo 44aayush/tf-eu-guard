@@ -6,6 +6,7 @@ report generation and the severity-based exit codes end-to-end.
 """
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -151,11 +152,38 @@ def test_scan_iac_type_selects_matching_element(monkeypatch, tmp_path, repo_root
     assert [d["resource"] for d in data] == ["aws_x.y"]
 
 
-def test_scan_terraform_plan_requires_checkov_json(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("sys.argv", ["tf-eu-guard", "scan", "plan.json", "--iac-type", "terraform_plan"])
-    with pytest.raises(SystemExit):
-        main()  # argparse error: terraform_plan needs --checkov-json
+def test_scan_terraform_plan_takes_path_not_checkov_json(monkeypatch, tmp_path, capsys):
+    """Plan mode scans the plan file directly — no --checkov-json required."""
+    calls = {}
+
+    def fake_run_checkov(target, iac_type="terraform"):
+        calls["target"], calls["iac_type"] = target, iac_type
+        return {
+            "check_type": "terraform_plan",
+            "results": {"failed_checks": [{
+                "check_id": "CKV_AWS_293",  # registry-mapped
+                "check_name": "check",
+                "resource": "aws_db_instance.main",
+                "file_path": "/plan.json",
+                "file_line_range": [0, 0],
+                "guideline": None,
+            }]},
+        }
+
+    # cli.py imports run_checkov from checkov_runner at scan time, so
+    # patching the module attribute intercepts it.
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", fake_run_checkov)
+
+    plan = tmp_path / "plan.json"
+    plan.write_text("{}")  # contents don't matter: run_checkov is stubbed
+    rc = run_cli(monkeypatch, tmp_path, str(plan),
+                 "--iac-type", "terraform_plan", "--output", "json")
+    assert rc == 0
+    assert calls["iac_type"] == "terraform_plan"
+    assert Path(calls["target"]) == plan
+    data = json.loads(capsys.readouterr().out)
+    assert len(data) == 1
+    assert data[0]["resource"] == "aws_db_instance.main"
 
 
 def test_scan_terraform_plan_fixture(monkeypatch, tmp_path, repo_root, capsys):
@@ -193,6 +221,19 @@ def test_scan_kubernetes_framework_filter(monkeypatch, tmp_path, repo_root, caps
             "--iac-type", "kubernetes", "--framework", "gdpr", "--output", "json")
     data = json.loads(capsys.readouterr().out)
     assert all(any(a["framework"] == "GDPR" for a in f["articles"]) for f in data)
+
+
+def test_scan_checkov_json_rejects_raw_plan_json(monkeypatch, tmp_path, repo_root, capsys):
+    """Feeding a raw terraform show -json plan to --checkov-json must error,
+    not silently produce 0 findings (the regression that shipped this bug)."""
+    plan = repo_root / "examples" / "vulnerable-aws-plan" / "plan.json"
+    if not plan.exists():
+        pytest.skip("examples/vulnerable-aws-plan/plan.json not present")
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(plan),
+                 "--iac-type", "terraform_plan", "--output", "json")
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "does not look like Checkov output" in err
 
 
 def test_scan_missing_file(monkeypatch, tmp_path):
