@@ -68,9 +68,25 @@ The runner never uses `set -e`; each test reports independently:
   check_name / risk / remediation / severity and ≥ 1 well-formed article; and
   the legal-citation corrections are guarded (access control → NIS2 Art. 21(2)(i);
   encryption → NIS2 Art. 21(2)(h) + GDPR Art. 32(1)(a)).
-- `test_mapping.py` — `enrich_findings` drops unmapped findings, attaches the
-  registry's articles/risk/remediation/severity, and preserves Checkov's own
-  `check_name`.
+- `test_mapping.py` — `enrich_findings` keeps only registry-mapped findings,
+  attaches the registry's articles/risk/remediation/severity, and preserves
+  Checkov's own `check_name`; `split_findings` additionally returns the
+  unmapped findings so the CLI can surface them (they are never silently
+  dropped).
+
+## Later additions
+
+- `test_cli.py` — argparse wiring, framework filters, exit-code gating, and the
+  unmapped-findings contract (json stderr note, report counts, gating policy).
+- `test_precommit_hook.py` — the shipped `.pre-commit-hooks.yaml`
+  (`pass_filenames: false`) and a real `pre-commit run --all-files` against
+  vulnerable/compliant fixture repos (skipped when pre-commit isn't installed).
+- `test_hook_smoke_dispatch.py` / `test_smoke_check.py` — the tools/ regression
+  guard itself: routing table, baseline comparisons, exit codes.
+- `test_doc_counts.py` — documented mapping counts match the registries.
+- `test_python_support.py` — the supported-Python-version floor stays in sync
+  across pyproject (`requires-python` + classifiers), the CI matrix, the README
+  badge, and `install_and_test.sh`.
 
 ## Legacy cleanup
 

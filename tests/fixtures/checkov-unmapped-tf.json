@@ -1,0 +1,641 @@
+{
+    "check_type": "terraform",
+    "results": {
+        "failed_checks": [
+            {
+                "check_id": "CKV_AWS_9",
+                "bc_check_id": "BC_AWS_IAM_11",
+                "check_name": "Ensure IAM password policy expires passwords within 90 days or less",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "max_password_age"
+                    ]
+                },
+                "code_block": null,
+                "file_path": "/main.tf",
+                "file_abs_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf",
+                "repo_file_path": "/examples/unmapped-aws/main.tf",
+                "file_line_range": [
+                    13,
+                    21
+                ],
+                "resource": "aws_iam_account_password_policy.weak",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.aws.PasswordPolicyExpiration",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": null,
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/iam-11",
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf"
+            },
+            {
+                "check_id": "CKV_AWS_15",
+                "bc_check_id": "BC_AWS_IAM_5",
+                "check_name": "Ensure IAM password policy requires at least one uppercase letter",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "require_uppercase_characters"
+                    ]
+                },
+                "code_block": null,
+                "file_path": "/main.tf",
+                "file_abs_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf",
+                "repo_file_path": "/examples/unmapped-aws/main.tf",
+                "file_line_range": [
+                    13,
+                    21
+                ],
+                "resource": "aws_iam_account_password_policy.weak",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.aws.PasswordPolicyUppercaseLetter",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": null,
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/iam-5",
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf"
+            },
+            {
+                "check_id": "CKV_AWS_14",
+                "bc_check_id": "BC_AWS_IAM_7",
+                "check_name": "Ensure IAM password policy requires at least one symbol",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "require_symbols"
+                    ]
+                },
+                "code_block": null,
+                "file_path": "/main.tf",
+                "file_abs_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf",
+                "repo_file_path": "/examples/unmapped-aws/main.tf",
+                "file_line_range": [
+                    13,
+                    21
+                ],
+                "resource": "aws_iam_account_password_policy.weak",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.aws.PasswordPolicySymbol",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": null,
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/iam-7",
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf"
+            },
+            {
+                "check_id": "CKV_AWS_10",
+                "bc_check_id": "BC_AWS_IAM_9",
+                "check_name": "Ensure IAM password policy requires minimum length of 14 or greater",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "minimum_password_length"
+                    ]
+                },
+                "code_block": null,
+                "file_path": "/main.tf",
+                "file_abs_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf",
+                "repo_file_path": "/examples/unmapped-aws/main.tf",
+                "file_line_range": [
+                    13,
+                    21
+                ],
+                "resource": "aws_iam_account_password_policy.weak",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.aws.PasswordPolicyLength",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": null,
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/iam-9-1",
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf"
+            },
+            {
+                "check_id": "CKV_AWS_11",
+                "bc_check_id": "BC_AWS_IAM_6",
+                "check_name": "Ensure IAM password policy requires at least one lowercase letter",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "require_lowercase_characters"
+                    ]
+                },
+                "code_block": null,
+                "file_path": "/main.tf",
+                "file_abs_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf",
+                "repo_file_path": "/examples/unmapped-aws/main.tf",
+                "file_line_range": [
+                    13,
+                    21
+                ],
+                "resource": "aws_iam_account_password_policy.weak",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.aws.PasswordPolicyLowercaseLetter",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": null,
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/iam-6",
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf"
+            },
+            {
+                "check_id": "CKV_AWS_13",
+                "bc_check_id": "BC_AWS_IAM_10",
+                "check_name": "Ensure IAM password policy prevents password reuse",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "password_reuse_prevention"
+                    ]
+                },
+                "code_block": null,
+                "file_path": "/main.tf",
+                "file_abs_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf",
+                "repo_file_path": "/examples/unmapped-aws/main.tf",
+                "file_line_range": [
+                    13,
+                    21
+                ],
+                "resource": "aws_iam_account_password_policy.weak",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.aws.PasswordPolicyReuse",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": null,
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/iam-10",
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf"
+            },
+            {
+                "check_id": "CKV_AWS_12",
+                "bc_check_id": "BC_AWS_IAM_8",
+                "check_name": "Ensure IAM password policy requires at least one number",
+                "check_result": {
+                    "result": "FAILED",
+                    "evaluated_keys": [
+                        "require_numbers"
+                    ]
+                },
+                "code_block": null,
+                "file_path": "/main.tf",
+                "file_abs_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf",
+                "repo_file_path": "/examples/unmapped-aws/main.tf",
+                "file_line_range": [
+                    13,
+                    21
+                ],
+                "resource": "aws_iam_account_password_policy.weak",
+                "evaluations": null,
+                "check_class": "checkov.terraform.checks.resource.aws.PasswordPolicyNumber",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": null,
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/iam-8",
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf"
+            },
+            {
+                "check_id": "CKV2_AWS_6",
+                "bc_check_id": "BC_AWS_NETWORKING_52",
+                "check_name": "Ensure that S3 bucket has a Public Access block",
+                "check_result": {
+                    "result": "FAILED",
+                    "entity": {
+                        "aws_s3_bucket": {
+                            "data": {
+                                "__end_line__": 26,
+                                "__start_line__": 23,
+                                "bucket": [
+                                    "unmapped-fixture-bucket"
+                                ],
+                                "__address__": "aws_s3_bucket.data"
+                            }
+                        }
+                    },
+                    "evaluated_keys": [
+                        "block_public_acls",
+                        "block_public_policy",
+                        "resource_type"
+                    ]
+                },
+                "code_block": null,
+                "file_path": "/main.tf",
+                "file_abs_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf",
+                "repo_file_path": "/examples/unmapped-aws/main.tf",
+                "file_line_range": [
+                    23,
+                    26
+                ],
+                "resource": "aws_s3_bucket.data",
+                "evaluations": null,
+                "check_class": "checkov.common.graph.checks_infra.base_check",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": null,
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/s3-bucket-should-have-public-access-blocks-defaults-to-false-if-the-public-access-block-is-not-attached",
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf"
+            },
+            {
+                "check_id": "CKV2_AWS_62",
+                "bc_check_id": "BC_AWS_LOGGING_36",
+                "check_name": "Ensure S3 buckets should have event notifications enabled",
+                "check_result": {
+                    "result": "FAILED",
+                    "entity": {
+                        "aws_s3_bucket": {
+                            "data": {
+                                "__end_line__": 26,
+                                "__start_line__": 23,
+                                "bucket": [
+                                    "unmapped-fixture-bucket"
+                                ],
+                                "__address__": "aws_s3_bucket.data"
+                            }
+                        }
+                    },
+                    "evaluated_keys": [
+                        "resource_type"
+                    ]
+                },
+                "code_block": null,
+                "file_path": "/main.tf",
+                "file_abs_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf",
+                "repo_file_path": "/examples/unmapped-aws/main.tf",
+                "file_line_range": [
+                    23,
+                    26
+                ],
+                "resource": "aws_s3_bucket.data",
+                "evaluations": null,
+                "check_class": "checkov.common.graph.checks_infra.base_check",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": null,
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-62",
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf"
+            },
+            {
+                "check_id": "CKV_AWS_18",
+                "bc_check_id": "BC_AWS_S3_13",
+                "check_name": "Ensure the S3 bucket has access logging enabled",
+                "check_result": {
+                    "result": "FAILED",
+                    "entity": {
+                        "aws_s3_bucket": {
+                            "data": {
+                                "__end_line__": 26,
+                                "__start_line__": 23,
+                                "bucket": [
+                                    "unmapped-fixture-bucket"
+                                ],
+                                "__address__": "aws_s3_bucket.data"
+                            }
+                        }
+                    },
+                    "evaluated_keys": [
+                        "logging",
+                        "resource_type"
+                    ]
+                },
+                "code_block": null,
+                "file_path": "/main.tf",
+                "file_abs_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf",
+                "repo_file_path": "/examples/unmapped-aws/main.tf",
+                "file_line_range": [
+                    23,
+                    26
+                ],
+                "resource": "aws_s3_bucket.data",
+                "evaluations": null,
+                "check_class": "checkov.common.graph.checks_infra.base_check",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": null,
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-13-enable-logging",
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf"
+            },
+            {
+                "check_id": "CKV_AWS_144",
+                "bc_check_id": "BC_AWS_GENERAL_72",
+                "check_name": "Ensure that S3 bucket has cross-region replication enabled",
+                "check_result": {
+                    "result": "FAILED",
+                    "entity": {
+                        "aws_s3_bucket": {
+                            "data": {
+                                "__end_line__": 26,
+                                "__start_line__": 23,
+                                "bucket": [
+                                    "unmapped-fixture-bucket"
+                                ],
+                                "__address__": "aws_s3_bucket.data"
+                            }
+                        }
+                    },
+                    "evaluated_keys": [
+                        "replication_configuration/rules/*/status",
+                        "rule/*/status",
+                        "resource_type"
+                    ]
+                },
+                "code_block": null,
+                "file_path": "/main.tf",
+                "file_abs_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf",
+                "repo_file_path": "/examples/unmapped-aws/main.tf",
+                "file_line_range": [
+                    23,
+                    26
+                ],
+                "resource": "aws_s3_bucket.data",
+                "evaluations": null,
+                "check_class": "checkov.common.graph.checks_infra.base_check",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": null,
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-bucket-has-cross-region-replication-enabled",
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf"
+            },
+            {
+                "check_id": "CKV_AWS_21",
+                "bc_check_id": "BC_AWS_S3_16",
+                "check_name": "Ensure all data stored in the S3 bucket have versioning enabled",
+                "check_result": {
+                    "result": "FAILED",
+                    "entity": {
+                        "aws_s3_bucket": {
+                            "data": {
+                                "__end_line__": 26,
+                                "__start_line__": 23,
+                                "bucket": [
+                                    "unmapped-fixture-bucket"
+                                ],
+                                "__address__": "aws_s3_bucket.data"
+                            }
+                        }
+                    },
+                    "evaluated_keys": [
+                        "versioning/enabled",
+                        "versioning_configuration/status",
+                        "resource_type"
+                    ]
+                },
+                "code_block": null,
+                "file_path": "/main.tf",
+                "file_abs_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf",
+                "repo_file_path": "/examples/unmapped-aws/main.tf",
+                "file_line_range": [
+                    23,
+                    26
+                ],
+                "resource": "aws_s3_bucket.data",
+                "evaluations": null,
+                "check_class": "checkov.common.graph.checks_infra.base_check",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": null,
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-16-enable-versioning",
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf"
+            },
+            {
+                "check_id": "CKV2_AWS_61",
+                "bc_check_id": "BC_AWS_LOGGING_35",
+                "check_name": "Ensure that an S3 bucket has a lifecycle configuration",
+                "check_result": {
+                    "result": "FAILED",
+                    "entity": {
+                        "aws_s3_bucket": {
+                            "data": {
+                                "__end_line__": 26,
+                                "__start_line__": 23,
+                                "bucket": [
+                                    "unmapped-fixture-bucket"
+                                ],
+                                "__address__": "aws_s3_bucket.data"
+                            }
+                        }
+                    },
+                    "evaluated_keys": [
+                        "lifecycle_rule",
+                        "resource_type"
+                    ]
+                },
+                "code_block": null,
+                "file_path": "/main.tf",
+                "file_abs_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf",
+                "repo_file_path": "/examples/unmapped-aws/main.tf",
+                "file_line_range": [
+                    23,
+                    26
+                ],
+                "resource": "aws_s3_bucket.data",
+                "evaluations": null,
+                "check_class": "checkov.common.graph.checks_infra.base_check",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": null,
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-61",
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf"
+            },
+            {
+                "check_id": "CKV_AWS_145",
+                "bc_check_id": "BC_AWS_GENERAL_56",
+                "check_name": "Ensure that S3 buckets are encrypted with KMS by default",
+                "check_result": {
+                    "result": "FAILED",
+                    "entity": {
+                        "aws_s3_bucket": {
+                            "data": {
+                                "__end_line__": 26,
+                                "__start_line__": 23,
+                                "bucket": [
+                                    "unmapped-fixture-bucket"
+                                ],
+                                "__address__": "aws_s3_bucket.data"
+                            }
+                        }
+                    },
+                    "evaluated_keys": [
+                        "resource_type",
+                        "rule/apply_server_side_encryption_by_default/sse_algorithm",
+                        "server_side_encryption_configuration/rule/apply_server_side_encryption_by_default/sse_algorithm"
+                    ]
+                },
+                "code_block": null,
+                "file_path": "/main.tf",
+                "file_abs_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf",
+                "repo_file_path": "/examples/unmapped-aws/main.tf",
+                "file_line_range": [
+                    23,
+                    26
+                ],
+                "resource": "aws_s3_bucket.data",
+                "evaluations": null,
+                "check_class": "checkov.common.graph.checks_infra.base_check",
+                "fixed_definition": null,
+                "entity_tags": null,
+                "caller_file_path": null,
+                "caller_file_line_range": null,
+                "resource_address": null,
+                "severity": null,
+                "bc_category": null,
+                "benchmarks": null,
+                "description": null,
+                "short_description": null,
+                "vulnerability_details": null,
+                "connected_node": null,
+                "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-buckets-are-encrypted-with-kms-by-default",
+                "details": [],
+                "check_len": null,
+                "definition_context_file_path": "/home/aayush/Downloads/tf-eu-guard/examples/unmapped-aws/main.tf"
+            }
+        ]
+    },
+    "summary": {
+        "passed": 4,
+        "failed": 14,
+        "skipped": 0,
+        "parsing_errors": 0,
+        "resource_count": 2,
+        "checkov_version": "3.3.13"
+    }
+}

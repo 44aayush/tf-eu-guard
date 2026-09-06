@@ -297,3 +297,55 @@ class TestDevHtmlReport:
     def test_first_line_is_doctype(self):
         doc = generate_dev_html_report(_sample_findings())
         assert doc.splitlines()[0] == "<!DOCTYPE html>"
+
+
+class TestUnmappedCount:
+    """Unmapped Checkov findings must be surfaced as a count in every format —
+    present-but-unmapped, never silently absent (see TASKS.md P0 #2)."""
+
+    def test_security_report_shows_unmapped_count(self):
+        doc = generate_security_report(_sample_findings(), unmapped_count=9)
+        assert "Unmapped Checkov findings: 9" in doc
+        assert '<div class="label">Unmapped</div>' in doc  # summary stat card
+        assert "no current EU regulatory mapping" in doc
+
+    def test_security_report_unmapped_only_is_not_clean(self):
+        doc = generate_security_report([], unmapped_count=4)
+        assert "No compliance findings" not in doc
+        assert "4 unmapped" in doc
+        assert "not a clean bill of health" in doc
+
+    def test_security_report_zero_unmapped_mentions_none(self):
+        doc = generate_security_report(_sample_findings())
+        assert "Unmapped Checkov findings" not in doc
+
+    def test_auditor_report_scopes_unmapped_findings(self):
+        doc = generate_auditor_report(_sample_findings(), unmapped_count=9)
+        assert "Scope &amp; limitations" in doc
+        assert "9" in doc and "no current EU regulatory mapping" in doc
+
+    def test_auditor_report_unmapped_only_is_not_clean(self):
+        doc = generate_auditor_report([], unmapped_count=4)
+        assert "No mapped findings" in doc
+        assert "4 unmapped" in doc
+
+    def test_dev_html_report_shows_unmapped_count(self):
+        doc = generate_dev_html_report(_sample_findings(), unmapped_count=9)
+        assert "Unmapped Checkov findings: 9" in doc
+        assert "9</b> unmapped" in doc  # summary chip
+
+    def test_dev_terminal_report_shows_unmapped_count(self, capsys):
+        from tf_eu_guard.reporting.dev_report import generate_dev_report
+
+        generate_dev_report(_sample_findings(), unmapped_count=9)
+        out = capsys.readouterr().out
+        assert "Unmapped Checkov findings: 9" in out
+        assert "no current EU regulatory mapping" in out
+
+    def test_dev_terminal_report_unmapped_only_is_not_clean(self, capsys):
+        from tf_eu_guard.reporting.dev_report import generate_dev_report
+
+        generate_dev_report([], unmapped_count=4)
+        out = capsys.readouterr().out
+        assert "No compliance findings" not in out
+        assert "4 unmapped" in out

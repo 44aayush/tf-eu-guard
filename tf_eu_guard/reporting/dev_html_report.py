@@ -80,6 +80,7 @@ _CSS = """
   .doc { display: inline-block; margin-top: 10px; font-size: 0.85rem; color: #2980b9; text-decoration: none; }
   .doc:hover { text-decoration: underline; }
   .empty { background: #eafaf1; border: 1px solid #abebc6; color: #1e6b43; padding: 24px; border-radius: 8px; text-align: center; }
+  .unmapped { color: #555; font-size: 0.9rem; margin: 10px 0 0; }
   footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e2e2; color: #888; font-size: 0.82rem; }
   @media (prefers-color-scheme: dark) {
     body { color: #e6e6e6; background: #16181c; }
@@ -98,7 +99,9 @@ def _severity_rank(finding: EnrichedFinding) -> int:
     return order.get(finding.severity, len(SEVERITY_ORDER))
 
 
-def _summary_chips(findings: list[EnrichedFinding]) -> str:
+def _summary_chips(
+    findings: list[EnrichedFinding], unmapped_count: int = 0
+) -> str:
     """Render a compact one-line summary (totals + per-severity counts)."""
     counts = severity_counts(findings)
     chips: list[str] = [
@@ -111,6 +114,11 @@ def _summary_chips(findings: list[EnrichedFinding]) -> str:
                 f'<span class="chip" style="border-color:{SEVERITY_COLOR[sev]}">'
                 f'<b style="color:{SEVERITY_COLOR[sev]}">{counts[sev]}</b> {esc(sev.value)}</span>'
             )
+    if unmapped_count:
+        chips.append(
+            f'<span class="chip" style="border-color:#7f8c8d">'
+            f'<b style="color:#7f8c8d">{unmapped_count}</b> unmapped</span>'
+        )
     return '<section class="chips">\n' + "\n".join(chips) + "\n</section>"
 
 
@@ -128,9 +136,19 @@ def _file_section(file_path: str, group: list[EnrichedFinding]) -> str:
 
 
 def _render(
-    findings: list[EnrichedFinding], *, target: str, timestamp: str, version: str
+    findings: list[EnrichedFinding],
+    *,
+    target: str,
+    timestamp: str,
+    version: str,
+    unmapped_count: int = 0,
 ) -> str:
     """Assemble the complete HTML document."""
+    unmapped_span = (
+        f"<span>Unmapped Checkov findings: {unmapped_count}</span>"
+        if unmapped_count
+        else ""
+    )
     header = (
         "<header>\n"
         "  <h1>tf-eu-guard &mdash; Developer Report</h1>\n"
@@ -138,22 +156,41 @@ def _render(
         f'<span>Target: <code>{esc(target) or "&mdash;"}</code></span>'
         f"<span>Generated: {esc(timestamp) or '&mdash;'}</span>"
         f"<span>Findings: {len(findings)}</span>"
+        f"{unmapped_span}"
         "</div>\n"
         "</header>"
     )
 
-    if not findings:
+    if not findings and not unmapped_count:
         body = (
             '<div class="empty"><h2 style="margin-top:0">No compliance findings</h2>'
             "<p>Checkov reported no failed checks that map to a NIS2 or GDPR control "
             "for this target.</p></div>"
+        )
+    elif not findings:
+        body = (
+            '<div class="empty"><h2 style="margin-top:0">No mapped compliance findings'
+            f" &mdash; {unmapped_count} unmapped</h2>"
+            "<p>Checkov reported no failed checks that map to a NIS2 or GDPR control, "
+            f"but <strong>{unmapped_count}</strong> failed check(s) have no current EU "
+            "regulatory mapping and are not shown here. Review them with a plain "
+            "Checkov run.</p></div>"
         )
     else:
         # Group by file; files sorted alphabetically for a stable, navigable layout.
         by_file: dict[str, list[EnrichedFinding]] = {}
         for f in findings:
             by_file.setdefault(f.file_path, []).append(f)
-        sections = [_summary_chips(findings), "<h2>Findings by file</h2>"]
+        sections = [
+            _summary_chips(findings, unmapped_count),
+            "<h2>Findings by file</h2>",
+        ]
+        if unmapped_count:
+            sections.append(
+                f'<p class="unmapped"><strong>{unmapped_count}</strong> additional '
+                "Checkov finding(s) have no current EU regulatory mapping and are not "
+                "shown in this report.</p>"
+            )
         sections.extend(
             _file_section(path, by_file[path]) for path in sorted(by_file)
         )
@@ -164,6 +201,8 @@ def _render(
         f"{' v' + esc(version) if version else ''}"
         f"{' on ' + esc(timestamp) if timestamp else ''}. "
         "Only failed checks that map to a NIS2/GDPR control are shown; "
+        f"{unmapped_count} unmapped Checkov finding(s) "
+        "were reported separately; "
         "absence of a finding is not evidence of compliance.</footer>"
     )
 
@@ -187,6 +226,7 @@ def generate_dev_html_report(
     timestamp: str = "",
     version: str = "",
     output_path: Path | None = None,
+    unmapped_count: int = 0,
 ) -> str:
     """Generate the self-contained developer HTML report (findings grouped by file).
 
@@ -196,12 +236,18 @@ def generate_dev_html_report(
         timestamp: Human-readable scan time (shown in the header/footer).
         version: tf-eu-guard version (shown in the footer).
         output_path: If given, the HTML is also written to this path (UTF-8).
+        unmapped_count: Checkov findings with no registry mapping — shown as a
+            count so they are present-but-unmapped, not absent.
 
     Returns:
         The complete HTML document as a string.
     """
     document = _render(
-        findings, target=target, timestamp=timestamp, version=version
+        findings,
+        target=target,
+        timestamp=timestamp,
+        version=version,
+        unmapped_count=unmapped_count,
     )
     if output_path is not None:
         Path(output_path).write_text(document, encoding="utf-8")

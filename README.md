@@ -1,7 +1,7 @@
 # tf-eu-guard
 
 [![CI](https://github.com/44aayush/tf-eu-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/44aayush/tf-eu-guard/actions/workflows/ci.yml)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![Checkov 3.3.13](https://img.shields.io/badge/checkov-3.3.13-8A2BE2)](https://www.checkov.io/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Mappings](https://img.shields.io/badge/NIS2%20%2B%20GDPR%20mappings-185-orange)](tf_eu_guard/mapping/registry-aws.yaml)
@@ -24,7 +24,7 @@ Most organizations scan infrastructure-as-code with tools like Checkov or tfsec,
 
 1. **Scans IaC using Checkov** — Terraform source, Terraform plan JSON (`terraform show -json`), and Kubernetes manifests (`--iac-type`)
 2. **Enriches findings** with NIS2 Article 21(2) and GDPR Article 32(1) / 44 mappings from a curated registry
-3. **Filters** to show only EU-compliance-relevant issues (drops unmapped findings)
+3. **Reports mapped and unmapped findings separately** — Checkov failures with no current EU mapping are surfaced as a count in every report format ("52 mapped findings, 9 unmapped"), never silently dropped; see [Unmapped findings](#unmapped-findings)
 4. **Generates three report formats** from one scan:
    - **Dev report** (terminal/HTML): severity-sorted findings for engineers
    - **Security dashboard** (HTML): CRITICAL/HIGH/MEDIUM/LOW breakdown with stats
@@ -40,7 +40,7 @@ Most organizations scan infrastructure-as-code with tools like Checkov or tfsec,
 
 ### Installation
 
-Requires **Python ≥ 3.10** and [uv](https://docs.astral.sh/uv/). Installs Checkov 3.3.13 as a dependency.
+Requires **Python ≥ 3.11** and [uv](https://docs.astral.sh/uv/). Installs Checkov 3.3.13 as a dependency.
 
 ```bash
 uv tool install tf-eu-guard
@@ -71,7 +71,7 @@ tf-eu-guard scan ./terraform --output json --framework gdpr
 tf-eu-guard scan ./terraform --fail-on-severity HIGH
 ```
 
-> **Try it:** Run `tf-eu-guard scan examples/vulnerable-aws/ --output all` to see ~30 mapped findings,
+> **Try it:** Run `tf-eu-guard scan examples/vulnerable-aws/ --output all` to see ~52 mapped findings,
 > or `tf-eu-guard scan examples/compliant-aws/ --output dev` to see a clean scan.
 
 ### Scan Terraform Plan JSON
@@ -198,6 +198,28 @@ tf-eu-guard scan ./terraform --fail-on-severity HIGH   # fail on HIGH or CRITICA
 tf-eu-guard scan ./terraform --fail-on-any             # fail on any finding
 ```
 
+> **Gating considers only mapped findings.** Severity is authored in the mapping
+> registry, so an unmapped Checkov finding has no severity to compare and never
+> trips `--fail-on-severity` / `--fail-on-any` — it is reported for visibility
+> instead (a note is printed to stderr whenever unmapped findings exist during
+> a gated run).
+
+### Unmapped findings
+
+With 185 of Checkov's ~700 AWS checks mapped (plus Azure, GCP and Kubernetes),
+a scan can produce Checkov failures that have no current EU regulatory mapping.
+These are **not** silently dropped: every report format surfaces them as
+"present-but-unmapped" — a count in the dev/security/auditor reports, a
+stderr note alongside the JSON output, and an explicit mention in each
+report's caveats. Unmapped checks are those with no honest compliance link
+(see [`docs/check-mapping-table.md`](docs/check-mapping-table.md) for the
+methodology); if you believe a check deserves a mapping,
+[contribute one](CONTRIBUTING.md).
+
+Try it: `tf-eu-guard scan examples/unmapped-aws/ --output dev` — a fixture that
+deliberately mixes mapped S3 findings with the unmapped password-policy check
+family (`CKV_AWS_10`–`15`).
+
 ### GitHub Action
 
 ```yaml
@@ -212,10 +234,16 @@ tf-eu-guard scan ./terraform --fail-on-any             # fail on any finding
 ```yaml
 repos:
   - repo: https://github.com/44aayush/tf-eu-guard
-    rev: v0.2.1
+    rev: v0.2.2
     hooks:
       - id: tf-eu-guard
 ```
+
+The hook runs with `pass_filenames: false` — it invokes
+`tf-eu-guard scan --output dev --fail-on-severity HIGH` once with no file
+arguments, and the CLI scans the repository root (its default target).
+Checkov needs directory-level context anyway (providers, variables, modules
+declared in sibling files), so per-file invocation was never going to work.
 
 ---
 
@@ -223,9 +251,12 @@ repos:
 
 | Regulation | Terraform source | Terraform plan | Kubernetes |
 |------------|-----------------|----------------|------------|
-| **NIS2 Article 21(2)** | ✅ 38 check mappings | ✅ same checks apply | ✅ 24 `CKV_K8S_*` mappings |
-| **GDPR Article 32(1)** | ✅ 38 check mappings | ✅ same checks apply | ✅ mapped (see registry-kubernetes.yaml) |
+| **NIS2 Article 21(2)** | ✅ 155 cloud check mappings | ✅ same checks apply | ✅ 24 `CKV_K8S_*` mappings |
+| **GDPR Article 32(1)** | ✅ 125 cloud check mappings | ✅ same checks apply | ✅ 13 `CKV_K8S_*` mappings |
 | **GDPR Art. 44 (data residency)** | ✅ Custom check `EUGUARD_GDPR_001` | ✅ provider config visible in plan | ❌ Out of scope — see note |
+
+> Mapping counts above are generated from the registry files and verified in CI
+> (`tools/check_doc_counts.py`) — they cannot drift from the registries.
 
 > **Data residency on Kubernetes:** K8s manifests are cloud-agnostic; region is decided at the
 > cluster/cloud boundary, not in the manifest. Enforce residency there (cluster placement policy,
@@ -283,9 +314,9 @@ The registry is split per namespace — `registry-aws.yaml`, `registry-azure.yam
 │  └──────────────┬──────────────────────────┘ │
 │                 ▼                             │
 │  ┌─────────────────────────────────────────┐ │
-│  │ 4. enrich_findings()                     │ │
+│  │ 4. enrich_findings()                    │ │
 │  │    → Join checks ⟷ compliance articles  │ │
-│  │    → Drop unmapped findings              │ │
+│  │    → Unmapped checks tracked + reported │ │
 │  └──────────────┬──────────────────────────┘ │
 │                 ▼                             │
 │  ┌─────────────────────────────────────────┐ │

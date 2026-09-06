@@ -15,7 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 PYTHON="${PYTHON:-python3}"
-MIN_PY="3.10"
+MIN_PY="3.11"
 
 # --- Python version check -----------------------------------------------------
 PY_VER=$($PYTHON -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')

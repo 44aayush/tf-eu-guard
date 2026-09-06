@@ -4,4 +4,9 @@
   entry: tf-eu-guard scan
   language: python
   files: \.tf$
+  # Checkov needs directory-level context (providers, variables, modules in
+  # sibling files), so the hook scans the repository directory instead of the
+  # individual matched files. Without this, pre-commit appends every matched
+  # .tf file as a positional argument and the CLI rejects the invocation.
+  pass_filenames: false
   args: ['--output', 'dev', '--fail-on-severity', 'HIGH']

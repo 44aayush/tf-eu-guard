@@ -1,10 +1,10 @@
 """Data models for compliance findings and reports."""
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     """Finding severity levels."""
     CRITICAL = "CRITICAL"
     HIGH = "HIGH"
@@ -13,7 +13,7 @@ class Severity(str, Enum):
     INFO = "INFO"
 
 
-class Framework(str, Enum):
+class Framework(StrEnum):
     """Supported compliance frameworks."""
     NIS2 = "NIS2"
     GDPR = "GDPR"
