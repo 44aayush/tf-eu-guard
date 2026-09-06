@@ -30,10 +30,25 @@ def test_version_command(monkeypatch, capsys):
     assert "version" in capsys.readouterr().out
 
 
-def test_scan_requires_path(monkeypatch):
-    monkeypatch.setattr("sys.argv", ["tf-eu-guard", "scan"])
-    with pytest.raises(SystemExit):
-        main()  # argparse error exits with code 2
+def test_scan_defaults_to_cwd(monkeypatch, tmp_path, capsys):
+    """No PATH (and no --checkov-json) -> scan the current working directory.
+
+    This is the pre-commit hook contract: with ``pass_filenames: false`` the
+    hook invokes ``tf-eu-guard scan --output dev --fail-on-severity HIGH``
+    with no positional arguments, so the CLI must default to cwd.
+    """
+    calls = {}
+
+    def fake_run_checkov(target, iac_type="terraform"):
+        calls["target"] = target
+        return {"results": {"failed_checks": []}}
+
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", fake_run_checkov)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", ["tf-eu-guard", "scan", "--output", "json"])
+    assert main() == 0
+    assert Path(calls["target"]) == Path(".")
+    assert json.loads(capsys.readouterr().out) == []
 
 
 def test_scan_dev_output(monkeypatch, tmp_path, repo_root):
@@ -225,23 +240,27 @@ def test_scan_kubernetes_framework_filter(monkeypatch, tmp_path, repo_root, caps
 
 def test_scan_checkov_json_rejects_raw_plan_json(monkeypatch, tmp_path, repo_root, capsys):
     """Feeding a raw terraform show -json plan to --checkov-json must error,
-    not silently produce 0 findings (the regression that shipped this bug)."""
+    not silently produce 0 findings (the regression that shipped this bug).
+    A malformed/unusable input is invalid configuration: exit 2."""
     plan = repo_root / "examples" / "vulnerable-aws-plan" / "plan.json"
     if not plan.exists():
         pytest.skip("examples/vulnerable-aws-plan/plan.json not present")
     rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(plan),
                  "--iac-type", "terraform_plan", "--output", "json")
-    assert rc == 1
+    assert rc == 2
     err = capsys.readouterr().err
     assert "does not look like Checkov output" in err
 
 
-def test_scan_missing_file(monkeypatch, tmp_path):
+def test_scan_missing_file(monkeypatch, tmp_path, capsys):
+    """A nonexistent target is an invalid invocation, not a findings-gate
+    failure or a scanner crash: exit 2."""
     rc = run_cli(monkeypatch, tmp_path, "--checkov-json", "no-such.json")
-    assert rc == 1
+    assert rc == 2
     # nonexistent directory without --checkov-json also fails gracefully
     monkeypatch.setattr("sys.argv", ["tf-eu-guard", "scan", "no-such-dir/"])
-    assert main() == 1
+    assert main() == 2
+    assert "invalid input/configuration" in capsys.readouterr().err
 
 
 # --- Severity-based exit codes (CI/CD gating) ---
@@ -292,6 +311,97 @@ def test_no_gate_by_default(monkeypatch, tmp_path, repo_root):
                  "--output", "json")
     assert rc == 0
 
+# --- Explicit exit codes: 0 findings / 1 findings / 2 bad input / 3 runtime ---
+# The old binary exit conflated "scan found blocking issues" with "the tool
+# failed to run"; these pin the documented contract from cli.py so a CI
+# pipeline can tell them apart.
+
+
+def test_exit_code_for_maps_exceptions():
+    """The exception->exit-code dividing line: user-supplied problems (bad
+    paths, malformed JSON) are 2; the tool being broken (malformed shipped
+    registry, Checkov crash, anything unexpected) is 3."""
+    import subprocess as sp
+
+    from tf_eu_guard.cli import (
+        EXIT_FINDINGS,
+        EXIT_INVALID_INPUT,
+        EXIT_OK,
+        EXIT_RUNTIME_FAILURE,
+        _exit_code_for,
+    )
+    from tf_eu_guard.mapping.loader import RegistryValidationError
+
+    assert EXIT_OK == 0 and EXIT_FINDINGS == 1
+    assert EXIT_INVALID_INPUT == 2 and EXIT_RUNTIME_FAILURE == 3
+
+    # user-supplied input problems
+    assert _exit_code_for(ValueError("bad iac_type")) == 2
+    assert _exit_code_for(json.JSONDecodeError("malformed", "{}", 0)) == 2
+    assert _exit_code_for(FileNotFoundError("no such file")) == 2
+    # the tool itself is broken
+    # (RegistryValidationError subclasses ValueError, so this ordering is
+    # deliberate: the registry ships with the tool, it is not user input)
+    assert _exit_code_for(RegistryValidationError("schema violation")) == 3
+    assert _exit_code_for(sp.CalledProcessError(2, "checkov")) == 3
+    assert _exit_code_for(RuntimeError("unexpected")) == 3
+
+
+def test_malformed_registry_exits_3(monkeypatch, tmp_path, capsys):
+    """The plan's done-when: a deliberately broken registry file (malformed,
+    fails schema validation) makes the scan exit 3 — 'the tool is broken' —
+    not 1, so a CI pipeline distinguishes 'we found problems' from 'the
+    scanner failed'.
+
+    Only the registry *location* is redirected (the scan resolves it from
+    the installed package's own files); the malformed file itself goes
+    through the REAL validation path — load_registry_file raises
+    RegistryValidationError exactly as a genuinely corrupted
+    registry-*.yaml in the package would."""
+    # Build a fake package mapping dir holding one malformed registry.
+    fake_pkg = tmp_path / "fake_pkg"
+    mapping_dir = fake_pkg / "mapping"
+    mapping_dir.mkdir(parents=True)
+    (mapping_dir / "registry-broken.yaml").write_text(
+        "CKV_AWS_1:\n  check_name: x\n"  # missing required fields
+    )
+
+    # cli.py resolves the registry as Path(__file__).parent / "mapping";
+    # __file__ is a module global read at call time, so pointing it at the
+    # fake package redirects just that resolution.
+    monkeypatch.setattr("tf_eu_guard.cli.__file__", str(fake_pkg / "cli.py"))
+
+    doc = {"results": {"failed_checks": []}}
+    f = tmp_path / "empty.json"
+    f.write_text(json.dumps(doc))
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(f), "--output", "json")
+    assert rc == 3
+    err = capsys.readouterr().err
+    assert "scanner/runtime failure" in err
+    assert "missing required field" in err
+
+
+def test_checkov_crash_exits_3(monkeypatch, tmp_path, capsys):
+    """Checkov itself failing (CalledProcessError) is a runtime failure: 3."""
+    import subprocess as sp
+
+    def fake_run_checkov(target, iac_type="terraform"):
+        raise sp.CalledProcessError(2, ["checkov"])
+
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", fake_run_checkov)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", ["tf-eu-guard", "scan"])
+    assert main() == 3
+    assert "scanner/runtime failure" in capsys.readouterr().err
+
+
+def test_malformed_checkov_json_exits_2(monkeypatch, tmp_path):
+    """Not-parseable --checkov-json input: invalid configuration, exit 2."""
+    f = tmp_path / "garbage.json"
+    f.write_text("{not json")
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(f), "--output", "json")
+    assert rc == 2
+
 
 def test_fail_on_severity_empty_findings(monkeypatch, tmp_path):
     doc = {"results": {"failed_checks": []}}
@@ -300,3 +410,133 @@ def test_fail_on_severity_empty_findings(monkeypatch, tmp_path):
     rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(f),
                  "--output", "json", "--fail-on-severity", "LOW")
     assert rc == 0
+
+
+# --- Unmapped Checkov findings (present-but-unmapped, never silently dropped) ---
+
+UNMAPPED_FIXTURE = "tests/fixtures/checkov-unmapped-tf.json"
+
+
+def _mixed_doc():
+    """One mapped (MEDIUM) + two unmapped failures, Checkov-shaped."""
+    return {
+        "results": {"failed_checks": [
+            {
+                "check_id": "CKV_AWS_40",  # registry-mapped, severity MEDIUM
+                "check_name": "check",
+                "resource": "aws_x.y",
+                "file_path": "/a.tf",
+                "file_line_range": [1, 2],
+                "guideline": None,
+            },
+            {
+                "check_id": "CKV_AWS_10",  # password-policy family: unmapped
+                "check_name": "check",
+                "resource": "aws_iam_account_password_policy.weak",
+                "file_path": "/a.tf",
+                "file_line_range": [3, 4],
+                "guideline": None,
+            },
+            {
+                "check_id": "CKV_AWS_11",  # unmapped
+                "check_name": "check",
+                "resource": "aws_iam_account_password_policy.weak",
+                "file_path": "/a.tf",
+                "file_line_range": [3, 4],
+                "guideline": None,
+            },
+        ]}
+    }
+
+
+def test_unmapped_findings_not_in_json_stdout_but_counted_on_stderr(
+    monkeypatch, tmp_path, capsys
+):
+    """--output json stays a pure mapped-findings array; the unmapped count
+    is surfaced on stderr so pipelines parsing stdout are unaffected."""
+    f = tmp_path / "mixed.json"
+    f.write_text(json.dumps(_mixed_doc()))
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(f), "--output", "json")
+    assert rc == 0
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert [d["check_id"] for d in data] == ["CKV_AWS_40"]
+    assert "2 unmapped Checkov finding(s)" in captured.err
+    assert "no current EU regulatory mapping" in captured.err
+
+
+def test_unmapped_only_scan_is_not_reported_clean(monkeypatch, tmp_path, capsys):
+    """Mapped-zero + unmapped>0 must not print the 'no findings' success banner."""
+    doc = _mixed_doc()
+    doc["results"]["failed_checks"] = doc["results"]["failed_checks"][1:]
+    f = tmp_path / "unmapped-only.json"
+    f.write_text(json.dumps(doc))
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(f), "--output", "dev")
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "No compliance findings" not in out
+    assert "2 unmapped" in out
+
+
+def test_unmapped_findings_never_trip_the_gate(monkeypatch, tmp_path, capsys):
+    """Documented policy: --fail-on-severity/--fail-on-any consider only mapped
+    findings (severity is registry-authored, so unmapped findings have no
+    severity to compare). Unmapped findings are surfaced, not gated on."""
+    doc = _mixed_doc()
+    doc["results"]["failed_checks"] = doc["results"]["failed_checks"][1:]  # unmapped only
+    f = tmp_path / "unmapped-only.json"
+    f.write_text(json.dumps(doc))
+    for gate in (["--fail-on-any"], ["--fail-on-severity", "LOW"]):
+        rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(f),
+                     "--output", "json", *gate)
+        assert rc == 0, f"{gate} must not fail on unmapped findings alone"
+        err = capsys.readouterr().err
+        assert "do not affect this gate" in err
+
+
+def test_mapped_findings_still_trip_the_gate_alongside_unmapped(
+    monkeypatch, tmp_path, capsys
+):
+    """Mixed scan: the mapped MEDIUM finding fails a LOW gate; the note about
+    unmapped findings appears alongside the failure."""
+    f = tmp_path / "mixed.json"
+    f.write_text(json.dumps(_mixed_doc()))
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(f),
+                 "--output", "json", "--fail-on-severity", "LOW")
+    assert rc == 1
+    assert "Fail: 1 finding(s)" in capsys.readouterr().err
+
+
+def test_unmapped_count_in_all_html_reports(monkeypatch, tmp_path, repo_root):
+    f = tmp_path / "mixed.json"
+    f.write_text(json.dumps(_mixed_doc()))
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(f), "--output", "all")
+    assert rc == 0
+    htmls = {p.name.split("_")[0]: p.read_text() for p in tmp_path.glob("reports/*.html")}
+    assert len(htmls) == 3
+    # dev/security show the count in the header; the auditor puts it in the
+    # scope & limitations note. All three must carry the "no mapping" caveat.
+    for kind, doc in htmls.items():
+        assert "no current EU regulatory mapping" in doc, f"{kind} report missing note"
+    assert "Unmapped Checkov findings: 2" in htmls["dev"]
+    assert "Unmapped Checkov findings: 2" in htmls["scan"]
+    assert "<strong>2</strong> failed check(s)" in htmls["auditor"]
+
+
+def test_unmapped_fixture_regression(monkeypatch, tmp_path, repo_root, capsys):
+    """Committed real-Checkov fixture (examples/unmapped-aws): the mapped S3
+    findings enrich, the password-policy family is surfaced as unmapped, and
+    none of the unmapped IDs leak into the mapped-findings output."""
+    fixture = repo_root / UNMAPPED_FIXTURE
+    if not fixture.exists():
+        pytest.skip(f"{UNMAPPED_FIXTURE} not present")
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(fixture), "--output", "json")
+    assert rc == 0
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    # mapped: CKV_AWS_9 + the six S3 checks; unmapped: the six CKV_AWS_1x
+    assert {d["check_id"] for d in data} >= {"CKV_AWS_9", "CKV_AWS_145", "CKV_AWS_18"}
+    unmapped_family = {f"CKV_AWS_{n}" for n in range(10, 16)}
+    assert not unmapped_family & {d["check_id"] for d in data}, \
+        "unmapped password-policy IDs must not appear as mapped"
+    assert "6 unmapped Checkov finding(s)" in captured.err

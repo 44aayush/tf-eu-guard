@@ -1,22 +1,22 @@
 [project]
 name = "tf-eu-guard"
-version = "0.2.1"
+version = "0.3.0"
 description = "EU compliance security linter for Terraform and Kubernetes — NIS2 and GDPR mapping"
 authors = [
     {name = "44aayush", email = "k44aayush.official@gmail.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {text = "MIT"}
 keywords = ["terraform", "security", "compliance", "nis2", "gdpr", "iac"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Security",
     "Topic :: Software Development :: Quality Assurance",
 ]
@@ -47,7 +47,7 @@ packages = ["tf_eu_guard"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
@@ -58,4 +58,11 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "--verbose --cov=tf_eu_guard --cov-report=term-missing"
+# tools/ (the smoke-check regression guard) is covered too — a bug there is
+# exactly as invisible as the c7e68f6 silent-0 it exists to catch.
+addopts = "--verbose --cov=tf_eu_guard --cov=tools --cov-report=term-missing"
+
+[tool.coverage.run]
+# ansi_to_image.py / make_cast.py are one-off demo/screenshot utilities, not
+# part of the regression guard — keep them out of the coverage report.
+omit = ["tools/ansi_to_image.py", "tools/make_cast.py"]

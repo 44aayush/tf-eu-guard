@@ -3,11 +3,12 @@
 **Reference stack**: the vulnerable Terraform under [`examples/vulnerable-aws/`](../examples/vulnerable-aws/)
 (`iam.tf`, `s3.tf`, `rds.tf`, `network.tf`, plus `outputs.tf`).
 **Mapped in `registry-aws.yaml`**: **116 check IDs** — 114 stock Checkov policies plus
-2 custom tf-eu-guard checks (**§**, added in Phase 3). The original 38 mappings cover
-the `vulnerable_tf/` reference stack; the **registry extension (2026-08-30)** adds
-76 more so that *every* Checkov check firing across the in-repo stacks
-(`examples/vulnerable-aws/`, `examples/end2end/`) enriches —
-the latest run converts **293/293 failed checks into mapped findings**.
+2 custom tf-eu-guard checks (**§**, added in Phase 3). The original 38-mapping core
+covered the `vulnerable_tf/` reference stack; subsequent extensions (from
+2026-08-30 on) grew the registry so that *every* Checkov check firing across the
+in-repo stacks (`examples/vulnerable-aws/`, `examples/end2end/`) enriches.
+Mapping counts in the docs are verified against the registries in CI
+(`tools/check_doc_counts.py`), so they cannot drift.
 
 Article letters are verified against **Directive (EU) 2022/2555 (NIS2) Art. 21(2)**
 and **Regulation (EU) 2016/679 (GDPR) Art. 32(1)**. Full legal text and reasoning
@@ -55,7 +56,7 @@ scan. **‡** mapped but does not fire on the current stack (no triggering resou
 
 ---
 
-## Mapping Matrix (38 mapped checks)
+## Mapping Matrix (the original 38-check core)
 
 | Check ID | File | Resource | Issue | NIS2 | GDPR | Severity |
 |----------|------|----------|-------|------|------|----------|
@@ -101,7 +102,7 @@ scan. **‡** mapped but does not fire on the current stack (no triggering resou
 ### Coverage summary
 
 - **By severity** (original 38): 9 CRITICAL · 15 HIGH · 14 MEDIUM — plus the
-  76-check extension above (116 total: 19 CRITICAL · 46 HIGH · 34 MEDIUM · 17 LOW).
+  extension above (116 total: 19 CRITICAL · 46 HIGH · 34 MEDIUM · 17 LOW).
 - **By framework** (original 38): 21 map to **both** NIS2 and GDPR, 11 NIS2-only, 6 GDPR-only.
 - **By file**: iam.tf (12), s3.tf (9), rds.tf (9), network.tf (7), main.tf (1).
 - **By theme**: access control / least privilege (20), public exposure (7),
@@ -140,7 +141,7 @@ Then confirm three things:
 
 ---
 
-## Registry extension (2026-08-30): 76 additional mappings
+## Registry extension: beyond the original core
 
 Every Checkov AWS check that fires against any in-repo stack is now mapped. The
 extension is grouped by theme in `registry-aws.yaml` (check IDs below; full risk /
@@ -157,18 +158,21 @@ remediation text lives in the registry):
 | IAM / access control | 21(2)(i) | 32(1)(b) | CKV2_AWS_40, CKV_AWS_109, 111, 283, 356, 70, CKV2_AWS_41, 79, 162, 359, CKV2_AWS_52 |
 | Network segmentation | 21(2)(i) | 32(1)(b) | CKV_AWS_137, 248, 38, 39, 117, CKV2_AWS_5, 23 |
 
-Severity distribution after the extension: **19 CRITICAL · 46 HIGH · 32 MEDIUM ·
+Severity distribution after the extension: **19 CRITICAL · 46 HIGH · 34 MEDIUM ·
 17 LOW** (116 total; article refs: NIS2 110, GDPR 81).
 
 ### Checks still intentionally unmapped
 
-`enrich_findings()` drops unmapped findings, so anything absent from the registry
-never reaches a report. Remaining unmapped checks are those with **no honest
-compliance link** (e.g. the password-policy family `CKV_AWS_10`/`11`/`12`/`14`/`15`,
-already represented by the mapped `CKV_AWS_9` account-level check) or that simply do
-not fire on any in-repo stack. Mapping the *entire* Checkov AWS catalogue (~700
-checks) was rejected deliberately: entries exist to explain real findings, not to
-paint every conceivable check with an article reference the code doesn't justify.
+Unmapped findings are excluded from the mapped-findings reports but are surfaced
+as a count in every format — they no longer vanish silently (see the CLI's
+unmapped-findings handling and `examples/unmapped-aws/`, a fixture that
+deliberately fails the password-policy family). Remaining unmapped checks are
+those with **no honest compliance link** (e.g. the password-policy family
+`CKV_AWS_10`/`11`/`12`/`13`/`14`/`15`, already represented by the mapped
+`CKV_AWS_9` account-level check) or that simply do not fire on any in-repo
+stack. Mapping the *entire* Checkov AWS catalogue (~700 checks) was rejected
+deliberately: entries exist to explain real findings, not to paint every
+conceivable check with an article reference the code doesn't justify.
 
 ---
 

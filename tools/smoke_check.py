@@ -14,8 +14,8 @@ user even after the edit already landed).
 
 Expected counts come from tools/smoke_baselines.json — the same file CI
 reads — so there's one source of truth, not two copies that drift apart.
-Vulnerable examples must return at least ``min`` findings (> 0 by
-implication); compliant examples must return exactly 0.
+Vulnerable examples must return at least ``min`` findings (and always more
+than zero, even if ``min`` is 0); compliant examples must return exactly 0.
 """
 
 import argparse
@@ -94,11 +94,15 @@ def check_iac_type(iac_type: str) -> list[str]:
         count = _scan(path, iac_type)
         # Guard against the exact shipped bug: a code path that silently
         # returns nothing. min is a floor so legitimate registry/check growth
-        # doesn't fail the guard; expected is reported for context.
-        if count < spec["min"]:
+        # doesn't fail the guard; a vulnerable example must always yield at
+        # least ONE finding, even if the baseline's min was set to 0 (per the
+        # baselines file's own "and > 0" contract). expected is reported for
+        # context.
+        floor = max(spec["min"], 1)
+        if count < floor:
             failures.append(
                 f"vulnerable example {path} ({iac_type}) returned {count} mapped "
-                f"findings — expected {spec['expected']} (floor {spec['min']}). "
+                f"findings — expected {spec['expected']} (floor {floor}). "
                 f"A near-zero count usually means the scan path is broken, not "
                 f"that the example got compliant."
             )

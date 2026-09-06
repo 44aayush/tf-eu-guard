@@ -204,7 +204,12 @@ def _article_section(
 
 
 def _render(
-    findings: list[EnrichedFinding], *, target: str, timestamp: str, version: str
+    findings: list[EnrichedFinding],
+    *,
+    target: str,
+    timestamp: str,
+    version: str,
+    unmapped_count: int = 0,
 ) -> str:
     """Assemble the complete auditor HTML document."""
     header = (
@@ -223,16 +228,34 @@ def _render(
         "This report lists only Checkov control failures that map to a NIS2 or "
         "GDPR article. It is an evidence aid for an auditor, not a certification. "
         "An article not listed here was not exercised by a failing check &mdash; "
-        "that is <em>not</em> evidence of compliance.</div>"
+        "that is <em>not</em> evidence of compliance."
+        + (
+            f" Checkov additionally reported <strong>{unmapped_count}</strong> "
+            "failed check(s) with no current EU regulatory mapping; they are not "
+            "shown in this report and were not assessed against any article."
+            if unmapped_count
+            else ""
+        )
+        + "</div>"
     )
 
     if not findings:
-        body = (
-            f"{header}\n{scope}\n"
-            '<div class="empty"><h2 style="margin-top:0;border:none">No mapped findings</h2>'
+        empty_body = (
+            '<div class="empty"><h2 style="margin-top:0;border:none">'
+            "No mapped findings</h2>"
             "<p>No failed Checkov checks mapped to a NIS2 or GDPR control for this "
             "target. This does not by itself demonstrate compliance.</p></div>"
         )
+        if unmapped_count:
+            empty_body = (
+                '<div class="empty"><h2 style="margin-top:0;border:none">'
+                f"No mapped findings &mdash; {unmapped_count} unmapped</h2>"
+                "<p>No failed Checkov checks mapped to a NIS2 or GDPR control for "
+                f"this target, but <strong>{unmapped_count}</strong> failed check(s) "
+                "have no current EU regulatory mapping and are not shown here. "
+                "This does not by itself demonstrate compliance.</p></div>"
+            )
+        body = f"{header}\n{scope}\n{empty_body}"
     else:
         index = _build_index(findings)
         sections: list[str] = [header, scope, _executive_summary(findings, index), _toc(index)]
@@ -271,6 +294,7 @@ def generate_auditor_report(
     timestamp: str = "",
     version: str = "",
     output_path: Path | None = None,
+    unmapped_count: int = 0,
 ) -> str:
     """Generate the self-contained HTML auditor / compliance-matrix report.
 
@@ -280,12 +304,18 @@ def generate_auditor_report(
         timestamp: Human-readable scan time (shown in the header/footer).
         version: tf-eu-guard version (shown in the footer).
         output_path: If given, the HTML is also written to this path (UTF-8).
+        unmapped_count: Checkov findings with no registry mapping — called out
+            in the scope note so they are present-but-unmapped, not absent.
 
     Returns:
         The complete HTML document as a string.
     """
     document = _render(
-        findings, target=target, timestamp=timestamp, version=version
+        findings,
+        target=target,
+        timestamp=timestamp,
+        version=version,
+        unmapped_count=unmapped_count,
     )
     if output_path is not None:
         Path(output_path).write_text(document, encoding="utf-8")

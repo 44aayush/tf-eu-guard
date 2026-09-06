@@ -24,7 +24,7 @@ jobs:
 
       - name: Lint with ruff
         run: |
-          ruff check tf_eu_guard/
+          ruff check tf_eu_guard/ tools/
 
   test:
     runs-on: ubuntu-latest
@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - uses: actions/checkout@v4
@@ -53,6 +53,19 @@ jobs:
       - name: Validate registry schema
         run: |
           python -c "from tf_eu_guard.mapping.loader import validate_all; print(validate_all())"
+
+      - name: Check documented mapping counts against the registries
+        # Hand-typed counts in the docs drifted before (stale 38/44/30 next to
+        # the real 116/23/22/24) — regenerate from the registry files instead.
+        run: |
+          python tools/check_doc_counts.py
+
+      - name: Check regulatory-coverage doc against the registries
+        # docs/regulatory-coverage.md is generated (requirement-level
+        # automated/partial/manual classification); this fails if it drifts
+        # from the registries or the requirement inventory.
+        run: |
+          python tools/generate_coverage_doc.py --check
 
   example-scan:
     runs-on: ubuntu-latest

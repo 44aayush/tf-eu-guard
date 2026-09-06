@@ -35,7 +35,6 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SMOKE_CHECK = REPO_ROOT / "tools" / "smoke_check.py"
@@ -44,7 +43,7 @@ ALL_TYPES = ["terraform", "terraform_plan", "kubernetes"]
 TERRAFORM_TYPES = ["terraform", "terraform_plan"]
 
 
-def types_for_path(path: str) -> Optional[list[str]]:
+def types_for_path(path: str) -> list[str] | None:
     """Map an edited repo-relative path to the IaC types to smoke-check."""
     p = Path(path)
 
