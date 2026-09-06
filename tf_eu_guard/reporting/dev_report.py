@@ -92,16 +92,20 @@ class DevReporter(BaseReporter):
         return report_text
 
 
-def generate_dev_report(findings: list[EnrichedFinding]) -> None:
+def generate_dev_report(
+    findings: list[EnrichedFinding], unmapped_count: int = 0
+) -> None:
     """
     Generate and print developer-focused terminal report.
 
     Args:
         findings: List of enriched findings with compliance mappings
+        unmapped_count: Number of Checkov findings with no registry mapping —
+            surfaced as a count so they are present-but-unmapped, not absent
     """
     console = Console()
 
-    if not findings:
+    if not findings and not unmapped_count:
         console.print("\n[green]✓ No compliance findings![/green]\n")
         return
 
@@ -109,6 +113,19 @@ def generate_dev_report(findings: list[EnrichedFinding]) -> None:
     console.print("\n[bold]═══════════════════════════════════════════════════[/bold]")
     console.print("[bold]  tf-eu-guard: EU Compliance Scan Report[/bold]")
     console.print("[bold]═══════════════════════════════════════════════════[/bold]\n")
+
+    if not findings:
+        # Unmapped findings only — the scan is NOT clean, say so explicitly
+        # instead of printing the "no findings" success banner.
+        console.print(
+            f"[yellow]No mapped compliance findings, but {unmapped_count} unmapped "
+            f"Checkov finding(s) exist (no current EU regulatory mapping):[/yellow]"
+        )
+        console.print(
+            "[dim]Checkov reported failures this tool cannot map to NIS2/GDPR — "
+            "review them with a plain Checkov run.[/dim]\n"
+        )
+        return
 
     # Summary
     severity_counts = {}
@@ -120,6 +137,11 @@ def generate_dev_report(findings: list[EnrichedFinding]) -> None:
         if severity in severity_counts:
             color = {"CRITICAL": "red", "HIGH": "red", "MEDIUM": "yellow", "LOW": "blue"}[severity.value]
             console.print(f"  [{color}]●[/{color}] {severity.value}: {severity_counts[severity]}")
+    if unmapped_count:
+        console.print(
+            f"  [dim]● Unmapped Checkov findings: {unmapped_count} "
+            f"(no current EU regulatory mapping — not listed below)[/dim]"
+        )
     console.print()
 
     # Group by file

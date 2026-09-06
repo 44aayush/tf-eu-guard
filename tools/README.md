@@ -1,6 +1,19 @@
 # tools/
 
-Developer tooling for generating demo artifacts. Not part of the installed package.
+Developer tooling. Not part of the installed package.
+
+## Regression guards
+
+| Script | Purpose |
+|--------|---------|
+| `smoke_check.py` | Scan each vulnerable/compliant example pair and verify the mapped-finding counts against `smoke_baselines.json`. Exit 0 = counts OK, 2 = a count is outside its baseline (the silent-0 guard), 1 = unexpected error. Usage: `python3 tools/smoke_check.py --iac-type terraform` |
+| `smoke_baselines.json` | Expected mapped-finding counts per IaC type — the single source of truth read by CI, `smoke_check.py`, and the Claude Code hook. |
+| `hook_smoke_dispatch.py` | PostToolUse hook dispatcher for Claude Code (`.claude/settings.json`): maps an edited file path to the IaC types it can affect and runs only those smoke checks. Exits 2 to surface a failed check. |
+| `check_doc_counts.py` | Verify every mapping count in README/CONTRIBUTING/docs against the registry files, so hand-typed counts can't drift. Usage: `python3 tools/check_doc_counts.py` (exit 1 on mismatch) |
+
+See [CONTRIBUTING.md](../CONTRIBUTING.md) §"Smoke checks" for the workflow.
+
+## Demo artifact generation
 
 | Script | Purpose |
 |--------|---------|

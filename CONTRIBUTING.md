@@ -32,6 +32,11 @@ own file. When adding a new IaC target, diff the IDs that actually fire
 against the registry and author only the gap (see
 `docs/DECISIONS.md` #8–9).
 
+> The mapping counts in this table, the README and `docs/` are verified
+> against the registry files by `tools/check_doc_counts.py` (CI runs it, and
+> so does the test suite). Don't hand-type counts anywhere else — if you need
+> to cite one, expect the check to enforce it.
+
 ### Schema
 
 Every entry must have these fields (validated in CI by

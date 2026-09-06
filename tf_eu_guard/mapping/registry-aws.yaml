@@ -763,10 +763,13 @@ EUGUARD_GDPR_001:
   risk: >
     Deploying resources through an AWS provider pinned to a non-EU region stores
     personal data outside the EU/EEA - a transfer to a third country. GDPR
-    Chapter V (Art. 44-49) permits this only under specific safeguards (an
-    adequacy decision, Standard Contractual Clauses, or Binding Corporate Rules);
-    an unqualified non-EU region is a data-residency violation that must be
-    justified under one of those mechanisms or corrected.
+    Chapter V (Art. 44-49) permits such transfers only under specific safeguards
+    (an adequacy decision, Standard Contractual Clauses, or Binding Corporate
+    Rules). A non-EU region is therefore a transfer requiring justification
+    under Chapter V - a strong signal for review, but not by itself a
+    violation: the lawfulness of the transfer depends on the safeguard in
+    place, which the configuration alone cannot show. Justify it with a
+    documented Chapter V mechanism, or pin the provider to an EU/EEA region.
   remediation: |
     Pin every aws provider block to an EU region, or gate a non-EU provider
     behind a documented Chapter V transfer mechanism:

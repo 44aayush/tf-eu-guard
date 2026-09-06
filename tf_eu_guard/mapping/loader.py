@@ -124,30 +124,37 @@ def validate_all(mapping_dir: Path | None = None) -> dict[str, int]:
     return counts
 
 
-def enrich_findings(
+def split_findings(
     checkov_findings: list[dict[str, Any]],
     registry: dict[str, ComplianceMapping],
-) -> list[EnrichedFinding]:
+) -> tuple[list[EnrichedFinding], list[dict[str, Any]]]:
     """
-    Enrich Checkov findings with EU compliance context from registry.
-
-    Only findings with a registry mapping are returned (unmapped findings are dropped).
+    Partition Checkov findings into (enriched, unmapped).
 
     Args:
         checkov_findings: List of failed checks from Checkov
         registry: Loaded compliance mapping registry
 
     Returns:
-        List of enriched findings with EU article mappings
+        A tuple of:
+
+        - the findings whose check ID has a registry entry, enriched with EU
+          compliance context
+        - the raw Checkov finding dicts with **no** registry entry, preserved
+          so callers can surface them instead of silently dropping them
+          (e.g. "52 mapped findings, 9 unmapped").
     """
-    enriched = []
+    enriched: list[EnrichedFinding] = []
+    unmapped: list[dict[str, Any]] = []
 
     for check in checkov_findings:
         check_id = check["check_id"]
         mapping = registry.get(check_id)
 
         if not mapping:
-            # Skip findings with no EU compliance mapping
+            # No EU compliance mapping — keep the raw finding so reports can
+            # show it as present-but-unmapped rather than absent.
+            unmapped.append(check)
             continue
 
         enriched.append(
@@ -165,4 +172,25 @@ def enrich_findings(
             )
         )
 
-    return enriched
+    return enriched, unmapped
+
+
+def enrich_findings(
+    checkov_findings: list[dict[str, Any]],
+    registry: dict[str, ComplianceMapping],
+) -> list[EnrichedFinding]:
+    """
+    Enrich Checkov findings with EU compliance context from registry.
+
+    Only findings with a registry mapping are returned. Findings whose check
+    ID has no mapping are dropped here — use :func:`split_findings` when the
+    unmapped findings also need to be surfaced (the CLI does).
+
+    Args:
+        checkov_findings: List of failed checks from Checkov
+        registry: Loaded compliance mapping registry
+
+    Returns:
+        List of enriched findings with EU article mappings
+    """
+    return split_findings(checkov_findings, registry)[0]

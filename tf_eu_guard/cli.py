@@ -21,7 +21,9 @@ def main():
         "path",
         nargs="?",
         type=Path,
-        help="Path to IaC directory to scan",
+        help="Path to IaC directory to scan (default: the current working "
+             "directory, so the pre-commit hook can invoke the CLI with no "
+             "positional arguments)",
     )
     parser.add_argument(
         "--iac-type",
@@ -80,12 +82,19 @@ def main():
         choices=["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"],
         default=None,
         help="Exit with code 1 if any finding is at or above this severity "
-             "(for CI/CD gating). Default: disabled (exit 0 unless an error occurs).",
+             "(for CI/CD gating). Default: disabled (exit 0 unless an error occurs). "
+             "Only MAPPED findings are considered: severity is authored in the "
+             "mapping registry, so unmapped Checkov findings have no severity "
+             "to compare and never trip the gate (they are reported for "
+             "visibility instead).",
     )
     parser.add_argument(
         "--fail-on-any",
         action="store_true",
-        help="Exit with code 1 if any finding exists, regardless of severity.",
+        help="Exit with code 1 if any finding exists, regardless of severity. "
+             "Like --fail-on-severity, considers only MAPPED findings "
+             "(unmapped Checkov findings are surfaced in reports but do not "
+             "fail the gate).",
     )
 
     args = parser.parse_args()
@@ -96,10 +105,10 @@ def main():
         return 0
 
     if args.command == "scan":
+        # Default to the current working directory when no path is given (the
+        # pre-commit hook invokes the CLI with no positional arguments).
         if not args.path and not args.checkov_json:
-            parser.error(
-                "scan command requires a PATH, or --checkov-json <file> (use '-' for stdin)"
-            )
+            args.path = Path(".")
 
         # Execute the scan pipeline
         from tf_eu_guard.checkov_runner import (
@@ -107,7 +116,7 @@ def main():
             load_checkov_json,
             run_checkov,
         )
-        from tf_eu_guard.mapping.loader import enrich_findings, load_registry
+        from tf_eu_guard.mapping.loader import load_registry, split_findings
         from tf_eu_guard.models import Framework
 
         try:
@@ -124,8 +133,10 @@ def main():
             registry_path = Path(__file__).parent / "mapping"
             registry = load_registry(registry_path)
 
-            # Step 3: Enrich findings with compliance mappings
-            enriched = enrich_findings(findings, registry)
+            # Step 3: Enrich findings with compliance mappings, keeping the
+            # unmapped Checkov findings aside so every report can surface them
+            # instead of silently dropping them.
+            enriched, unmapped = split_findings(findings, registry)
 
             # Step 4: Filter by framework if requested
             if args.framework != "all":
@@ -138,7 +149,7 @@ def main():
             # Step 5: Generate report
             if args.output == "dev":
                 from tf_eu_guard.reporting.dev_report import generate_dev_report
-                generate_dev_report(enriched)
+                generate_dev_report(enriched, unmapped_count=len(unmapped))
             elif args.output == "json":
                 import json
                 output = [
@@ -152,6 +163,15 @@ def main():
                     for f in enriched
                 ]
                 print(json.dumps(output, indent=2))
+                # Machine-readable stdout stays a pure findings array; the
+                # unmapped count goes to stderr so pipelines parsing stdout
+                # are unaffected while humans still see it.
+                if unmapped:
+                    print(
+                        f"Note: {len(unmapped)} unmapped Checkov finding(s) not shown above "
+                        f"(no current EU regulatory mapping).",
+                        file=sys.stderr,
+                    )
             elif args.output in ("security", "auditor", "all"):
                 # HTML report(s). 'all' writes the dev, security and auditor
                 # files together; the single formats write just their own.
@@ -202,6 +222,7 @@ def main():
                         timestamp=timestamp,
                         version=__version__,
                         output_path=out_path,
+                        unmapped_count=len(unmapped),
                     )
                     written.append(out_path)
 
@@ -239,6 +260,17 @@ def main():
                     file=sys.stderr,
                 )
                 return 1
+
+            # Explicit, documented policy: unmapped Checkov findings never
+            # affect the gate (severity is registry-authored, so an unmapped
+            # finding has no severity to compare). Surface that in CI output
+            # rather than leaving it implicit.
+            if unmapped and (args.fail_on_any or args.fail_on_severity):
+                print(
+                    f"Note: {len(unmapped)} unmapped Checkov finding(s) were reported but "
+                    f"do not affect this gate (no current EU regulatory mapping).",
+                    file=sys.stderr,
+                )
 
             return 0
 

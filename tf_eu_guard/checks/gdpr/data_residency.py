@@ -10,7 +10,7 @@ Design note: region is configured on the AWS *provider*, not on individual
 resources (``aws_s3_bucket`` / ``aws_db_instance`` / ``aws_instance`` have no
 ``region`` argument), so this is a provider-level check. Each ``provider "aws"``
 block's ``region`` is inspected; resources deployed via a non-EU aliased provider
-(e.g. ``provider = aws.non_eu``) inherit the violation flagged on that block.
+(e.g. ``provider = aws.non_eu``) inherit the finding flagged on that block.
 
 This deliberately deviates from the resource-level sketch in PROJECT_PLAN.md
 §3.1, which would return UNKNOWN for every resource because the ``region``

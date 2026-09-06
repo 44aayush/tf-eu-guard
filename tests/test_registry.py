@@ -121,6 +121,19 @@ def test_eu_region_check_maps_to_gdpr_transfers(registry):
     assert "Art. 44" in _gdpr(registry["EUGUARD_GDPR_001"])
 
 
+def test_eu_region_risk_matches_documented_legal_standard(registry):
+    """The registry's finding text must match docs/gdpr-mapping.md: a non-EU
+    region is a transfer *requiring justification* under Chapter V — a strong
+    signal for review, not an unqualified "violation" (the config alone cannot
+    adjudicate lawfulness). Guards the internal-consistency fix (TASKS.md P1 #5)."""
+    if "EUGUARD_GDPR_001" not in registry:
+        pytest.skip("EUGUARD_GDPR_001 not in registry")
+    risk = registry["EUGUARD_GDPR_001"].risk_explanation
+    assert "requiring justification" in risk
+    assert "not by itself a" in risk and "violation" in risk  # explicit caveat
+    assert "data-residency violation" not in risk  # the retired overclaim
+
+
 def test_hardcoded_secrets_check_maps_to_nis2_secure_dev(registry):
     """Hardcoded secrets map to NIS2 Art. 21(2)(e) (secure development)."""
     if "EUGUARD_NIS2_001" not in registry:
