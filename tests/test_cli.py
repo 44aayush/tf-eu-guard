@@ -240,23 +240,27 @@ def test_scan_kubernetes_framework_filter(monkeypatch, tmp_path, repo_root, caps
 
 def test_scan_checkov_json_rejects_raw_plan_json(monkeypatch, tmp_path, repo_root, capsys):
     """Feeding a raw terraform show -json plan to --checkov-json must error,
-    not silently produce 0 findings (the regression that shipped this bug)."""
+    not silently produce 0 findings (the regression that shipped this bug).
+    A malformed/unusable input is invalid configuration: exit 2."""
     plan = repo_root / "examples" / "vulnerable-aws-plan" / "plan.json"
     if not plan.exists():
         pytest.skip("examples/vulnerable-aws-plan/plan.json not present")
     rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(plan),
                  "--iac-type", "terraform_plan", "--output", "json")
-    assert rc == 1
+    assert rc == 2
     err = capsys.readouterr().err
     assert "does not look like Checkov output" in err
 
 
-def test_scan_missing_file(monkeypatch, tmp_path):
+def test_scan_missing_file(monkeypatch, tmp_path, capsys):
+    """A nonexistent target is an invalid invocation, not a findings-gate
+    failure or a scanner crash: exit 2."""
     rc = run_cli(monkeypatch, tmp_path, "--checkov-json", "no-such.json")
-    assert rc == 1
+    assert rc == 2
     # nonexistent directory without --checkov-json also fails gracefully
     monkeypatch.setattr("sys.argv", ["tf-eu-guard", "scan", "no-such-dir/"])
-    assert main() == 1
+    assert main() == 2
+    assert "invalid input/configuration" in capsys.readouterr().err
 
 
 # --- Severity-based exit codes (CI/CD gating) ---
@@ -306,6 +310,97 @@ def test_no_gate_by_default(monkeypatch, tmp_path, repo_root):
     rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / FIXTURE),
                  "--output", "json")
     assert rc == 0
+
+# --- Explicit exit codes: 0 findings / 1 findings / 2 bad input / 3 runtime ---
+# The old binary exit conflated "scan found blocking issues" with "the tool
+# failed to run"; these pin the documented contract from cli.py so a CI
+# pipeline can tell them apart.
+
+
+def test_exit_code_for_maps_exceptions():
+    """The exception->exit-code dividing line: user-supplied problems (bad
+    paths, malformed JSON) are 2; the tool being broken (malformed shipped
+    registry, Checkov crash, anything unexpected) is 3."""
+    import subprocess as sp
+
+    from tf_eu_guard.cli import (
+        EXIT_FINDINGS,
+        EXIT_INVALID_INPUT,
+        EXIT_OK,
+        EXIT_RUNTIME_FAILURE,
+        _exit_code_for,
+    )
+    from tf_eu_guard.mapping.loader import RegistryValidationError
+
+    assert EXIT_OK == 0 and EXIT_FINDINGS == 1
+    assert EXIT_INVALID_INPUT == 2 and EXIT_RUNTIME_FAILURE == 3
+
+    # user-supplied input problems
+    assert _exit_code_for(ValueError("bad iac_type")) == 2
+    assert _exit_code_for(json.JSONDecodeError("malformed", "{}", 0)) == 2
+    assert _exit_code_for(FileNotFoundError("no such file")) == 2
+    # the tool itself is broken
+    # (RegistryValidationError subclasses ValueError, so this ordering is
+    # deliberate: the registry ships with the tool, it is not user input)
+    assert _exit_code_for(RegistryValidationError("schema violation")) == 3
+    assert _exit_code_for(sp.CalledProcessError(2, "checkov")) == 3
+    assert _exit_code_for(RuntimeError("unexpected")) == 3
+
+
+def test_malformed_registry_exits_3(monkeypatch, tmp_path, capsys):
+    """The plan's done-when: a deliberately broken registry file (malformed,
+    fails schema validation) makes the scan exit 3 — 'the tool is broken' —
+    not 1, so a CI pipeline distinguishes 'we found problems' from 'the
+    scanner failed'.
+
+    Only the registry *location* is redirected (the scan resolves it from
+    the installed package's own files); the malformed file itself goes
+    through the REAL validation path — load_registry_file raises
+    RegistryValidationError exactly as a genuinely corrupted
+    registry-*.yaml in the package would."""
+    # Build a fake package mapping dir holding one malformed registry.
+    fake_pkg = tmp_path / "fake_pkg"
+    mapping_dir = fake_pkg / "mapping"
+    mapping_dir.mkdir(parents=True)
+    (mapping_dir / "registry-broken.yaml").write_text(
+        "CKV_AWS_1:\n  check_name: x\n"  # missing required fields
+    )
+
+    # cli.py resolves the registry as Path(__file__).parent / "mapping";
+    # __file__ is a module global read at call time, so pointing it at the
+    # fake package redirects just that resolution.
+    monkeypatch.setattr("tf_eu_guard.cli.__file__", str(fake_pkg / "cli.py"))
+
+    doc = {"results": {"failed_checks": []}}
+    f = tmp_path / "empty.json"
+    f.write_text(json.dumps(doc))
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(f), "--output", "json")
+    assert rc == 3
+    err = capsys.readouterr().err
+    assert "scanner/runtime failure" in err
+    assert "missing required field" in err
+
+
+def test_checkov_crash_exits_3(monkeypatch, tmp_path, capsys):
+    """Checkov itself failing (CalledProcessError) is a runtime failure: 3."""
+    import subprocess as sp
+
+    def fake_run_checkov(target, iac_type="terraform"):
+        raise sp.CalledProcessError(2, ["checkov"])
+
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", fake_run_checkov)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", ["tf-eu-guard", "scan"])
+    assert main() == 3
+    assert "scanner/runtime failure" in capsys.readouterr().err
+
+
+def test_malformed_checkov_json_exits_2(monkeypatch, tmp_path):
+    """Not-parseable --checkov-json input: invalid configuration, exit 2."""
+    f = tmp_path / "garbage.json"
+    f.write_text("{not json")
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(f), "--output", "json")
+    assert rc == 2
 
 
 def test_fail_on_severity_empty_findings(monkeypatch, tmp_path):

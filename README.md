@@ -191,11 +191,32 @@ tf-eu-guard scan ./terraform --output all
 
 ### CI/CD Gating
 
-Exit codes make tf-eu-guard usable as a pipeline gate. Exit code `1` is returned when findings meet the threshold; `0` otherwise:
+Exit codes make tf-eu-guard usable as a pipeline gate. They distinguish
+"the scan ran and found blocking issues" from "the tool itself failed to
+run" — so a pipeline can fail the build on findings while paging someone
+when the scanner is broken:
+
+| Exit code | Meaning |
+|-----------|---------|
+| `0` | Scan ran; no findings met the `--fail-on-*` threshold |
+| `1` | Scan ran; blocking findings found (threshold met) |
+| `2` | Invalid invocation or configuration — bad flags, unusable `--checkov-json` input, missing target path |
+| `3` | Scanner/runtime failure — Checkov itself crashed, the mapping registry failed to load |
 
 ```bash
-tf-eu-guard scan ./terraform --fail-on-severity HIGH   # fail on HIGH or CRITICAL
-tf-eu-guard scan ./terraform --fail-on-any             # fail on any finding
+tf-eu-guard scan ./terraform --fail-on-severity HIGH   # exit 1 on HIGH or CRITICAL
+tf-eu-guard scan ./terraform --fail-on-any             # exit 1 on any finding
+```
+
+A pipeline can gate on findings while treating tool failure separately:
+
+```bash
+tf-eu-guard scan ./terraform --fail-on-severity HIGH
+case $? in
+  0) echo "clean" ;;
+  1) echo "blocking findings — failing the build"; exit 1 ;;
+  2|3) echo "tf-eu-guard itself failed — tooling problem, not a findings verdict"; exit 2 ;;
+esac
 ```
 
 > **Gating considers only mapped findings.** Severity is authored in the mapping
@@ -257,6 +278,14 @@ declared in sibling files), so per-file invocation was never going to work.
 
 > Mapping counts above are generated from the registry files and verified in CI
 > (`tools/check_doc_counts.py`) — they cannot drift from the registries.
+
+> **Coverage is classified by requirement, not by check count.** Not every
+> NIS2/GDPR requirement can be verified from IaC — some need organisational
+> evidence a linter structurally cannot see. See
+> [`docs/regulatory-coverage.md`](docs/regulatory-coverage.md) for the
+> requirement-level classification (automated / partial / manual / not covered)
+> of NIS2 Art. 21(2)(a)–(j) and GDPR Art. 32(1)(a)–(d) & 44 — also generated
+> from the registries, so it cannot drift.
 
 > **Data residency on Kubernetes:** K8s manifests are cloud-agnostic; region is decided at the
 > cluster/cloud boundary, not in the manifest. Enforce residency there (cluster placement policy,

@@ -60,6 +60,13 @@ jobs:
         run: |
           python tools/check_doc_counts.py
 
+      - name: Check regulatory-coverage doc against the registries
+        # docs/regulatory-coverage.md is generated (requirement-level
+        # automated/partial/manual classification); this fails if it drifts
+        # from the registries or the requirement inventory.
+        run: |
+          python tools/generate_coverage_doc.py --check
+
   example-scan:
     runs-on: ubuntu-latest
     needs: test
