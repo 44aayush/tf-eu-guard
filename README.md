@@ -1,7 +1,7 @@
 # tf-eu-guard
 
 [![CI](https://github.com/44aayush/tf-eu-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/44aayush/tf-eu-guard/actions/workflows/ci.yml)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![Checkov 3.3.13](https://img.shields.io/badge/checkov-3.3.13-8A2BE2)](https://www.checkov.io/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Mappings](https://img.shields.io/badge/NIS2%20%2B%20GDPR%20mappings-185-orange)](tf_eu_guard/mapping/registry-aws.yaml)
@@ -40,7 +40,7 @@ Most organizations scan infrastructure-as-code with tools like Checkov or tfsec,
 
 ### Installation
 
-Requires **Python ≥ 3.10** and [uv](https://docs.astral.sh/uv/). Installs Checkov 3.3.13 as a dependency.
+Requires **Python ≥ 3.11** and [uv](https://docs.astral.sh/uv/). Installs Checkov 3.3.13 as a dependency.
 
 ```bash
 uv tool install tf-eu-guard

@@ -2,6 +2,7 @@
 
 import argparse
 import sys
+from datetime import UTC
 from pathlib import Path
 
 
@@ -175,7 +176,7 @@ def main():
             elif args.output in ("security", "auditor", "all"):
                 # HTML report(s). 'all' writes the dev, security and auditor
                 # files together; the single formats write just their own.
-                from datetime import datetime, timezone
+                from datetime import datetime
 
                 from tf_eu_guard import __version__
                 from tf_eu_guard.reporting.auditor_report import (
@@ -188,8 +189,8 @@ def main():
                     generate_security_report,
                 )
 
-                timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-                timestamp_suffix = datetime.now(timezone.utc).strftime("%d%m%Y%H%M")
+                timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
+                timestamp_suffix = datetime.now(UTC).strftime("%d%m%Y%H%M")
                 target = str(args.path) if args.path else f"checkov-json:{args.checkov_json}"
 
                 # Default to reports/ directory

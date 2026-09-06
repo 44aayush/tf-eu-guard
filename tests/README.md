@@ -84,6 +84,9 @@ The runner never uses `set -e`; each test reports independently:
 - `test_hook_smoke_dispatch.py` / `test_smoke_check.py` — the tools/ regression
   guard itself: routing table, baseline comparisons, exit codes.
 - `test_doc_counts.py` — documented mapping counts match the registries.
+- `test_python_support.py` — the supported-Python-version floor stays in sync
+  across pyproject (`requires-python` + classifiers), the CI matrix, the README
+  badge, and `install_and_test.sh`.
 
 ## Legacy cleanup
 
