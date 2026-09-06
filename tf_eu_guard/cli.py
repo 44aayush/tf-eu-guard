@@ -5,6 +5,52 @@ import sys
 from datetime import UTC
 from pathlib import Path
 
+#: Documented exit codes (see README "CI/CD Gating"). They let a pipeline
+#: tell "the scan found blocking issues" apart from "the tool itself
+#: failed to run" — a distinction the old binary 0/1 exit conflated.
+#:   0 = scan ran, no blocking findings
+#:   1 = scan ran, blocking findings found (--fail-on-* threshold met)
+#:   2 = invalid invocation or configuration (bad flags, malformed
+#:       registry, unusable Checkov JSON input)
+#:   3 = scanner/runtime failure (Checkov itself crashed, registry failed
+#:       to load, unexpected internal error)
+#: argparse's own rejection of bad flags also exits 2, matching this table.
+EXIT_OK = 0
+EXIT_FINDINGS = 1
+EXIT_INVALID_INPUT = 2
+EXIT_RUNTIME_FAILURE = 3
+
+
+def _exit_code_for(error: Exception) -> int:
+    """Map an exception to exit 2 (bad input/config) or exit 3 (runtime failure).
+
+    The dividing line: did the *user* supply something unusable — a bad
+    path, a ``--checkov-json`` file that isn't parseable Checkov output —
+    or is the *tool itself* broken — the mapping registry it ships with
+    failed to load, Checkov crashed, anything unexpected? The first is
+    fixed by fixing the invocation; the second means the scan did not run
+    and a CI pipeline should page a different person.
+    """
+    from tf_eu_guard.mapping.loader import RegistryValidationError
+
+    # RegistryValidationError: the registry ships WITH the tool — it is not
+    # user input, so a malformed registry file is a runtime failure (3).
+    # The plan's explicit done-when case: a broken Checkov/registry
+    # invocation exits 3, not 1, so CI can tell "we found problems" from
+    # "the tool is broken".
+    if isinstance(error, RegistryValidationError):
+        return EXIT_RUNTIME_FAILURE
+
+    import json
+
+    if isinstance(error, (ValueError, json.JSONDecodeError, FileNotFoundError)):
+        # User-supplied input problems: unsupported iac_type, wrong target
+        # shape, non-Checkov or unparseable --checkov-json, missing paths.
+        return EXIT_INVALID_INPUT
+    # Checkov crashed (CalledProcessError) or something unexpected broke:
+    # the tool failed, the scan did not run.
+    return EXIT_RUNTIME_FAILURE
+
 
 def main():
     """Main CLI entry point."""
@@ -103,7 +149,7 @@ def main():
     if args.command == "version":
         from tf_eu_guard import __version__
         print(f"tf-eu-guard version {__version__}")
-        return 0
+        return EXIT_OK
 
     if args.command == "scan":
         # Default to the current working directory when no path is given (the
@@ -260,7 +306,7 @@ def main():
                     f"({args.fail_on_severity or 'ANY'}) — see report above.",
                     file=sys.stderr,
                 )
-                return 1
+                return EXIT_FINDINGS
 
             # Explicit, documented policy: unmapped Checkov findings never
             # affect the gate (severity is registry-authored, so an unmapped
@@ -273,13 +319,16 @@ def main():
                     file=sys.stderr,
                 )
 
-            return 0
+            return EXIT_OK
 
         except Exception as e:
-            print(f"Error: {e}", file=sys.stderr)
-            return 1
+            code = _exit_code_for(e)
+            label = "invalid input/configuration" if code == EXIT_INVALID_INPUT \
+                else "scanner/runtime failure"
+            print(f"Error ({label}): {e}", file=sys.stderr)
+            return code
 
-    return 1
+    return EXIT_INVALID_INPUT
 
 
 if __name__ == "__main__":

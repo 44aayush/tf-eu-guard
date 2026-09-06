@@ -1,3 +1,3 @@
 """tf-eu-guard: EU compliance security linter for Terraform."""
 
-__version__ = "0.2.2"
+__version__ = "0.3.0"
