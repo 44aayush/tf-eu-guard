@@ -65,9 +65,10 @@ CKV_AWS_288:
       title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: >
     Broad read actions on all resources (s3:GetObject, secretsmanager:GetSecretValue,
-    rds:DownloadDBLogFilePortion on "*") enable bulk exfiltration of data, which for
-    personal data is a reportable breach under GDPR and a direct failure of the
-    access control expected by NIS2 Art. 21(2)(i).
+    rds:DownloadDBLogFilePortion on "*") enable bulk exfiltration of data — if that
+    data is personal, any exfiltration through them would be a reportable GDPR
+    breach — and are a direct failure of the access control expected by
+    NIS2 Art. 21(2)(i).
   remediation: |
     Constrain read actions to specific resource ARNs, never "*":
       "Action": ["s3:GetObject"]
@@ -306,8 +307,8 @@ CKV_AWS_20:
       title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: >
     A public-READ ACL exposes every object in the bucket to anonymous internet users.
-    If the bucket holds personal data this is a direct confidentiality breach under
-    GDPR Art. 32(1)(b) and a failure of access control under NIS2 Art. 21(2)(i).
+    If the bucket holds personal data this is a direct failure of the confidentiality
+    GDPR Art. 32(1)(b) requires and a failure of access control under NIS2 Art. 21(2)(i).
   remediation: |
     Remove the public ACL and keep the bucket private:
       # Before:
@@ -750,33 +751,38 @@ CKV_AWS_130:
 # Custom tf-eu-guard checks (Phase 3)  ->  EU-specific requirements not covered
 # by stock Checkov policies. Implemented under tf_eu_guard/checks/ and loaded via
 # `--external-checks-dir tf_eu_guard/checks` (wired into checkov_runner.py).
-#   EUGUARD_GDPR_001  provider-level EU data-residency (GDPR Chapter V)
+#   EUGUARD_GDPR_001  provider-level data residency: EU Sovereign Cloud only
+#                     (this project's policy, anchored to GDPR Chapter V)
 #   EUGUARD_NIS2_001  hardcoded secrets in IaC (NIS2 secure development)
 # -----------------------------------------------------------------------------
 
 EUGUARD_GDPR_001:
-  check_name: "Ensure the AWS provider region is in the EU (GDPR data residency)"
+  check_name: "Ensure the AWS provider region is in the EU Sovereign Cloud (GDPR data residency)"
   articles:
     - framework: GDPR
       article: "Art. 44"
       title: "General principle for transfers of personal data to third countries"
   risk: >
-    Deploying resources through an AWS provider pinned to a non-EU region stores
-    personal data outside the EU/EEA - a transfer to a third country. GDPR
-    Chapter V (Art. 44-49) permits such transfers only under specific safeguards
-    (an adequacy decision, Standard Contractual Clauses, or Binding Corporate
-    Rules). A non-EU region is therefore a transfer requiring justification
-    under Chapter V - a strong signal for review, but not by itself a
-    violation: the lawfulness of the transfer depends on the safeguard in
-    place, which the configuration alone cannot show. Justify it with a
-    documented Chapter V mechanism, or pin the provider to an EU/EEA region.
+    This project is based on the AWS European Sovereign Cloud: only EUSC
+    regions are acceptable deployment targets. A provider pinned anywhere
+    else is flagged - a non-EU region stores personal data outside the EU/EEA,
+    a transfer to a third country that GDPR Chapter V (Art. 44-49) permits
+    only under specific safeguards (an adequacy decision, Standard Contractual
+    Clauses, or Binding Corporate Rules), while a commercial EU region, though
+    GDPR-permissible, does not meet this project's sovereignty requirement.
+    Either way the configuration is requiring justification under this
+    policy - a strong signal for review, but not by itself a violation: the
+    lawfulness of a transfer depends on the safeguard in place, which the
+    configuration alone cannot show. Justify it with a documented Chapter V
+    mechanism, or pin the provider to a Sovereign Cloud region.
   remediation: |
-    Pin every aws provider block to an EU region, or gate a non-EU provider
-    behind a documented Chapter V transfer mechanism:
+    Pin every aws provider block to an EU Sovereign Cloud region, or gate
+    an out-of-policy provider behind a documented Chapter V transfer
+    mechanism:
       # Before:
       provider "aws" { region = "us-east-1" }
       # After:
-      provider "aws" { region = "eu-west-1" }
+      provider "aws" { region = "eusc-de-east-1" }
   severity: HIGH
 
 EUGUARD_NIS2_001:
@@ -902,7 +908,7 @@ CKV_AWS_96:
     An Aurora cluster without storage encryption keeps personal data in plaintext on
     the cluster volume, its snapshots, and replicas. Databases are the most common
     location of personal data, making this a direct GDPR Art. 32(1)(a) failure and a
-    breach of the encryption policy NIS2 Art. 21(2)(h) requires.
+    direct failure of the encryption policy NIS2 Art. 21(2)(h) requires.
   remediation: |
     Enable encryption when creating the cluster (cannot be enabled later):
       resource "aws_rds_cluster" "main" {
@@ -2209,9 +2215,9 @@ CKV_AWS_70:
       title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: >
     A bucket policy statement whose Principal is "*" makes the bucket world-accessible
-    for the listed actions — public exposure of personal data and a direct breach of
-    the access control NIS2 Art. 21(2)(i) and confidentiality GDPR Art. 32(1)(b)
-    require.
+    for the listed actions — exposing any personal data in it to unauthenticated
+    access, and a direct failure of the access control NIS2 Art. 21(2)(i) and the
+    confidentiality GDPR Art. 32(1)(b) require.
   remediation: |
     Restrict the bucket policy to named principals:
       {

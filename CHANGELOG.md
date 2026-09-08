@@ -8,6 +8,103 @@ terraform_plan fix), so this starts now rather than reconstructing
 history later. Versions follow the git tags/`__version__` at each
 release point.
 
+## [0.4.0] — 2026-09-08
+
+### Added
+
+- **SARIF 2.1.0 output** (`--output sarif`) — each finding maps to a SARIF
+  `result` (`ruleId` = check ID, `level` from severity, `physicalLocation`
+  from file/line range) with the NIS2/GDPR articles, remediation, and
+  mapped/unmapped metadata in `properties` on both the rule and the result.
+  Output goes to stdout (like `--output json`) or to `--output-file`.
+  Unmapped Checkov findings ship as note-level results tagged
+  `mapped: false`. The document is validated against the official OASIS
+  SARIF 2.1.0 JSON schema in `tests/test_sarif_report.py` (schema vendored
+  under `tests/schemas/`; `jsonschema` added to the `dev` extras).
+- **GitHub Action: `iac-type` input** — the Action was rewritten from
+  `using: docker` to a composite action (same Dockerfile) and now supports
+  every `--iac-type` the CLI does: `terraform` (default),
+  `terraform_plan` (pass the plan file as `path`), and `kubernetes`.
+- **GitHub Action: report artifacts and Code Scanning upload** —
+  `upload-reports: true` uploads the generated HTML reports as a workflow
+  artifact (`if: always()`, so they are retrievable exactly when the
+  severity gate fails the scan), and `upload-sarif: true` (with
+  `output: sarif`) uploads the SARIF to GitHub Code Scanning via
+  `github/codeql-action/upload-sarif`.
+- **Action e2e workflow** (`.github/workflows/action-e2e.yml`) — runs the
+  actual Docker Action against fixtures for all three iac-types and asserts
+  on specific expected check IDs (not finding counts), the article
+  metadata in the SARIF, the HTML reports landing for the artifact, and
+  that the default HIGH gate fails the scan step.
+- **Registry wording audit** — all "violat*"/"non-compliant"/"breach"
+  language across the four registry files was reviewed against the
+  `docs/gdpr-mapping.md` no-overclaiming standard; six entries were
+  reworded where config states were mislabeled as legal violations, and
+  direct language was deliberately kept where the technical control
+  failure is unambiguous (wildcard admin grants, unencrypted storage).
+- **Wheel-content packaging test** (`tests/test_packaging.py`) — builds the
+  actual wheel (`python -m build --no-isolation`, hatchling added to the
+  `dev` extras) and asserts all four `registry-*.yaml` files and the
+  `checks/` subpackage ship inside it, non-empty and parseable. A future
+  packaging-config change that silently dropped them now fails CI instead
+  of degrading every downstream scan to unmapped findings.
+- **Guideline URL scheme validation** — guideline links in the security,
+  dev-HTML, and terminal reports are now scheme-gated (`http`/`https` only)
+  via `safe_guideline()` in `tf_eu_guard/reporting/_html_common.py`.
+  HTML-escaping neutralizes markup characters but not URL schemes: a
+  `javascript:` or `data:` guideline (possible via
+  `--external-checks-dir` custom checks) previously rendered as a working
+  clickable link; it now renders no link at all. URLs containing Rich
+  markup-breaking characters are rejected too.
+
+### Fixed
+
+- **Empty `--fail-on-severity ''` is honored as "no gating"** — the GitHub
+  Action's input description promised "empty disables gating," but the
+  value passed through to argparse `choices` was rejected with exit 2. The
+  flag now uses a custom argument type that maps `''` to "disabled" (with
+  regression tests), and the composite Action omits the flag entirely when
+  the input is empty.
+
+- **Within-file duplicate registry keys are rejected** — `yaml.safe_load`
+  silently keeps only the last definition when a check_id appears twice in
+  one registry file, before any validation code runs. The loader now uses a
+  duplicate-refusing SafeLoader subclass (`_UniqueKeyLoader`) that raises
+  `RegistryValidationError` with the offending key and line number.
+- **`EUGUARD_GDPR_001` region classification** — the check matched AWS's
+  `eu-` string prefix, so `eu-west-2` (London, UK) and `eu-central-2`
+  (Zurich, Switzerland) — GDPR third countries — passed as "EU-compliant."
+  Prefix matching is replaced with an explicit allowlist; classification is
+  fail-closed, so any region not on the allowlist — including unrecognized
+  strings and unresolved `var.region` references (previously *unknown* and
+  therefore absent from reports) — produces a finding. Scans of stacks
+  pinned to London or Zurich will newly report a GDPR Art. 44 finding;
+  that is the fix working, not a regression.
+
+### Changed
+
+- **Constants extracted into dedicated, domain-scoped modules** (internal
+  refactor, no behavior change): `tf_eu_guard/constants.py` (CLI exit codes,
+  supported IaC types, output/framework choices — the CLI's argparse choices
+  are now derived from them instead of hand-retyped), `tf_eu_guard/regions.py`
+  (the EUSC-only region policy table), `tf_eu_guard/mapping/schema.py`
+  (registry schema constants), `tf_eu_guard/mapping/requirements.py`
+  (NIS2/GDPR titles + the requirement coverage inventory, split out of the
+  coverage model), and `tf_eu_guard/reporting/styles.py` (severity palettes —
+  previously defined in three places — framework orderings, and the
+  per-report stylesheets). Old import paths keep resolving via the importing
+  modules.
+- **`EUGUARD_GDPR_001` narrowed to EU Sovereign Cloud regions only** —
+  the project is based on the AWS European Sovereign Cloud, so the check's
+  allowlist now contains only `eusc-de-east-1` (verified against botocore's
+  `aws-eusc` partition data). Commercial EU regions (`eu-central-1`
+  Frankfurt, `eu-west-1` Ireland, `eu-west-3` Paris, `eu-north-1`
+  Stockholm, `eu-south-1` Milan, `eu-south-2` Spain) now **fail** the
+  compliance gate even though GDPR Art. 44 would permit them — a
+  sovereignty policy stricter than the legal baseline, worded as such in
+  the finding text. `examples/compliant-aws` now pins its providers to
+  `eusc-de-east-1`.
+
 ## [0.3.0] — 2026-09-06
 
 **Exit codes and the requirement-level coverage model — a CI pipeline
@@ -135,6 +232,7 @@ registries.**
 - `--checkov-json` for pre-generated Checkov output, `--framework`
   filter, `--fail-on-severity` / `--fail-on-any` CI gating.
 
+[0.4.0]: https://github.com/44aayush/tf-eu-guard/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/44aayush/tf-eu-guard/compare/0.2.2...0.3.0
 [0.2.2]: https://github.com/44aayush/tf-eu-guard/compare/0.2.1...0.2.2
 [0.2.1]: https://github.com/44aayush/tf-eu-guard/compare/0.2.0...0.2.1

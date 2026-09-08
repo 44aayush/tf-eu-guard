@@ -8,6 +8,9 @@ Checkov must be importable (it is a hard dependency); if it is somehow absent
 the whole module skips rather than erroring at collection.
 """
 
+import os
+import shutil
+
 import pytest
 
 pytest.importorskip("checkov")
@@ -17,18 +20,59 @@ from checkov.common.models.enums import CheckResult  # noqa: E402
 from tf_eu_guard.checks.gdpr.data_residency import EURegionEnforcement  # noqa: E402
 from tf_eu_guard.checks.nis2.secrets_in_code import HardcodedSecrets  # noqa: E402
 
-# --- EUGUARD_GDPR_001: EU region enforcement (provider check) ------------------
+# --- EUGUARD_GDPR_001: EU Sovereign Cloud region enforcement (provider check) --
+
+# Every "eu"-prefixed region in AWS's commercial partition (verified against
+# the AWS "Regions and Zones" reference and botocore's partition data,
+# 2026-09). Under this project's EUSC-only policy ALL of them fail: the six
+# EU/EEA ones are GDPR-permissible but not part of the Sovereign Cloud, and
+# London/Zurich are GDPR third countries on top of that. When AWS launches
+# a new eu- region, add it here to force the classification decision.
+_COMMERCIAL_EU_PREFIXED_REGIONS = {
+    "eu-central-1", "eu-central-2", "eu-north-1", "eu-south-1",
+    "eu-south-2", "eu-west-1", "eu-west-2", "eu-west-3",
+}
+
+# The only acceptable deployment targets: regions of the AWS European
+# Sovereign Cloud (EUSC partition in botocore's endpoint data).
+_EUSC_REGIONS = {"eusc-de-east-1"}
+
 
 @pytest.mark.parametrize(
     "region, expected",
     [
-        ("eu-west-1", CheckResult.PASSED),
-        ("eu-central-1", CheckResult.PASSED),
-        ("EU-WEST-1", CheckResult.PASSED),          # case-insensitive
-        ("eusc-de-east-1", CheckResult.PASSED),     # European Sovereign Cloud
+        # EU Sovereign Cloud regions — the allowlist
+        ("eusc-de-east-1", CheckResult.PASSED),   # Brandenburg, Germany
+        ("EUSC-DE-EAST-1", CheckResult.PASSED),   # case-insensitive
+        ("  eusc-de-east-1  ", CheckResult.PASSED),  # surrounding whitespace
+        # Commercial EU regions: GDPR-permissible, but outside the Sovereign
+        # Cloud — this project's policy fails them.
+        ("eu-central-1", CheckResult.FAILED),     # Frankfurt
+        ("eu-west-1", CheckResult.FAILED),        # Ireland
+        ("eu-west-3", CheckResult.FAILED),        # Paris
+        ("eu-north-1", CheckResult.FAILED),       # Stockholm
+        ("eu-south-1", CheckResult.FAILED),       # Milan
+        ("eu-south-2", CheckResult.FAILED),       # Spain
+        ("EU-WEST-1", CheckResult.FAILED),        # case-insensitive failure too
+        # "eu-" is a geographic label, not EU membership
+        ("eu-west-2", CheckResult.FAILED),        # London, UK (Brexit)
+        ("eu-central-2", CheckResult.FAILED),     # Zurich, Switzerland
+        # Non-EU regions
         ("us-east-1", CheckResult.FAILED),
         ("ap-southeast-2", CheckResult.FAILED),
-        ("me-south-1", CheckResult.FAILED),         # Middle East, not EU
+        ("me-south-1", CheckResult.FAILED),
+        # Air-gapped partition sharing the eu- prefix — not commercial AWS
+        ("eu-isoe-west-1", CheckResult.FAILED),
+        # Invalid / non-existent region strings fail closed
+        ("eu-garbage-9", CheckResult.FAILED),
+        ("eusc-de-1", CheckResult.FAILED),        # wrong EUSC code — pinned exactly
+        # Unresolved variable references fail closed: a deployment target
+        # that can't be proven statically is flagged, not waved through.
+        # Checkov renders a bare reference as raw text ("var.region") —
+        # no ${} wrapper.
+        ("var.region", CheckResult.FAILED),
+        ("${var.region}", CheckResult.FAILED),
+        ("local.region", CheckResult.FAILED),
     ],
 )
 def test_region_literal_pass_fail(region, expected):
@@ -42,7 +86,6 @@ def test_region_literal_pass_fail(region, expected):
         {},                              # no region → inherited at apply time
         {"region": []},                  # empty
         {"region": ["   "]},             # blank
-        {"region": ["${var.region}"]},   # unresolved variable
         {"region": [None]},              # non-string
     ],
 )
@@ -50,10 +93,69 @@ def test_region_undecidable_is_unknown(conf):
     assert EURegionEnforcement().scan_provider_conf(conf) == CheckResult.UNKNOWN
 
 
+def test_every_commercial_eu_prefixed_region_is_classified():
+    """Every eu-prefixed commercial region fails under the EUSC-only policy —
+    including the six GDPR-permissible EU/EEA ones, and the two third
+    countries (eu-west-2 London / eu-central-2 Zurich) that the old prefix
+    matching waved through as "EU-compliant." """
+    check = EURegionEnforcement()
+    results = {
+        r: check.scan_provider_conf({"region": [r]})
+        for r in _COMMERCIAL_EU_PREFIXED_REGIONS
+    }
+    assert all(v == CheckResult.FAILED for v in results.values()), {
+        r: v for r, v in results.items() if v != CheckResult.FAILED
+    }
+
+
+def test_region_allowlist_is_exact():
+    """The allowlist — not a prefix — is the source of truth. Pin its contents
+    so an accidental widening (e.g. reintroducing prefix logic or readmitting
+    commercial EU regions) can't pass."""
+    from tf_eu_guard.regions import EUSC_REGIONS
+
+    assert EUSC_REGIONS == frozenset({"eusc-de-east-1"})
+
+
 def test_region_check_identity():
     check = EURegionEnforcement()
     assert check.id == "EUGUARD_GDPR_001"
-    assert "aws" in check.supported_provider
+    assert check.supported_provider == ["aws"]
+
+
+@pytest.mark.skipif(
+    not os.environ.get("TFEG_RUN_CHECKOV") or shutil.which("checkov") is None,
+    reason="live Checkov test: set TFEG_RUN_CHECKOV=1 with the checkov CLI installed",
+)
+def test_region_aliased_providers_live(repo_root):
+    """Live regression guard for the EUSC-only allowlist, at the Checkov level.
+
+    Exercises what the hermetic tests can't: Checkov evaluates each aliased
+    ``provider "aws"`` block independently (a refactor of the matching logic
+    could silently drop aliased providers), and a bare variable reference with
+    no default arrives as the raw string ``var.region_no_default`` — which the
+    check must fail closed rather than wave through.
+    """
+    from tf_eu_guard.checkov_runner import extract_failed_checks, run_checkov
+
+    fixture = repo_root / "tests" / "fixtures" / "region-aliases"
+    if not fixture.exists():
+        pytest.skip("tests/fixtures/region-aliases/ not present")
+
+    findings = extract_failed_checks(run_checkov(fixture))
+    flagged = {
+        c["resource"] for c in findings if c["check_id"] == "EUGUARD_GDPR_001"
+    }
+
+    # eu-prefixed third countries must produce findings on their own alias.
+    assert "aws.london" in flagged
+    assert "aws.zurich" in flagged
+    # Commercial EU region: GDPR-permissible, but outside the Sovereign Cloud.
+    assert "aws.frankfurt" in flagged
+    # The Sovereign Cloud region stays passing (absent from failed_checks).
+    assert "aws.sovereign" not in flagged
+    # Unresolved variable with no default: fail closed, don't silently pass.
+    assert "aws.bare_variable" in flagged
 
 
 # --- EUGUARD_NIS2_001: hardcoded secrets (resource check) ----------------------

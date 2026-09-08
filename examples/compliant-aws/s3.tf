@@ -177,10 +177,12 @@ resource "aws_s3_bucket_notification" "logs" {
   }
 }
 
-# Cross-region replication: replicate the data bucket to eu-central-1 (CKV_AWS_144)
+# Replication provider (CKV_AWS_144): pinned to the EU Sovereign Cloud —
+# the only EUSC region today. True cross-region replication within the
+# Sovereign Cloud becomes possible when AWS launches a second EUSC region.
 provider "aws" {
   alias  = "replica"
-  region = "eu-central-1"
+  region = "eusc-de-east-1"
 }
 
 resource "aws_s3_bucket" "data_replica" {

@@ -125,29 +125,39 @@ replace penetration testing, DPIAs, or periodic organisational review.
 > Corporate Rules, or a specific derogation. Recital 83 additionally ties security
 > measures to the risks of processing.
 
-**Infrastructure controls** — deploying resources through a provider pinned to a
-non-EU region stores personal data outside the EU/EEA, which is a transfer:
+**Infrastructure controls** — this project is based on the **AWS European
+Sovereign Cloud**: a provider pinned to any other region either transfers
+personal data outside the EU/EEA (a non-EU region) or leaves the Sovereign
+Cloud (a commercial EU region, GDPR-permissible but outside this project's
+sovereignty requirement):
 
 | Check | Control |
 |-------|---------|
-| EUGUARD_GDPR_001 | AWS provider `region` is in the EU/EEA (**custom** Phase 3 check) |
+| EUGUARD_GDPR_001 | AWS provider `region` is in the EU Sovereign Cloud (**custom** Phase 3 check) |
 
 `EUGUARD_GDPR_001` is a **custom tf-eu-guard check** (added in Phase 3, implemented
 in [`tf_eu_guard/checks/gdpr/data_residency.py`](../tf_eu_guard/checks/gdpr/data_residency.py)).
 It is a **provider-level** check — data residency is a property of *where* the `aws`
 provider deploys, not of any single resource — so it inspects each provider block's
-`region`. An EU/EEA region (`eu-*`, or the European Sovereign Cloud `eusc-*`) passes;
-a non-EU literal (`us-east-1`, `ap-southeast-2`, …) fails; an unset or still-unresolved
-region (`${var.region}`) returns *unknown* rather than a false positive, because the
-effective region cannot be decided at scan time.
+`region`. Classification is an **explicit allowlist, fail-closed**: only a region on
+the allowlist — the EU Sovereign Cloud's `eusc-de-east-1` — passes; everything
+else fails. That includes `eu-west-2` (London, UK) and `eu-central-2` (Zurich,
+Switzerland), which carry the "eu-" naming prefix but are GDPR third countries,
+and the commercial EU regions (`eu-central-1` Frankfurt et al.), which GDPR would
+permit but which are not part of the Sovereign Cloud. A still-unresolved region
+reference (`var.region` with no default) also fails, because a deployment target
+that cannot be proven statically is flagged for review rather than waved through;
+only a fully *unset* region (inherited at apply time) returns *unknown*.
 
 **Why Art. 44, not Art. 32**: EU data residency is a *lawful-transfer* question
 (Chapter V), not a *security-of-processing* control (Art. 32). Mapping it to Art. 44
-keeps the legal citation honest.
+keeps the legal citation honest — the check enforces a policy *stricter* than the
+Art. 44 baseline (which would accept any EU/EEA region), so an EUGUARD_GDPR_001
+finding on a commercial EU region is a policy deviation, not a legal violation.
 
 **Limitations**: Region of deployment is a strong signal but not dispositive of a
 lawful transfer analysis — adequacy decisions, SCCs, and BCRs can permit transfers to
-non-EU regions. The check flags non-EU regions for review; it does not adjudicate
+non-EU regions. The check flags out-of-policy regions for review; it does not adjudicate
 legality, and it cannot see transfers made by application code or downstream services.
 
 ---

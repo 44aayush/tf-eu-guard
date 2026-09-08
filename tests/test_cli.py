@@ -102,6 +102,39 @@ def test_scan_invalid_iac_type_exits(monkeypatch, tmp_path):
         main()  # argparse rejects invalid choice with code 2
 
 
+# --- --fail-on-severity gating ---
+
+
+def test_fail_on_severity_empty_disables_gating(monkeypatch, tmp_path, repo_root):
+    """'' means "no gating" — the contract the GitHub Action's input
+    description promises ("empty disables gating") and passes through.
+
+    This regressed once: argparse ``choices`` rejected the empty string
+    with exit 2, so a user clearing the Action input failed the workflow
+    for the wrong reason.
+    """
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / FIXTURE),
+                 "--output", "json", "--fail-on-severity", "")
+    assert rc == 0  # findings exist (the fixture is vulnerable) but no gate
+
+
+def test_fail_on_severity_invalid_value_exits(monkeypatch, tmp_path, repo_root):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", [
+        "tf-eu-guard", "scan",
+        "--checkov-json", str(repo_root / FIXTURE),
+        "--output", "json", "--fail-on-severity", "BOGUS",
+    ])
+    with pytest.raises(SystemExit):
+        main()  # argparse rejects invalid severity with code 2
+
+
+def test_fail_on_severity_high_gates_on_findings(monkeypatch, tmp_path, repo_root):
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / FIXTURE),
+                 "--output", "json", "--fail-on-severity", "HIGH")
+    assert rc == 1  # the vulnerable fixture contains HIGH-severity findings
+
+
 # --- --iac-type (which IaC language to scan) ---
 
 
@@ -323,12 +356,12 @@ def test_exit_code_for_maps_exceptions():
     registry, Checkov crash, anything unexpected) is 3."""
     import subprocess as sp
 
-    from tf_eu_guard.cli import (
+    from tf_eu_guard.cli import _exit_code_for
+    from tf_eu_guard.constants import (
         EXIT_FINDINGS,
         EXIT_INVALID_INPUT,
         EXIT_OK,
         EXIT_RUNTIME_FAILURE,
-        _exit_code_for,
     )
     from tf_eu_guard.mapping.loader import RegistryValidationError
 
@@ -540,3 +573,24 @@ def test_unmapped_fixture_regression(monkeypatch, tmp_path, repo_root, capsys):
     assert not unmapped_family & {d["check_id"] for d in data}, \
         "unmapped password-policy IDs must not appear as mapped"
     assert "6 unmapped Checkov finding(s)" in captured.err
+
+
+def test_cli_iac_type_choices_match_constants(monkeypatch, tmp_path, capsys):
+    """--iac-type choices must equal SUPPORTED_IAC_TYPES verbatim — the
+    constants module is the single source of truth, and a hand-retyped
+    choices list is exactly how the CLI and the scanner drift apart."""
+    from tf_eu_guard.constants import SUPPORTED_IAC_TYPES
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", ["tf-eu-guard", "scan", "x/", "--iac-type", "bogus"])
+    with pytest.raises(SystemExit) as exc:
+        main()  # argparse rejects the bogus choice with code 2
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert "invalid choice: 'bogus'" in err
+    # The usage line renders the choices metavar as {a,b,c} — stable across
+    # Python versions, unlike the error text whose quoting format changed
+    # in 3.14. Asserting it against SUPPORTED_IAC_TYPES keeps the constants
+    # module the single source of truth.
+    expected_metavar = "{" + ",".join(SUPPORTED_IAC_TYPES) + "}"
+    assert f"--iac-type {expected_metavar}" in err

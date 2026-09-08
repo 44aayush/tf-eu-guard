@@ -1,7 +1,7 @@
 variable "region" {
-  description = "AWS region (EU region for GDPR compliance)"
+  description = "AWS region (EU Sovereign Cloud region for this project's data-residency policy)"
   type        = string
-  default     = "eu-west-1"
+  default     = "eusc-de-east-1"
 }
 
 variable "environment" {

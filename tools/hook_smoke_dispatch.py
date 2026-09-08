@@ -39,7 +39,13 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SMOKE_CHECK = REPO_ROOT / "tools" / "smoke_check.py"
 
-ALL_TYPES = ["terraform", "terraform_plan", "kubernetes"]
+# Make the package importable (conftest.py does the same sys.path insert) so
+# the IaC-type list has a single source of truth.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+from tf_eu_guard.constants import SUPPORTED_IAC_TYPES  # noqa: E402
+
+ALL_TYPES = list(SUPPORTED_IAC_TYPES)
 TERRAFORM_TYPES = ["terraform", "terraform_plan"]
 
 

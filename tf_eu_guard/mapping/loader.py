@@ -9,6 +9,11 @@ from typing import Any
 
 import yaml
 
+from tf_eu_guard.mapping.schema import (
+    REQUIRED_FIELDS,
+    VALID_FRAMEWORKS,
+    VALID_SEVERITIES,
+)
 from tf_eu_guard.models import (
     ArticleReference,
     ComplianceMapping,
@@ -17,14 +22,33 @@ from tf_eu_guard.models import (
     Severity,
 )
 
-VALID_SEVERITIES = {s.value for s in Severity}
-VALID_FRAMEWORKS = {f.value for f in Framework}
-
-REQUIRED_FIELDS = ("check_name", "articles", "risk", "remediation", "severity")
-
 
 class RegistryValidationError(ValueError):
     """Raised when a registry file violates the mapping schema."""
+
+
+class _UniqueKeyLoader(yaml.SafeLoader):
+    """A SafeLoader that refuses duplicate mapping keys.
+
+    PyYAML's standard parsers silently keep the *last* definition when a
+    key appears twice in one mapping — so a check_id defined twice in the
+    same registry file would silently overwrite its predecessor before any
+    validation code runs (the cross-file duplicate guard can't see it).
+    This loader surfaces the collision as a :class:`RegistryValidationError`
+    instead, with the offending key and line number.
+    """
+
+    def construct_mapping(self, node, deep=False):
+        seen: set = set()
+        for key_node, _ in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            if key in seen:
+                raise RegistryValidationError(
+                    f"duplicate key '{key}' "
+                    f"(line {key_node.start_mark.line + 1})"
+                )
+            seen.add(key)
+        return super().construct_mapping(node, deep=deep)
 
 
 def _validate_entry(check_id: str, data: dict[str, Any], source: Path) -> None:
@@ -57,9 +81,19 @@ def _validate_entry(check_id: str, data: dict[str, Any], source: Path) -> None:
 
 
 def load_registry_file(registry_path: Path) -> dict[str, ComplianceMapping]:
-    """Load and validate a single registry YAML file."""
+    """Load and validate a single registry YAML file.
+
+    Raises :class:`RegistryValidationError` on schema violations — and on
+    duplicate keys *within* the file, which ``yaml.safe_load`` would
+    silently collapse to the last definition.
+    """
     with open(registry_path) as f:
-        raw_registry = yaml.safe_load(f) or {}
+        try:
+            raw_registry = yaml.load(f, Loader=_UniqueKeyLoader)
+        except RegistryValidationError as exc:
+            raise RegistryValidationError(f"{registry_path.name}: {exc}") from None
+    if not raw_registry:
+        raw_registry = {}
 
     mappings = {}
     for check_id, data in raw_registry.items():

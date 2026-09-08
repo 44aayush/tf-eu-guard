@@ -4,8 +4,10 @@ from pathlib import Path
 
 from rich.console import Console
 
-from tf_eu_guard.models import EnrichedFinding, ScanReport, Severity
+from tf_eu_guard.models import EnrichedFinding, ScanReport
+from tf_eu_guard.reporting._html_common import safe_guideline
 from tf_eu_guard.reporting.base import BaseReporter
+from tf_eu_guard.reporting.styles import SEVERITY_COLOR_TERMINAL, SEVERITY_ORDER
 
 
 def _line_ref(finding: EnrichedFinding) -> str | None:
@@ -44,24 +46,19 @@ class DevReporter(BaseReporter):
         output.append(f"Timestamp: {report.scan_timestamp}")
         output.append(f"\nFindings: {report.total_failed} failed / {report.total_checks_run} total\n")
 
-        severity_order = [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW]
-
         for file_path, findings in sorted(by_file.items()):
             output.append(f"\n[bold cyan]{file_path}[/bold cyan]")
 
-            # Sort findings by severity within each file
+            # Sort findings by severity within each file (unknown severities last)
             sorted_findings = sorted(
                 findings,
-                key=lambda f: severity_order.index(f.severity) if f.severity in severity_order else 99
+                key=lambda f: SEVERITY_ORDER.index(f.severity)
+                if f.severity in SEVERITY_ORDER
+                else len(SEVERITY_ORDER),
             )
 
             for finding in sorted_findings:
-                severity_color = {
-                    Severity.CRITICAL: "red",
-                    Severity.HIGH: "red",
-                    Severity.MEDIUM: "yellow",
-                    Severity.LOW: "blue",
-                }[finding.severity]
+                severity_color = SEVERITY_COLOR_TERMINAL[finding.severity]
 
                 output.append(f"\n  [{severity_color}]●[/{severity_color}] {finding.check_id}: {finding.check_name}")
                 output.append(f"    Resource: {finding.resource}")
@@ -133,9 +130,9 @@ def generate_dev_report(
         severity_counts[f.severity] = severity_counts.get(f.severity, 0) + 1
 
     console.print(f"[bold]Total Findings:[/bold] {len(findings)}")
-    for severity in [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW]:
+    for severity in SEVERITY_ORDER:
         if severity in severity_counts:
-            color = {"CRITICAL": "red", "HIGH": "red", "MEDIUM": "yellow", "LOW": "blue"}[severity.value]
+            color = SEVERITY_COLOR_TERMINAL[severity]
             console.print(f"  [{color}]●[/{color}] {severity.value}: {severity_counts[severity]}")
     if unmapped_count:
         console.print(
@@ -155,21 +152,17 @@ def generate_dev_report(
     for file_path, file_findings in sorted(by_file.items()):
         console.print(f"\n[bold cyan]File: {file_path}[/bold cyan]")
 
-        # Sort by severity
-        severity_order = [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW]
+        # Sort by severity (unknown severities last)
         sorted_findings = sorted(
             file_findings,
-            key=lambda f: severity_order.index(f.severity) if f.severity in severity_order else 99
+            key=lambda f: SEVERITY_ORDER.index(f.severity)
+            if f.severity in SEVERITY_ORDER
+            else len(SEVERITY_ORDER),
         )
 
         for finding in sorted_findings:
             # Severity badge
-            severity_color = {
-                Severity.CRITICAL: "red",
-                Severity.HIGH: "red",
-                Severity.MEDIUM: "yellow",
-                Severity.LOW: "blue",
-            }[finding.severity]
+            severity_color = SEVERITY_COLOR_TERMINAL[finding.severity]
 
             console.print(f"\n  [{severity_color}]●[/{severity_color}] [bold]{finding.check_id}[/bold]: {finding.check_name}")
             console.print(f"    [dim]Resource:[/dim] {finding.resource}")
@@ -196,9 +189,12 @@ def generate_dev_report(
                 for line in finding.remediation.strip().split('\n'):
                     console.print(f"      [dim]{line}[/dim]")
 
-            # Guideline link
-            if finding.guideline:
-                console.print(f"\n    [link={finding.guideline}]→ Documentation[/link]")
+            # Guideline link — scheme-validated: a javascript: guideline must
+            # not become a clickable link in terminal markup either, and Rich
+            # [link=...] interpolates the value raw (no markup escaping).
+            guideline = safe_guideline(finding.guideline)
+            if guideline:
+                console.print(f"\n    [link={guideline}]→ Documentation[/link]")
 
     # Footer
     console.print("\n[bold]═══════════════════════════════════════════════════[/bold]\n")

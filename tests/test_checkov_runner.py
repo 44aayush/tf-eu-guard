@@ -16,12 +16,12 @@ from pathlib import Path
 import pytest
 
 from tf_eu_guard.checkov_runner import (
-    SUPPORTED_IAC_TYPES,
     _normalize_checkov_output,
     extract_failed_checks,
     load_checkov_json,
     run_checkov,
 )
+from tf_eu_guard.constants import SUPPORTED_IAC_TYPES
 
 SAMPLE = {
     "check_type": "terraform",

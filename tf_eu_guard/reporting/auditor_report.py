@@ -16,67 +16,17 @@ from pathlib import Path
 
 from tf_eu_guard.models import EnrichedFinding, Framework
 from tf_eu_guard.reporting._html_common import (
-    SEVERITY_COLOR,
     distinct_files,
     esc,
     file_location,
     severity_class,
 )
-
-# Framework display order and the mapping-doc each framework links to.
-_FRAMEWORK_ORDER: list[Framework] = [Framework.NIS2, Framework.GDPR]
-_FRAMEWORK_DOC: dict[Framework, str] = {
-    Framework.NIS2: "docs/nis2-mapping.md",
-    Framework.GDPR: "docs/gdpr-mapping.md",
-}
-
-_CSS = """
-  :root { color-scheme: light dark; }
-  * { box-sizing: border-box; }
-  body {
-    font-family: Georgia, "Times New Roman", serif;
-    max-width: 980px; margin: 40px auto; padding: 0 24px;
-    color: #1a1a1a; background: #fff; line-height: 1.6;
-  }
-  header { border-bottom: 3px double #2c3e50; padding-bottom: 18px; margin-bottom: 24px; }
-  header h1 { margin: 0 0 6px; font-size: 1.8rem; }
-  header .meta { color: #555; font-size: 0.9rem; font-family: system-ui, sans-serif; }
-  header .meta span { margin-right: 18px; }
-  h2 { font-size: 1.35rem; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 40px; }
-  h3 { font-size: 1.1rem; margin: 28px 0 6px; }
-
-  .scope {
-    background: #fff8e1; border: 1px solid #f0d98c; border-radius: 6px;
-    padding: 12px 16px; font-family: system-ui, sans-serif; font-size: 0.9rem; margin: 18px 0;
-  }
-  table { border-collapse: collapse; width: 100%; font-family: system-ui, sans-serif; font-size: 0.92rem; margin: 12px 0; }
-  th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; vertical-align: top; }
-  th { background: #f2f4f7; }
-  td.num { text-align: right; font-variant-numeric: tabular-nums; }
-
-  nav.toc { font-family: system-ui, sans-serif; font-size: 0.92rem; background: #f7f8fa; border: 1px solid #e2e2e2; border-radius: 6px; padding: 14px 20px; }
-  nav.toc ul { margin: 6px 0; padding-left: 20px; }
-  nav.toc a { color: #2c3e50; text-decoration: none; }
-  nav.toc a:hover { text-decoration: underline; }
-
-  .article { margin-bottom: 8px; }
-  .article .title-note { color: #555; font-weight: normal; }
-  .status {
-    display: inline-block; font-family: system-ui, sans-serif; font-size: 0.8rem; font-weight: 700;
-    background: #fdecea; color: #b03a2e; border: 1px solid #f5b7b1; border-radius: 12px; padding: 2px 10px;
-  }
-  .badge {
-    display: inline-block; color: #fff; font-size: 0.7rem; font-weight: 700; font-family: system-ui, sans-serif;
-    padding: 1px 7px; border-radius: 10px; text-transform: uppercase;
-  }
-  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88rem; }
-  .doclink { font-family: system-ui, sans-serif; font-size: 0.85rem; }
-  .backtop { font-family: system-ui, sans-serif; font-size: 0.78rem; margin-left: 10px; }
-  .backtop a { color: #888; text-decoration: none; }
-  footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #ccc; color: #777; font-size: 0.82rem; font-family: system-ui, sans-serif; }
-  .empty { background: #eafaf1; border: 1px solid #abebc6; color: #1e6b43; padding: 24px; border-radius: 8px; text-align: center; font-family: system-ui, sans-serif; }
-  @media print { body { max-width: none; margin: 0; } nav.toc { page-break-after: always; } }
-"""
+from tf_eu_guard.reporting.styles import (
+    AUDITOR_CSS,
+    FRAMEWORK_DOC,
+    FRAMEWORK_ORDER,
+    SEVERITY_COLOR,
+)
 
 
 def _anchor(framework: Framework, article: str) -> str:
@@ -93,7 +43,7 @@ def _build_index(
     Returns ``{framework: {article: {"title": str, "findings": [...]}}}``,
     preserving each article's title from its :class:`ArticleReference`.
     """
-    index: dict[Framework, dict[str, dict]] = {fw: {} for fw in _FRAMEWORK_ORDER}
+    index: dict[Framework, dict[str, dict]] = {fw: {} for fw in FRAMEWORK_ORDER}
     for finding in findings:
         for art in finding.articles:
             bucket = index.setdefault(art.framework, {})
@@ -115,7 +65,7 @@ def _executive_summary(
 ) -> str:
     """Per-framework control-count table plus an overall line."""
     rows: list[str] = []
-    for fw in _FRAMEWORK_ORDER:
+    for fw in FRAMEWORK_ORDER:
         articles = index.get(fw) or {}
         n_articles = len(articles)
         n_findings = sum(1 for f in findings if fw in f.frameworks)
@@ -141,7 +91,7 @@ def _executive_summary(
 def _toc(index: dict[Framework, dict[str, dict]]) -> str:
     """Table of contents linking to each article section."""
     blocks: list[str] = []
-    for fw in _FRAMEWORK_ORDER:
+    for fw in FRAMEWORK_ORDER:
         articles = index.get(fw) or {}
         if not articles:
             continue
@@ -181,7 +131,7 @@ def _article_section(
             "</tr>"
         )
 
-    doc = _FRAMEWORK_DOC.get(framework, "")
+    doc = FRAMEWORK_DOC.get(framework, "")
     title_html = (
         f" <span class=\"title-note\">&mdash; {esc(title)}</span>" if title else ""
     )
@@ -259,7 +209,7 @@ def _render(
     else:
         index = _build_index(findings)
         sections: list[str] = [header, scope, _executive_summary(findings, index), _toc(index)]
-        for fw in _FRAMEWORK_ORDER:
+        for fw in FRAMEWORK_ORDER:
             articles = index.get(fw) or {}
             if not articles:
                 continue
@@ -280,7 +230,7 @@ def _render(
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         "<title>tf-eu-guard Compliance Audit Report</title>\n"
-        f"<style>{_CSS}</style>\n"
+        f"<style>{AUDITOR_CSS}</style>\n"
         "</head>\n<body>\n"
         f"{body}\n{footer}\n"
         "</body>\n</html>\n"

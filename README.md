@@ -29,7 +29,7 @@ Most organizations scan infrastructure-as-code with tools like Checkov or tfsec,
    - **Dev report** (terminal/HTML): severity-sorted findings for engineers
    - **Security dashboard** (HTML): CRITICAL/HIGH/MEDIUM/LOW breakdown with stats
    - **Auditor report** (HTML): article-by-article view showing which NIS2/GDPR clauses have open findings
-5. **Custom checks**: Adds EU-specific rules (non-EU regions, hardcoded secrets) not in upstream Checkov
+5. **Custom checks**: Adds EU-specific rules (regions outside the EU Sovereign Cloud, hardcoded secrets) not in upstream Checkov
 
 > **Note on flags:** `--iac-type` selects *what to scan* (terraform, terraform_plan, kubernetes);
 > `--framework` selects *which compliance regime to report* (nis2/gdpr). They are unrelated.
@@ -183,6 +183,26 @@ Machine-readable output for pipelines:
 tf-eu-guard scan ./terraform --output json --framework nis2
 ```
 
+### SARIF (GitHub Code Scanning)
+
+```bash
+tf-eu-guard scan ./terraform --output sarif > tf-eu-guard.sarif
+```
+
+Emits a [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
+document — the format GitHub Code Scanning ingests directly. Each finding
+becomes a `result` with `ruleId` = Checkov check ID, `level` derived from
+severity (CRITICAL/HIGH → `error`, MEDIUM → `warning`, LOW/INFO → `note`),
+and a `physicalLocation` from the finding's file and line range. The EU
+regulatory context (NIS2/GDPR articles, severity, remediation) rides along
+in `properties` on both the rule and the result, so Code Scanning shows the
+article metadata with the finding. Unmapped Checkov findings are included
+as `note`-level results tagged `mapped: false`.
+
+The document is validated against the official OASIS SARIF 2.1.0 JSON
+schema in the test suite (`tests/test_sarif_report.py`). Use
+`--output-file results.sarif` to write the file directly instead of stdout.
+
 ### Generate All Reports at Once
 
 ```bash
@@ -231,7 +251,8 @@ With 185 of Checkov's ~700 AWS checks mapped (plus Azure, GCP and Kubernetes),
 a scan can produce Checkov failures that have no current EU regulatory mapping.
 These are **not** silently dropped: every report format surfaces them as
 "present-but-unmapped" — a count in the dev/security/auditor reports, a
-stderr note alongside the JSON output, and an explicit mention in each
+stderr note alongside the JSON output, note-level results tagged
+`mapped: false` in the SARIF output, and an explicit mention in each
 report's caveats. Unmapped checks are those with no honest compliance link
 (see [`docs/check-mapping-table.md`](docs/check-mapping-table.md) for the
 methodology); if you believe a check deserves a mapping,
@@ -247,7 +268,41 @@ family (`CKV_AWS_10`–`15`).
 - uses: 44aayush/tf-eu-guard@v1
   with:
     path: './infra'
-    fail-on-severity: 'HIGH'
+    iac-type: 'terraform'        # terraform | terraform_plan | kubernetes
+    output: 'json'               # dev | security | auditor | json | sarif | all
+    framework: 'all'             # nis2 | gdpr | all
+    fail-on-severity: 'HIGH'     # empty ('') disables gating
+```
+
+The Action runs the same CLI inside the repo's Docker image, so it supports
+every `--iac-type` the CLI does — pass the `terraform show -json` plan file
+as `path` with `iac-type: terraform_plan`, or point at a manifest directory
+with `iac-type: kubernetes`.
+
+Two optional extras:
+
+- `upload-reports: true` — uploads the generated HTML report(s) as a
+  `tf-eu-guard-reports` workflow artifact (useful when the severity gate
+  fails the scan and you need the actual report).
+- `upload-sarif: true` (with `output: sarif`) — uploads the SARIF to
+  GitHub Code Scanning, so findings appear in the repo's *Security* tab
+  with their NIS2/GDPR article metadata. The calling workflow needs
+  `permissions: security-events: write`.
+
+```yaml
+jobs:
+  compliance:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write   # for upload-sarif
+    steps:
+      - uses: actions/checkout@v4
+      - uses: 44aayush/tf-eu-guard@v1
+        with:
+          path: './infra'
+          output: sarif
+          upload-sarif: true
+          upload-reports: true
 ```
 
 ### Pre-commit Hook
@@ -255,7 +310,7 @@ family (`CKV_AWS_10`–`15`).
 ```yaml
 repos:
   - repo: https://github.com/44aayush/tf-eu-guard
-    rev: v0.3.0
+    rev: v0.4.0
     hooks:
       - id: tf-eu-guard
 ```
@@ -314,7 +369,7 @@ segmentation, pod security context, RBAC, and resource limits:
 - **Backup / resilience**: CKV_AWS_21, 144, 326, 361, 139, 115, 116, 135, 318, 313, 362, CKV2_AWS_8, CKV2_AWS_58, CKV2_AWS_59, CKV2_AWS_60, CKV2_AWS_61
 - **Secure development / secrets**: CKV_AWS_226, 363, 272, 51, 163, 41, 45, 46
 - **S3 / RDS / network exposure**: CKV_AWS_20, 53–56, 16, 17, 133, 129, 161, 293, 118, 24, 25, 260, 382, 137, 248, 38, 39, 117, 23, CKV2_AWS_6, CKV2_AWS_12, CKV2_AWS_5
-- **Custom**: EUGUARD_GDPR_001 (non-EU regions), EUGUARD_NIS2_001 (hardcoded secrets — Terraform and Kubernetes variants)
+- **Custom**: EUGUARD_GDPR_001 (regions outside the EU Sovereign Cloud), EUGUARD_NIS2_001 (hardcoded secrets — Terraform and Kubernetes variants)
 - **Azure** (23): `tf_eu_guard/mapping/registry-azure.yaml` — storage account encryption/public access, SQL firewall & public network access, Key Vault network rules, App Service HTTPS/auth/logging, NSG SSH rules, and more
 - **GCP** (22): `tf_eu_guard/mapping/registry-gcp.yaml` — GCS bucket CMEK/public IAM, Cloud SQL public IP/SSL/CMEK, GKE private clusters/ABAC/authorized networks, VPC flow logs, and more
 - **Kubernetes** (24): `tf_eu_guard/mapping/registry-kubernetes.yaml` — pod security context (privileged/root/capabilities), RBAC privilege escalation, missing NetworkPolicy, secrets as literals, resource requests/limits, image hygiene, health probes

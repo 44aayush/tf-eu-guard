@@ -1,36 +1,52 @@
 """
 Custom Checkov check: EU data-residency enforcement (GDPR Chapter V, Art. 44-49).
 
-Deploying AWS resources through a provider pinned to a non-EU region stores
-personal data outside the EU/EEA — a transfer to a third country. GDPR Art. 44
-permits such transfers only under the safeguards of Chapter V, so infrastructure
-that configures a non-EU region is flagged for review.
+This project is based on the AWS European Sovereign Cloud: only EUSC regions
+are acceptable deployment targets. Any other region — a non-EU region (which
+under GDPR Art. 44 is a transfer to a third country requiring Chapter V
+safeguards) or a *commercial* EU region such as ``eu-central-1`` (which GDPR
+would permit, but which does not meet this project's sovereignty requirement) —
+is flagged for review.
 
 Design note: region is configured on the AWS *provider*, not on individual
 resources (``aws_s3_bucket`` / ``aws_db_instance`` / ``aws_instance`` have no
 ``region`` argument), so this is a provider-level check. Each ``provider "aws"``
-block's ``region`` is inspected; resources deployed via a non-EU aliased provider
-(e.g. ``provider = aws.non_eu``) inherit the finding flagged on that block.
+block's ``region`` is inspected; resources deployed via an out-of-policy aliased
+provider (e.g. ``provider = aws.non_eusc``) inherit the finding flagged on that
+block.
 
 This deliberately deviates from the resource-level sketch in PROJECT_PLAN.md
 §3.1, which would return UNKNOWN for every resource because the ``region``
 attribute never appears in a resource's configuration.
+
+Region classification is fail-closed: the explicit allowlist —
+:data:`tf_eu_guard.regions.EUSC_REGIONS`, not AWS's "eu-" naming prefix —
+is the source of truth. The prefix is a *geographic*
+("Europe") label, not an EU-membership one, and no longer a residency signal
+at all under this policy: ``eu-west-2`` (London, UK) and ``eu-central-2``
+(Zurich, Switzerland) are GDPR third countries, and the commercial EU regions
+(``eu-central-1`` et al.) are GDPR-permissible but outside the Sovereign Cloud.
+Any region not on the allowlist — non-EUSC regions, malformed strings, and
+unresolved variable references (``var.region`` / ``"${var.region}"``, which
+Checkov passes through as raw text) — fails the check: a deployment target
+that cannot be proven to be the Sovereign Cloud statically is flagged for
+review, not waved through.
 """
 
 from checkov.common.models.enums import CheckCategories, CheckResult
 from checkov.terraform.checks.provider.base_check import BaseProviderCheck
 
-# AWS region prefixes whose regions keep data inside the EU/EEA.
-# "eu-" covers eu-west-1/eu-central-1/etc.; "eusc-" is the AWS European
-# Sovereign Cloud partition.
-_EU_REGION_PREFIXES = ("eu-", "eusc-")
+from tf_eu_guard.regions import EUSC_REGIONS
 
 
 class EURegionEnforcement(BaseProviderCheck):
-    """Flag AWS provider blocks configured for a non-EU region."""
+    """Flag AWS provider blocks configured outside the EU Sovereign Cloud."""
 
     def __init__(self):
-        name = "Ensure the AWS provider region is in the EU (GDPR data residency, Art. 44-49)"
+        name = (
+            "Ensure the AWS provider region is in the EU Sovereign Cloud "
+            "(GDPR data residency, Art. 44-49)"
+        )
         check_id = "EUGUARD_GDPR_001"
         supported_provider = ["aws"]
         categories = [CheckCategories.GENERAL_SECURITY]
@@ -42,11 +58,16 @@ class EURegionEnforcement(BaseProviderCheck):
         )
 
     def scan_provider_conf(self, conf):
-        """Return FAILED for a literal non-EU region, PASSED for an EU region.
+        """Return PASSED only for an allowlisted EUSC region; else FAILED.
 
-        UNKNOWN is returned when no decision can be made — the region is unset
-        (inherited from the environment/instance metadata) or is still an
-        unresolved variable/interpolation.
+        UNKNOWN is reserved for the genuinely undecidable no-information
+        cases: the region is unset on this provider block (inherited at apply
+        time from the environment or instance metadata) or is blank/non-string.
+        Everything else fails closed — a literal out-of-policy region (non-EU
+        *or* commercial EU), an unrecognized or malformed region string, and
+        an unresolved variable reference all produce a finding, because a
+        deployment target that cannot be proven to be the Sovereign Cloud
+        statically must be reviewed rather than waved through.
         """
         region = _first_scalar(conf.get("region"))
 
@@ -54,11 +75,11 @@ class EURegionEnforcement(BaseProviderCheck):
         if region is None:
             return CheckResult.UNKNOWN
 
-        # Unresolved variable / interpolation (e.g. "${var.region}").
-        if not isinstance(region, str) or "${" in region or not region.strip():
+        # Blank / non-string → no usable signal either way.
+        if not isinstance(region, str) or not region.strip():
             return CheckResult.UNKNOWN
 
-        if region.strip().lower().startswith(_EU_REGION_PREFIXES):
+        if region.strip().lower() in EUSC_REGIONS:
             return CheckResult.PASSED
         return CheckResult.FAILED
 
