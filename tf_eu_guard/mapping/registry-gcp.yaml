@@ -137,7 +137,7 @@ CKV_GCP_28:
     - framework: GDPR
       article: "Art. 32(1)(b)"
       title: "Confidentiality, integrity and availability"
-  risk: "A bucket IAM binding that includes allUsers or allAuthenticatedUsers exposes personal data without authentication — a direct GDPR breach risk."
+  risk: "A bucket IAM binding that includes allUsers or allAuthenticatedUsers exposes bucket data without authentication — if personal data is stored, a direct failure of the confidentiality controls GDPR Art. 32(1)(b) and NIS2 Art. 21(2)(i) require."
   remediation: |
     # Remove 'allUsers' and 'allAuthenticatedUsers' members from
     # google_storage_bucket_iam_binding / _member resources.

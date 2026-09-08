@@ -96,7 +96,7 @@ scan. **‡** mapped but does not fire on the current stack (no triggering resou
 | CKV2_AWS_12 | network.tf | aws_vpc | Default SG not restricted | 21(2)(i) | – | MEDIUM |
 | CKV2_AWS_11 | network.tf | aws_vpc | VPC flow logging disabled | 21(2)(b) | – | MEDIUM |
 | CKV_AWS_130 ‡ | network.tf | aws_subnet | Auto-assigns public IP | 21(2)(i) | 32(1)(b) | MEDIUM |
-| EUGUARD_GDPR_001 § | main.tf | aws provider | Provider region outside EU/EEA | – | 44 | HIGH |
+| EUGUARD_GDPR_001 § | main.tf | aws provider | Provider region outside the EU Sovereign Cloud | – | 44 | HIGH |
 | EUGUARD_NIS2_001 § | rds.tf | aws_db_instance | Hardcoded DB password (literal) | 21(2)(e) | 32(1)(b) | CRITICAL |
 
 ### Coverage summary

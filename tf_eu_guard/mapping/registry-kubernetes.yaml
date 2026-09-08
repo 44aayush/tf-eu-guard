@@ -101,7 +101,7 @@ CKV_K8S_25:
   risk: >
     Added Linux capabilities (beyond the container default set) widen what a
     compromised container process can do on the host — a direct least-
-    privilege violation under NIS2 Art. 21(2)(i).
+    privilege control gap under NIS2 Art. 21(2)(i).
   remediation: |
     Drop all capabilities instead of adding:
       securityContext:

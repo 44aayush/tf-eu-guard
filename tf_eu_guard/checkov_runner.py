@@ -6,8 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-#: IaC types tf-eu-guard can scan, mapped to Checkov's ``--framework`` values.
-SUPPORTED_IAC_TYPES = ("terraform", "terraform_plan", "kubernetes")
+from tf_eu_guard.constants import SUPPORTED_IAC_TYPES
 
 
 def run_checkov(target: Path, iac_type: str = "terraform") -> dict[str, Any]:

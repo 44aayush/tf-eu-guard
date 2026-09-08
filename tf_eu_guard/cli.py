@@ -5,20 +5,31 @@ import sys
 from datetime import UTC
 from pathlib import Path
 
-#: Documented exit codes (see README "CI/CD Gating"). They let a pipeline
-#: tell "the scan found blocking issues" apart from "the tool itself
-#: failed to run" — a distinction the old binary 0/1 exit conflated.
-#:   0 = scan ran, no blocking findings
-#:   1 = scan ran, blocking findings found (--fail-on-* threshold met)
-#:   2 = invalid invocation or configuration (bad flags, malformed
-#:       registry, unusable Checkov JSON input)
-#:   3 = scanner/runtime failure (Checkov itself crashed, registry failed
-#:       to load, unexpected internal error)
-#: argparse's own rejection of bad flags also exits 2, matching this table.
-EXIT_OK = 0
-EXIT_FINDINGS = 1
-EXIT_INVALID_INPUT = 2
-EXIT_RUNTIME_FAILURE = 3
+from tf_eu_guard.constants import (
+    EXIT_FINDINGS,
+    EXIT_INVALID_INPUT,
+    EXIT_OK,
+    EXIT_RUNTIME_FAILURE,
+    FRAMEWORK_FILTERS,
+    OUTPUT_FORMATS,
+    SUPPORTED_IAC_TYPES,
+)
+from tf_eu_guard.models import Severity
+
+
+def _fail_on_severity_arg(value: str) -> str | None:
+    """argparse type for ``--fail-on-severity``: '' (as passed through by the
+    GitHub Action when a user clears the input) means "no gating" → ``None``;
+    anything else must be a real severity."""
+    if value == "":
+        return None
+    if value not in {s.value for s in Severity}:
+        raise argparse.ArgumentError(
+            None,
+            f"invalid choice: {value!r} "
+            f"(choose from CRITICAL, HIGH, MEDIUM, LOW, INFO, or '' to disable)",
+        )
+    return value
 
 
 def _exit_code_for(error: Exception) -> int:
@@ -74,7 +85,7 @@ def main():
     )
     parser.add_argument(
         "--iac-type",
-        choices=["terraform", "terraform_plan", "kubernetes"],
+        choices=list(SUPPORTED_IAC_TYPES),
         default="terraform",
         help="IaC language to scan (default: terraform). Passed to Checkov's "
              "--framework flag. NOTE: unrelated to --framework below, which "
@@ -84,14 +95,16 @@ def main():
     )
     parser.add_argument(
         "--output",
-        choices=["dev", "security", "auditor", "json", "all"],
+        choices=list(OUTPUT_FORMATS),
         default="dev",
         help="Report format (default: dev). 'all' writes the dev, security and "
-             "auditor HTML files together (see --output-dir).",
+             "auditor HTML files together (see --output-dir). 'sarif' writes a "
+             "SARIF 2.1.0 document (GitHub Code Scanning format) to stdout, or "
+             "to --output-file when given.",
     )
     parser.add_argument(
         "--framework",
-        choices=["nis2", "gdpr", "all"],
+        choices=list(FRAMEWORK_FILTERS),
         default="all",
         help="Compliance framework filter (default: all) — which regulatory "
              "regime to report on. Unrelated to --iac-type (what to scan).",
@@ -110,8 +123,9 @@ def main():
         type=Path,
         default=None,
         metavar="FILE",
-        help="For --output security|auditor, write the single HTML report here "
-             "(default: scan-report.html / auditor-report.html). "
+        help="For --output security|auditor|sarif, write the single report here "
+             "(security/auditor: scan-report.html / auditor-report.html by "
+             "default; sarif: stdout by default). "
              "Ignored for dev, json and all.",
     )
     parser.add_argument(
@@ -126,10 +140,14 @@ def main():
 
     parser.add_argument(
         "--fail-on-severity",
-        choices=["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"],
+        type=_fail_on_severity_arg,
         default=None,
+        metavar="SEVERITY",
         help="Exit with code 1 if any finding is at or above this severity "
-             "(for CI/CD gating). Default: disabled (exit 0 unless an error occurs). "
+             "(CRITICAL, HIGH, MEDIUM, LOW, INFO — for CI/CD gating). Default: "
+             "disabled (exit 0 unless an error occurs). An empty value also "
+             "disables gating (the GitHub Action passes its cleared input "
+             "through verbatim). "
              "Only MAPPED findings are considered: severity is authored in the "
              "mapping registry, so unmapped Checkov findings have no severity "
              "to compare and never trip the gate (they are reported for "
@@ -219,6 +237,45 @@ def main():
                         f"(no current EU regulatory mapping).",
                         file=sys.stderr,
                     )
+            elif args.output == "sarif":
+                # SARIF 2.1.0 for GitHub Code Scanning and other SARIF
+                # consumers. Machine-readable stdout (like --output json) so
+                # pipelines can redirect it; --output-file writes the file
+                # directly instead.
+                import json
+
+                from tf_eu_guard import __version__
+                from tf_eu_guard.reporting.sarif_report import build_sarif
+
+                target = (
+                    str(args.path) if args.path
+                    else f"checkov-json:{args.checkov_json}"
+                )
+                document = build_sarif(
+                    enriched,
+                    unmapped=unmapped,
+                    version=__version__,
+                    target=target,
+                )
+                if args.output_file:
+                    args.output_file.parent.mkdir(parents=True, exist_ok=True)
+                    args.output_file.write_text(
+                        json.dumps(document, indent=2) + "\n", encoding="utf-8"
+                    )
+                    print(
+                        f"SARIF report written to {args.output_file} "
+                        f"({len(enriched)} mapped, {len(unmapped)} unmapped findings)."
+                    )
+                else:
+                    print(json.dumps(document, indent=2))
+                    # Same stdout-purity policy as --output json: the
+                    # unmapped note goes to stderr.
+                    if unmapped:
+                        print(
+                            f"Note: {len(unmapped)} unmapped Checkov finding(s) included "
+                            f"as note-level results with mapped=false.",
+                            file=sys.stderr,
+                        )
             elif args.output in ("security", "auditor", "all"):
                 # HTML report(s). 'all' writes the dev, security and auditor
                 # files together; the single formats write just their own.
@@ -282,8 +339,6 @@ def main():
             if args.fail_on_any:
                 failing = list(enriched)
             elif args.fail_on_severity:
-                from tf_eu_guard.models import Severity
-
                 threshold = Severity(args.fail_on_severity)
                 severity_order = [
                     Severity.INFO,

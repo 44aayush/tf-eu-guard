@@ -14,12 +14,11 @@ import sys
 from pathlib import Path
 
 from tf_eu_guard.mapping.coverage import (
-    NIS2_TITLES,
-    REQUIREMENTS,
     CoverageCategory,
     compute_coverage,
     coverage_summary,
 )
+from tf_eu_guard.mapping.requirements import NIS2_TITLES, REQUIREMENTS
 from tf_eu_guard.models import Framework
 
 TOOLS_DIR = Path(__file__).resolve().parents[1] / "tools"

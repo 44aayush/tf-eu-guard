@@ -148,7 +148,7 @@ Mapped checks (2): `CKV_AZURE_103`, `CKV_AZURE_84`.
 
 ◐ **Partial**
 
-The custom EUGUARD_GDPR_001 check flags non-EU provider regions as a transfer requiring Chapter V justification. The adequacy/SCC analysis itself is legal, not technical — a non-EU region is a strong signal, not a violation.
+The custom EUGUARD_GDPR_001 check enforces this project's EU Sovereign Cloud policy: any provider region outside the EUSC partition is flagged as requiring Chapter V justification. The adequacy/SCC analysis itself is legal, not technical — an out-of-policy region is a strong signal, not a violation.
 
 Mapped checks (1): `EUGUARD_GDPR_001`.
 

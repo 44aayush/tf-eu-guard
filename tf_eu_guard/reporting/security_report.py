@@ -13,82 +13,12 @@ from pathlib import Path
 
 from tf_eu_guard.models import EnrichedFinding, Framework
 from tf_eu_guard.reporting._html_common import (
-    SEVERITY_COLOR,
-    SEVERITY_ORDER,
     distinct_files,
     esc,
     finding_card,
     severity_counts,
 )
-
-_CSS = """
-  :root { color-scheme: light dark; }
-  * { box-sizing: border-box; }
-  body {
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    max-width: 1100px; margin: 40px auto; padding: 0 20px;
-    color: #1a1a1a; background: #fafafa; line-height: 1.5;
-  }
-  header { border-bottom: 3px solid #2c3e50; padding-bottom: 16px; margin-bottom: 28px; }
-  header h1 { margin: 0 0 6px; font-size: 1.7rem; }
-  header .meta { color: #555; font-size: 0.9rem; }
-  header .meta span { margin-right: 18px; white-space: nowrap; }
-  h2 { font-size: 1.25rem; margin: 32px 0 12px; }
-
-  .summary { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
-  .stat {
-    flex: 1 1 120px; background: #fff; border: 1px solid #e2e2e2; border-radius: 8px;
-    padding: 14px 16px; box-shadow: 0 1px 2px rgba(0,0,0,.04);
-  }
-  .stat .num { font-size: 1.7rem; font-weight: 700; line-height: 1; }
-  .stat .label { font-size: 0.78rem; color: #666; text-transform: uppercase; letter-spacing: .04em; }
-
-  .chart { background: #fff; border: 1px solid #e2e2e2; border-radius: 8px; padding: 18px 20px; }
-  .chart .row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
-  .chart .rlabel { flex: 0 0 90px; font-size: 0.85rem; font-weight: 600; }
-  .chart .track { flex: 1; background: #eee; border-radius: 4px; overflow: hidden; }
-  .chart .bar { height: 20px; border-radius: 4px 0 0 4px; min-width: 2px; }
-  .chart .rcount { flex: 0 0 40px; text-align: right; font-variant-numeric: tabular-nums; }
-  .unmapped { color: #555; font-size: 0.9rem; margin: 10px 0 0; }
-
-  .finding {
-    background: #fff; border: 1px solid #e2e2e2; border-left-width: 5px;
-    border-radius: 6px; padding: 14px 18px; margin: 12px 0;
-  }
-  .finding-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
-  .finding-head .cid { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }
-  .finding-head .cname { color: #333; }
-  .badge {
-    display: inline-block; color: #fff; font-size: 0.7rem; font-weight: 700;
-    padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: .03em;
-  }
-  dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; margin: 10px 0; font-size: 0.9rem; }
-  dl.meta dt { color: #777; font-weight: 600; }
-  dl.meta dd { margin: 0; }
-  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .art {
-    display: inline-block; background: #eef2f7; border: 1px solid #d6e0ea; color: #2c3e50;
-    font-size: 0.78rem; padding: 1px 7px; border-radius: 4px; margin: 1px 4px 1px 0;
-  }
-  .risk { margin: 8px 0; }
-  .remediation h4 { margin: 10px 0 4px; font-size: 0.85rem; text-transform: uppercase; color: #777; letter-spacing: .04em; }
-  .remediation pre {
-    background: #f5f5f5; border: 1px solid #e2e2e2; border-radius: 6px;
-    padding: 10px 12px; overflow-x: auto; margin: 0; font-size: 0.85rem;
-  }
-  .doc { display: inline-block; margin-top: 10px; font-size: 0.85rem; color: #2980b9; text-decoration: none; }
-  .doc:hover { text-decoration: underline; }
-  .empty { background: #eafaf1; border: 1px solid #abebc6; color: #1e6b43; padding: 24px; border-radius: 8px; text-align: center; }
-  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e2e2; color: #888; font-size: 0.82rem; }
-  @media (prefers-color-scheme: dark) {
-    body { color: #e6e6e6; background: #16181c; }
-    .stat, .chart, .finding { background: #21242b; border-color: #33373f; }
-    .chart .track { background: #33373f; }
-    dl.meta dt, .stat .label, header .meta { color: #aab; }
-    .remediation pre { background: #1b1d22; border-color: #33373f; }
-    .art { background: #2b3140; border-color: #3a4256; color: #cdd7e5; }
-  }
-"""
+from tf_eu_guard.reporting.styles import SECURITY_CSS, SEVERITY_COLOR, SEVERITY_ORDER
 
 
 def _summary_stats(
@@ -234,7 +164,7 @@ def _render(
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         "<title>tf-eu-guard Security Report</title>\n"
-        f"<style>{_CSS}</style>\n"
+        f"<style>{SECURITY_CSS}</style>\n"
         "</head>\n<body>\n"
         f"{header}\n{body}\n{footer}\n"
         "</body>\n</html>\n"

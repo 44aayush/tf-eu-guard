@@ -349,3 +349,115 @@ class TestUnmappedCount:
         out = capsys.readouterr().out
         assert "No compliance findings" not in out
         assert "4 unmapped" in out
+
+
+# --- Guideline URL scheme validation (TASKS.md P0 #3) --------------------------
+
+def test_safe_guideline_unit_gate():
+    """Only http/https URLs without markup-breaking characters pass; a
+    scheme-validated gate, because HTML-escaping neutralizes markup
+    characters, not URL schemes."""
+    from tf_eu_guard.reporting._html_common import safe_guideline
+
+    ok = [
+        "https://docs.prismacloud.io/en/enterprise-edition/policy-reference",
+        "http://example.com/CKV_AWS_18",
+    ]
+    rejected = [
+        None,
+        "",
+        "javascript:alert(1)",
+        "JAVASCRIPT:alert(1)",
+        "data:text/html;base64,PHNjcmlwdD4=",
+        "vbscript:msgbox(1)",
+        "//protocol-relative.example/x",   # no explicit scheme
+        "/relative/path",                  # no scheme
+        "file:///etc/passwd",
+        "https://ok.example/a]b",          # bracket — Rich markup breakout
+        "https://ok.example/a b",          # whitespace
+    ]
+    for url in ok:
+        assert safe_guideline(url) == url, url
+    for url in rejected:
+        assert safe_guideline(url) is None, url
+
+
+def test_html_reports_render_no_link_for_javascript_guideline():
+    """A javascript: guideline must not become a clickable link in any HTML
+    report — the finding card should omit the Documentation link entirely."""
+    findings = [_finding(guideline="javascript:alert(document.domain)")]
+    for doc in (
+        generate_security_report(findings),
+        generate_auditor_report(findings),
+        generate_dev_html_report(findings),
+    ):
+        assert 'class="doc"' not in doc, "doc link rendered for unsafe scheme"
+        assert "javascript:" not in doc
+
+
+def test_html_reports_render_no_link_for_other_unsafe_schemes():
+    findings = [_finding(guideline="data:text/html;base64,PHNjcmlwdD4=")]
+    for doc in (
+        generate_security_report(findings),
+        generate_auditor_report(findings),
+        generate_dev_html_report(findings),
+    ):
+        assert 'class="doc"' not in doc
+        assert "data:text/html" not in doc
+
+
+def test_html_reports_still_link_safe_guidelines():
+    """The gate must not over-reach: a normal https Checkov guideline still
+    renders as a working link. (The auditor report renders findings in its
+    own article-organized layout and never emits guideline links — for it,
+    safe and unsafe schemes are equally link-free.)"""
+    url = "https://docs.prismacloud.io/en/policy-reference/r/policy-aws"
+    findings = [_finding(guideline=url)]
+    for doc in (
+        generate_security_report(findings),
+        generate_dev_html_report(findings),
+    ):
+        assert f'href="{url}"' in doc
+        assert 'class="doc"' in doc
+    # Auditor renders internal #anchors but never external guideline links.
+    auditor = generate_auditor_report(findings)
+    assert 'href="http' not in auditor and 'href="https' not in auditor
+
+
+def test_terminal_report_renders_no_link_for_javascript_guideline():
+    """The Rich [link=...] path is scheme-gated too — Rich interpolates the
+    value raw, so a javascript: guideline must not render a link there."""
+    import sys
+    from io import StringIO
+
+    from tf_eu_guard.reporting.dev_report import generate_dev_report
+
+    buf = StringIO()
+    real_stdout = sys.stdout
+    sys.stdout = buf
+    try:
+        generate_dev_report([_finding(guideline="javascript:alert(1)")])
+    finally:
+        sys.stdout = real_stdout
+    out = buf.getvalue()
+    assert "javascript:" not in out
+    assert "Documentation" not in out  # link line omitted entirely
+
+
+def test_terminal_report_still_links_safe_guidelines():
+    """Rich only emits hyperlink escapes on a link-capable terminal; on plain
+    streams the visible anchor text is what proves the link line rendered."""
+    import sys
+    from io import StringIO
+
+    from tf_eu_guard.reporting.dev_report import generate_dev_report
+
+    buf = StringIO()
+    real_stdout = sys.stdout
+    sys.stdout = buf
+    try:
+        generate_dev_report([_finding(guideline="https://docs.example/CKV_AWS_18")])
+    finally:
+        sys.stdout = real_stdout
+    out = buf.getvalue()
+    assert "→ Documentation" in out  # link line rendered

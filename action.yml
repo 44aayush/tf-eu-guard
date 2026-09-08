@@ -1,35 +1,89 @@
 name: 'tf-eu-guard'
-description: 'EU compliance security linter for Terraform (NIS2 + GDPR)'
+description: 'EU compliance security linter for Terraform (source, plan JSON) and Kubernetes (NIS2 + GDPR)'
 branding:
   icon: 'shield'
   color: 'blue'
 
 inputs:
   path:
-    description: 'Path to Terraform directory'
+    description: 'Path to the IaC directory (or, for iac-type: terraform_plan, the "terraform show -json" plan file), relative to the repository root'
     required: true
     default: './terraform'
   output:
-    description: 'Report format (dev, security, auditor, json, all)'
+    description: 'Report format (dev, security, auditor, json, sarif, all). sarif writes tf-eu-guard.sarif into the workspace for GitHub Code Scanning'
     required: false
     default: 'json'
+  iac-type:
+    description: 'IaC language to scan: terraform, terraform_plan (pass the plan file path as path), or kubernetes — mirrors the CLI --iac-type flag'
+    required: false
+    default: 'terraform'
   framework:
     description: 'Framework filter (nis2, gdpr, all)'
     required: false
     default: 'all'
   fail-on-severity:
-    description: 'Fail the build if findings at or above this severity exist (CRITICAL, HIGH, MEDIUM, LOW); empty disables gating'
+    description: 'Fail the workflow if findings at or above this severity exist (CRITICAL, HIGH, MEDIUM, LOW, INFO); empty disables gating'
     required: false
     default: 'HIGH'
+  upload-reports:
+    description: 'Upload the generated HTML report(s) as a workflow artifact when output includes dev/security/auditor (or all)'
+    required: false
+    default: 'false'
+  upload-sarif:
+    description: 'Upload the SARIF output to GitHub Code Scanning (the workflow needs security-events: write permission). Only applies when output is sarif'
+    required: false
+    default: 'false'
 
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
-  args:
-    - ${{ inputs.path }}
-    - --output
-    - ${{ inputs.output }}
-    - --framework
-    - ${{ inputs.framework }}
-    - --fail-on-severity
-    - ${{ inputs.fail-on-severity }}
+  using: 'composite'
+  steps:
+    - name: Run tf-eu-guard scan
+      id: scan
+      shell: bash
+      run: |
+        set -euo pipefail
+        image="tf-eu-guard:action-${GITHUB_RUN_ID:-local}"
+        docker build --quiet -t "$image" "${{ github.action_path }}"
+
+        args=(
+          "${{ inputs.path }}"
+          --iac-type "${{ inputs.iac-type }}"
+          --output "${{ inputs.output }}"
+          --framework "${{ inputs.framework }}"
+        )
+        # An empty fail-on-severity input means "no gating" — the CLI
+        # accepts '' with that meaning too, but omitting the flag entirely
+        # is what the input description promises.
+        if [ -n "${{ inputs.fail-on-severity }}" ]; then
+          args+=(--fail-on-severity "${{ inputs.fail-on-severity }}")
+        fi
+        # SARIF always lands in the workspace (not just stdout) so later
+        # steps — and the Code Scanning upload below — can consume it.
+        if [ "${{ inputs.output }}" = "sarif" ]; then
+          args+=(--output-file /workspace/tf-eu-guard.sarif)
+        fi
+
+        # The scan's exit code IS the gate (1 = findings at/above
+        # threshold, 2 = bad invocation, 3 = tool failure); let it
+        # propagate.
+        docker run --rm \
+          -v "$GITHUB_WORKSPACE:/workspace" \
+          -w /workspace \
+          "$image" "${args[@]}"
+
+    - name: Upload HTML reports as artifact
+      # always(): the reports are exactly what you want to inspect when
+      # the severity gate failed the scan step.
+      if: ${{ always() && inputs.upload-reports == 'true' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: tf-eu-guard-reports
+        path: reports/
+        if-no-files-found: ignore
+        retention-days: 30
+
+    - name: Upload SARIF to GitHub Code Scanning
+      if: ${{ always() && inputs.upload-sarif == 'true' && inputs.output == 'sarif' }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: tf-eu-guard.sarif

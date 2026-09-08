@@ -74,3 +74,23 @@ node-selector labels for the rare topology-pinned workload.
 
 **Consequence:** the README's scope table claims GDPR Art. 44 coverage for
 Terraform only; the gap is documented rather than silently implied.
+
+## 10. EUGUARD_GDPR_001 accepts only EU Sovereign Cloud regions
+
+**Decision (2026-09):** the project is based on the AWS European Sovereign
+Cloud, so the residency check's allowlist contains only EUSC region codes
+(`eusc-de-east-1` — verified against botocore's `aws-eusc` partition data).
+Commercial EU regions (`eu-central-1` Frankfurt et al.) fail the check even
+though GDPR Art. 44 would permit them: this is a sovereignty *policy gate*
+stricter than the legal baseline, and finding text says so rather than
+claiming a violation. This decision superseded an earlier fix that had
+widened the allowlist to all EU/EEA regions (after replacing the original
+`eu-` prefix match, which wrongly passed `eu-west-2` London and
+`eu-central-2` Zurich — GDPR third countries).
+
+**Consequence:** stacks pinned to commercial EU regions now fail the
+compliance gate; `examples/compliant-aws` pins its providers to
+`eusc-de-east-1`. Fail-closed semantics apply: unresolved region variables
+and unrecognized region strings also fail. When AWS launches a second EUSC
+region, add it to `_EUSC_REGIONS` in
+`tf_eu_guard/checks/gdpr/data_residency.py`.

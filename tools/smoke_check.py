@@ -26,8 +26,16 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BASELINE_FILE = REPO_ROOT / "tools" / "smoke_baselines.json"
+
+# Importable like the tests are (conftest.py does the same sys.path insert):
+# the script may run from anywhere, so make the repo root importable before
+# pulling the single source of truth for the supported IaC types.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+from tf_eu_guard.constants import SUPPORTED_IAC_TYPES  # noqa: E402
+
 #: IaC types with a baseline entry. "all" fans out over every key.
-IAC_TYPES = ("terraform", "terraform_plan", "kubernetes")
+IAC_TYPES = SUPPORTED_IAC_TYPES
 
 # CLI flag to pass for each IaC type. "terraform" is the CLI default, but
 # pass it explicitly so the invocation is self-documenting in any output.

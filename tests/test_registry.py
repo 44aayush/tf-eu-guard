@@ -175,6 +175,37 @@ def test_registry_schema_rejects_bad_entry(tmp_path):
         pass
 
 
+def test_registry_rejects_within_file_duplicate_check_id(tmp_path):
+    """The same check_id twice in ONE file must fail loudly.
+
+    ``yaml.safe_load`` silently keeps only the second definition — the
+    duplicate collapses before any validation code runs, so the cross-file
+    duplicate guard can never see it. The custom loader must catch it.
+    """
+    from tf_eu_guard.mapping.loader import (
+        RegistryValidationError,
+        load_registry_file,
+    )
+
+    entry = (
+        "  check_name: '{name}'\n"
+        "  articles:\n"
+        "    - framework: GDPR\n"
+        "      article: 'Art. 32'\n"
+        "      title: 't'\n"
+        "  risk: 'r'\n"
+        "  remediation: 'x'\n"
+        "  severity: LOW\n"
+    )
+    dup = tmp_path / "registry-dup.yaml"
+    dup.write_text(
+        "CKV_AWS_1:\n" + entry.format(name="first")
+        + "CKV_AWS_1:\n" + entry.format(name="second")
+    )
+    with pytest.raises(RegistryValidationError, match=r"CKV_AWS_1.*line 10"):
+        load_registry_file(dup)
+
+
 def test_registry_ids_exist_in_checkov(repo_root):
     """Every CKV ID in the registry must exist in the installed Checkov.
 

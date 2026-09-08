@@ -2,32 +2,16 @@
 
 The ``security`` and ``auditor`` reporters both emit a single, dependency-free
 HTML file (embedded CSS, no JavaScript, no external assets). These helpers keep
-the severity palette, HTML escaping, and small formatting utilities consistent
-between the two.
+the HTML escaping and small formatting utilities consistent between the two;
+the severity palette, orderings, and per-report stylesheets live in
+:mod:`tf_eu_guard.reporting.styles`.
 """
 
 import html
+from urllib.parse import urlparse
 
 from tf_eu_guard.models import EnrichedFinding, Severity
-
-# Severity display order (most to least severe). INFO is included for
-# completeness even though the registry currently only emits CRITICAL/HIGH/MEDIUM.
-SEVERITY_ORDER: list[Severity] = [
-    Severity.CRITICAL,
-    Severity.HIGH,
-    Severity.MEDIUM,
-    Severity.LOW,
-    Severity.INFO,
-]
-
-# Accessible, print-friendly palette (works on white backgrounds and in PDF export).
-SEVERITY_COLOR: dict[Severity, str] = {
-    Severity.CRITICAL: "#c0392b",
-    Severity.HIGH: "#e67e22",
-    Severity.MEDIUM: "#d4ac0d",
-    Severity.LOW: "#2980b9",
-    Severity.INFO: "#7f8c8d",
-}
+from tf_eu_guard.reporting.styles import SEVERITY_COLOR, SEVERITY_ORDER
 
 
 def esc(value: object) -> str:
@@ -40,6 +24,30 @@ def esc(value: object) -> str:
     if value is None:
         return ""
     return html.escape(str(value))
+
+
+def safe_guideline(guideline: str | None) -> str | None:
+    """Return the guideline URL only if it is safe to make a link of.
+
+    ``guideline`` comes from Checkov check metadata (and, with
+    ``--external-checks-dir``, from custom checks that may not be trusted)
+    and lands verbatim in HTML ``href`` attributes and Rich ``[link=...]``
+    markup. HTML-escaping neutralizes *markup* characters but not URL
+    *schemes* — a ``javascript:`` value would render as a working clickable
+    link — so only ``http``/``https`` URLs pass; anything else (no scheme,
+    ``data:``, ``javascript:``, …) is dropped and no link is rendered.
+
+    Square brackets and whitespace are likewise rejected: they cannot appear
+    in these Checkov documentation URLs, and in Rich markup they could break
+    out of the ``[link=...]`` construct.
+    """
+    if not guideline:
+        return None
+    if any(ch in guideline for ch in "[] \t\n\r"):
+        return None
+    if urlparse(guideline).scheme not in ("http", "https"):
+        return None
+    return guideline
 
 
 def severity_class(severity: Severity) -> str:
@@ -119,9 +127,12 @@ def finding_card(finding: EnrichedFinding) -> str:
             '  <div class="remediation"><h4>Remediation</h4>'
             f"<pre>{esc(finding.remediation.strip())}</pre></div>"
         )
-    if finding.guideline:
+    # Scheme-validated: a javascript:/data: guideline must not render as a
+    # clickable link (esc() alone neutralizes markup, not URL schemes).
+    guideline = safe_guideline(finding.guideline)
+    if guideline:
         parts.append(
-            f'  <a class="doc" href="{esc(finding.guideline)}" '
+            f'  <a class="doc" href="{esc(guideline)}" '
             'rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>'
         )
     parts.append("</article>")
