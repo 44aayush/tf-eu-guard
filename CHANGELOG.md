@@ -8,6 +8,20 @@ terraform_plan fix), so this starts now rather than reconstructing
 history later. Versions follow the git tags/`__version__` at each
 release point.
 
+## [0.4.2] — 2026-09-11
+
+### Changed
+
+- **Skill documentation refresh** (`.claude/skills/tf-eu-guard/SKILL.md`) —
+  rewritten to match the tool's current behavior, with every claim verified
+  against the codebase: unmapped findings are tracked and reported (not
+  dropped — `--output json` returns mapped findings only, while `dev`,
+  `security`, and `sarif` output surface the unmapped count); SARIF 2.1.0
+  output and `--output-file` are documented; severity levels include LOW
+  (and INFO for gating); the Art. 44 EUSC-only data-residency policy,
+  `examples/unmapped-aws/` fixture, GitHub Action, and pre-commit hook are
+  all covered. No code changes.
+
 ## [0.4.1] — 2026-09-11
 
 ### Fixed
@@ -254,6 +268,7 @@ registries.**
 - `--checkov-json` for pre-generated Checkov output, `--framework`
   filter, `--fail-on-severity` / `--fail-on-any` CI gating.
 
+[0.4.2]: https://github.com/44aayush/tf-eu-guard/compare/0.4.1...0.4.2
 [0.4.1]: https://github.com/44aayush/tf-eu-guard/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/44aayush/tf-eu-guard/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/44aayush/tf-eu-guard/compare/0.2.2...0.3.0
