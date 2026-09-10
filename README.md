@@ -310,7 +310,7 @@ jobs:
 ```yaml
 repos:
   - repo: https://github.com/44aayush/tf-eu-guard
-    rev: v0.4.0
+    rev: v0.4.1
     hooks:
       - id: tf-eu-guard
 ```

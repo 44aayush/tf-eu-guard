@@ -8,6 +8,28 @@ terraform_plan fix), so this starts now rather than reconstructing
 history later. Versions follow the git tags/`__version__` at each
 release point.
 
+## [0.4.1] — 2026-09-11
+
+### Fixed
+
+- **Checkov subprocess isolation** — `run_checkov()` now invokes Checkov as
+  `[sys.executable, "-m", "checkov.main", ...]` instead of resolving a bare
+  `checkov` via `PATH`, guaranteeing the Checkov installation in
+  tf-eu-guard's own Python environment is used even when another global
+  Checkov install would otherwise shadow it. Enforced by the regression
+  test `test_run_checkov_invokes_own_interpreter`; the live-test skip
+  conditions and `tests/run_all_tests.sh` likewise detect Checkov in the
+  Python environment rather than on `PATH`.
+
+### Verified
+
+- The Action e2e workflow (`action-e2e.yml`) asserts specific expected
+  check IDs (including `EUGUARD_GDPR_001`), not finding counts, and covers
+  the empty `fail-on-severity` gating-disabled path.
+- A region set by a variable with no default (and no tfvars) is
+  explicitly classified by the fail-closed policy — now backed by a
+  fixture and regression test rather than a docs claim.
+
 ## [0.4.0] — 2026-09-08
 
 ### Added
@@ -232,6 +254,7 @@ registries.**
 - `--checkov-json` for pre-generated Checkov output, `--framework`
   filter, `--fail-on-severity` / `--fail-on-any` CI gating.
 
+[0.4.1]: https://github.com/44aayush/tf-eu-guard/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/44aayush/tf-eu-guard/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/44aayush/tf-eu-guard/compare/0.2.2...0.3.0
 [0.2.2]: https://github.com/44aayush/tf-eu-guard/compare/0.2.1...0.2.2

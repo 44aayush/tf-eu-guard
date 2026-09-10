@@ -64,8 +64,12 @@ def run_checkov(target: Path, iac_type: str = "terraform") -> dict[str, Any]:
             )
         target_flag = ["-d", str(target)]
 
+    # Invoke Checkov through this process's interpreter so PATH ordering cannot
+    # select a different global Checkov installation from tf-eu-guard's own
+    # Python environment. The module is "checkov.main" (not "checkov") because
+    # Checkov ships no package-level __main__.py — `python -m checkov` fails.
     cmd = [
-        "checkov",
+        sys.executable, "-m", "checkov.main",
         *target_flag,
         "--external-checks-dir", str(checks_dir),
         "--output", "json",

@@ -7,10 +7,10 @@ consolidated ``tests/run_all_tests.sh`` enables it automatically when Checkov
 is present.
 """
 
+import importlib.util
 import io
 import json
 import os
-import shutil
 from pathlib import Path
 
 import pytest
@@ -104,8 +104,8 @@ def test_extract_defaults_line_range_when_absent():
 
 
 @pytest.mark.skipif(
-    not os.environ.get("TFEG_RUN_CHECKOV") or shutil.which("checkov") is None,
-    reason="live Checkov smoke test: set TFEG_RUN_CHECKOV=1 with the checkov CLI installed",
+    not os.environ.get("TFEG_RUN_CHECKOV") or importlib.util.find_spec("checkov") is None,
+    reason="live Checkov smoke test: set TFEG_RUN_CHECKOV=1 with Checkov installed in this Python environment",
 )
 def test_run_checkov_live_smoke(vulnerable_stack_dir):
     if not vulnerable_stack_dir.exists():
@@ -252,6 +252,37 @@ def test_run_checkov_directory_uses_dash_d(tmp_path):
     assert cmd[cmd.index("-d") + 1] == str(tmp_path)
     assert "-f" not in cmd
     assert extract_failed_checks(out)[0]["check_id"] == "CKV_AWS_17"
+
+
+def test_run_checkov_invokes_own_interpreter(tmp_path):
+    """Checkov must run via this process's interpreter (``python -m
+    checkov.main``), never a bare ``checkov`` resolved from PATH — a stray
+    global install elsewhere on PATH could otherwise shadow the environment
+    tf-eu-guard actually runs in, and a working feature would look broken
+    (this happened). Note the module is ``checkov.main``: Checkov ships no
+    package-level ``__main__.py``, so ``python -m checkov`` errors out.
+    This pins the environment guarantee."""
+    import sys as _sys
+
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        return type("R", (), {"returncode": 0, "stdout": json.dumps(SAMPLE), "stderr": ""})()
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
+    try:
+        (tmp_path / "main.tf").write_text('resource "aws_x" "y" {}\n')
+        run_checkov(tmp_path, "terraform")
+    finally:
+        monkeypatch.undo()
+
+    cmd = captured["cmd"]
+    assert cmd[0] == _sys.executable
+    assert cmd[1] == "-m"
+    assert cmd[2] == "checkov.main"
+    assert "checkov" != cmd[2]  # guard against reverting to the non-executable package
 
 
 def test_supported_iac_types_contents():
