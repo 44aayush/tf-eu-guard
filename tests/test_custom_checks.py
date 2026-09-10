@@ -8,6 +8,7 @@ Checkov must be importable (it is a hard dependency); if it is somehow absent
 the whole module skips rather than erroring at collection.
 """
 
+import importlib.util
 import os
 import shutil
 
@@ -124,8 +125,9 @@ def test_region_check_identity():
 
 
 @pytest.mark.skipif(
-    not os.environ.get("TFEG_RUN_CHECKOV") or shutil.which("checkov") is None,
-    reason="live Checkov test: set TFEG_RUN_CHECKOV=1 with the checkov CLI installed",
+    not os.environ.get("TFEG_RUN_CHECKOV")
+    or importlib.util.find_spec("checkov") is None,
+    reason="live Checkov test: set TFEG_RUN_CHECKOV=1 with Checkov installed in this Python environment",
 )
 def test_region_aliased_providers_live(repo_root):
     """Live regression guard for the EUSC-only allowlist, at the Checkov level.

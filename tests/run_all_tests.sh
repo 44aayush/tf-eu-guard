@@ -9,7 +9,8 @@
 # Design notes:
 #   * NO `set -e` — every test runs even if an earlier one fails; a
 #     PASS / FAIL / SKIP / WARN summary is printed at the end.
-#   * Checkov-dependent tests SKIP (not FAIL) when the `checkov` CLI is absent.
+#   * Checkov-dependent tests SKIP (not FAIL) when Checkov is absent from the
+#     Python environment (invoked as `python -m checkov`, not a PATH binary).
 #   * The security/auditor reports (and --output all) are generated into
 #     tests/results/ and asserted to be real HTML documents (Phase 4 — no stubs).
 #   * Checkov is run ONCE; the raw JSON is cached at tests/results/scan.json and
@@ -39,7 +40,9 @@ exec > >(tee "$LATEST" "$ARCHIVE") 2>&1
 # ---- config ----------------------------------------------------------------
 TF_TARGET="${TF_TARGET:-examples}"
 SCAN_JSON="$RESULTS_DIR/scan.json"
-REG="tf_eu_guard/mapping/registry.yaml"
+# The registry was split into per-cloud files (registry-aws.yaml, …) — pass the
+# mapping directory so load_registry merges every registry-*.yaml found there.
+REG="tf_eu_guard/mapping"
 
 # ---- environment: venv + interpreter + checkov -----------------------------
 if [ -f "venv/bin/activate" ]; then
@@ -56,8 +59,11 @@ PY="python"
 command -v python >/dev/null 2>&1 || PY="python3"
 command -v "$PY" >/dev/null 2>&1 || { echo "FATAL: no python interpreter found"; exit 1; }
 
+# Checkov is invoked as `python -m checkov` (see checkov_runner.py), so detect
+# it in this Python environment — not via a PATH-resolved CLI binary, which a
+# stray global install could satisfy while the venv actually lacks Checkov.
 HAVE_CHECKOV=0
-command -v checkov >/dev/null 2>&1 && HAVE_CHECKOV=1
+$PY -c "import checkov" >/dev/null 2>&1 && HAVE_CHECKOV=1
 
 # ---- counters + helpers ----------------------------------------------------
 PASS=0; FAIL=0; SKIP=0; WARN=0
@@ -93,9 +99,9 @@ t_env(){
   echo "tf target : $TF_TARGET"
   echo "python    : $($PY --version 2>&1)  ($(command -v $PY))"
   if [ "$HAVE_CHECKOV" -eq 1 ]; then
-    echo "checkov   : $(checkov --version 2>&1 | head -1)"
+    echo "checkov   : $($PY -m checkov.main --version 2>&1 | head -1)"
   else
-    echo "checkov   : NOT INSTALLED (checkov-dependent tests will SKIP)"
+    echo "checkov   : NOT INSTALLED in this Python environment (checkov-dependent tests will SKIP)"
   fi
   $PY -c "import tf_eu_guard; print('tf_eu_guard :', tf_eu_guard.__version__)" || return 1
   $PY -c "import yaml" 2>/dev/null && echo "pyyaml    : OK" \
