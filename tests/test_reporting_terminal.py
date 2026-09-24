@@ -125,6 +125,6 @@ def test_dev_reporter_writes_plain_text_file(tmp_path):
     )
     out_path = tmp_path / "dev.txt"
     DevReporter().generate(report, output_path=out_path)
-    content = out_path.read_text()
+    content = out_path.read_text(encoding="utf-8")
     assert "[bold]" not in content  # Rich markup stripped
     assert "CKV_AWS_18" in content

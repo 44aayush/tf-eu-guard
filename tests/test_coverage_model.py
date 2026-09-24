@@ -159,7 +159,7 @@ def test_committed_doc_is_in_sync_with_registries():
 def test_doc_check_detects_drift(registry, tmp_path, monkeypatch, capsys):
     """A doctored committed doc must fail the check — the guard actually guards."""
     doc = generate_coverage_doc.DOC_PATH
-    original = doc.read_text()
+    original = doc.read_text(encoding="utf-8")
     monkeypatch.setattr(
         generate_coverage_doc.Path, "read_text",
         lambda self, *a, **kw: original.replace("15 requirements", "99 requirements")

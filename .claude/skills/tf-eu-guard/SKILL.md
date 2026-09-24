@@ -23,7 +23,7 @@ Run from the repo root. Install once (this also installs Checkov 3.3.13; require
 pip install -e .
 ```
 
-Verify with `tf-eu-guard version` (prints e.g. `tf-eu-guard 0.4.1`).
+Verify with `tf-eu-guard version` (prints e.g. `tf-eu-guard 0.5.0`).
 
 ## How to run
 

@@ -80,7 +80,7 @@ class DevReporter(BaseReporter):
         report_text = "\n".join(output)
 
         if output_path:
-            with open(output_path, "w") as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 # Strip Rich markup for file output
                 import re
                 plain_text = re.sub(r'\[.*?\]', '', report_text)

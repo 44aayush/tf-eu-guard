@@ -179,7 +179,7 @@ def main(check_only: bool = False) -> int:
                 file=sys.stderr,
             )
             return 1
-        committed = DOC_PATH.read_text()
+        committed = DOC_PATH.read_text(encoding="utf-8")
         if committed != rendered:
             print(
                 "COVERAGE DOC CHECK FAILED: docs/regulatory-coverage.md is out "
@@ -192,7 +192,7 @@ def main(check_only: bool = False) -> int:
         print("coverage doc OK (docs/regulatory-coverage.md matches the registries)")
         return 0
 
-    DOC_PATH.write_text(rendered)
+    DOC_PATH.write_text(rendered, encoding="utf-8")
     print(f"wrote {DOC_PATH}")
     return 0
 

@@ -58,7 +58,7 @@ def test_ci_matrix_actually_runs_each_supported_version():
 
 def test_readme_badge_matches_requires_python_floor():
     floor = _pyproject()["project"]["requires-python"].lstrip(">=")
-    readme = (REPO_ROOT / "README.md").read_text()
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     assert f"![Python {floor}+]" in readme, "README badge disagrees with requires-python"
     assert f"Python ≥ {floor}" in readme, "README requirement text disagrees with requires-python"
 

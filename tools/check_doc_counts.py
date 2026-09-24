@@ -160,7 +160,7 @@ def main() -> int:
         if not path.exists():
             problems.append(f"{filename}: file not found")
             continue
-        text = " ".join(path.read_text().split())
+        text = " ".join(path.read_text(encoding="utf-8").split())
         matches = pattern.findall(text)
         if not matches:
             problems.append(

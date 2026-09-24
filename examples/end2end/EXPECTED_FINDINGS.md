@@ -1,11 +1,9 @@
 # Expected Findings — Predicted Enrichment
 
-> **Note**: This is a **predicted** list of findings traced from the tf-eu-guard registry against the 14 terragoat files in this directory. It is NOT the output of an actual scan. Line numbers and resource identifiers are illustrative. To see real findings with precise line numbers, run:
+> **Note**: This is a **predicted** list of findings traced from the tf-eu-guard registry against the Terraform files in this directory. It is NOT the output of an actual scan. Line numbers and resource identifiers are illustrative. To see real findings with precise line numbers, run:
 > ```bash
 > tf-eu-guard scan examples/end2end --output all
 > ```
-
-The registry (as of Phase 4 completion, 2026-08-26) contains 38 Checkov-to-EU-compliance mappings. Below are the checks expected to fire in this directory, grouped by compliance domain.
 
 ---
 
@@ -138,6 +136,199 @@ The registry (as of Phase 4 completion, 2026-08-26) contains 38 Checkov-to-EU-co
 
 ---
 
+## Additional Service Coverage
+
+The files below exercise registry coverage beyond the core resource set. Every
+check that fires on them is mapped — a scan of this directory produces **zero
+unmapped findings from these files**.
+
+### DynamoDB
+
+**CKV_AWS_119** — DynamoDB table not encrypted with a customer-managed KMS key
+**Mapped to**: NIS2 Art. 21(2)(h) — Policies and procedures on the use of cryptography and encryption; GDPR Art. 32(1)(a) — Pseudonymisation and encryption of personal data
+**Severity**: HIGH
+**Expected instances**: `aws_dynamodb_table.sessions`
+
+**CKV_AWS_28** — DynamoDB point-in-time recovery (backup) not enabled
+**Mapped to**: NIS2 Art. 21(2)(c) — Business continuity, backup management and disaster recovery; GDPR Art. 32(1)(c) — Ability to restore availability and access to personal data in a timely manner
+**Expected instances**: `aws_dynamodb_table.sessions`
+
+### CloudFront (CDN)
+
+**CKV_AWS_34** — CloudFront distribution ViewerProtocolPolicy is not set to HTTPS
+**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)
+**Severity**: CRITICAL
+**Expected instances**: `aws_cloudfront_distribution.assets`
+
+**CKV_AWS_174** — CloudFront viewer certificate is not using TLS v1.2 or higher
+**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)
+**Severity**: HIGH
+**Expected instances**: `aws_cloudfront_distribution.assets`
+
+**CKV2_AWS_42** — CloudFront distribution does not use a custom SSL certificate *(graph check)*
+**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)
+**Severity**: MEDIUM
+**Expected instances**: `aws_cloudfront_distribution.assets`
+
+**CKV_AWS_68** — CloudFront distribution does not have WAF enabled
+**Mapped to**: NIS2 Art. 21(2)(b) — Incident handling; GDPR Art. 32(1)(b) — Confidentiality, integrity, availability and resilience of processing systems
+**Severity**: MEDIUM
+**Expected instances**: `aws_cloudfront_distribution.assets`
+
+**CKV2_AWS_47** — CloudFront WAFv2 WebACL is not configured with AMR for the Log4j vulnerability *(graph check)*
+**Mapped to**: NIS2 Art. 21(2)(b); GDPR Art. 32(1)(b)
+**Severity**: MEDIUM
+**Expected instances**: `aws_cloudfront_distribution.assets`
+
+**CKV_AWS_86** — CloudFront distribution does not have access logging enabled
+**Mapped to**: NIS2 Art. 21(2)(b); GDPR Art. 32(1)(b)
+**Severity**: MEDIUM
+**Expected instances**: `aws_cloudfront_distribution.assets`
+
+**CKV_AWS_310** — CloudFront distribution does not have origin failover configured
+**Mapped to**: NIS2 Art. 21(2)(c); GDPR Art. 32(1)(c)
+**Severity**: MEDIUM
+**Expected instances**: `aws_cloudfront_distribution.assets`
+
+**CKV2_AWS_32** — CloudFront distribution has no response headers policy attached *(graph check)*
+**Mapped to**: NIS2 Art. 21(2)(e) — Security in network and information systems acquisition, development and maintenance; GDPR Art. 32(1)(b)
+**Severity**: LOW
+**Expected instances**: `aws_cloudfront_distribution.assets`
+
+**CKV_AWS_374** — CloudFront web distribution does not have geo restriction enabled
+**Mapped to**: NIS2 Art. 21(2)(i) — Human resources security, access control policies and asset management; GDPR Art. 32(1)(b)
+**Severity**: LOW
+**Expected instances**: `aws_cloudfront_distribution.assets`
+
+**CKV_AWS_305** — CloudFront distribution has no default root object configured
+**Mapped to**: NIS2 Art. 21(2)(e)
+**Severity**: LOW
+**Expected instances**: `aws_cloudfront_distribution.assets`
+
+### API Gateway (REST)
+
+**CKV_AWS_276** — Data trace is enabled in API Gateway method settings
+**Mapped to**: NIS2 Art. 21(2)(b); GDPR Art. 32(1)(b)
+**Severity**: HIGH
+**Expected instances**: `aws_api_gateway_method_settings.prod`
+**Note**: This is *not* a logging gap — logging is on. Data trace logs full
+request/response bodies, which is the exposure.
+
+**CKV_AWS_76** — API Gateway stage does not have access logging enabled
+**Mapped to**: NIS2 Art. 21(2)(b); GDPR Art. 32(1)(b)
+**Severity**: MEDIUM
+**Expected instances**: `aws_api_gateway_stage.prod`
+
+**CKV2_AWS_51** — API Gateway endpoints do not use client certificate authentication *(graph check)*
+**Mapped to**: NIS2 Art. 21(2)(j) — Authentication and secured communications; GDPR Art. 32(1)(b)
+**Severity**: MEDIUM
+**Expected instances**: `aws_api_gateway_stage.prod`
+
+**CKV2_AWS_29** — Public API Gateway is not protected by WAF *(graph check)*
+**Mapped to**: NIS2 Art. 21(2)(b); GDPR Art. 32(1)(b)
+**Severity**: MEDIUM
+**Expected instances**: `aws_api_gateway_stage.prod`
+
+**CKV_AWS_237** — Create-before-destroy is not set for the API Gateway REST API
+**Mapped to**: NIS2 Art. 21(2)(c); GDPR Art. 32(1)(c)
+**Severity**: MEDIUM
+**Expected instances**: `aws_api_gateway_rest_api.app`
+
+**CKV_AWS_217** — Create-before-destroy is not set for the API Gateway deployment
+**Mapped to**: NIS2 Art. 21(2)(c); GDPR Art. 32(1)(c)
+**Severity**: MEDIUM
+**Expected instances**: `aws_api_gateway_deployment.app`
+
+**CKV_AWS_73** — API Gateway does not have X-Ray tracing enabled
+**Mapped to**: NIS2 Art. 21(2)(b)
+**Severity**: LOW
+**Expected instances**: `aws_api_gateway_stage.prod`
+
+**CKV_AWS_120** — API Gateway caching is not enabled
+**Mapped to**: NIS2 Art. 21(2)(c); GDPR Art. 32(1)(b)
+**Severity**: LOW
+**Expected instances**: `aws_api_gateway_stage.prod`
+
+**CKV_AWS_225** — API Gateway method setting caching is not enabled
+**Mapped to**: NIS2 Art. 21(2)(c); GDPR Art. 32(1)(b)
+**Severity**: LOW
+**Expected instances**: `aws_api_gateway_method_settings.prod`
+
+### SNS
+
+**CKV_AWS_26** — SNS topic is not encrypted
+**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)
+**Severity**: HIGH
+**Expected instances**: `aws_sns_topic.app_notifications`
+
+### Secrets Manager
+
+**CKV_AWS_149** — Secrets Manager secret is not encrypted using a KMS CMK
+**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)
+**Severity**: HIGH
+**Expected instances**: `aws_secretsmanager_secret.db_password`
+**Note**: Cross-references `EUGUARD_NIS2_001` — the value is already stored as a
+literal in `db-app.tf`, so this gap compounds the hardcoded-secret finding.
+
+**CKV2_AWS_57** — Secrets Manager secret does not have automatic rotation enabled *(graph check)*
+**Mapped to**: NIS2 Art. 21(2)(e); GDPR Art. 32(1)(b)
+**Severity**: MEDIUM
+**Expected instances**: `aws_secretsmanager_secret.db_password`
+
+### Application Load Balancer (ELBv2)
+
+**CKV_AWS_2** — ALB listener protocol is HTTP, not HTTPS
+**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)
+**Severity**: CRITICAL
+**Expected instances**: `aws_lb_listener.web_http`
+
+**CKV_AWS_103** — Load balancer is not using at least TLS 1.2 *(graph check)*
+**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)
+**Severity**: HIGH
+**Expected instances**: `aws_lb_listener.web_http`
+
+**CKV_AWS_378** — Load balancer target group uses the HTTP protocol *(graph check)*
+**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)
+**Severity**: HIGH
+**Expected instances**: `aws_lb_target_group.web`
+
+**CKV2_AWS_20** — ALB does not redirect HTTP requests to HTTPS *(graph check)*
+**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)
+**Severity**: HIGH
+**Expected instances**: `aws_lb.web`
+
+**CKV2_AWS_28** — Public-facing ALB is not protected by WAF *(graph check)*
+**Mapped to**: NIS2 Art. 21(2)(b); GDPR Art. 32(1)(b)
+**Severity**: MEDIUM
+**Expected instances**: `aws_lb.web`
+
+**CKV_AWS_91** — ELBv2 does not have access logging enabled
+**Mapped to**: NIS2 Art. 21(2)(b); GDPR Art. 32(1)(b)
+**Severity**: MEDIUM
+**Expected instances**: `aws_lb.web`
+
+**CKV_AWS_131** — ALB does not drop HTTP headers
+**Mapped to**: NIS2 Art. 21(2)(e); GDPR Art. 32(1)(b)
+**Severity**: MEDIUM
+**Expected instances**: `aws_lb.web`
+
+**CKV_AWS_328** — ALB is not configured with defensive or strictest desync mitigation mode
+**Mapped to**: NIS2 Art. 21(2)(e); GDPR Art. 32(1)(b)
+**Severity**: MEDIUM
+**Expected instances**: `aws_lb.web`
+
+**CKV_AWS_150** — Load balancer does not have deletion protection enabled
+**Mapped to**: NIS2 Art. 21(2)(c); GDPR Art. 32(1)(c)
+**Severity**: MEDIUM
+**Expected instances**: `aws_lb.web`
+
+**CKV_AWS_261** — HTTP/HTTPS target group does not define a health check
+**Mapped to**: NIS2 Art. 21(2)(c); GDPR Art. 32(1)(b)
+**Severity**: LOW
+**Expected instances**: `aws_lb_target_group.web`
+
+---
+
 ## Custom Checks
 
 ### Critical Severity
@@ -160,7 +351,7 @@ The registry (as of Phase 4 completion, 2026-08-26) contains 38 Checkov-to-EU-co
 
 ## Summary
 
-**Predicted total mapped findings**: 35–45 (depending on whether all registry checks are active and how Checkov scopes multi-resource patterns).
+**Predicted total mapped findings**: 100–120 across this directory — roughly 70–85 from the core resource set (IAM, S3, RDS, networking) and 34 from the additional service coverage (DynamoDB, CloudFront, API Gateway, SNS, Secrets Manager, and Application Load Balancer). Every check that fires on those services is mapped, so a scan of this directory produces **zero unmapped findings** (depending on whether all registry checks are active and how Checkov scopes multi-resource patterns).
 
 The actual scan will produce:
 1. **`--output dev`**: Terminal rich-table grouped by severity

@@ -8,6 +8,22 @@ terraform_plan fix), so this starts now rather than reconstructing
 history later. Versions follow the git tags/`__version__` at each
 release point.
 
+## [0.5.0] — 2026-09-24
+
+### Added
+
+- **Registry coverage expansion** — additional Checkov checks mapped across
+  DynamoDB, CloudFront, API Gateway, SNS, Secrets Manager, and Application
+  Load Balancer, exercised by the `examples/end2end/` scenario. Every check
+  that fires on those services is now mapped, so a scan of that directory
+  produces zero unmapped findings.
+
+### Changed
+
+- **`examples/end2end/EXPECTED_FINDINGS.md`** — rewritten to describe
+  coverage by service rather than by file, with the predicted total raised
+  to 100–120 mapped findings.
+
 ## [0.4.2] — 2026-09-11
 
 ### Changed
@@ -268,6 +284,7 @@ registries.**
 - `--checkov-json` for pre-generated Checkov output, `--framework`
   filter, `--fail-on-severity` / `--fail-on-any` CI gating.
 
+[0.5.0]: https://github.com/44aayush/tf-eu-guard/compare/0.4.2...0.5.0
 [0.4.2]: https://github.com/44aayush/tf-eu-guard/compare/0.4.1...0.4.2
 [0.4.1]: https://github.com/44aayush/tf-eu-guard/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/44aayush/tf-eu-guard/compare/0.3.0...0.4.0

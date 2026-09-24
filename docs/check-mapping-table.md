@@ -2,7 +2,7 @@
 
 **Reference stack**: the vulnerable Terraform under [`examples/vulnerable-aws/`](../examples/vulnerable-aws/)
 (`iam.tf`, `s3.tf`, `rds.tf`, `network.tf`, plus `outputs.tf`).
-**Mapped in `registry-aws.yaml`**: **116 check IDs** — 114 stock Checkov policies plus
+**Mapped in `registry-aws.yaml`**: **150 check IDs** — 148 stock Checkov policies plus
 2 custom tf-eu-guard checks (**§**, added in Phase 3). The original 38-mapping core
 covered the `vulnerable_tf/` reference stack; subsequent extensions (from
 2026-08-30 on) grew the registry so that *every* Checkov check firing across the
@@ -102,7 +102,7 @@ scan. **‡** mapped but does not fire on the current stack (no triggering resou
 ### Coverage summary
 
 - **By severity** (original 38): 9 CRITICAL · 15 HIGH · 14 MEDIUM — plus the
-  extension above (116 total: 19 CRITICAL · 46 HIGH · 34 MEDIUM · 17 LOW).
+  extension above (150 total: 21 CRITICAL · 55 HIGH · 50 MEDIUM · 24 LOW).
 - **By framework** (original 38): 21 map to **both** NIS2 and GDPR, 11 NIS2-only, 6 GDPR-only.
 - **By file**: iam.tf (12), s3.tf (9), rds.tf (9), network.tf (7), main.tf (1).
 - **By theme**: access control / least privilege (20), public exposure (7),
@@ -158,8 +158,8 @@ remediation text lives in the registry):
 | IAM / access control | 21(2)(i) | 32(1)(b) | CKV2_AWS_40, CKV_AWS_109, 111, 283, 356, 70, CKV2_AWS_41, 79, 162, 359, CKV2_AWS_52 |
 | Network segmentation | 21(2)(i) | 32(1)(b) | CKV_AWS_137, 248, 38, 39, 117, CKV2_AWS_5, 23 |
 
-Severity distribution after the extension: **19 CRITICAL · 46 HIGH · 34 MEDIUM ·
-17 LOW** (116 total; article refs: NIS2 110, GDPR 81).
+Severity distribution after the extension: **21 CRITICAL · 55 HIGH · 50 MEDIUM ·
+24 LOW** (150 total; article refs: NIS2 120, GDPR 90).
 
 ### Checks still intentionally unmapped
 

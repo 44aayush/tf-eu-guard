@@ -29,7 +29,7 @@ def test_registry_loads_nonempty(registry):
 def test_registry_has_expected_volume(registry):
     # Phase 2 target was 15-20; the shipped registry exceeds it. A floor guards
     # against accidental mass-deletion without being brittle to future growth.
-    assert 20 <= len(registry) <= 200, f"unexpected mapping count: {len(registry)}"
+    assert 20 <= len(registry) <= 250, f"unexpected mapping count: {len(registry)}"
 
 
 def test_check_ids_well_formed(registry):
