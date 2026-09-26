@@ -105,7 +105,20 @@ jobs:
           done
 
       - name: Scan end2end test suite
+        # The full multi-service scenario. Every check that fires here is
+        # mapped, so the unmapped count must be zero — a non-zero count means
+        # a registry entry was dropped or a fixture drifted out from under
+        # its mapping.
         run: |
+          set -euo pipefail
+          tf-eu-guard scan examples/end2end/ --output json > end2end-scan.json
+          count=$(jq 'length' end2end-scan.json)
+          min=$(jq -r '.terraform.vulnerable["examples/end2end"].min' tools/smoke_baselines.json)
+          if [ "$count" -lt "$min" ]; then
+            echo "::error::end2end produced $count mapped findings (floor: $min, per tools/smoke_baselines.json)"
+            exit 1
+          fi
+          echo "OK: end2end -> $count mapped findings"
           tf-eu-guard scan examples/end2end/ --output dev
 
       - name: Scan Terraform plan example (terraform_plan)

@@ -210,6 +210,72 @@ def test_unsupported_field_name_ignored():
     assert _run_secret_check("aws_db_instance", {"username": ["admin"]}) == CheckResult.PASSED
 
 
+# CodeBuild variant: the secret lives in the nested environment_variable block,
+# so the name (PASSWORD/TOKEN/...) is the signal — same convention as the K8s
+# container-env variant.
+
+def _codebuild_conf(name: str, value: str) -> dict:
+    """Checkov renders the nested block as a list of dicts whose attribute
+    values are themselves single-element lists."""
+    return {"environment": [{
+        "compute_type": ["BUILD_GENERAL1_SMALL"],
+        "environment_variable": [{"name": [name], "value": [value]}],
+    }]}
+
+
+@pytest.mark.parametrize("name", ["DB_PASSWORD", "API_TOKEN", "SECRET_KEY", "AWS_ACCESS_KEY_ID"])
+def test_codebuild_env_literal_sensitive_name_fails(name):
+    assert _run_secret_check("aws_codebuild_project", _codebuild_conf(name, "ChangeMe123!")) == CheckResult.FAILED
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "${var.password}",                              # a reference, not a literal
+        "${aws_ssm_parameter.pw.value}",
+        "${data.aws_secretsmanager_secret_version.db.secret_string}",
+    ],
+)
+def test_codebuild_env_reference_passes(value):
+    assert _run_secret_check("aws_codebuild_project", _codebuild_conf("DB_PASSWORD", value)) == CheckResult.PASSED
+
+
+def test_codebuild_env_nonsensitive_literal_passes():
+    assert _run_secret_check("aws_codebuild_project", _codebuild_conf("LOG_LEVEL", "debug")) == CheckResult.PASSED
+
+
+@pytest.mark.parametrize("name", ["DB_PASSWORD_FILE", "TLS_KEY_PATH"])
+def test_codebuild_env_file_pointer_convention_passes(name):
+    """The _FILE / _PATH suffix points at a mounted secret file, not a literal."""
+    assert _run_secret_check("aws_codebuild_project", _codebuild_conf(name, "/etc/secrets/password")) == CheckResult.PASSED
+
+
+def test_codebuild_env_empty_value_passes():
+    assert _run_secret_check("aws_codebuild_project", _codebuild_conf("DB_PASSWORD", "")) == CheckResult.PASSED
+
+
+def test_codebuild_no_environment_block_passes():
+    assert _run_secret_check("aws_codebuild_project", {}) == CheckResult.PASSED
+
+
+def test_codebuild_env_reports_evaluated_key():
+    """The nested-block scan reports the offending entry's evaluated key, which
+    is what makes the finding navigable in the report."""
+    from tf_eu_guard.checks.nis2.secrets_in_code import _scan_codebuild_env
+
+    assert _scan_codebuild_env(_codebuild_conf("DB_PASSWORD", "ChangeMe123!")) == [
+        "environment/[0]/environment_variable/[0]/value"
+    ]
+    assert _scan_codebuild_env(_codebuild_conf("LOG_LEVEL", "debug")) == []
+    assert _scan_codebuild_env({}) == []
+
+
+def test_codebuild_check_identity():
+    check = HardcodedSecrets()
+    assert check.id == "EUGUARD_NIS2_001"
+    assert "aws_codebuild_project" in check.supported_resources
+
+
 def test_secrets_check_identity():
     check = HardcodedSecrets()
     assert check.id == "EUGUARD_NIS2_001"

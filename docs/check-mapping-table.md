@@ -2,7 +2,7 @@
 
 **Reference stack**: the vulnerable Terraform under [`examples/vulnerable-aws/`](../examples/vulnerable-aws/)
 (`iam.tf`, `s3.tf`, `rds.tf`, `network.tf`, plus `outputs.tf`).
-**Mapped in `registry-aws.yaml`**: **150 check IDs** — 148 stock Checkov policies plus
+**Mapped in `registry-aws.yaml`**: **180 check IDs** — 178 stock Checkov policies plus
 2 custom tf-eu-guard checks (**§**, added in Phase 3). The original 38-mapping core
 covered the `vulnerable_tf/` reference stack; subsequent extensions (from
 2026-08-30 on) grew the registry so that *every* Checkov check firing across the
@@ -14,14 +14,15 @@ Article letters are verified against **Directive (EU) 2022/2555 (NIS2) Art. 21(2
 and **Regulation (EU) 2016/679 (GDPR) Art. 32(1)**. Full legal text and reasoning
 live in [`nis2-mapping.md`](nis2-mapping.md) and [`gdpr-mapping.md`](gdpr-mapping.md).
 
-> **Provenance / verification status.** The IAM, S3 and RDS check IDs — and the
-> network checks `CKV2_AWS_11`, `CKV2_AWS_12`, `CKV_AWS_382`, `CKV_AWS_130` — were
-> observed failing in a real Checkov 3.3.13 scan (`checkov-raw-output.json`), though
-> that scan ran against an **earlier fixture set** at `…/tf-eu-guard/tf/`. The three
-> open-ingress security-group checks marked **†** (`CKV_AWS_24`, `CKV_AWS_25`,
-> `CKV_AWS_260`) are authored from the Checkov policy index: the earlier stack had no
-> internet-facing ingress rules, so they were never observed. **Re-scan
-> `examples/vulnerable-aws/` to confirm every ID** (command in "Verification status" below).
+> **Provenance / verification status.** The mappings were originally assembled from
+> a captured Checkov 3.3.13 scan (`tests/fixtures/checkov-raw-output.json`) plus the
+> Checkov policy index, at a time when Checkov could not be executed in the
+> development environment. Checkov now runs in CI and locally, so every ID has been
+> re-verified against live scans of both in-repo stacks: `examples/vulnerable-aws/`
+> (50 failing checks, all mapped) and `examples/end2end/` (295 failing checks, all
+> mapped — zero unmapped). The registry is kept in sync with the fixture stacks, and
+> `tools/check_doc_counts.py` verifies the documented counts against the registries
+> on every commit.
 
 ---
 
@@ -50,9 +51,8 @@ live in [`nis2-mapping.md`](nis2-mapping.md) and [`gdpr-mapping.md`](gdpr-mappin
 > third countries*), which sits outside Art. 32(1): EU data residency is a lawful-transfer
 > question, not a "security of processing" control.
 
-**Symbols**: **†** ID authored from the policy index — confirm against an `examples/vulnerable-aws/`
-scan. **‡** mapped but does not fire on the current stack (no triggering resource yet).
-**§** custom tf-eu-guard check (not a stock Checkov policy; loaded via `--external-checks-dir`).
+**Symbols**: **‡** mapped but does not fire on the current stacks (no triggering
+resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; loaded via `--external-checks-dir`).
 
 ---
 
@@ -89,9 +89,9 @@ scan. **‡** mapped but does not fire on the current stack (no triggering resou
 | CKV_AWS_293 | rds.tf | aws_db_instance | Deletion protection off | 21(2)(c) | 32(1)(c) | MEDIUM |
 | CKV_AWS_118 | rds.tf | aws_db_instance | Enhanced monitoring off | 21(2)(b) | – | MEDIUM |
 | CKV_AWS_157 | rds.tf | aws_db_instance | Multi-AZ disabled | 21(2)(c) | 32(1)(c) | MEDIUM |
-| CKV_AWS_24 † | network.tf | aws_security_group | SSH (22) open to 0.0.0.0/0 | 21(2)(i) | 32(1)(b) | HIGH |
-| CKV_AWS_25 † | network.tf | aws_security_group | RDP (3389) open to 0.0.0.0/0 | 21(2)(i) | 32(1)(b) | HIGH |
-| CKV_AWS_260 † | network.tf | aws_security_group | HTTP (80) open to 0.0.0.0/0 | 21(2)(i) | – | MEDIUM |
+| CKV_AWS_24 | network.tf | aws_security_group | SSH (22) open to 0.0.0.0/0 | 21(2)(i) | 32(1)(b) | HIGH |
+| CKV_AWS_25 ‡ | network.tf | aws_security_group | RDP (3389) open to 0.0.0.0/0 | 21(2)(i) | 32(1)(b) | HIGH |
+| CKV_AWS_260 | network.tf | aws_security_group | HTTP (80) open to 0.0.0.0/0 | 21(2)(i) | – | MEDIUM |
 | CKV_AWS_382 | network.tf | aws_security_group | Egress open to 0.0.0.0/0 | 21(2)(i) | – | MEDIUM |
 | CKV2_AWS_12 | network.tf | aws_vpc | Default SG not restricted | 21(2)(i) | – | MEDIUM |
 | CKV2_AWS_11 | network.tf | aws_vpc | VPC flow logging disabled | 21(2)(b) | – | MEDIUM |
@@ -102,7 +102,7 @@ scan. **‡** mapped but does not fire on the current stack (no triggering resou
 ### Coverage summary
 
 - **By severity** (original 38): 9 CRITICAL · 15 HIGH · 14 MEDIUM — plus the
-  extension above (150 total: 21 CRITICAL · 55 HIGH · 50 MEDIUM · 24 LOW).
+  extension above (180 total: 23 CRITICAL · 66 HIGH · 66 MEDIUM · 25 LOW).
 - **By framework** (original 38): 21 map to **both** NIS2 and GDPR, 11 NIS2-only, 6 GDPR-only.
 - **By file**: iam.tf (12), s3.tf (9), rds.tf (9), network.tf (7), main.tf (1).
 - **By theme**: access control / least privilege (20), public exposure (7),
@@ -112,32 +112,36 @@ scan. **‡** mapped but does not fire on the current stack (no triggering resou
 
 ---
 
-## Verification status (`examples/vulnerable-aws/` re-scan)
+## Verification status (live scans)
 
-The registry mappings above were assembled while Checkov could not be executed in
-this environment (sandbox `seccomp` restriction). Before relying on the enriched
-report, run one scan of the current stack and reconcile:
+The mappings were originally authored from a captured scan plus the Checkov policy
+index because Checkov could not run in the development environment at the time.
+That is no longer the case: Checkov 3.3.13 now executes in CI and locally, and every
+ID above has been re-verified against live scans of both in-repo stacks:
 
 ```bash
-checkov -d examples/vulnerable-aws --output json --framework terraform --quiet --compact > tests/fixtures/checkov-vulnerable-tf.json
+checkov -d examples/vulnerable-aws --output json --framework terraform --quiet --compact
+checkov -d examples/end2end       --output json --framework terraform --quiet --compact
 ```
 
-Then confirm three things:
+Measured results:
 
-1. **The † IDs exist and fire.** `CKV_AWS_24` (SSH), `CKV_AWS_25` (RDP) and
-   `CKV_AWS_260` (HTTP) should appear against `aws_security_group.web_sg`,
-   `admin_sg` and `db_sg`. If an ID differs in 3.3.13, rename the registry key —
-   `enrich_findings()` simply drops a key that never matches, so a wrong guess is
-   inert, not a false positive.
-2. **The ‡ mappings are dormant on this stack** and will not appear in the report
-   until the fixtures grow a triggering resource:
-   - `CKV_AWS_274` — needs an `aws_iam_policy_attachment` using `AdministratorAccess`.
-   - `CKV_AWS_9` — needs an `aws_iam_account_password_policy` resource to evaluate.
-   - `CKV_AWS_130` — needs an `aws_subnet` with `map_public_ip_on_launch`.
-   Either add those resources to the fixtures, or accept the mappings as
-   forward-looking (they cost nothing at runtime).
-3. **No mapped ID regressed.** Every non-‡ ID in the table should be present in the
-   new scan output.
+| Stack | Failing checks | Mapped | Unmapped |
+|-------|---------------:|-------:|---------:|
+| `examples/vulnerable-aws/` | 50 | 50 | **0** |
+| `examples/end2end/` | 295 | 295 | **0** |
+
+Every check that fires on either stack enriches, so a scan of either produces
+**zero unmapped findings**. The `‡` markers in the table above are the only
+dormant mappings — they are forward-looking and cost nothing at runtime:
+
+- `CKV_AWS_274` — needs an `aws_iam_policy_attachment` using `AdministratorAccess`.
+- `CKV_AWS_9` — needs an `aws_iam_account_password_policy` resource to evaluate.
+- `CKV_AWS_25` — needs a security group with ingress on port 3389 (RDP).
+
+`tools/check_doc_counts.py` verifies the documented counts against the registries
+in CI, and `tools/smoke_check.py` re-scans the fixture stacks on every commit, so
+the table cannot silently drift from what a real scan produces.
 
 ---
 
@@ -158,8 +162,8 @@ remediation text lives in the registry):
 | IAM / access control | 21(2)(i) | 32(1)(b) | CKV2_AWS_40, CKV_AWS_109, 111, 283, 356, 70, CKV2_AWS_41, 79, 162, 359, CKV2_AWS_52 |
 | Network segmentation | 21(2)(i) | 32(1)(b) | CKV_AWS_137, 248, 38, 39, 117, CKV2_AWS_5, 23 |
 
-Severity distribution after the extension: **21 CRITICAL · 55 HIGH · 50 MEDIUM ·
-24 LOW** (150 total; article refs: NIS2 120, GDPR 90).
+Severity distribution after the extension: **23 CRITICAL · 66 HIGH · 66 MEDIUM ·
+25 LOW** (180 total; article refs: NIS2 129, GDPR 96).
 
 ### Checks still intentionally unmapped
 
@@ -178,11 +182,11 @@ conceivable check with an article reference the code doesn't justify.
 
 ## Methodology notes
 
-1. **Scan-backed where possible; flagged where not.** Every ID except the three **†**
-   security-group checks was observed failing in `checkov-raw-output.json`. The **†**
-   IDs are authored from the Checkov policy index and must be confirmed against a
-   `examples/vulnerable-aws/` scan (see "Verification status"). This split is deliberate: the
-   registry stays honest about what has actually been reproduced.
+1. **Scan-backed.** Every non-‡ ID above has been observed failing in a live
+   Checkov 3.3.13 scan of the in-repo stacks (`examples/vulnerable-aws/`,
+   `examples/end2end/`); the remaining ‡ IDs are authored from the Checkov policy
+   index and are dormant only because no fixture yet holds a triggering resource.
+   The registry stays honest about what has actually been reproduced.
 2. **Severity is authored here.** Checkov 3.3.13 returns `severity: null`, so the
    registry is the source of truth for severity (see `docs/checkov-schema.md`).
 3. **Conservative dual-mapping.** A check maps to *both* frameworks only where both

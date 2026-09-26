@@ -18,7 +18,7 @@ import check_doc_counts  # noqa: E402
 
 def test_computed_counts_match_current_registries():
     counts = check_doc_counts.compute_counts()
-    assert counts["aws"] == 150
+    assert counts["aws"] == 180
     assert counts["azure"] == 23
     assert counts["gcp"] == 22
     assert counts["kubernetes"] == 24
@@ -38,7 +38,7 @@ def test_check_detects_a_stale_count(tmp_path, monkeypatch, capsys):
         text = original_read_text(self, *args, encoding="utf-8")
         if self.name == "README.md":
             # 38 is the historical stale count this tool exists to catch
-            text = text.replace("AWS: 150 mappings", "AWS: 38 mappings")
+            text = text.replace("AWS: 180 mappings", "AWS: 38 mappings")
         return text
 
     monkeypatch.setattr(Path, "read_text", doctored_read_text)
@@ -46,4 +46,4 @@ def test_check_detects_a_stale_count(tmp_path, monkeypatch, capsys):
     err = capsys.readouterr().err
     assert "DOC COUNT CHECK FAILED" in err
     assert "AWS mappings" in err
-    assert "registries say (150,)" in err
+    assert "registries say (180,)" in err

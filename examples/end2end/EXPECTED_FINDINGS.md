@@ -12,135 +12,203 @@
 ### High Severity
 
 **CKV_AWS_40** — IAM policies attached to users  
-**Mapped to**: NIS2 Art. 21(2)(i) — Access control policies; GDPR Art. 32(1)(b) — Ability to ensure confidentiality  
-**Expected instances**: `iam.tf` — `aws_iam_user_policy.userpolicy` grants `ec2:*`, `s3:*`, `lambda:*`, `cloudwatch:*` on `*`
+**Mapped to**: NIS2 Art. 21(2)(i) — Access control policies  
+**Expected instances**: none in this suite (mapped, but no IAM policy is attached directly to a user)
 
-**CKV_AWS_63** — IAM policy grants full administrative privileges  
-**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
-**Expected instances**: `iam.tf` — inline policy on user, `db-app.tf` — `aws_iam_role_policy.ec2policy` grants `s3:*`, `ec2:*`, `rds:*` on `*`
+### Critical Severity
 
-**CKV_AWS_62** — IAM policy attached directly to user  
+**CKV_AWS_63** — Ensure no IAM policies documents allow "*" as a statement's actions  
+**Mapped to**: NIS2 Art. 21(2)(i) — Human resources security, access control policies and asset management; GDPR Art. 32(1)(b) — Confidentiality, integrity, availability and resilience of processing systems  
+**Severity**: CRITICAL  
+**Expected instances**: `iam.tf` — `aws_iam_user_policy.userpolicy`; `db-app.tf` — `aws_iam_role_policy.ec2policy`
+
+**CKV_AWS_62** — Ensure IAM policies that allow full "*-*" administrative privileges are not created  
 **Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
+**Severity**: CRITICAL  
 **Expected instances**: `iam.tf` — `aws_iam_user_policy.userpolicy`
 
-### Additional IAM Checks (if mapped)
+**CKV_AWS_287** — Ensure IAM policies does not allow credentials exposure  
+**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
+**Severity**: CRITICAL  
+**Expected instances**: `iam.tf` — `aws_iam_user_policy.userpolicy`; `db-app.tf` — `aws_iam_role_policy.ec2policy`
 
-- **CKV_AWS_273** — IAM policy allows data exfiltration (S3/RDS over-permissions)
-- **CKV_AWS_287** — IAM policy allows privilege escalation
-- **CKV_AWS_288** — IAM policy allows credential exposure
-- **CKV_AWS_286** — IAM user without MFA
-- **CKV_AWS_355** — IAM role trust allows overly broad principals
-- **CKV_AWS_289** — IAM policy with broad write/delete on critical resources
-- **CKV_AWS_290** — IAM role without permission boundary
-- **CKV_AWS_274** — IAM policy allows access from any IP
-- **CKV_AWS_9** — Access logging not enabled on S3 (overlaps with S3 section)
+**CKV_AWS_288** — Ensure IAM policies does not allow data exfiltration  
+**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
+**Severity**: CRITICAL  
+**Expected instances**: `iam.tf` — `aws_iam_user_policy.userpolicy`; `db-app.tf` — `aws_iam_role_policy.ec2policy`
+
+**CKV_AWS_286** — Ensure IAM policies does not allow privilege escalation  
+**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
+**Severity**: CRITICAL  
+**Expected instances**: `iam.tf` — `aws_iam_user_policy.userpolicy`
+
+**CKV_AWS_289** — Ensure IAM policies does not allow permissions management / resource exposure without constraints  
+**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
+**Severity**: CRITICAL  
+**Expected instances**: `iam.tf` — `aws_iam_user_policy.userpolicy`; `db-app.tf` — `aws_iam_role_policy.ec2policy`
+
+### High Severity
+
+**CKV_AWS_355** — Ensure no IAM policies documents allow "*" as a statement's resource for restrictable actions  
+**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
+**Severity**: HIGH  
+**Expected instances**: `iam.tf` — `aws_iam_user_policy.userpolicy`; `db-app.tf` — `aws_iam_role_policy.ec2policy`
+
+**CKV_AWS_290** — Ensure IAM policies does not allow write access without constraints  
+**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
+**Severity**: HIGH  
+**Expected instances**: `iam.tf` — `aws_iam_user_policy.userpolicy`; `db-app.tf` — `aws_iam_role_policy.ec2policy`
+
+**CKV_AWS_273** — Ensure access is controlled through SSO and not AWS IAM defined users  
+**Mapped to**: NIS2 Art. 21(2)(i) — Human resources security, access control policies and asset management  
+**Severity**: HIGH  
+**Expected instances**: `iam.tf` — `aws_iam_user.user`
+
+### Mapped but not triggered in this suite
+
+- **CKV_AWS_40** (MEDIUM) — Ensure IAM policies are attached only to groups or roles. Mapped to NIS2 Art. 21(2)(i). No IAM policy is attached directly to a user here, so this check does not fire.
+- **CKV_AWS_274** (HIGH) — Disallow IAM roles, users, and groups from using the AWS AdministratorAccess policy. Mapped to NIS2 Art. 21(2)(i). No principal attaches the managed `AdministratorAccess` policy, so this check does not fire.
+- **CKV_AWS_9** (MEDIUM) — Ensure IAM password policy expires passwords within 90 days or less. Mapped to NIS2 Art. 21(2)(i). There is no `aws_iam_account_password_policy` resource in this suite, so this check does not fire.
 
 ---
 
 ## S3 (Storage)
 
+### Critical Severity
+
+**CKV_AWS_20** — S3 Bucket has an ACL defined which allows public READ access  
+**Mapped to**: NIS2 Art. 21(2)(i) — Human resources security, access control policies and asset management; GDPR Art. 32(1)(b) — Confidentiality, integrity, availability and resilience of processing systems  
+**Severity**: CRITICAL  
+**Expected instances**: none in this suite (mapped, but no bucket carries a public-read ACL)
+
 ### High Severity
 
-**CKV_AWS_18** — S3 bucket without access logging  
-**Mapped to**: NIS2 Art. 21(2)(f) — Security event logging; GDPR Art. 32(1)(d) — Procedures to test security effectiveness  
-**Expected instances**: `s3.tf` — buckets `data`, `financials`, `operations`, `data_science` (4 instances)
+**CKV_AWS_145** — Ensure that S3 buckets are encrypted with KMS by default  
+**Mapped to**: NIS2 Art. 21(2)(h) — Policies and procedures on the use of cryptography and encryption; GDPR Art. 32(1)(a) — Pseudonymisation and encryption of personal data  
+**Severity**: HIGH  
+**Expected instances**: `s3.tf` — `flowbucket`, `data`, `data_science`, `financials`, `operations`
 
-**CKV_AWS_19** — S3 bucket without encryption  
-**Mapped to**: NIS2 Art. 21(2)(h) — Encryption; GDPR Art. 32(1)(a) — Pseudonymization and encryption  
-**Expected instances**: `s3.tf` — bucket `data` (1 instance)
+**CKV2_AWS_6** — Ensure that S3 bucket has a Public Access block  
+**Mapped to**: GDPR Art. 32(1)(b) — Confidentiality, integrity, availability and resilience of processing systems  
+**Severity**: HIGH  
+**Expected instances**: `s3.tf` — all six buckets (`flowbucket`, `data`, `data_science`, `financials`, `logs`, `operations`)
 
-**CKV_AWS_21** — S3 bucket without versioning  
-**Mapped to**: NIS2 Art. 21(2)(c) — Backup and disaster recovery; GDPR Art. 32(1)(c) — Ability to restore availability  
-**Expected instances**: `s3.tf` — buckets `data`, `financials`, `operations`, `data_science` (4 instances)
+### Medium Severity
 
-**CKV_AWS_145** — S3 bucket allows public read/write  
-**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
-**Expected instances**: `s3.tf` — bucket `data` has public ACL (1 instance)
+**CKV_AWS_18** — Ensure the S3 bucket has access logging enabled  
+**Mapped to**: NIS2 Art. 21(2)(b) — Incident handling  
+**Severity**: MEDIUM  
+**Expected instances**: `s3.tf` — `flowbucket`, `data`, `financials`, `logs`, `operations`
 
-**CKV_AWS_20** — S3 bucket without default encryption  
-**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)  
-**Expected instances**: `s3.tf` — bucket `data`
+**CKV_AWS_21** — Ensure all data stored in the S3 bucket have versioning enabled  
+**Mapped to**: NIS2 Art. 21(2)(c) — Business continuity, backup management and disaster recovery; GDPR Art. 32(1)(c) — Ability to restore availability and access to personal data in a timely manner  
+**Severity**: MEDIUM  
+**Expected instances**: `s3.tf` — `flowbucket`, `data`, `financials`
 
-**CKV_AWS_53** — S3 bucket without lifecycle configuration (if mapped)  
-**CKV2_AWS_6** — S3 bucket public access block not configured  
-**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
-**Expected instances**: `s3.tf` — all buckets
+### Mapped but not triggered in this suite
 
-**CKV_AWS_54**, **CKV_AWS_55**, **CKV_AWS_56** — S3 public access block settings (individual flags)
+- **CKV_AWS_53** (HIGH) — Ensure S3 bucket has block public ACLs enabled. Mapped to GDPR Art. 32(1)(b). Every bucket sets `block_public_acls = true`, so this check does not fire.
+- **CKV_AWS_54** (HIGH) — Ensure S3 bucket has block public policy enabled. Mapped to GDPR Art. 32(1)(b). Every bucket sets `block_public_policy = true`.
+- **CKV_AWS_55** (HIGH) — Ensure S3 bucket has ignore public ACLs enabled. Mapped to GDPR Art. 32(1)(b). Every bucket sets `ignore_public_acls = true`.
+- **CKV_AWS_56** (HIGH) — Ensure S3 bucket has 'restrict_public_buckets' enabled. Mapped to GDPR Art. 32(1)(b). Every bucket sets `restrict_public_buckets = true`.
 
 ---
 
 ## RDS (Databases)
 
-### High/Critical Severity
+### Critical Severity
 
-**CKV_AWS_16** — RDS instance without encryption  
-**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)  
-**Expected instances**: `rds.tf` — 9 `aws_rds_cluster` resources (`app1` through `app9`); `db-app.tf` — `aws_db_instance.default` has `storage_encrypted = false`
+**CKV_AWS_17** — Ensure all data stored in RDS is not publicly accessible  
+**Mapped to**: NIS2 Art. 21(2)(i) — Human resources security, access control policies and asset management; GDPR Art. 32(1)(b) — Confidentiality, integrity, availability and resilience of processing systems  
+**Severity**: CRITICAL  
+**Expected instances**: `db-app.tf` — `aws_db_instance.default` (`publicly_accessible = true`)
 
-**CKV_AWS_17** — RDS instance without backup retention  
-**Mapped to**: NIS2 Art. 21(2)(c); GDPR Art. 32(1)(c)  
-**Expected instances**: `rds.tf` — clusters with `backup_retention_period = 0` or `1`; `db-app.tf` — `backup_retention_period = 0`
+### High Severity
 
-**CKV_AWS_129** — RDS cluster without deletion protection  
-**Mapped to**: NIS2 Art. 21(2)(c); GDPR Art. 32(1)(c)  
-**Expected instances**: `rds.tf` — all 9 clusters lack `deletion_protection = true`
+**CKV_AWS_16** — Ensure all data stored in the RDS is securely encrypted at rest  
+**Mapped to**: NIS2 Art. 21(2)(h) — Policies and procedures on the use of cryptography and encryption; GDPR Art. 32(1)(a) — Pseudonymisation and encryption of personal data  
+**Severity**: HIGH  
+**Expected instances**: `db-app.tf` — `aws_db_instance.default` (`storage_encrypted = false`)
 
-**CKV_AWS_133** — RDS cluster without IAM authentication  
-**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
-**Expected instances**: `rds.tf` — all 9 clusters; `neptune.tf` — `iam_database_authentication_enabled = false`
+**CKV_AWS_133** — Ensure that RDS instances has backup policy  
+**Mapped to**: NIS2 Art. 21(2)(c) — Business continuity, backup management and disaster recovery; GDPR Art. 32(1)(c) — Ability to restore availability and access to personal data in a timely manner  
+**Severity**: HIGH  
+**Expected instances**: `db-app.tf` — `aws_db_instance.default`; `rds.tf` — `aws_rds_cluster.app1-rds-cluster`
 
-**CKV_AWS_161** — RDS instance publicly accessible  
-**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
-**Expected instances**: `db-app.tf` — `publicly_accessible = true`
+### Medium Severity
 
-**CKV_AWS_293** — RDS instance without enhanced monitoring  
-**Mapped to**: NIS2 Art. 21(2)(f); GDPR Art. 32(1)(d)  
-**Expected instances**: `db-app.tf` — `monitoring_interval = 0`
+**CKV_AWS_129** — Ensure that respective logs of Amazon Relational Database Service (Amazon RDS) are enabled  
+**Mapped to**: NIS2 Art. 21(2)(b) — Incident handling  
+**Severity**: MEDIUM  
+**Expected instances**: `db-app.tf` — `aws_db_instance.default`
 
-**CKV_AWS_118** — RDS instance without multi-AZ  
-**Mapped to**: NIS2 Art. 21(2)(c); GDPR Art. 32(1)(c)  
-**Expected instances**: `db-app.tf` — `multi_az = false`
+**CKV_AWS_161** — Ensure RDS database has IAM authentication enabled  
+**Mapped to**: NIS2 Art. 21(2)(i) — Human resources security, access control policies and asset management; GDPR Art. 32(1)(b) — Confidentiality, integrity, availability and resilience of processing systems  
+**Severity**: MEDIUM  
+**Expected instances**: `db-app.tf` — `aws_db_instance.default`
 
-**CKV_AWS_157** — Neptune cluster without encryption  
-**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)  
-**Expected instances**: `neptune.tf` — `storage_encrypted = false`
+**CKV_AWS_293** — Ensure that AWS database instances have deletion protection enabled  
+**Mapped to**: NIS2 Art. 21(2)(c) — Business continuity, backup management and disaster recovery; GDPR Art. 32(1)(c) — Ability to restore availability and access to personal data in a timely manner  
+**Severity**: MEDIUM  
+**Expected instances**: `db-app.tf` — `aws_db_instance.default`
+
+**CKV_AWS_118** — Ensure that enhanced monitoring is enabled for Amazon RDS instances  
+**Mapped to**: NIS2 Art. 21(2)(b) — Incident handling  
+**Severity**: MEDIUM  
+**Expected instances**: `db-app.tf` — `aws_db_instance.default`
+
+**CKV_AWS_157** — Ensure that RDS instances have Multi-AZ enabled  
+**Mapped to**: NIS2 Art. 21(2)(c) — Business continuity, backup management and disaster recovery; GDPR Art. 32(1)(c) — Ability to restore availability and access to personal data in a timely manner  
+**Severity**: MEDIUM  
+**Expected instances**: `db-app.tf` — `aws_db_instance.default`
 
 ---
 
 ## Network & Infrastructure
 
-### Medium/High Severity
+### High Severity
 
-**CKV2_AWS_11** — VPC flow logging not enabled  
-**Mapped to**: NIS2 Art. 21(2)(f); GDPR Art. 32(1)(d)  
-**Expected instances**: `ec2.tf` — VPC `web_vpc` has flow log to S3, but `eks.tf` — VPC `eks_vpc` and `db-app.tf` — usage of `web_vpc` without additional flow logs may trigger depending on check scope
+**CKV_AWS_24** — Ensure no security groups allow ingress from 0.0.0.0:0 to port 22  
+**Mapped to**: NIS2 Art. 21(2)(i) — Human resources security, access control policies and asset management; GDPR Art. 32(1)(b) — Confidentiality, integrity, availability and resilience of processing systems  
+**Severity**: HIGH  
+**Expected instances**: `ec2.tf` — `aws_security_group.web-node`
 
-**CKV_AWS_24**, **CKV_AWS_25** — Security group allows ingress from 0.0.0.0/0 on SSH (22) or other ports  
-**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
-**Expected instances**: `ec2.tf` — `aws_security_group.web-node` allows SSH + HTTP from `0.0.0.0/0`
+### Medium Severity
 
-**CKV_AWS_260** — Security group allows unrestricted egress  
-**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
-**Expected instances**: `ec2.tf`, `db-app.tf` — security groups with egress rule `0.0.0.0/0` on all ports
+**CKV2_AWS_11** — Ensure VPC flow logging is enabled in all VPCs  
+**Mapped to**: NIS2 Art. 21(2)(b) — Incident handling  
+**Severity**: MEDIUM  
+**Expected instances**: `eks.tf` — `aws_vpc.eks_vpc` (`web_vpc` in `ec2.tf` has a flow log)
 
-**CKV_AWS_382** — ELB (Classic Load Balancer) not using HTTPS  
-**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)  
-**Expected instances**: `elb.tf` — `aws_elb.weblb` has listener protocol `http` only
+**CKV_AWS_260** — Ensure no security groups allow ingress from 0.0.0.0:0 to port 80  
+**Mapped to**: NIS2 Art. 21(2)(i) — Human resources security, access control policies and asset management  
+**Severity**: MEDIUM  
+**Expected instances**: `ec2.tf` — `aws_security_group.web-node`
 
-**CKV2_AWS_12** — ELB without deletion protection (if applicable)
+**CKV_AWS_382** — Ensure no security groups allow egress from 0.0.0.0:0 to port -1  
+**Mapped to**: NIS2 Art. 21(2)(i) — Human resources security, access control policies and asset management  
+**Severity**: MEDIUM  
+**Expected instances**: `db-app.tf` — `aws_security_group_rule.egress`; `ec2.tf` — `aws_security_group.web-node`
 
-**CKV_AWS_130** — VPC subnet auto-assigns public IPs  
-**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
-**Expected instances**: `ec2.tf` — `aws_subnet.web_subnet` and `web_subnet2` have `map_public_ip_on_launch = true`; `eks.tf` — `eks_subnet1` and `eks_subnet2` same; `db-app.tf` references these subnets
+**CKV2_AWS_12** — Ensure the default security group of every VPC restricts all traffic  
+**Mapped to**: NIS2 Art. 21(2)(i) — Human resources security, access control policies and asset management  
+**Severity**: MEDIUM  
+**Expected instances**: `ec2.tf` — `aws_default_security_group.web_vpc_default_sg`; `eks.tf` — `aws_default_security_group.eks_vpc_default_sg`
+
+**CKV_AWS_130** — Ensure VPC subnets do not assign public IP by default  
+**Mapped to**: NIS2 Art. 21(2)(i) — Human resources security, access control policies and asset management; GDPR Art. 32(1)(b) — Confidentiality, integrity, availability and resilience of processing systems  
+**Severity**: MEDIUM  
+**Expected instances**: `ec2.tf` — `aws_subnet.web_subnet`, `aws_subnet.web_subnet2`; `eks.tf` — `aws_subnet.eks_subnet1`, `aws_subnet.eks_subnet2`
+
+### Mapped but not triggered in this suite
+
+- **CKV_AWS_25** (HIGH) — Ensure no security groups allow ingress from 0.0.0.0:0 to port 3389. Mapped to NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b). No security group opens port 3389 (RDP), so this check does not fire.
 
 ---
 
 ## Additional Service Coverage
 
-The files below exercise registry coverage beyond the core resource set. Every
-check that fires on them is mapped — a scan of this directory produces **zero
-unmapped findings from these files**.
+The files below exercise registry coverage beyond the core resource set. Every check that fires across this directory is mapped, so a scan produces **zero unmapped findings** (measured: 295 mapped).
 
 ### DynamoDB
 
@@ -327,11 +395,215 @@ literal in `db-app.tf`, so this gap compounds the hardcoded-secret finding.
 **Severity**: LOW
 **Expected instances**: `aws_lb_target_group.web`
 
----
+### CloudTrail
 
-## Custom Checks
+**CKV_AWS_67** — Ensure CloudTrail is enabled in all Regions
+**Mapped to**: NIS2 Art. 21(2)(b) — Incident handling
+**Severity**: HIGH
+**Expected instances**: `cloudtrail.tf` — `aws_cloudtrail.account_trail` has `is_multi_region_trail = false`, so out-of-region activity leaves no audit trail (relevant under the EUSC-only `EUGUARD_GDPR_001` policy)
 
-### Critical Severity
+**CKV_AWS_35** — Ensure CloudTrail logs are encrypted at rest using KMS CMKs
+**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)
+**Severity**: HIGH
+**Expected instances**: `cloudtrail.tf` — no `kms_key_id`, so log files are SSE-S3 rather than customer-key encrypted
+
+**CKV_AWS_36** — Ensure CloudTrail log file validation is enabled
+**Mapped to**: NIS2 Art. 21(2)(b); GDPR Art. 32(1)(b)
+**Severity**: MEDIUM
+**Expected instances**: `cloudtrail.tf` — `enable_log_file_validation = false`, so the audit trail's own integrity is not protected
+
+**CKV_AWS_252** — Ensure CloudTrail defines an SNS Topic
+**Mapped to**: NIS2 Art. 21(2)(b)
+**Severity**: LOW
+**Expected instances**: `cloudtrail.tf` — no `sns_topic_name`, so no notification on new log delivery
+
+**CKV2_AWS_10** — Ensure CloudTrail trails are integrated with CloudWatch Logs *(graph check)*
+**Mapped to**: NIS2 Art. 21(2)(b)
+**Severity**: MEDIUM
+**Expected instances**: `cloudtrail.tf` — no `cloud_watch_logs_role_arn` / `cloud_watch_logs_group_arn`
+
+### CodeBuild
+
+**CKV_AWS_316** — Ensure CodeBuild project environments do not have privileged mode enabled
+**Mapped to**: NIS2 Art. 21(2)(e) — Security in network and information systems acquisition, development and maintenance; GDPR Art. 32(1)(b)
+**Severity**: HIGH
+**Expected instances**: `codebuild.tf` — `aws_codebuild_project.app` has `privileged_mode = true`
+
+**CKV_AWS_147** — Ensure CodeBuild project artifacts are encrypted using a KMS CMK
+**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)
+**Severity**: HIGH
+**Expected instances**: `codebuild.tf` — `artifacts` block has no `encryption_key`
+
+**CKV_AWS_314** — Ensure CodeBuild project environments have a logging configuration
+**Mapped to**: NIS2 Art. 21(2)(b)
+**Severity**: MEDIUM
+**Expected instances**: `codebuild.tf` — no `logs_config` block
+
+### ECS
+
+**CKV_AWS_333** — Ensure ECS task definitions do not have public IP assigned
+**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)
+**Severity**: CRITICAL
+**Expected instances**: `ecs.tf` — `aws_ecs_service.app` sets `assign_public_ip = true`
+
+**CKV_AWS_223** — Ensure ECS cluster enables ECS Exec logging
+**Mapped to**: NIS2 Art. 21(2)(b)
+**Severity**: HIGH
+**Expected instances**: `ecs.tf` — `aws_ecs_cluster.batch` sets `logging = "NONE"`
+
+**CKV_AWS_224** — Ensure ECS Exec uses KMS encryption with a customer-managed key
+**Mapped to**: NIS2 Art. 21(2)(h)
+**Severity**: MEDIUM
+**Expected instances**: `ecs.tf` — `aws_ecs_cluster.app` sets `kms_key_id` but has no `log_configuration` with encryption enabled
+
+**CKV_AWS_336** — Ensure ECS task definition has a read-only root file system
+**Mapped to**: NIS2 Art. 21(2)(e); GDPR Art. 32(1)(b)
+**Severity**: MEDIUM
+**Expected instances**: `ecs.tf` — container definition has no `readonly_root_filesystem`
+
+**CKV_AWS_332** — Ensure ECS Service uses the latest Fargate platform version
+**Mapped to**: NIS2 Art. 21(2)(e)
+**Severity**: MEDIUM
+**Expected instances**: `ecs.tf` — `aws_ecs_service.app` pins `platform_version = "1.3.0"`
+
+**CKV_AWS_249** — Ensure ECS task definition does not have the same task and execution role
+**Mapped to**: NIS2 Art. 21(2)(i)
+**Severity**: MEDIUM
+**Expected instances**: `ecs.tf` — `aws_ecs_task_definition.app` sets `task_role_arn` and `execution_role_arn` to the same role
+
+**CKV_AWS_65** — Ensure ECS cluster has container insights enabled
+**Mapped to**: NIS2 Art. 21(2)(b)
+**Severity**: MEDIUM
+**Expected instances**: `ecs.tf` — `aws_ecs_cluster.app` and `aws_ecs_cluster.batch` have no `setting` block (2 instances)
+
+### ElastiCache
+
+**CKV_AWS_29** — Ensure all data stored in the ElastiCache Replication Group is securely encrypted at rest  
+**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)  
+**Severity**: HIGH  
+**Expected instances**: `elasticache.tf` — `aws_elasticache_replication_group.sessions` has no `at_rest_encryption_enabled`
+
+**CKV_AWS_30** — Ensure all data stored in the ElastiCache Replication Group is securely encrypted in transit  
+**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)  
+**Severity**: HIGH  
+**Expected instances**: `elasticache.tf` — no `transit_encryption_enabled`
+
+**CKV_AWS_31** — Ensure all data stored in the ElastiCache Replication Group is securely encrypted in transit and has an auth token  
+**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
+**Severity**: HIGH  
+**Expected instances**: `elasticache.tf` — no `auth_token`, so any client that can reach the cluster can read and write its keys
+
+**CKV_AWS_191** — Ensure ElastiCache replication group is encrypted by KMS using a customer-managed key (CMK)  
+**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)  
+**Severity**: MEDIUM  
+**Expected instances**: `elasticache.tf` — no `kms_key_id`, so encryption (if enabled) would use an AWS owned key
+
+**CKV2_AWS_50** — Ensure ElastiCache Redis cluster has Multi-AZ automatic failover enabled *(graph check)*  
+**Mapped to**: NIS2 Art. 21(2)(c); GDPR Art. 32(1)(c)  
+**Severity**: MEDIUM  
+**Expected instances**: `elasticache.tf` — `automatic_failover_enabled = false`, so the loss of one node takes the whole session store down
+
+### Aurora (RDS Cluster)
+
+**CKV_AWS_96** — Ensure all data stored in the Aurora RDS cluster is securely encrypted at rest  
+**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)  
+**Severity**: CRITICAL  
+**Expected instances**: `rds-cluster.tf` — `aws_rds_cluster.aurora` has no `storage_encrypted`
+
+**CKV_AWS_327** — Ensure RDS cluster is encrypted by KMS using a customer-managed key (CMK)  
+**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)  
+**Severity**: MEDIUM  
+**Expected instances**: `rds-cluster.tf` — no `kms_key_id`
+
+**CKV_AWS_313** — Ensure RDS cluster copies tags to snapshots  
+**Mapped to**: NIS2 Art. 21(2)(c); GDPR Art. 32(1)(c)  
+**Severity**: MEDIUM  
+**Expected instances**: `rds-cluster.tf` — no `copy_tags_to_snapshot`
+
+**CKV_AWS_324** — Ensure RDS cluster has log exports enabled  
+**Mapped to**: NIS2 Art. 21(2)(b)  
+**Severity**: MEDIUM  
+**Expected instances**: `rds-cluster.tf` — no `enabled_cloudwatch_logs_exports`
+
+**CKV_AWS_325** — Ensure RDS cluster has deletion protection enabled  
+**Mapped to**: NIS2 Art. 21(2)(c); GDPR Art. 32(1)(c)  
+**Severity**: MEDIUM  
+**Expected instances**: `rds-cluster.tf` — no `deletion_protection`
+
+**CKV_AWS_326** — Ensure RDS cluster has backtracking enabled  
+**Mapped to**: NIS2 Art. 21(2)(c); GDPR Art. 32(1)(c)  
+**Severity**: MEDIUM  
+**Expected instances**: `rds-cluster.tf` — no `backtrack_window`
+
+**CKV_AWS_162** — Ensure RDS cluster has IAM database authentication enabled  
+**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
+**Severity**: MEDIUM  
+**Expected instances**: `rds-cluster.tf` — no `iam_database_authentication_enabled`
+
+**CKV_AWS_139** — Ensure RDS cluster has enhanced monitoring enabled  
+**Mapped to**: NIS2 Art. 21(2)(b)  
+**Severity**: MEDIUM  
+**Expected instances**: `rds-cluster.tf` — no `enhanced_monitoring_resource_id` / monitoring role
+
+**CKV2_AWS_8** — Ensure RDS cluster is covered by an AWS Backup plan *(graph check)*  
+**Mapped to**: NIS2 Art. 21(2)(c); GDPR Art. 32(1)(c)  
+**Severity**: MEDIUM  
+**Expected instances**: `rds-cluster.tf` — no `aws_backup_selection` targeting the cluster
+
+### Redshift
+
+**CKV_AWS_87** — Redshift cluster should not be publicly accessible  
+**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
+**Severity**: CRITICAL  
+**Expected instances**: `redshift.tf` — `aws_redshift_cluster.warehouse` sets `publicly_accessible = true`
+
+**CKV_AWS_64** — Ensure all data stored in the Redshift cluster is securely encrypted at rest  
+**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)  
+**Severity**: HIGH  
+**Expected instances**: `redshift.tf` — no `encrypted = true`
+
+**CKV_AWS_142** — Ensure that Redshift cluster is encrypted by KMS using a customer-managed key  
+**Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)  
+**Severity**: MEDIUM  
+**Expected instances**: `redshift.tf` — no `kms_key_id`
+
+**CKV_AWS_71** — Ensure Redshift cluster logging is enabled  
+**Mapped to**: NIS2 Art. 21(2)(b)  
+**Severity**: MEDIUM  
+**Expected instances**: `redshift.tf` — no `logging` block, so there is no record of who queried the warehouse
+
+**CKV_AWS_321** — Ensure Redshift clusters use enhanced VPC routing  
+**Mapped to**: NIS2 Art. 21(2)(i)  
+**Severity**: MEDIUM  
+**Expected instances**: `redshift.tf` — no `enhanced_vpc_routing = true`, so COPY/UNLOAD traffic leaves the VPC
+
+**CKV_AWS_391** — Avoid Redshift cluster with a commonly used master username and public access enabled  
+**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
+**Severity**: HIGH  
+**Expected instances**: `redshift.tf` — `master_username = "admin"` on an internet-reachable cluster
+
+**CKV_AWS_154** — Ensure Redshift is not deployed outside of a VPC *(graph check)*  
+**Mapped to**: NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b)  
+**Severity**: HIGH  
+**Expected instances**: `redshift.tf` — no `cluster_subnet_group_name`
+
+### WAFv2
+
+**CKV_AWS_192** — Ensure WAF prevents message lookup in Log4j2 (CVE-2021-44228)  
+**Mapped to**: NIS2 Art. 21(2)(b); GDPR Art. 32(1)(b)  
+**Severity**: MEDIUM  
+**Expected instances**: `waf.tf` — `aws_wafv2_web_acl.app` omits the `AWSManagedRulesKnownBadInputsRuleSet` managed rule group
+
+**CKV_AWS_175** — Ensure WAF has associated rules  
+**Mapped to**: NIS2 Art. 21(2)(b); GDPR Art. 32(1)(b)  
+**Severity**: MEDIUM  
+**Expected instances**: `waf.tf` — the ACL carries no rules and defaults to allow, so it inspects no traffic
+
+**CKV2_AWS_31** — Ensure WAFv2 has a logging configuration *(graph check)*  
+**Mapped to**: NIS2 Art. 21(2)(b); GDPR Art. 32(1)(b)  
+**Severity**: MEDIUM  
+**Expected instances**: `waf.tf` — no `aws_wafv2_web_acl_logging_configuration`, so blocked and allowed traffic alike leave no record
+
 
 **EUGUARD_NIS2_001** — Hardcoded secrets detected  
 **Mapped to**: NIS2 Art. 21(2)(e) — Secure handling of credentials; GDPR Art. 32(1)(b) — Confidentiality  
@@ -340,18 +612,19 @@ literal in `db-app.tf`, so this gap compounds the hardcoded-secret finding.
 - `ec2.tf` — `user_data` contains `export AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE` and `export AWS_SECRET_ACCESS_KEY=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`
 - `lambda.tf` — `environment.variables` contains plaintext `access_key` and `secret_key`
 - `db-app.tf` — `user_data` contains `DB_PASSWORD=${var.password}` (password interpolation into script)
+- `codebuild.tf` — `environment_variable` `DB_PASSWORD` is set to the `var.password` default, not SSM/Secrets Manager
 
 ### High Severity
 
-**EUGUARD_GDPR_001** — Non-EU AWS region detected  
+**EUGUARD_GDPR_001** — Provider region outside the EU Sovereign Cloud  
 **Mapped to**: GDPR Art. 44 — Transfers of personal data to third countries  
-**Expected instances**: `consts.tf` / `providers.tf` — `region = us-west-2` (non-EU region)
+**Expected instances**: `consts.tf` / `providers.tf` — the check only accepts the EU Sovereign Cloud region `eusc-de-east-1`, so every other configured region fails
 
 ---
 
 ## Summary
 
-**Predicted total mapped findings**: 100–120 across this directory — roughly 70–85 from the core resource set (IAM, S3, RDS, networking) and 34 from the additional service coverage (DynamoDB, CloudFront, API Gateway, SNS, Secrets Manager, and Application Load Balancer). Every check that fires on those services is mapped, so a scan of this directory produces **zero unmapped findings** (depending on whether all registry checks are active and how Checkov scopes multi-resource patterns).
+**Predicted total mapped findings**: 290–300 across this directory — roughly 50 from the core resource set (12 IAM, 19 S3, 9 RDS, 11 networking), 34 from the additional service coverage (DynamoDB, CloudFront, API Gateway, SNS, Secrets Manager, and Application Load Balancer), 16 from CloudTrail, CodeBuild, and ECS, and 26 from ElastiCache, Aurora, Redshift, and WAFv2. Every check that fires in this directory is mapped, so a scan produces **zero unmapped findings** (measured: 295 mapped).
 
 The actual scan will produce:
 1. **`--output dev`**: Terminal rich-table grouped by severity

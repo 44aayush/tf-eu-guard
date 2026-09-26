@@ -65,6 +65,11 @@ def compute_counts() -> dict[str, int]:
     counts["aws_high"] = severity["HIGH"]
     counts["aws_medium"] = severity["MEDIUM"]
     counts["aws_low"] = severity["LOW"]
+    # Stock vs custom split: custom checks are the EUGUARD_* IDs added by this
+    # project; everything else is a stock Checkov policy ID.
+    aws_ids = list(entries["registry-aws"])
+    counts["aws_custom"] = sum(1 for cid in aws_ids if cid.startswith("EUGUARD_"))
+    counts["aws_stock"] = len(aws_ids) - counts["aws_custom"]
     return counts
 
 
@@ -77,6 +82,12 @@ CHECKS: list[tuple[str, re.Pattern, int | tuple[int, ...], str]] = [
     ("README.md", re.compile(r"mappings-(\d+)-orange"), "total", "badge total mappings"),
     ("README.md", re.compile(r"\*\*(\d+) Checkov checks mapped\*\*"), "total", "registry section total"),
     ("README.md", re.compile(r"AWS: (\d+) mappings"), "aws", "AWS mappings"),
+    (
+        "README.md",
+        re.compile(r"With (\d+) of Checkov's ~700 AWS checks mapped"),
+        "aws",
+        "unmapped-findings prose: mapped AWS check count",
+    ),
     ("README.md", re.compile(r"Azure: (\d+)"), "azure", "Azure mappings"),
     ("README.md", re.compile(r"GCP: (\d+)"), "gcp", "GCP mappings"),
     ("README.md", re.compile(r"Kubernetes: (\d+)"), "kubernetes", "Kubernetes mappings"),
@@ -131,6 +142,12 @@ CHECKS: list[tuple[str, re.Pattern, int | tuple[int, ...], str]] = [
         re.compile(r"\*\*(\d+) check IDs\*\*"),
         "aws",
         "mapped check IDs in registry-aws.yaml",
+    ),
+    (
+        "docs/check-mapping-table.md",
+        re.compile(r"(\d+) stock Checkov policies plus (\d+) custom"),
+        ("aws_stock", "aws_custom"),
+        "stock vs custom split of the mapped AWS check IDs",
     ),
     (
         "docs/check-mapping-table.md",
