@@ -122,6 +122,9 @@ def test_every_registry_article_is_attributed(registry):
     from tf_eu_guard.mapping.coverage import _article_key
 
     inventory_keys = {(e["framework"].value, e["letter"]) for e in REQUIREMENTS}
+    # Supporting legal references such as GDPR's breach definition are
+    # intentionally outside the Art. 32/44 coverage inventory.
+    inventory_keys.update({("GDPR", "4(12)"), ("GDPR", "33")})
     for mapping in registry.values():
         for article in mapping.articles:
             key = _article_key(article.framework, article.article)

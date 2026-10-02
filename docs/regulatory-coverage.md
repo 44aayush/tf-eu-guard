@@ -19,9 +19,9 @@ Coverage here is classified **by requirement, not by mapped-check count**. Every
 | **Art. 21(2)(b)** — Incident handling | ◐ **Partial** | **24** |
 | **Art. 21(2)(c)** — Business continuity, backup management and disaster recovery | ◐ **Partial** | **26** |
 | **Art. 21(2)(d)** — Supply chain security | ◐ **Partial** | **5** |
-| **Art. 21(2)(e)** — Security in network and information systems acquisition, development and maintenance | ◐ **Partial** | **13** |
+| **Art. 21(2)(e)** — Security in network and information systems acquisition, development and maintenance | ◐ **Partial** | **14** |
 | **Art. 21(2)(f)** — Policies and procedures to assess the effectiveness of risk-management measures | ◐ **Partial** | — |
-| **Art. 21(2)(g)** — Cyber hygiene practices and training | ◐ **Partial** | **13** |
+| **Art. 21(2)(g)** — Basic cyber hygiene practices and cybersecurity training | ◐ **Partial** | **13** |
 | **Art. 21(2)(h)** — Policies and procedures on the use of cryptography and encryption | ✅ **Automated** | **33** |
 | **Art. 21(2)(i)** — Human resources security, access control policies and asset management | ◐ **Partial** | **63** |
 | **Art. 21(2)(j)** — Authentication and secured communications | ✅ **Automated** | **2** |
@@ -62,7 +62,7 @@ Mapped checks (5): `CKV_AZURE_103`, `CKV_AZURE_50`, `CKV_GCP_22`, `CKV_K8S_15`, 
 
 No hardcoded secrets, up-to-date versions and secure defaults are evaluable. SDLC process, dependency/vulnerability management and disclosure handling are not.
 
-Mapped checks (13): `CKV_AWS_163`, `CKV_AWS_226`, `CKV_AWS_272`, `CKV_AWS_363`, `CKV_AWS_41`, `CKV_AWS_45`, `CKV_AWS_46`, `CKV_AWS_51`, `CKV_K8S_22`, `CKV_K8S_29`, `CKV_K8S_31`, `CKV_K8S_35`, `EUGUARD_NIS2_001`.
+Mapped checks (14): `CKV_AWS_163`, `CKV_AWS_226`, `CKV_AWS_272`, `CKV_AWS_363`, `CKV_AWS_41`, `CKV_AWS_45`, `CKV_AWS_46`, `CKV_AWS_51`, `CKV_K8S_22`, `CKV_K8S_29`, `CKV_K8S_31`, `CKV_K8S_35`, `EUGUARD_NIS2_001`, `EUGUARD_NIS2_002`.
 
 ### NIS2 Art. 21(2)(f) — Policies and procedures to assess the effectiveness of risk-management measures
 
@@ -70,7 +70,7 @@ Mapped checks (13): `CKV_AWS_163`, `CKV_AWS_226`, `CKV_AWS_272`, `CKV_AWS_363`, 
 
 No single resource check maps here — the evidence is the tool itself: running tf-eu-guard on every PR and in CI is a repeatable, timestamped effectiveness assessment (mirrors GDPR Art. 32(1)(d)). The documented assessment process around those runs is organisational.
 
-### NIS2 Art. 21(2)(g) — Cyber hygiene practices and training
+### NIS2 Art. 21(2)(g) — Basic cyber hygiene practices and cybersecurity training
 
 ◐ **Partial**
 
@@ -107,7 +107,7 @@ Mapped checks (2): `CKV_AZURE_49`, `CKV_GCP_13`.
 | Requirement | Coverage | Mapped checks |
 |-------------|----------|---------------|
 | **Art. 32(1)(a)** — Pseudonymisation and encryption of personal data | ✅ **Automated** | **33** |
-| **Art. 32(1)(b)** — Confidentiality, integrity, availability and resilience of processing systems | ◐ **Partial** | **90** |
+| **Art. 32(1)(b)** — Confidentiality, integrity, availability and resilience of processing systems | ◐ **Partial** | **92** |
 | **Art. 32(1)(c)** — Ability to restore availability and access to personal data in a timely manner | ◐ **Partial** | **13** |
 | **Art. 32(1)(d)** — Regularly testing, assessing and evaluating effectiveness | ◐ **Partial** | **2** |
 | **Art. 44** — General principle for transfers of personal data to third countries | ◐ **Partial** | **1** |
@@ -126,7 +126,7 @@ Mapped checks (33): `CKV2_AWS_2`, `CKV2_AWS_69`, `CKV_AWS_127`, `CKV_AWS_136`, `
 
 Broadly covered: access control, network isolation, logging, encryption and resilience settings are evaluable. Overall CIA also depends on runtime posture no static manifest shows.
 
-Mapped checks (90): `CKV2_AWS_30`, `CKV2_AWS_40`, `CKV2_AWS_52`, `CKV2_AWS_58`, `CKV2_AWS_6`, `CKV2_AWS_64`, `CKV2_K8S_6`, `CKV_AWS_109`, `CKV_AWS_111`, `CKV_AWS_115`, `CKV_AWS_130`, `CKV_AWS_135`, `CKV_AWS_137`, `CKV_AWS_139`, `CKV_AWS_161`, `CKV_AWS_163`, `CKV_AWS_17`, `CKV_AWS_20`, `CKV_AWS_24`, `CKV_AWS_25`, `CKV_AWS_283`, `CKV_AWS_286`, `CKV_AWS_287`, `CKV_AWS_288`, `CKV_AWS_289`, `CKV_AWS_290`, `CKV_AWS_317`, `CKV_AWS_318`, `CKV_AWS_324`, `CKV_AWS_325`, `CKV_AWS_338`, `CKV_AWS_355`, `CKV_AWS_356`, `CKV_AWS_363`, `CKV_AWS_38`, `CKV_AWS_41`, `CKV_AWS_45`, `CKV_AWS_46`, `CKV_AWS_51`, `CKV_AWS_53`, `CKV_AWS_54`, `CKV_AWS_55`, `CKV_AWS_56`, `CKV_AWS_62`, `CKV_AWS_63`, `CKV_AWS_70`, `CKV_AWS_79`, `CKV_AZURE_11`, `CKV_AZURE_110`, `CKV_AZURE_139`, `CKV_AZURE_160`, `CKV_AZURE_35`, `CKV_AZURE_36`, `CKV_AZURE_37`, `CKV_AZURE_38`, `CKV_AZURE_41`, `CKV_AZURE_45`, `CKV_AZURE_48`, `CKV_AZURE_49`, `CKV_AZURE_50`, `CKV_AZURE_53`, `CKV_AZURE_59`, `CKV_AZURE_66`, `CKV_AZURE_82`, `CKV_GCP_13`, `CKV_GCP_18`, `CKV_GCP_20`, `CKV_GCP_22`, `CKV_GCP_23`, `CKV_GCP_25`, `CKV_GCP_26`, `CKV_GCP_27`, `CKV_GCP_28`, `CKV_GCP_30`, `CKV_GCP_33`, `CKV_GCP_38`, `CKV_GCP_49`, `CKV_GCP_6`, `CKV_GCP_68`, `CKV_GCP_78`, `CKV_GCP_88`, `CKV_K8S_16`, `CKV_K8S_17`, `CKV_K8S_19`, `CKV_K8S_20`, `CKV_K8S_23`, `CKV_K8S_31`, `CKV_K8S_35`, `CKV_K8S_39`, `EUGUARD_NIS2_001`.
+Mapped checks (92): `CKV2_AWS_30`, `CKV2_AWS_40`, `CKV2_AWS_52`, `CKV2_AWS_58`, `CKV2_AWS_6`, `CKV2_AWS_64`, `CKV2_K8S_6`, `CKV_AWS_109`, `CKV_AWS_111`, `CKV_AWS_115`, `CKV_AWS_130`, `CKV_AWS_135`, `CKV_AWS_137`, `CKV_AWS_139`, `CKV_AWS_161`, `CKV_AWS_163`, `CKV_AWS_17`, `CKV_AWS_20`, `CKV_AWS_24`, `CKV_AWS_25`, `CKV_AWS_283`, `CKV_AWS_286`, `CKV_AWS_287`, `CKV_AWS_288`, `CKV_AWS_289`, `CKV_AWS_290`, `CKV_AWS_317`, `CKV_AWS_318`, `CKV_AWS_324`, `CKV_AWS_325`, `CKV_AWS_338`, `CKV_AWS_355`, `CKV_AWS_356`, `CKV_AWS_363`, `CKV_AWS_38`, `CKV_AWS_41`, `CKV_AWS_45`, `CKV_AWS_46`, `CKV_AWS_51`, `CKV_AWS_53`, `CKV_AWS_54`, `CKV_AWS_55`, `CKV_AWS_56`, `CKV_AWS_62`, `CKV_AWS_63`, `CKV_AWS_70`, `CKV_AWS_79`, `CKV_AZURE_11`, `CKV_AZURE_110`, `CKV_AZURE_139`, `CKV_AZURE_160`, `CKV_AZURE_35`, `CKV_AZURE_36`, `CKV_AZURE_37`, `CKV_AZURE_38`, `CKV_AZURE_41`, `CKV_AZURE_45`, `CKV_AZURE_48`, `CKV_AZURE_49`, `CKV_AZURE_50`, `CKV_AZURE_53`, `CKV_AZURE_59`, `CKV_AZURE_66`, `CKV_AZURE_82`, `CKV_GCP_13`, `CKV_GCP_18`, `CKV_GCP_20`, `CKV_GCP_22`, `CKV_GCP_23`, `CKV_GCP_25`, `CKV_GCP_26`, `CKV_GCP_27`, `CKV_GCP_28`, `CKV_GCP_30`, `CKV_GCP_33`, `CKV_GCP_38`, `CKV_GCP_49`, `CKV_GCP_6`, `CKV_GCP_68`, `CKV_GCP_78`, `CKV_GCP_88`, `CKV_K8S_16`, `CKV_K8S_17`, `CKV_K8S_19`, `CKV_K8S_20`, `CKV_K8S_22`, `CKV_K8S_23`, `CKV_K8S_31`, `CKV_K8S_35`, `CKV_K8S_39`, `EUGUARD_NIS2_001`, `EUGUARD_NIS2_002`.
 
 ### GDPR Art. 32(1)(c) — Ability to restore availability and access to personal data in a timely manner
 

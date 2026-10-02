@@ -9,6 +9,20 @@ from typing import Any
 from tf_eu_guard.constants import SUPPORTED_IAC_TYPES
 
 
+class CheckovRuntimeError(RuntimeError):
+    """Raised when Checkov fails or does not return parseable JSON."""
+
+
+class CheckovInputError(ValueError):
+    """Raised when a user-supplied Checkov JSON path cannot be read."""
+
+
+def _stderr_tail(stderr: str | None, limit: int = 20) -> str:
+    """Return the final stderr lines, keeping runtime errors actionable."""
+    lines = (stderr or "").splitlines()
+    return "\n".join(lines[-limit:]) or "(no stderr output)"
+
+
 def run_checkov(target: Path, iac_type: str = "terraform") -> dict[str, Any]:
     """
     Run Checkov against an IaC directory **or** a plan file, and return parsed JSON.
@@ -31,8 +45,7 @@ def run_checkov(target: Path, iac_type: str = "terraform") -> dict[str, Any]:
         ValueError: If ``iac_type`` is not a supported IaC type, or the
             target doesn't match the invocation shape (directory vs. file)
         FileNotFoundError: If ``target`` does not exist
-        subprocess.CalledProcessError: If Checkov execution fails
-        json.JSONDecodeError: If Checkov output is not valid JSON
+        CheckovRuntimeError: If Checkov exits with an error or returns invalid JSON
     """
     if iac_type not in SUPPORTED_IAC_TYPES:
         raise ValueError(
@@ -86,14 +99,18 @@ def run_checkov(target: Path, iac_type: str = "terraform") -> dict[str, Any]:
 
     if result.returncode not in (0, 1):
         # Exit code 2+ indicates actual error, not just findings
-        raise subprocess.CalledProcessError(
-            result.returncode,
-            cmd,
-            output=result.stdout,
-            stderr=result.stderr,
+        raise CheckovRuntimeError(
+            f"Checkov exited with status {result.returncode}. "
+            f"Last stderr lines:\n{_stderr_tail(result.stderr)}"
         )
 
-    return json.loads(result.stdout)
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise CheckovRuntimeError(
+            f"Checkov returned invalid JSON: {exc}. "
+            f"Last stderr lines:\n{_stderr_tail(result.stderr)}"
+        ) from exc
 
 
 def load_checkov_json(json_source: Path, iac_type: str = "terraform") -> dict[str, Any]:
@@ -121,7 +138,17 @@ def load_checkov_json(json_source: Path, iac_type: str = "terraform") -> dict[st
     if str(json_source) == "-":
         text = sys.stdin.read()
     else:
-        text = Path(json_source).read_text()
+        path = Path(json_source)
+        if path.is_dir():
+            raise CheckovInputError(
+                f"Checkov JSON input must be a file, not a directory: {path}"
+            )
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (IsADirectoryError, NotADirectoryError, PermissionError) as exc:
+            raise CheckovInputError(
+                f"Cannot read Checkov JSON input '{path}': {exc.strerror or exc}"
+            ) from exc
 
     return _normalize_checkov_output(json.loads(text), iac_type)
 
@@ -180,6 +207,18 @@ def _validate_checkov_output(checkov_output: dict[str, Any]) -> None:
             "'terraform show -json' plan file, scan it directly: "
             "tf-eu-guard scan <plan.json> --iac-type terraform_plan"
         )
+    failed_checks = results["failed_checks"]
+    if not isinstance(failed_checks, list):
+        raise ValueError(
+            "Input does not look like Checkov output: "
+            "'results.failed_checks' must be a list of objects"
+        )
+    for index, check in enumerate(failed_checks):
+        if not isinstance(check, dict):
+            raise ValueError(
+                "Input does not look like Checkov output: "
+                f"'results.failed_checks[{index}]' must be an object"
+            )
 
 
 def _describe_json_shape(data: Any) -> str:

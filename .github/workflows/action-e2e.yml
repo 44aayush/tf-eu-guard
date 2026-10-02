@@ -15,16 +15,17 @@ on:
     branches: [main]
 
 permissions:
-  # For the upload-sarif path exercised in the first scan (Code Scanning
-  # ingestion). Fork PRs lack this permission, so the input is scoped to
-  # push events below.
-  security-events: write
+  contents: read
 
 jobs:
   docker-action-e2e:
     runs-on: ubuntu-latest
+    permissions:
+      # Fork PRs cannot grant this permission; upload-sarif is disabled there.
+      contents: read
+      security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       # 1. Terraform source → SARIF, severity gating disabled. If the empty
       #    fail-on-severity handling regressed, this step itself would fail
@@ -68,7 +69,7 @@ jobs:
       - name: Assert specific check IDs in the Kubernetes SARIF
         run: |
           set -euo pipefail
-          for expected in EUGUARD_NIS2_001 CKV2_K8S_6; do
+          for expected in EUGUARD_NIS2_002 CKV2_K8S_6; do
             jq -e --arg id "$expected" \
               '.runs[0].results[] | select(.ruleId == $id)' \
               tf-eu-guard.sarif > /dev/null \
@@ -88,6 +89,8 @@ jobs:
       - name: Assert specific check IDs in the plan SARIF
         run: |
           set -euo pipefail
+          # Checkov's terraform_plan runner does not run provider-level checks;
+          # EUGUARD_GDPR_001 only fires on Terraform source (see README).
           for expected in EUGUARD_NIS2_001 CKV2_AWS_30; do
             jq -e --arg id "$expected" \
               '.runs[0].results[] | select(.ruleId == $id)' \
@@ -124,8 +127,8 @@ jobs:
           path: examples/vulnerable-aws
           output: json
 
-      - name: Assert the gated scan failed
-        if: steps.gated.outcome != 'failure'
+      - name: Assert the gated scan returned findings exit code 1
+        if: steps.gated.outcome != 'failure' || steps.gated.outputs['exit-code'] != '1'
         run: |
           echo "::error::Default fail-on-severity (HIGH) did not fail the scan step (outcome: ${{ steps.gated.outcome }})"
           exit 1

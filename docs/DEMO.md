@@ -31,9 +31,9 @@ tf-eu-guard scan examples/vulnerable-aws/ --output dev
 ```bash
 # Generate security dashboard
 tf-eu-guard scan examples/vulnerable-aws/ --output security
-open scan-report.html  # macOS
-# or: xdg-open scan-report.html  # Linux
-# or: start scan-report.html     # Windows
+open "$(ls -t reports/scan_report_*.html | head -1)"  # macOS
+# Linux: xdg-open "$(ls -t reports/scan_report_*.html | head -1)"
+# Windows: open the latest reports/scan_report_*.html in your browser
 ```
 
 **What to capture**: Browser window showing:
@@ -54,7 +54,7 @@ open scan-report.html  # macOS
 ```bash
 # Generate auditor report
 tf-eu-guard scan examples/vulnerable-aws/ --output auditor
-open auditor-report.html
+open "$(ls -t reports/auditor_report_*.html | head -1)"
 ```
 
 **What to capture**: Browser window showing:
@@ -78,12 +78,12 @@ open auditor-report.html
 # Vulnerable (before)
 tf-eu-guard scan examples/vulnerable-aws/ --output json > vulnerable.json
 jq 'length' vulnerable.json
-# Expected: 20-30
+# Expected: 52 (see tools/smoke_baselines.json)
 
 # Compliant (after)
 tf-eu-guard scan examples/compliant-aws/ --output json > compliant.json
 jq 'length' compliant.json
-# Expected: 0-2
+# Expected: 0 (see tools/smoke_baselines.json)
 ```
 
 **What to capture**: Side-by-side terminal showing the finding count drop.
@@ -156,7 +156,7 @@ tf-eu-guard scan examples/vulnerable-aws/ --output dev --framework gdpr
 
 # 5. Generate all reports
 tf-eu-guard scan examples/vulnerable-aws/ --output all
-ls -lh *-report.html
+ls -lh reports/*.html
 ```
 
 **Duration target**: 2-3 minutes
@@ -166,8 +166,8 @@ ls -lh *-report.html
 For README and documentation, capture:
 
 - [x] Terminal: `--output dev` showing colored severity table (`docs/screenshots/vulnerable-scan.png`)
-- [x] Browser: `scan-report.html` security dashboard (`docs/screenshots/security-dashboard.png`)
-- [x] Browser: `auditor-report.html` showing NIS2 Article 21(2) section (`docs/screenshots/auditor-report.png`)
+- [x] Browser: `reports/scan_report_<timestamp>.html` security dashboard (`docs/screenshots/security-dashboard.png`)
+- [x] Browser: `reports/auditor_report_<timestamp>.html` showing NIS2 Article 21(2) section (`docs/screenshots/auditor-report.png`)
 - [x] Terminal: Finding count comparison (`docs/screenshots/compliant-scan.png` vs `vulnerable-scan.png`)
 - [x] Optional: asciinema recording of full workflow (`docs/demo/tf-eu-guard-demo.cast`)
 
@@ -198,7 +198,7 @@ Before recording/capturing, verify:
 1. All three examples directories exist and have .tf files
 2. Scans complete without errors
 3. HTML reports render correctly in browser
-4. Finding counts are reasonable (vulnerable: 20-30, compliant: 0-2)
+4. Finding counts match the smoke baseline (vulnerable: 52, compliant: 0)
 5. Custom checks fire in end2end suite
 
 ```bash
@@ -210,15 +210,9 @@ for dir in examples/vulnerable-aws examples/compliant-aws examples/end2end; do
 done
 ```
 
-Expected output:
-```
-Scanning examples/vulnerable-aws...
-  Findings: 20-30
-Scanning examples/compliant-aws...
-  Findings: 0-2
-Scanning examples/end2end...
-  Findings: ~220
-```
+The pinned smoke baseline (`tools/smoke_baselines.json`) expects 52 mapped findings
+for vulnerable AWS and 0 for compliant AWS. The end-to-end suite is not pinned
+to an exact count; verify its custom check IDs instead.
 
 ## CI/CD Artifact Access
 

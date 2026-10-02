@@ -206,8 +206,14 @@ class TestAuditorReport:
         assert "NIS2" in doc and "GDPR" in doc
         assert "Art. 21(2)(i)" in doc
         assert "Art. 44" in doc
-        assert "Access control" in doc  # article title surfaces
+        assert "Human resources security, access control policies and asset management" in doc
         assert "Executive summary" in doc
+
+    def test_mapping_links_use_report_version(self):
+        doc = generate_auditor_report(_sample_findings(), version="9.8.7")
+        assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v9.8.7/docs/nis2-mapping.md"' in doc
+        assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v9.8.7/docs/gdpr-mapping.md"' in doc
+        assert "blob/v0.5.0/docs/" not in doc
 
     def test_toc_anchors_resolve(self):
         doc = generate_auditor_report(_sample_findings())
@@ -419,9 +425,11 @@ def test_html_reports_still_link_safe_guidelines():
     ):
         assert f'href="{url}"' in doc
         assert 'class="doc"' in doc
-    # Auditor renders internal #anchors but never external guideline links.
+    # Auditor includes a versioned public mapping-document link, but does
+    # not turn the untrusted Checkov guideline into an external link.
     auditor = generate_auditor_report(findings)
-    assert 'href="http' not in auditor and 'href="https' not in auditor
+    assert 'href="https://docs.prismacloud.io' not in auditor
+    assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v0.5.0/docs/' in auditor
 
 
 def test_terminal_report_renders_no_link_for_javascript_guideline():

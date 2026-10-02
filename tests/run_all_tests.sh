@@ -313,7 +313,7 @@ t_report_auditor(){  _report_html auditor  auditor-report.html; }
 t_report_all(){
   [ "$HAVE_CHECKOV" -eq 1 ] || { echo "checkov not installed — skipping"; return 2; }
   local d="$RESULTS_DIR"
-  # The CLI writes timestamped names (dev_report_DDMMYYYYHHMM.html) so runs
+  # The CLI writes timestamped names (dev_report_YYYYMMDDTHHMMSSZ.html) so runs
   # don't overwrite each other — clear this run's candidates before scanning.
   rm -f "$d"/dev_report_*.html "$d"/scan_report_*.html "$d"/auditor_report_*.html
   $PY -m tf_eu_guard.cli scan "$TF_TARGET" --output all --output-dir "$d" || return 1

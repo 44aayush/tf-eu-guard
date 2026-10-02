@@ -10,7 +10,6 @@ the whole module skips rather than erroring at collection.
 
 import importlib.util
 import os
-import shutil
 
 import pytest
 
@@ -19,7 +18,10 @@ pytest.importorskip("checkov")
 from checkov.common.models.enums import CheckResult  # noqa: E402
 
 from tf_eu_guard.checks.gdpr.data_residency import EURegionEnforcement  # noqa: E402
-from tf_eu_guard.checks.nis2.secrets_in_code import HardcodedSecrets  # noqa: E402
+from tf_eu_guard.checks.nis2.secrets_in_code import (
+    HardcodedSecrets,
+    _scan_codebuild_env,
+)  # noqa: E402
 
 # --- EUGUARD_GDPR_001: EU Sovereign Cloud region enforcement (provider check) --
 
@@ -173,6 +175,7 @@ def _run_secret_check(entity_type: str, conf: dict) -> CheckResult:
     [
         ("aws_db_instance", "password"),
         ("aws_rds_cluster", "master_password"),
+        ("aws_docdb_cluster", "master_password"),
         ("aws_redshift_cluster", "master_password"),
         ("aws_elasticache_replication_group", "auth_token"),
     ],
@@ -210,6 +213,48 @@ def test_unsupported_field_name_ignored():
     assert _run_secret_check("aws_db_instance", {"username": ["admin"]}) == CheckResult.PASSED
 
 
+@pytest.mark.parametrize("secret_type", ["SECRETS_MANAGER", "PARAMETER_STORE"])
+def test_codebuild_secret_reference_types_pass(secret_type):
+    conf = {
+        "environment": [{"environment_variable": [{
+            "name": ["DB_PASSWORD"],
+            "value": ["prod/db:password"],
+            "type": [secret_type],
+        }]}],
+    }
+    assert _scan_codebuild_env(conf) is False
+    assert _run_secret_check("aws_codebuild_project", conf) == CheckResult.PASSED
+
+
+@pytest.mark.parametrize("secret_type", ["PLAINTEXT", None])
+def test_codebuild_plaintext_secret_fails(secret_type):
+    variable = {"name": ["DB_PASSWORD"], "value": ["hunter2"]}
+    if secret_type is not None:
+        variable["type"] = [secret_type]
+    conf = {"environment": [{"environment_variable": [variable]}]}
+    assert _scan_codebuild_env(conf) is True
+    assert _run_secret_check("aws_codebuild_project", conf) == CheckResult.FAILED
+
+
+@pytest.mark.parametrize(
+    "name,value",
+    [
+        ("PWD", "/app"),
+        ("OLDPWD", "/"),
+        ("TOKEN_URL", "https://idp.example/token"),
+        ("TOKEN_ENDPOINT", "https://idp.example/oauth/token"),
+        ("SECRET_NAME", "db-creds"),
+        ("RESOURCE_ID", "resource-123"),
+    ],
+)
+def test_codebuild_non_secret_name_or_value_passes(name, value):
+    conf = {"environment": [{"environment_variable": [{
+        "name": [name], "value": [value], "type": ["PLAINTEXT"],
+    }]}]}
+    assert _scan_codebuild_env(conf) is False
+    assert _run_secret_check("aws_codebuild_project", conf) == CheckResult.PASSED
+
+
 def test_secrets_check_identity():
     check = HardcodedSecrets()
     assert check.id == "EUGUARD_NIS2_001"
@@ -225,7 +270,7 @@ def test_custom_check_ids_are_registered(registry):
         assert check.id in registry, f"{check.id} has no registry.yaml mapping"
 
 
-# --- EUGUARD_NIS2_001 (Kubernetes variant) -------------------------------------
+# --- EUGUARD_NIS2_002 (Kubernetes variant) -------------------------------------
 
 from tf_eu_guard.checks.k8s.secrets_in_code import (  # noqa: E402
     K8sContainerEnvHardcodedSecrets,
@@ -292,11 +337,22 @@ def test_k8s_env_nonsensitive_literal_passes():
     assert _run_k8s_env_check(conf) == CheckResult.PASSED
 
 
-@pytest.mark.parametrize("name", ["DB_PASSWORD_FILE", "TLS_KEY_PATH"])
-def test_k8s_env_file_pointer_convention_passes(name):
+@pytest.mark.parametrize(
+    "name,value",
+    [
+        ("DB_PASSWORD_FILE", "/etc/secrets/password"),
+        ("TLS_KEY_PATH", "/etc/secrets/tls.key"),
+        ("PWD", "/app"),
+        ("OLDPWD", "/"),
+        ("TOKEN_URL", "https://idp.example/token"),
+        ("TOKEN_ENDPOINT", "https://idp.example/oauth/token"),
+        ("SECRET_NAME", "db-creds"),
+    ],
+)
+def test_k8s_env_non_secret_name_or_value_passes(name, value):
     """The _FILE / _PATH suffix points at a mounted secret file, not a literal."""
     conf = {"spec": {"containers": [{"name": "app", "env": [
-        {"name": name, "value": "/etc/secrets/password"}
+        {"name": name, "value": value}
     ]}]}}
     assert _run_k8s_env_check(conf) == CheckResult.PASSED
 
@@ -307,10 +363,10 @@ def test_k8s_env_empty_value_passes():
 
 
 def test_k8s_checks_identity():
-    """Both K8s variants share the Terraform check's ID so the shared registry
-    entry enriches them."""
+    """K8s variants use their own registry entry so Terraform remediation
+    cannot leak into Kubernetes reports."""
     for check in (K8sSecretManifestHardcodedSecrets(), K8sContainerEnvHardcodedSecrets()):
-        assert check.id == "EUGUARD_NIS2_001"
+        assert check.id == "EUGUARD_NIS2_002"
     assert "Secret" in K8sSecretManifestHardcodedSecrets().supported_specs
     assert "Pod" in K8sContainerEnvHardcodedSecrets().supported_specs
 

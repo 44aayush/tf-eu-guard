@@ -43,9 +43,13 @@ def safe_guideline(guideline: str | None) -> str | None:
     """
     if not guideline:
         return None
-    if any(ch in guideline for ch in "[] \t\n\r"):
+    if any(ord(ch) < 0x20 or ch in "[] \t\n\r" for ch in guideline):
         return None
-    if urlparse(guideline).scheme not in ("http", "https"):
+    try:
+        parsed = urlparse(guideline)
+    except ValueError:
+        return None
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
         return None
     return guideline
 

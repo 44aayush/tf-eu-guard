@@ -9,7 +9,9 @@ and that the Phase-1 -> Phase-2 legal-citation corrections have not regressed
 import re
 
 import pytest
+import yaml
 
+from tf_eu_guard.mapping.requirements import ARTICLE_TITLES
 from tf_eu_guard.models import Framework, Severity
 
 # "Art. 21(2)(i)", "Art. 32(1)(a)", the sub-point-less "Art. 21(2)", or a bare
@@ -74,6 +76,52 @@ def test_frameworks_are_only_nis2_and_gdpr(registry):
     assert seen <= {Framework.NIS2, Framework.GDPR}, f"unexpected frameworks: {seen}"
 
 
+def test_registry_titles_match_canonical_article_table(repo_root):
+    """Every registry uses one authoritative legal title per article."""
+    seen: dict[tuple[str, str], set[str]] = {}
+    for path in sorted((repo_root / "tf_eu_guard" / "mapping").glob("registry-*.yaml")):
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        for check_id, entry in raw.items():
+            for article in entry["articles"]:
+                key = (article["framework"], article["article"])
+                seen.setdefault(key, set()).add(article["title"])
+                canonical = ARTICLE_TITLES[(Framework(article["framework"]), article["article"])]
+                assert article["title"] == canonical, f"{path.name}:{check_id} has non-canonical title"
+    assert all(len(titles) == 1 for titles in seen.values())
+
+
+def test_registry_risk_text_does_not_make_unsupported_legal_conclusions(repo_root):
+    pattern = re.compile(
+        r"(?i)(violates?|contrary to|direct (?:GDPR|NIS2)|failure under|defeats|squarely against)"
+    )
+    for path in sorted((repo_root / "tf_eu_guard" / "mapping").glob("registry-*.yaml")):
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        for check_id, entry in raw.items():
+            text = entry.get("risk", "")
+            for match in pattern.finditer(text):
+                window = text[max(0, match.start() - 40):match.end() + 40]
+                assert "Art." not in window, (
+                    f"unsupported legal wording in {path.name}:{check_id}: {window!r}"
+                )
+
+
+def test_registry_risk_citations_are_declared_in_articles(repo_root):
+    """Risk text must not cite a framework/article absent from the mapping."""
+    citation = re.compile(r"\b(NIS2|GDPR)\s+(Art\. \d+(?:\(\d+\))?(?:\([a-z]\))?)")
+    for path in sorted((repo_root / "tf_eu_guard" / "mapping").glob("registry-*.yaml")):
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        for check_id, entry in raw.items():
+            declared = {
+                (article["framework"], article["article"])
+                for article in entry["articles"]
+            }
+            cited = set(citation.findall(entry.get("risk", "")))
+            assert cited <= declared, (
+                f"undeclared risk citation in {path.name}:{check_id}: "
+                f"{sorted(cited - declared)}"
+            )
+
+
 def _nis2(mapping) -> set[str]:
     return {a.article for a in mapping.articles if a.framework is Framework.NIS2}
 
@@ -121,6 +169,23 @@ def test_eu_region_check_maps_to_gdpr_transfers(registry):
     assert "Art. 44" in _gdpr(registry["EUGUARD_GDPR_001"])
 
 
+def test_canonical_titles_cover_corrected_articles(registry):
+    assert registry["CKV_AWS_163"].articles
+    gdpr_b = [
+        a for a in registry["CKV_AWS_163"].articles
+        if a.framework is Framework.GDPR and a.article == "Art. 32(1)(b)"
+    ]
+    assert gdpr_b and gdpr_b[0].title == ARTICLE_TITLES[(Framework.GDPR, "Art. 32(1)(b)")]
+    nis2_g = [
+        a for a in registry.values()
+        for a in a.articles
+        if a.framework is Framework.NIS2 and a.article == "Art. 21(2)(g)"
+    ]
+    assert nis2_g and {a.title for a in nis2_g} == {
+        ARTICLE_TITLES[(Framework.NIS2, "Art. 21(2)(g)")]
+    }
+
+
 def test_eu_region_risk_matches_documented_legal_standard(registry):
     """The registry's finding text must match docs/gdpr-mapping.md: a non-EU
     region is a transfer *requiring justification* under Chapter V — a strong
@@ -132,6 +197,25 @@ def test_eu_region_risk_matches_documented_legal_standard(registry):
     assert "requiring justification" in risk
     assert "not by itself a" in risk and "violation" in risk  # explicit caveat
     assert "data-residency violation" not in risk  # the retired overclaim
+
+
+def test_kubernetes_secret_mapping_is_kubernetes_specific(registry):
+    remediation = registry["EUGUARD_NIS2_002"].remediation
+    assert "secretKeyRef" in remediation
+    assert "aws_" not in remediation
+    assert "resource \"" not in remediation
+
+
+def test_remediations_match_eusc_region_policy(registry):
+    assert "in-policy region" in registry["CKV_AWS_144"].remediation
+    assert 'region = "eusc-de-east-1"' in registry["CKV_AWS_41"].remediation
+
+
+def test_k8s_read_only_filesystem_declares_gdpr_article(registry):
+    mapping = registry["CKV_K8S_22"]
+    assert (Framework.GDPR, "Art. 32(1)(b)") in {
+        (article.framework, article.article) for article in mapping.articles
+    }
 
 
 def test_hardcoded_secrets_check_maps_to_nis2_secure_dev(registry):
@@ -173,6 +257,26 @@ def test_registry_schema_rejects_bad_entry(tmp_path):
         raise AssertionError("expected RegistryValidationError")
     except RegistryValidationError:
         pass
+
+
+@pytest.mark.parametrize(
+    ("content", "where"),
+    [
+        ("- one\n- two\n", r"registry-bad.yaml"),
+        ("CKV_X:\n", r"registry-bad.yaml:CKV_X"),
+        ("CKV_X: string\n", r"registry-bad.yaml:CKV_X"),
+        ("CKV_X:\n  check_name: x\n  articles: [null]\n  risk: r\n  remediation: fix\n  severity: LOW\n", r"registry-bad.yaml:CKV_X"),
+        ("CKV_X:\n  check_name: x\n  articles:\n    - framework: GDPR\n      article: lol\n      title: t\n  risk: r\n  remediation: fix\n  severity: LOW\n", r"registry-bad.yaml:CKV_X"),
+        ("CKV_X:\n  check_name: [x]\n  articles: []\n  risk: r\n  remediation: fix\n  severity: LOW\n", r"registry-bad.yaml:CKV_X"),
+    ],
+)
+def test_registry_shape_errors_are_registry_validation_errors(tmp_path, content, where):
+    from tf_eu_guard.mapping.loader import RegistryValidationError, load_registry_file
+
+    bad = tmp_path / "registry-bad.yaml"
+    bad.write_text(content)
+    with pytest.raises(RegistryValidationError, match=where):
+        load_registry_file(bad)
 
 
 def test_registry_rejects_within_file_duplicate_check_id(tmp_path):

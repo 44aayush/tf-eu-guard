@@ -4,11 +4,13 @@ Loads every ``registry-*.yaml`` file in the mapping directory and merges them
 into one registry (check_id -> ComplianceMapping), with schema validation.
 """
 
+import re
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+from tf_eu_guard.mapping.requirements import canonical_article_title
 from tf_eu_guard.mapping.schema import (
     REQUIRED_FIELDS,
     VALID_FRAMEWORKS,
@@ -25,6 +27,9 @@ from tf_eu_guard.models import (
 
 class RegistryValidationError(ValueError):
     """Raised when a registry file violates the mapping schema."""
+
+
+_ARTICLE_RE = re.compile(r"^Art\. \d+(\(\d+\))?(\([a-z]\))?$")
 
 
 class _UniqueKeyLoader(yaml.SafeLoader):
@@ -52,31 +57,65 @@ class _UniqueKeyLoader(yaml.SafeLoader):
 
 
 def _validate_entry(check_id: str, data: dict[str, Any], source: Path) -> None:
-    """Validate one registry entry against the mapping schema."""
+    """Validate one registry entry against the mapping schema.
+
+    Registry files are shipped application data, so malformed YAML must fail at
+    this boundary with a useful, stable error rather than leaking incidental
+    ``TypeError``/``AttributeError`` exceptions from later indexing.
+    """
     where = f"{source.name}:{check_id}"
+    if not isinstance(data, dict):
+        raise RegistryValidationError(f"{where}: entry must be a mapping")
+
     for field in REQUIRED_FIELDS:
-        if field not in data or data[field] in (None, "", []):
+        if field not in data or data[field] is None:
             raise RegistryValidationError(f"{where}: missing required field '{field}'")
 
+    for field in ("check_name", "risk", "remediation"):
+        if not isinstance(data[field], str):
+            raise RegistryValidationError(f"{where}: '{field}' must be a string")
+        if not data[field].strip():
+            raise RegistryValidationError(f"{where}: missing required field '{field}'")
+
+    if not isinstance(data["severity"], str):
+        raise RegistryValidationError(f"{where}: 'severity' must be a string")
     if data["severity"] not in VALID_SEVERITIES:
         raise RegistryValidationError(
             f"{where}: severity '{data['severity']}' not in {sorted(VALID_SEVERITIES)}"
         )
 
     articles = data["articles"]
-    if not isinstance(articles, list):
-        raise RegistryValidationError(f"{where}: 'articles' must be a list")
+    if not isinstance(articles, list) or not articles:
+        raise RegistryValidationError(f"{where}: 'articles' must be a non-empty list")
 
     for article in articles:
+        if not isinstance(article, dict):
+            raise RegistryValidationError(f"{where}: article must be a mapping")
         for field in ("framework", "article", "title"):
-            if field not in article or not article[field]:
+            if field not in article or article[field] is None:
                 raise RegistryValidationError(
                     f"{where}: article missing required field '{field}'"
                 )
+        if not isinstance(article["framework"], str):
+            raise RegistryValidationError(f"{where}: article framework must be a string")
         if article["framework"] not in VALID_FRAMEWORKS:
             raise RegistryValidationError(
                 f"{where}: framework '{article['framework']}' not in "
                 f"{sorted(VALID_FRAMEWORKS)}"
+            )
+        if not isinstance(article["article"], str) or not _ARTICLE_RE.fullmatch(article["article"]):
+            raise RegistryValidationError(
+                f"{where}: malformed article '{article['article']}'"
+            )
+        if not isinstance(article["title"], str) or not article["title"].strip():
+            raise RegistryValidationError(f"{where}: article title must be a string")
+        canonical = canonical_article_title(
+            Framework(article["framework"]), article["article"]
+        )
+        if canonical and article["title"] != canonical:
+            raise RegistryValidationError(
+                f"{where}: title for {article['framework']} {article['article']} "
+                f"must be '{canonical}'"
             )
 
 
@@ -87,16 +126,26 @@ def load_registry_file(registry_path: Path) -> dict[str, ComplianceMapping]:
     duplicate keys *within* the file, which ``yaml.safe_load`` would
     silently collapse to the last definition.
     """
-    with open(registry_path) as f:
+    with open(registry_path, encoding="utf-8") as f:
         try:
             raw_registry = yaml.load(f, Loader=_UniqueKeyLoader)
         except RegistryValidationError as exc:
             raise RegistryValidationError(f"{registry_path.name}: {exc}") from None
-    if not raw_registry:
-        raw_registry = {}
+        except yaml.YAMLError as exc:
+            raise RegistryValidationError(
+                f"{registry_path.name}: invalid YAML: {exc}"
+            ) from exc
+    if not isinstance(raw_registry, dict):
+        raise RegistryValidationError(
+            f"{registry_path.name}: registry root must be a mapping"
+        )
 
     mappings = {}
     for check_id, data in raw_registry.items():
+        if not isinstance(check_id, str) or not check_id.strip():
+            raise RegistryValidationError(
+                f"{registry_path.name}:{check_id}: check_id must be a non-empty string"
+            )
         _validate_entry(check_id, data, registry_path)
         articles = [
             ArticleReference(

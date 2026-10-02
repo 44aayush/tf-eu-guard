@@ -1,7 +1,5 @@
 # Roadmap
 
-## v1.0 Scope (Current)
-
 - ✅ NIS2 Article 21 mapping
 - ✅ GDPR Article 32 mapping
 - ✅ AWS Terraform support
