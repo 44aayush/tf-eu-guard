@@ -29,10 +29,31 @@ inputs:
     description: 'Upload the generated HTML report(s) as a workflow artifact when output includes dev/security/auditor (or all)'
     required: false
     default: 'false'
+  fail-on-any:
+    description: 'Fail the workflow when any mapped finding exists, regardless of severity'
+    required: false
+    default: 'false'
+  checkov-json:
+    description: 'Use a pre-generated Checkov JSON result instead of running Checkov (path is optional when set)'
+    required: false
+    default: ''
+  output-dir:
+    description: 'Directory for generated HTML reports (default: reports/)'
+    required: false
+    default: ''
+  output-file:
+    description: 'Destination for one security, auditor, or SARIF report; SARIF defaults to /workspace/tf-eu-guard.sarif'
+    required: false
+    default: ''
   upload-sarif:
     description: 'Upload the SARIF output to GitHub Code Scanning (the workflow needs security-events: write permission). Only applies when output is sarif'
     required: false
     default: 'false'
+
+outputs:
+  exit-code:
+    description: 'Exit code returned by the tf-eu-guard scan (0, 1, 2, or 3)'
+    value: ${{ steps.scan.outputs.exit-code }}
 
 runs:
   using: 'composite'
@@ -40,50 +61,80 @@ runs:
     - name: Run tf-eu-guard scan
       id: scan
       shell: bash
+      env:
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_IAC_TYPE: ${{ inputs.iac-type }}
+        INPUT_OUTPUT: ${{ inputs.output }}
+        INPUT_FRAMEWORK: ${{ inputs.framework }}
+        INPUT_FAIL_ON_SEVERITY: ${{ inputs.fail-on-severity }}
+        INPUT_FAIL_ON_ANY: ${{ inputs.fail-on-any }}
+        INPUT_CHECKOV_JSON: ${{ inputs.checkov-json }}
+        INPUT_OUTPUT_DIR: ${{ inputs.output-dir }}
+        INPUT_OUTPUT_FILE: ${{ inputs.output-file }}
+        ACTION_PATH: ${{ github.action_path }}
       run: |
         set -euo pipefail
         image="tf-eu-guard:action-${GITHUB_RUN_ID:-local}"
-        docker build --quiet -t "$image" "${{ github.action_path }}"
+        docker build --quiet -t "$image" "$ACTION_PATH"
 
-        args=(
-          "${{ inputs.path }}"
-          --iac-type "${{ inputs.iac-type }}"
-          --output "${{ inputs.output }}"
-          --framework "${{ inputs.framework }}"
+        args=()
+        if [ -n "$INPUT_CHECKOV_JSON" ]; then
+          args+=(--checkov-json "$INPUT_CHECKOV_JSON")
+        else
+          args+=("$INPUT_PATH")
+        fi
+        args+=(
+          --iac-type "$INPUT_IAC_TYPE"
+          --output "$INPUT_OUTPUT"
+          --framework "$INPUT_FRAMEWORK"
         )
         # An empty fail-on-severity input means "no gating" — the CLI
         # accepts '' with that meaning too, but omitting the flag entirely
         # is what the input description promises.
-        if [ -n "${{ inputs.fail-on-severity }}" ]; then
-          args+=(--fail-on-severity "${{ inputs.fail-on-severity }}")
+        if [ -n "$INPUT_FAIL_ON_SEVERITY" ]; then
+          args+=(--fail-on-severity "$INPUT_FAIL_ON_SEVERITY")
+        fi
+        if [ "$INPUT_FAIL_ON_ANY" = "true" ]; then
+          args+=(--fail-on-any)
+        fi
+        if [ -n "$INPUT_OUTPUT_DIR" ]; then
+          args+=(--output-dir "$INPUT_OUTPUT_DIR")
         fi
         # SARIF always lands in the workspace (not just stdout) so later
         # steps — and the Code Scanning upload below — can consume it.
-        if [ "${{ inputs.output }}" = "sarif" ]; then
+        if [ -n "$INPUT_OUTPUT_FILE" ]; then
+          args+=(--output-file "$INPUT_OUTPUT_FILE")
+        elif [ "$INPUT_OUTPUT" = "sarif" ]; then
           args+=(--output-file /workspace/tf-eu-guard.sarif)
         fi
 
         # The scan's exit code IS the gate (1 = findings at/above
         # threshold, 2 = bad invocation, 3 = tool failure); let it
         # propagate.
+        set +e
         docker run --rm \
+          --user "$(id -u):$(id -g)" \
           -v "$GITHUB_WORKSPACE:/workspace" \
           -w /workspace \
           "$image" "${args[@]}"
+        status=$?
+        set -e
+        echo "exit-code=$status" >> "$GITHUB_OUTPUT"
+        exit "$status"
 
     - name: Upload HTML reports as artifact
       # always(): the reports are exactly what you want to inspect when
       # the severity gate failed the scan step.
       if: ${{ always() && inputs.upload-reports == 'true' }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
       with:
         name: tf-eu-guard-reports
         path: reports/
-        if-no-files-found: ignore
+        if-no-files-found: error
         retention-days: 30
 
     - name: Upload SARIF to GitHub Code Scanning
       if: ${{ always() && inputs.upload-sarif == 'true' && inputs.output == 'sarif' }}
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@0fa1882f994fbd81a47ab0804f93354f5ea40147
       with:
         sarif_file: tf-eu-guard.sarif

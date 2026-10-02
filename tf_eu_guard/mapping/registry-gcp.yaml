@@ -15,7 +15,7 @@ CKV_GCP_62:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(h)"
-      title: "Cryptography and encryption"
+      title: "Policies and procedures on the use of cryptography and encryption"
     - framework: GDPR
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
@@ -33,7 +33,7 @@ CKV_GCP_11:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(h)"
-      title: "Cryptography and encryption"
+      title: "Policies and procedures on the use of cryptography and encryption"
     - framework: GDPR
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
@@ -53,7 +53,7 @@ CKV_GCP_51:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(h)"
-      title: "Cryptography and encryption"
+      title: "Policies and procedures on the use of cryptography and encryption"
     - framework: GDPR
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
@@ -72,10 +72,10 @@ CKV_GCP_6:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(g)"
-      title: "Network security"
+      title: "Basic cyber hygiene practices and cybersecurity training"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "A Cloud SQL instance with a public IP is reachable from any host on the internet, inviting brute-force and exploitation."
   remediation: |
     resource "google_sql_database_instance" "example" {
@@ -96,7 +96,7 @@ CKV_GCP_26:
       title: "Incident handling"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Without VPC flow logs, network traffic needed to detect and investigate intrusions is not recorded."
   remediation: |
     resource "google_compute_subnetwork" "example" {
@@ -116,7 +116,7 @@ CKV_GCP_88:
       title: "Incident handling"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Subnets without flow logging produce no network audit trail for incident forensics."
   remediation: |
     resource "google_compute_subnetwork" "example" {
@@ -133,11 +133,11 @@ CKV_GCP_28:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(i)"
-      title: "Access control and asset management"
+      title: "Human resources security, access control policies and asset management"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
-  risk: "A bucket IAM binding that includes allUsers or allAuthenticatedUsers exposes bucket data without authentication — if personal data is stored, a direct failure of the confidentiality controls GDPR Art. 32(1)(b) and NIS2 Art. 21(2)(i) require."
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: "A bucket IAM binding that includes allUsers or allAuthenticatedUsers exposes bucket data without authentication — if personal data is stored, this may weaken the confidentiality safeguards expected by GDPR Art. 32(1)(b) and the access-control measures relevant to NIS2 Art. 21(2)(i)."
   remediation: |
     # Remove 'allUsers' and 'allAuthenticatedUsers' members from
     # google_storage_bucket_iam_binding / _member resources.
@@ -148,11 +148,11 @@ CKV_GCP_49:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(i)"
-      title: "Access control and asset management"
+      title: "Human resources security, access control policies and asset management"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
-  risk: "Project-level editor or owner roles on service accounts violate least privilege and amplify the blast radius of any compromised workload."
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: "Project-level editor or owner roles on service accounts may weaken least privilege and amplify the blast radius of any compromised workload."
   remediation: |
     # Replace project_iam_binding roles 'roles/owner' and 'roles/editor' on
     # serviceAccount members with the minimal predefined role required.
@@ -163,10 +163,10 @@ CKV_GCP_27:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(g)"
-      title: "Network security"
+      title: "Basic cyber hygiene practices and cybersecurity training"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "The GCP default network uses permissive firewall rules and broad subnets that conflict with a segmented, least-privilege network design."
   remediation: |
     # Set 'auto_create_network = false' on google_project resources and create
@@ -184,7 +184,7 @@ CKV_GCP_13:
       title: "Authentication and secured communications"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Clusters relying only on static credentials for client authentication weaken access control to the workload control plane."
   remediation: |
     resource "google_container_cluster" "example" {
@@ -201,10 +201,10 @@ CKV_GCP_18:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(i)"
-      title: "Access control and asset management"
+      title: "Human resources security, access control policies and asset management"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Legacy ABAC authorization is difficult to audit and can grant broader access than intended, unlike RBAC."
   remediation: |
     resource "google_container_cluster" "example" {
@@ -217,10 +217,10 @@ CKV_GCP_25:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(g)"
-      title: "Network security"
+      title: "Basic cyber hygiene practices and cybersecurity training"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "A cluster with public control-plane endpoints is reachable from any network and can be probed or attacked."
   remediation: |
     resource "google_container_cluster" "example" {
@@ -236,10 +236,10 @@ CKV_GCP_20:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(g)"
-      title: "Network security"
+      title: "Basic cyber hygiene practices and cybersecurity training"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Without authorized networks, the Kubernetes API endpoint is reachable from any IP address."
   remediation: |
     resource "google_container_cluster" "example" {
@@ -260,7 +260,7 @@ CKV_GCP_68:
       title: "Incident handling"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Without audit and access logging configured on the cluster, Kubernetes API activity cannot be reviewed after an incident."
   remediation: |
     resource "google_container_cluster" "example" {
@@ -274,10 +274,10 @@ CKV_GCP_10:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(c)"
-      title: "Business continuity and resilience"
+      title: "Business continuity, backup management and disaster recovery"
     - framework: GDPR
       article: "Art. 32(1)(c)"
-      title: "Ability to restore availability and access in a timely manner"
+      title: "Ability to restore availability and access to personal data in a timely manner"
   risk: "Without automatic node repair, unhealthy nodes persist and degrade workload availability until manually fixed."
   remediation: |
     resource "google_container_node_pool" "example" {
@@ -295,7 +295,7 @@ CKV_GCP_22:
       title: "Supply chain security"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "General-purpose node images run unnecessary software, enlarging the attack surface compared to the minimal Container-Optimized OS."
   remediation: |
     resource "google_container_node_pool" "example" {
@@ -313,10 +313,10 @@ CKV_GCP_30:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(i)"
-      title: "Access control and asset management"
+      title: "Human resources security, access control policies and asset management"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Project-wide SSH keys grant shell access to every VM that allows them, breaking per-instance access control."
   remediation: |
     resource "google_compute_instance" "example" {
@@ -331,10 +331,10 @@ CKV_GCP_33:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(i)"
-      title: "Access control and asset management"
+      title: "Human resources security, access control policies and asset management"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Without OS Login, SSH access relies on key metadata that is hard to audit and revoke centrally."
   remediation: |
     resource "google_compute_project_metadata" "example" {
@@ -349,10 +349,10 @@ CKV_GCP_38:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(g)"
-      title: "Network security"
+      title: "Basic cyber hygiene practices and cybersecurity training"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Serial console access without authentication lets anyone with access read sensitive boot output or issue a root shell."
   remediation: |
     resource "google_compute_instance" "example" {
@@ -367,10 +367,10 @@ CKV_GCP_78:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(i)"
-      title: "Access control and asset management"
+      title: "Human resources security, access control policies and asset management"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Bucket IAM policy members 'allUsers' / 'allAuthenticatedUsers' make data public — a frequent cause of personal-data exposure."
   remediation: |
     # Remove public members from google_storage_bucket_iam_policy bindings.
@@ -381,7 +381,7 @@ CKV_GCP_16:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(h)"
-      title: "Cryptography and encryption"
+      title: "Policies and procedures on the use of cryptography and encryption"
     - framework: GDPR
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
@@ -399,10 +399,10 @@ CKV_GCP_23:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(g)"
-      title: "Network security"
+      title: "Basic cyber hygiene practices and cybersecurity training"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Without alias IP ranges, pod traffic cannot be filtered by network policy at the VPC level, weakening segmentation."
   remediation: |
     resource "google_container_cluster" "example" {

@@ -29,8 +29,17 @@ echo "Using Python $PY_VER"
 if [ -z "${VIRTUAL_ENV:-}" ]; then
   echo "Creating virtual environment..."
   $PYTHON -m venv .venv
-  # shellcheck disable=SC1091
-  source .venv/bin/activate
+  # Windows lays the interpreter out under Scripts/ instead of bin/.
+  if [ -f .venv/bin/activate ]; then
+    # shellcheck disable=SC1091
+    source .venv/bin/activate
+  elif [ -f .venv/Scripts/activate ]; then
+    # shellcheck disable=SC1091
+    source .venv/Scripts/activate
+  else
+    echo "Error: could not find the venv activation script"
+    exit 1
+  fi
 fi
 
 echo "Installing tf-eu-guard..."

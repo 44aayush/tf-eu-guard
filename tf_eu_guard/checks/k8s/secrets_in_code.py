@@ -1,8 +1,8 @@
 """
 Custom Checkov check: hardcoded secrets in Kubernetes manifests.
 
-Kubernetes counterpart of ``checks/nis2/secrets_in_code.py``
-(EUGUARD_NIS2_001). Two shapes are flagged:
+Kubernetes-specific counterpart of ``checks/nis2/secrets_in_code.py``
+(EUGUARD_NIS2_002). Two shapes are flagged:
 
 1. Literal values in a ``Secret`` manifest (``data`` — including values that
    are only base64-of-plaintext, i.e. not real secrets management — or
@@ -27,10 +27,9 @@ from checkov.common.models.enums import CheckCategories, CheckResult
 from checkov.kubernetes.checks.resource.base_container_check import BaseK8sContainerCheck
 from checkov.kubernetes.checks.resource.base_spec_check import BaseK8Check
 
-# Env-var name fragments that mark the value as sensitive.
-_SENSITIVE_NAME_FRAGMENTS = (
-    "password", "passwd", "pwd", "secret", "token",
-    "api_key", "apikey", "access_key", "private_key", "credential",
+from tf_eu_guard.checks.nis2.secret_names import (
+    is_literal_env_value,
+    is_sensitive_env_name,
 )
 
 
@@ -39,7 +38,7 @@ class K8sSecretManifestHardcodedSecrets(BaseK8Check):
 
     def __init__(self):
         name = "Ensure Kubernetes Secrets do not contain hardcoded literal values (use a secrets manager)"
-        check_id = "EUGUARD_NIS2_001"
+        check_id = "EUGUARD_NIS2_002"
         supported_entities = ("Secret",)
         categories = [CheckCategories.SECRETS]
         super().__init__(
@@ -65,7 +64,7 @@ class K8sContainerEnvHardcodedSecrets(BaseK8sContainerCheck):
 
     def __init__(self):
         name = "Ensure containers use secretKeyRef instead of literal sensitive env values"
-        check_id = "EUGUARD_NIS2_001"
+        check_id = "EUGUARD_NIS2_002"
         categories = [CheckCategories.SECRETS]
         super().__init__(
             name=name,
@@ -86,13 +85,13 @@ class K8sContainerEnvHardcodedSecrets(BaseK8sContainerCheck):
             value = entry.get("value")
             if not isinstance(value, str):
                 continue  # numeric/boolean values are not secrets
-            if not value.strip():
-                continue  # set at runtime / kustomize placeholder
-            if name.endswith("_file") or name.endswith("_path"):
+            if not is_literal_env_value(value):
+                continue  # empty values and URL/endpoint configuration
+            if name.endswith(("_file", "_path")):
                 # The _FILE / _PATH suffix is the standard convention for a
                 # pointer to a mounted secret file, not a literal secret.
                 continue
-            if any(fragment in name for fragment in _SENSITIVE_NAME_FRAGMENTS):
+            if is_sensitive_env_name(name):
                 self.evaluated_container_keys = [f"env/[{idx}]/value"]
                 return CheckResult.FAILED
         return CheckResult.PASSED

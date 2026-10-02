@@ -179,7 +179,7 @@ def test_main_absolute_repo_path_is_made_relative(monkeypatch):
 def test_contributing_documents_the_routing_rules(repo_root: Path):
     """Each routing rule asserted above must also be documented in
     CONTRIBUTING.md — if the routing changes, the docs must change with it."""
-    doc = " ".join((repo_root / "CONTRIBUTING.md").read_text().split())
+    doc = " ".join((repo_root / "CONTRIBUTING.md").read_text(encoding="utf-8").split())
     for claim in (
         "`cli.py`/`checkov_runner.py` → all types",
         "`registry-kubernetes.yaml` → kubernetes only",

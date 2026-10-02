@@ -54,7 +54,9 @@ def sarif_schema():
 
 @pytest.fixture(scope="module")
 def validator(sarif_schema):
-    return jsonschema.Draft7Validator(sarif_schema)
+    return jsonschema.Draft7Validator(
+        sarif_schema, format_checker=jsonschema.FormatChecker()
+    )
 
 
 @pytest.fixture
@@ -127,6 +129,18 @@ def test_result_fields_carry_regulatory_metadata(findings):
     assert properties["resource"] == "aws_s3_bucket.data"
 
 
+@pytest.mark.parametrize(
+    "guideline",
+    ["javascript:alert(1)", "data:text/html,alert(1)", "not-a-url", "https://", ""],
+)
+def test_unsafe_guideline_is_omitted_from_sarif(guideline):
+    document = build_sarif([make_finding(guideline=guideline)])
+    rule, = document["runs"][0]["tool"]["driver"]["rules"]
+    result, = document["runs"][0]["results"]
+    assert "helpUri" not in rule
+    assert "guideline" not in result["properties"]
+
+
 def test_rule_carries_regulatory_metadata(findings):
     rules = build_sarif(findings)["runs"][0]["tool"]["driver"]["rules"]
     (rule,) = [r for r in rules if r["id"] == "CKV_AWS_18"]
@@ -157,12 +171,35 @@ def test_unmapped_results_are_note_level_and_tagged(validator):
     assert rule["properties"]["mapped"] is False
 
 
-def test_malformed_line_range_degrades_to_file_location(validator):
-    finding = make_finding(file_line_range=[0, 0])
+@pytest.mark.parametrize(
+    "line_range",
+    [
+        [0, 0],
+        ["bad", 4],
+        ["4", "5"],
+        [-1, 4],
+        [4, -1],
+        [5, 4],
+        [4],
+        [],
+        None,
+    ],
+)
+def test_malformed_line_range_degrades_to_file_location(validator, line_range):
+    finding = make_finding(file_line_range=line_range)
     document = build_sarif([finding])
     validator.validate(document)
     (location,) = document["runs"][0]["results"][0]["locations"]
     assert "region" not in location["physicalLocation"]
+
+
+def test_valid_line_range_and_path_are_uri_safe(validator):
+    finding = make_finding(file_path="src/my file#1.tf", file_line_range=[4, 5])
+    document = build_sarif([finding])
+    validator.validate(document)
+    location = document["runs"][0]["results"][0]["locations"][0]
+    assert location["physicalLocation"]["artifactLocation"]["uri"] == "src/my%20file%231.tf"
+    assert location["physicalLocation"]["region"] == {"startLine": 4, "endLine": 5}
 
 
 def test_driver_identifies_the_tool(findings):

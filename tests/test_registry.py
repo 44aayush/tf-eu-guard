@@ -9,7 +9,9 @@ and that the Phase-1 -> Phase-2 legal-citation corrections have not regressed
 import re
 
 import pytest
+import yaml
 
+from tf_eu_guard.mapping.requirements import ARTICLE_TITLES
 from tf_eu_guard.models import Framework, Severity
 
 # "Art. 21(2)(i)", "Art. 32(1)(a)", the sub-point-less "Art. 21(2)", or a bare
@@ -29,7 +31,7 @@ def test_registry_loads_nonempty(registry):
 def test_registry_has_expected_volume(registry):
     # Phase 2 target was 15-20; the shipped registry exceeds it. A floor guards
     # against accidental mass-deletion without being brittle to future growth.
-    assert 20 <= len(registry) <= 200, f"unexpected mapping count: {len(registry)}"
+    assert 20 <= len(registry) <= 250, f"unexpected mapping count: {len(registry)}"
 
 
 def test_check_ids_well_formed(registry):
@@ -72,6 +74,52 @@ def test_no_duplicate_article_refs_within_a_mapping(registry):
 def test_frameworks_are_only_nis2_and_gdpr(registry):
     seen = {a.framework for m in registry.values() for a in m.articles}
     assert seen <= {Framework.NIS2, Framework.GDPR}, f"unexpected frameworks: {seen}"
+
+
+def test_registry_titles_match_canonical_article_table(repo_root):
+    """Every registry uses one authoritative legal title per article."""
+    seen: dict[tuple[str, str], set[str]] = {}
+    for path in sorted((repo_root / "tf_eu_guard" / "mapping").glob("registry-*.yaml")):
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        for check_id, entry in raw.items():
+            for article in entry["articles"]:
+                key = (article["framework"], article["article"])
+                seen.setdefault(key, set()).add(article["title"])
+                canonical = ARTICLE_TITLES[(Framework(article["framework"]), article["article"])]
+                assert article["title"] == canonical, f"{path.name}:{check_id} has non-canonical title"
+    assert all(len(titles) == 1 for titles in seen.values())
+
+
+def test_registry_risk_text_does_not_make_unsupported_legal_conclusions(repo_root):
+    pattern = re.compile(
+        r"(?i)(violates?|contrary to|direct (?:GDPR|NIS2)|failure under|defeats|squarely against)"
+    )
+    for path in sorted((repo_root / "tf_eu_guard" / "mapping").glob("registry-*.yaml")):
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        for check_id, entry in raw.items():
+            text = entry.get("risk", "")
+            for match in pattern.finditer(text):
+                window = text[max(0, match.start() - 40):match.end() + 40]
+                assert "Art." not in window, (
+                    f"unsupported legal wording in {path.name}:{check_id}: {window!r}"
+                )
+
+
+def test_registry_risk_citations_are_declared_in_articles(repo_root):
+    """Risk text must not cite a framework/article absent from the mapping."""
+    citation = re.compile(r"\b(NIS2|GDPR)\s+(Art\. \d+(?:\(\d+\))?(?:\([a-z]\))?)")
+    for path in sorted((repo_root / "tf_eu_guard" / "mapping").glob("registry-*.yaml")):
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        for check_id, entry in raw.items():
+            declared = {
+                (article["framework"], article["article"])
+                for article in entry["articles"]
+            }
+            cited = set(citation.findall(entry.get("risk", "")))
+            assert cited <= declared, (
+                f"undeclared risk citation in {path.name}:{check_id}: "
+                f"{sorted(cited - declared)}"
+            )
 
 
 def _nis2(mapping) -> set[str]:
@@ -121,6 +169,23 @@ def test_eu_region_check_maps_to_gdpr_transfers(registry):
     assert "Art. 44" in _gdpr(registry["EUGUARD_GDPR_001"])
 
 
+def test_canonical_titles_cover_corrected_articles(registry):
+    assert registry["CKV_AWS_163"].articles
+    gdpr_b = [
+        a for a in registry["CKV_AWS_163"].articles
+        if a.framework is Framework.GDPR and a.article == "Art. 32(1)(b)"
+    ]
+    assert gdpr_b and gdpr_b[0].title == ARTICLE_TITLES[(Framework.GDPR, "Art. 32(1)(b)")]
+    nis2_g = [
+        a for a in registry.values()
+        for a in a.articles
+        if a.framework is Framework.NIS2 and a.article == "Art. 21(2)(g)"
+    ]
+    assert nis2_g and {a.title for a in nis2_g} == {
+        ARTICLE_TITLES[(Framework.NIS2, "Art. 21(2)(g)")]
+    }
+
+
 def test_eu_region_risk_matches_documented_legal_standard(registry):
     """The registry's finding text must match docs/gdpr-mapping.md: a non-EU
     region is a transfer *requiring justification* under Chapter V — a strong
@@ -132,6 +197,25 @@ def test_eu_region_risk_matches_documented_legal_standard(registry):
     assert "requiring justification" in risk
     assert "not by itself a" in risk and "violation" in risk  # explicit caveat
     assert "data-residency violation" not in risk  # the retired overclaim
+
+
+def test_kubernetes_secret_mapping_is_kubernetes_specific(registry):
+    remediation = registry["EUGUARD_NIS2_002"].remediation
+    assert "secretKeyRef" in remediation
+    assert "aws_" not in remediation
+    assert "resource \"" not in remediation
+
+
+def test_remediations_match_eusc_region_policy(registry):
+    assert "in-policy region" in registry["CKV_AWS_144"].remediation
+    assert 'region = "eusc-de-east-1"' in registry["CKV_AWS_41"].remediation
+
+
+def test_k8s_read_only_filesystem_declares_gdpr_article(registry):
+    mapping = registry["CKV_K8S_22"]
+    assert (Framework.GDPR, "Art. 32(1)(b)") in {
+        (article.framework, article.article) for article in mapping.articles
+    }
 
 
 def test_hardcoded_secrets_check_maps_to_nis2_secure_dev(registry):
@@ -173,6 +257,26 @@ def test_registry_schema_rejects_bad_entry(tmp_path):
         raise AssertionError("expected RegistryValidationError")
     except RegistryValidationError:
         pass
+
+
+@pytest.mark.parametrize(
+    ("content", "where"),
+    [
+        ("- one\n- two\n", r"registry-bad.yaml"),
+        ("CKV_X:\n", r"registry-bad.yaml:CKV_X"),
+        ("CKV_X: string\n", r"registry-bad.yaml:CKV_X"),
+        ("CKV_X:\n  check_name: x\n  articles: [null]\n  risk: r\n  remediation: fix\n  severity: LOW\n", r"registry-bad.yaml:CKV_X"),
+        ("CKV_X:\n  check_name: x\n  articles:\n    - framework: GDPR\n      article: lol\n      title: t\n  risk: r\n  remediation: fix\n  severity: LOW\n", r"registry-bad.yaml:CKV_X"),
+        ("CKV_X:\n  check_name: [x]\n  articles: []\n  risk: r\n  remediation: fix\n  severity: LOW\n", r"registry-bad.yaml:CKV_X"),
+    ],
+)
+def test_registry_shape_errors_are_registry_validation_errors(tmp_path, content, where):
+    from tf_eu_guard.mapping.loader import RegistryValidationError, load_registry_file
+
+    bad = tmp_path / "registry-bad.yaml"
+    bad.write_text(content)
+    with pytest.raises(RegistryValidationError, match=where):
+        load_registry_file(bad)
 
 
 def test_registry_rejects_within_file_duplicate_check_id(tmp_path):
@@ -253,3 +357,101 @@ def test_registry_ids_exist_in_checkov(repo_root):
         f"Registry references Checkov IDs that don't exist in the installed "
         f"Checkov (rename/removal upstream?): {missing}"
     )
+
+
+# --- end2end stack: every check that fires is mapped (zero unmapped) ------------
+# The claim "a scan of examples/end2end/ produces zero unmapped findings" is
+# repeated across the docs. This test makes it executable from a committed
+# real-Checkov capture, so a registry edit that drops an end2end check fails
+# CI instead of silently degrading that scan to unmapped.
+
+END2END_FIXTURE = "tests/fixtures/checkov-end2end-tf.json"
+# Raw Checkov output for the stack. tf-eu-guard's own scan adds the two custom
+# EUGUARD_* checks on top (EUGUARD_GDPR_001 x2, EUGUARD_NIS2_001 x4), which is
+# why the CLI reports 295 while this capture holds 289 stock findings.
+
+
+def test_end2end_findings_are_all_mapped(repo_root, registry):
+    """Every stock Checkov check firing on the end2end stack has a registry entry.
+
+    Hermetic: reads the committed Checkov capture rather than running Checkov
+    (the capture is regenerated by ``tools/smoke_check.py`` / CI, which runs
+    the real scan and checks the same property against the 295 baseline).
+    """
+    from tf_eu_guard.checkov_runner import extract_failed_checks, load_checkov_json
+
+    capture = repo_root / END2END_FIXTURE
+    if not capture.exists():
+        pytest.skip(f"{END2END_FIXTURE} not present — run tools/smoke_check.py")
+
+    findings = extract_failed_checks(load_checkov_json(capture))
+    assert findings, "the end2end capture contains no failed checks (stale fixture?)"
+
+    unmapped = sorted({f["check_id"] for f in findings} - set(registry))
+    assert not unmapped, (
+        f"checks firing on examples/end2end/ have no registry mapping — a scan "
+        f"now reports them as unmapped: {unmapped}"
+    )
+
+# --- Registry expansion: CloudTrail / CodeBuild / ECS / ElastiCache / Aurora ---
+# These IDs were confirmed by running Checkov 3.3.13 against the corresponding
+# examples/end2end/*.tf fixtures, then authored. The tests guard the mapping
+# (not the fixture): if an entry is removed, the finding goes back to being
+# silently unmapped.
+
+EXPANSION_IDS = {
+    # cloudtrail.tf
+    "CKV_AWS_67", "CKV_AWS_36", "CKV_AWS_35", "CKV_AWS_252", "CKV2_AWS_10",
+    # codebuild.tf
+    "CKV_AWS_316", "CKV_AWS_147", "CKV_AWS_314",
+    # ecs.tf
+    "CKV_AWS_333", "CKV_AWS_65", "CKV_AWS_223", "CKV_AWS_224",
+    "CKV_AWS_332", "CKV_AWS_336", "CKV_AWS_249",
+    # elasticache.tf
+    "CKV_AWS_29", "CKV_AWS_30", "CKV_AWS_31", "CKV_AWS_191", "CKV2_AWS_50",
+    # rds-cluster.tf (all pre-existing)
+    "CKV_AWS_96", "CKV_AWS_139", "CKV_AWS_313", "CKV_AWS_324",
+    "CKV_AWS_325", "CKV_AWS_326", "CKV_AWS_327", "CKV_AWS_162", "CKV2_AWS_8",
+    # redshift.tf
+    "CKV_AWS_87", "CKV_AWS_64", "CKV_AWS_71", "CKV_AWS_321",
+    "CKV_AWS_142", "CKV_AWS_154", "CKV_AWS_391",
+    # waf.tf
+    "CKV_AWS_192", "CKV_AWS_175", "CKV2_AWS_31",
+}
+
+
+def test_registry_expansion_ids_are_mapped(registry):
+    """Every check confirmed firing on the end2end fixtures is mapped, so none
+    of them can silently degrade to an unmapped finding."""
+    absent = sorted(cid for cid in EXPANSION_IDS if cid not in registry)
+    assert not absent, f"expansion IDs missing from the registry: {absent}"
+
+
+@pytest.mark.parametrize("cid", sorted(EXPANSION_IDS))
+def test_registry_expansion_entry_is_complete(registry, cid):
+    """Each expansion entry carries articles, risk, remediation and a severity
+    — an entry with an empty field enriches to a blank report row."""
+    m = registry[cid]
+    assert m.articles, f"{cid} has no articles"
+    assert m.risk_explanation.strip(), f"{cid} has no risk text"
+    assert m.remediation.strip(), f"{cid} has no remediation text"
+    assert isinstance(m.severity, Severity), f"{cid} has no severity"
+
+
+@pytest.mark.parametrize("cid", ["CKV_AWS_87", "CKV_AWS_64"])
+def test_redshift_severity_matches_rds_precedent(registry, cid):
+    """Redshift exposure/encryption were calibrated against the RDS entries:
+    a public data warehouse is CRITICAL (matches CKV_AWS_17) and an unencrypted
+    one is HIGH (matches CKV_AWS_16)."""
+    assert cid in registry, f"{cid} not in registry"
+    assert registry[cid].severity == registry["CKV_AWS_17" if cid == "CKV_AWS_87" else "CKV_AWS_16"].severity
+
+
+def test_nis2_only_expansion_entries_have_no_gdpr_article(registry):
+    """CKV_AWS_321 (enhanced VPC routing) is a network-path control, not a
+    confidentiality measure — it is NIS2-only by design (methodology note 3 in
+    docs/check-mapping-table.md)."""
+    if "CKV_AWS_321" not in registry:
+        pytest.skip("CKV_AWS_321 not in registry")
+    assert _gdpr(registry["CKV_AWS_321"]) == set()
+    assert "Art. 21(2)(i)" in _nis2(registry["CKV_AWS_321"])

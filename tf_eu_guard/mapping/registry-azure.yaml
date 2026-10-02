@@ -15,7 +15,7 @@ CKV_AZURE_3:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(h)"
-      title: "Cryptography and encryption"
+      title: "Policies and procedures on the use of cryptography and encryption"
     - framework: GDPR
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
@@ -31,7 +31,7 @@ CKV_AZURE_44:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(h)"
-      title: "Cryptography and encryption"
+      title: "Policies and procedures on the use of cryptography and encryption"
     - framework: GDPR
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
@@ -47,10 +47,10 @@ CKV_AZURE_110:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(i)"
-      title: "Access control and asset management"
+      title: "Human resources security, access control policies and asset management"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "A Key Vault reachable from any network exposes stored secrets and keys to a wider attack surface than necessary."
   remediation: |
     resource "azurerm_key_vault" "example" {
@@ -66,10 +66,10 @@ CKV_AZURE_41:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(i)"
-      title: "Access control and asset management"
+      title: "Human resources security, access control policies and asset management"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Secrets without expiry dates remain valid indefinitely, increasing the window of exposure if compromised."
   remediation: |
     resource "azurerm_key_vault_secret" "example" {
@@ -82,10 +82,10 @@ CKV_AZURE_139:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(i)"
-      title: "Access control and asset management"
+      title: "Human resources security, access control policies and asset management"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Registry images accessible with the admin account bypass Azure AD-based access control."
   remediation: |
     resource "azurerm_container_registry" "example" {
@@ -101,10 +101,10 @@ CKV_AZURE_35:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(i)"
-      title: "Access control and asset management"
+      title: "Human resources security, access control policies and asset management"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Storage accounts that accept traffic from any network are reachable by attackers scanning for exposed data."
   remediation: |
     resource "azurerm_storage_account_network_rules" "example" {
@@ -117,10 +117,10 @@ CKV_AZURE_36:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(i)"
-      title: "Access control and asset management"
+      title: "Human resources security, access control policies and asset management"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Blocking trusted Microsoft services can force workarounds that widen access; allowlisting them keeps the default-deny posture workable."
   remediation: |
     resource "azurerm_storage_account_network_rules" "example" {
@@ -133,10 +133,10 @@ CKV_AZURE_11:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(g)"
-      title: "Network security"
+      title: "Basic cyber hygiene practices and cybersecurity training"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "A firewall rule allowing any source IP exposes the database to brute-force and exploitation attempts from the entire internet."
   remediation: |
     resource "azurerm_postgresql_firewall_rule" "example" {
@@ -150,10 +150,10 @@ CKV_AZURE_53:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(g)"
-      title: "Network security"
+      title: "Basic cyber hygiene practices and cybersecurity training"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "A MySQL server with public network access is reachable from any host on the internet."
   remediation: |
     resource "azurerm_mysql_server" "example" {
@@ -166,10 +166,10 @@ CKV_AZURE_48:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(g)"
-      title: "Network security"
+      title: "Basic cyber hygiene practices and cybersecurity training"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "A MariaDB server with public network access is reachable from any host on the internet."
   remediation: |
     resource "azurerm_mariadb_server" "example" {
@@ -182,10 +182,10 @@ CKV_AZURE_160:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(g)"
-      title: "Network security"
+      title: "Basic cyber hygiene practices and cybersecurity training"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "SSH open to the internet invites credential-stuffing and brute-force attacks against administrative access."
   remediation: |
     resource "azurerm_network_security_rule" "example" {
@@ -201,10 +201,10 @@ CKV_AZURE_59:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(i)"
-      title: "Access control and asset management"
+      title: "Human resources security, access control policies and asset management"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Storage account public access lets anyone retrieve blob data without authentication — a common cause of personal-data breaches."
   remediation: |
     resource "azurerm_storage_account" "example" {
@@ -220,7 +220,7 @@ CKV_AZURE_103:
       title: "Supply chain security"
     - framework: GDPR
       article: "Art. 32(1)(d)"
-      title: "Regular testing and assessment of effectiveness"
+      title: "Regularly testing, assessing and evaluating effectiveness"
   risk: "Pipelines edited directly in production have no version history or peer review, weakening change control for data-processing logic."
   remediation: |
     resource "azurerm_data_factory" "example" {
@@ -239,7 +239,7 @@ CKV_AZURE_37:
       title: "Incident handling"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Short log retention destroys the evidence needed to investigate and report security incidents within regulatory deadlines."
   remediation: |
     resource "azurerm_monitor_log_profile" "example" {
@@ -258,7 +258,7 @@ CKV_AZURE_38:
       title: "Incident handling"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Activity logs without retention leave no audit trail for incident forensics."
   remediation: |
     resource "azurerm_monitor_log_profile" "example" {
@@ -277,7 +277,7 @@ CKV_AZURE_84:
       title: "Incident handling"
     - framework: GDPR
       article: "Art. 32(1)(d)"
-      title: "Regular testing and assessment of effectiveness"
+      title: "Regularly testing, assessing and evaluating effectiveness"
   risk: "The free tier omits advanced threat detection, leaving attacks on workloads undetected."
   remediation: |
     resource "azurerm_security_center_subscription_pricing" "example" {
@@ -290,7 +290,7 @@ CKV_AZURE_17:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(h)"
-      title: "Cryptography and encryption"
+      title: "Policies and procedures on the use of cryptography and encryption"
     - framework: GDPR
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
@@ -309,7 +309,7 @@ CKV_AZURE_66:
       title: "Incident handling"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Without HTTP logs, requests to the app cannot be audited or investigated after an incident."
   remediation: |
     resource "azurerm_linux_web_app" "example" {
@@ -324,10 +324,10 @@ CKV_AZURE_82:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(i)"
-      title: "Access control and asset management"
+      title: "Human resources security, access control policies and asset management"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "An App Service without managed authentication exposes endpoints without verifying caller identity."
   remediation: |
     resource "azurerm_linux_web_app" "example" {
@@ -348,7 +348,7 @@ CKV_AZURE_50:
       title: "Supply chain security"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Third-party VM extensions run with elevated privileges and widen the supply-chain attack surface."
   remediation: |
     # Remove extension blocks from azurerm_linux_virtual_machine and manage agents explicitly.
@@ -359,7 +359,7 @@ CKV_AZURE_52:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(h)"
-      title: "Cryptography and encryption"
+      title: "Policies and procedures on the use of cryptography and encryption"
     - framework: GDPR
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
@@ -375,10 +375,10 @@ CKV_AZURE_45:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(i)"
-      title: "Access control and asset management"
+      title: "Human resources security, access control policies and asset management"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Custom RBAC roles bypass the audited, well-understood built-in roles and can grant unintended privileges."
   remediation: |
     # Replace custom azurerm_role_definition resources with built-in roles where possible.
@@ -392,7 +392,7 @@ CKV_AZURE_49:
       title: "Authentication and secured communications"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Confidentiality, integrity and availability"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: "Password-based authentication on VM scale sets is prone to brute force compared to SSH keys."
   remediation: |
     resource "azurerm_linux_virtual_machine_scale_set" "example" {

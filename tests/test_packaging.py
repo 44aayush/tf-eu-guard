@@ -16,6 +16,7 @@ that's the broken-packaging case it exists to catch.
 import subprocess
 import sys
 import zipfile
+from importlib.metadata import version as installed_version
 from pathlib import Path
 
 import pytest
@@ -25,6 +26,14 @@ pytest.importorskip("build")
 pytest.importorskip("hatchling")
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_runtime_version_comes_from_distribution_metadata():
+    """The import-time version must not be a second hand-maintained constant."""
+    from tf_eu_guard import __version__
+
+    assert __version__ == installed_version("tf-eu-guard")
+    assert __version__ == "0.5.0"
 
 #: The registry data files that must ship inside the wheel, verbatim.
 REGISTRY_FILES = (

@@ -8,6 +8,21 @@ terraform_plan fix), so this starts now rather than reconstructing
 history later. Versions follow the git tags/`__version__` at each
 release point.
 
+## [0.5.0] — Unreleased
+
+### Added
+
+- Immutable GitHub Action references, Dependabot updates, runtime dependency
+  locking, `pip-audit`, and CycloneDX SBOM generation in CI and releases.
+- Release builds and PyPI publishing run as separate least-privilege jobs.
+
+### Changed
+
+- The package and documented Action/pre-commit references now use `0.5.0`.
+- Auditor mapping rationale links resolve to the versioned public documentation,
+  including from pip-installed reports.
+- Documentation and CI use the timestamped `reports/*_report_*.html` contract.
+
 ## [0.4.2] — 2026-09-11
 
 ### Changed

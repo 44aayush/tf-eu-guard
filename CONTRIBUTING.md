@@ -21,10 +21,10 @@ Kubernetes check namespace:
 
 | File | Namespace |
 |------|-----------|
-| `registry-aws.yaml` | AWS (116 mappings — covers Terraform source *and* plan JSON, since the same `CKV_AWS_*` IDs fire in both modes) |
+| `registry-aws.yaml` | AWS (180 mappings — covers Terraform source *and* plan JSON, since the same `CKV_AWS_*` IDs fire in both modes) |
 | `registry-azure.yaml` | Azure (23 mappings) |
 | `registry-gcp.yaml` | GCP (22 mappings) |
-| `registry-kubernetes.yaml` | Kubernetes `CKV_K8S_*` (24 mappings) |
+| `registry-kubernetes.yaml` | Kubernetes `CKV_K8S_*` (25 mappings) |
 
 Check IDs are globally unique keys, so a mapping works for every IaC type its
 check ID fires under — only genuinely disjoint namespaces (like K8s) get their
@@ -89,6 +89,13 @@ bash install_and_test.sh
 
 (creates a venv, installs dev extras, runs pytest with coverage, and smoke-tests
 a scan of `examples/vulnerable-aws/`).
+
+## Dependency lock and supply-chain checks
+
+Runtime dependencies are resolved and hashed in `requirements.lock`; the Docker
+Action installs that file with `--require-hashes`. Refresh it deliberately with
+`pip-compile --generate-hashes --strip-extras --output-file=requirements.lock pyproject.toml`
+and run the CI supply-chain job before committing.
 
 ## Smoke checks (regression guard)
 

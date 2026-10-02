@@ -122,6 +122,9 @@ def test_every_registry_article_is_attributed(registry):
     from tf_eu_guard.mapping.coverage import _article_key
 
     inventory_keys = {(e["framework"].value, e["letter"]) for e in REQUIREMENTS}
+    # Supporting legal references such as GDPR's breach definition are
+    # intentionally outside the Art. 32/44 coverage inventory.
+    inventory_keys.update({("GDPR", "4(12)"), ("GDPR", "33")})
     for mapping in registry.values():
         for article in mapping.articles:
             key = _article_key(article.framework, article.article)
@@ -159,7 +162,7 @@ def test_committed_doc_is_in_sync_with_registries():
 def test_doc_check_detects_drift(registry, tmp_path, monkeypatch, capsys):
     """A doctored committed doc must fail the check — the guard actually guards."""
     doc = generate_coverage_doc.DOC_PATH
-    original = doc.read_text()
+    original = doc.read_text(encoding="utf-8")
     monkeypatch.setattr(
         generate_coverage_doc.Path, "read_text",
         lambda self, *a, **kw: original.replace("15 requirements", "99 requirements")
