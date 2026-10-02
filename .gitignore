@@ -4,7 +4,6 @@ __pycache__/
 *$py.class
 *.so
 *.lock
-!requirements.lock
 
 # Distribution / packaging
 .Python
