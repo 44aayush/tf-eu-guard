@@ -23,7 +23,7 @@ Run from the repo root. Install once (this also installs Checkov 3.3.13; require
 pip install -e .
 ```
 
-Verify with `tf-eu-guard version` (prints e.g. `tf-eu-guard 0.5.0`).
+Verify with `tf-eu-guard version` (prints `tf-eu-guard version 0.5.0` for this release).
 
 ## How to run
 
@@ -86,16 +86,16 @@ specifically want mapped findings alone. HTML reports are written to `reports/` 
 `--output-dir`/`--output-file`); mention the file paths to the user so they can open them.
 
 ## Interpreting the output
-Each finding has `check_id`, `severity` (CRITICAL/HIGH/MEDIUM/LOW), `resource`, `file_path`,
+Each finding has `check_id`, `severity` (CRITICAL/HIGH/MEDIUM/LOW/INFO), `resource`, `file_path`,
 and one or more `articles` (`{framework, article}`).
 
 **`--output json` returns mapped findings only** — a Checkov finding with no registry entry
 is silently absent from this array specifically. It is *not* absent from the scan: `dev` and
 `security` output show an "Unmapped Checkov findings: N" count, and `--output sarif` includes
 every unmapped finding as a full result with `properties.mapped: false`. If you only ever
-call `--output json`, you will not see that count — say so if you report a scan as "clean"
-based on JSON output alone, since a JSON-based "0 findings" can still mean real unmapped
-Checkov findings exist.
+call `--output json`, the unmapped count is printed to stderr rather than included in the
+JSON array — say so if you report a scan as "clean" based on JSON output alone, since a
+JSON-based "0 findings" can still mean real unmapped Checkov findings exist.
 
 Resource and line formats differ by `--iac-type`:
 - Terraform source: `aws_s3_bucket.data` addresses with real line ranges.
@@ -105,7 +105,7 @@ Resource and line formats differ by `--iac-type`:
 
 When reporting back to the user:
 1. Give counts by severity and by framework (NIS2 vs GDPR), and the unmapped count if you have it (`dev`/`security`/`sarif` output, not plain `json`).
-2. List the top findings (resource + file + the article each violates).
+2. List the top findings (resource + file + the relevant article reference).
 3. For remediation detail, point to `docs/nis2-mapping.md` and `docs/gdpr-mapping.md`.
 
 ## Notes

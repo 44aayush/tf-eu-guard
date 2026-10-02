@@ -4,7 +4,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![Checkov 3.3.13](https://img.shields.io/badge/checkov-3.3.13-8A2BE2)](https://www.checkov.io/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Mappings](https://img.shields.io/badge/NIS2%20%2B%20GDPR%20mappings-249-orange)](tf_eu_guard/mapping/registry-aws.yaml)
+[![Mappings](https://img.shields.io/badge/NIS2%20%2B%20GDPR%20mappings-250-orange)](tf_eu_guard/mapping/registry-aws.yaml)
 
 **EU compliance security linter for IaC** — scans **Terraform (source + plan JSON)** and **Kubernetes** manifests, mapping infrastructure misconfigurations to **NIS2** (Directive 2022/2555) and **GDPR** (Regulation 2016/679) requirements.
 
@@ -16,7 +16,7 @@ The [NIS2 Directive](https://eur-lex.europa.eu/eli/dir/2022/2555) requires cover
 
 Most organizations scan infrastructure-as-code with tools like Checkov or tfsec, but **the output is generic security findings** — not compliance mappings. Security teams must manually trace each finding to the relevant NIS2 or GDPR article, a slow and error-prone process that blocks audit preparation.
 
-**tf-eu-guard solves this**: it wraps Checkov, enriches each failed check with the exact NIS2/GDPR articles it violates, and produces reports structured for developers, security engineers, and auditors.
+**tf-eu-guard solves this**: it wraps Checkov, enriches each failed check with the relevant NIS2/GDPR article references, and produces reports structured for developers, security engineers, and auditors.
 
 ---
 
@@ -105,7 +105,7 @@ tf-eu-guard scan ./k8s --iac-type kubernetes --output all
 ```
 
 > **Try it:** `tf-eu-guard scan examples/vulnerable-kubernetes/ --iac-type kubernetes --output json`
-> returns ~24 mapped findings across pod security context, RBAC, network policy, secrets and
+> returns ~25 mapped findings across pod security context, RBAC, network policy, secrets and
 > resource limits. Kubernetes checks live in the separate `CKV_K8S_*` namespace, mapped in
 > `registry-kubernetes.yaml`.
 
@@ -247,7 +247,7 @@ esac
 
 ### Unmapped findings
 
-With 180 of Checkov's ~700 AWS checks mapped (plus Azure, GCP and Kubernetes),
+With 180 of Checkov's ~700 AWS checks mapped across AWS, Azure, GCP and Kubernetes,
 a scan can produce Checkov failures that have no current EU regulatory mapping.
 These are **not** silently dropped: every report format surfaces them as
 "present-but-unmapped" — a count in the dev/security/auditor reports, a
@@ -265,7 +265,7 @@ family (`CKV_AWS_10`–`15`).
 ### GitHub Action
 
 ```yaml
-- uses: 44aayush/tf-eu-guard@v1
+- uses: 44aayush/tf-eu-guard@v0.5.0
   with:
     path: './infra'
     iac-type: 'terraform'        # terraform | terraform_plan | kubernetes
@@ -278,6 +278,22 @@ The Action runs the same CLI inside the repo's Docker image, so it supports
 every `--iac-type` the CLI does — pass the `terraform show -json` plan file
 as `path` with `iac-type: terraform_plan`, or point at a manifest directory
 with `iac-type: kubernetes`.
+
+Action inputs mirror the scan options:
+
+| Input | CLI equivalent | Default |
+| --- | --- | --- |
+| `path` | positional `PATH` | `./terraform` |
+| `output` | `--output` | `json` |
+| `iac-type` | `--iac-type` | `terraform` |
+| `framework` | `--framework` | `all` |
+| `fail-on-severity` | `--fail-on-severity` | `HIGH` |
+| `fail-on-any` | `--fail-on-any` | `false` |
+| `checkov-json` | `--checkov-json` | empty |
+| `output-dir` | `--output-dir` | `reports/` |
+| `output-file` | `--output-file` | empty |
+| `upload-reports` | artifact upload | `false` |
+| `upload-sarif` | SARIF upload | `false` |
 
 Two optional extras:
 
@@ -296,8 +312,8 @@ jobs:
     permissions:
       security-events: write   # for upload-sarif
     steps:
-      - uses: actions/checkout@v4
-      - uses: 44aayush/tf-eu-guard@v1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: 44aayush/tf-eu-guard@v0.5.0
         with:
           path: './infra'
           output: sarif
@@ -327,9 +343,9 @@ declared in sibling files), so per-file invocation was never going to work.
 
 | Regulation | Terraform source | Terraform plan | Kubernetes |
 |------------|-----------------|----------------|------------|
-| **NIS2 Article 21(2)** | ✅ 219 cloud check mappings | ✅ same checks apply | ✅ 24 `CKV_K8S_*` mappings |
-| **GDPR Article 32(1)** | ✅ 176 cloud check mappings | ✅ same checks apply | ✅ 13 `CKV_K8S_*` mappings |
-| **GDPR Art. 44 (data residency)** | ✅ Custom check `EUGUARD_GDPR_001` | ✅ provider config visible in plan | ❌ Out of scope — see note |
+| **NIS2 Article 21(2)** | ✅ 219 cloud check mappings | ✅ same checks apply | ✅ 25 `CKV_K8S_*` mappings |
+| **GDPR Article 32(1)** | ✅ 176 cloud check mappings | ✅ same checks apply | ✅ 15 `CKV_K8S_*` mappings |
+| **GDPR Art. 44 (data residency)** | ✅ Custom check `EUGUARD_GDPR_001` | ❌ Checkov plan scans do not run provider checks; also scan Terraform source | ❌ Out of scope — see note |
 
 > Mapping counts above are generated from the registry files and verified in CI
 > (`tools/check_doc_counts.py`) — they cannot drift from the registries.
@@ -358,23 +374,21 @@ declared in sibling files), so per-file invocation was never going to work.
 
 ### Current Registry
 
-**249 Checkov checks mapped** — **AWS: 180 mappings | Azure: 23 | GCP: 22 | Kubernetes: 24** — covering
+**250 Checkov checks mapped** — **AWS: 180 mappings | Azure: 23 | GCP: 22 | Kubernetes: 25** — covering
 encryption at rest/in transit, logging & detection, backup & recovery,
 secure development/supply chain, secrets in code, IAM/access control, network
-segmentation, edge/CDN hardening, pod security context, RBAC, and resource limits:
+segmentation, pod security context, RBAC, and resource limits:
 
 - **IAM / access control**: CKV_AWS_273, 287, 288, 62, 286, 63, 355, 289, 290, 274, 40, 9, 109, 111, 283, 356, 70, 79, 162, 359, CKV2_AWS_40, CKV2_AWS_41, CKV2_AWS_52
-- **Encryption (rest + transit)**: CKV_AWS_145, 3, 8, 96, 5, 247, 44, 347, 279, 280, 327, 136, 189, 186, 173, 58, 7, 127, 376, 228, 379, 34, 174, 26, 149, 2, 103, 378, 31, 35, 29, 30, 119, 142, 147, 191, 64, CKV2_AWS_2, CKV2_AWS_42, CKV2_AWS_64, CKV2_AWS_69
-- **Logging / detection**: CKV_AWS_18, 157, 101, 84, 317, 324, 325, 92, 37, 50, 126, 353, 158, 338, 86, 91, 76, 36, 67, 71, 223, 252, CKV2_AWS_10, CKV2_AWS_11, CKV2_AWS_30, CKV2_AWS_31, CKV2_AWS_62
-- **Backup / resilience**: CKV_AWS_21, 144, 326, 361, 139, 115, 116, 135, 318, 313, 362, 310, 150, 261, 28, CKV2_AWS_8, CKV2_AWS_50, CKV2_AWS_58, CKV2_AWS_59, CKV2_AWS_60, CKV2_AWS_61
-- **Secure development / secrets**: CKV_AWS_226, 363, 272, 51, 163, 41, 45, 46, 316, 336, 249, 314, CKV2_AWS_57
-- **S3 / RDS / network exposure**: CKV_AWS_20, 53–56, 16, 17, 133, 129, 161, 293, 118, 24, 25, 260, 382, 137, 248, 38, 39, 117, 23, 130, 87, 154, 321, 391, CKV2_AWS_5, CKV2_AWS_6, CKV2_AWS_12, CKV2_AWS_61
-- **Edge / CDN / ALB hardening**: CKV_AWS_305, 374, 131, 328, 73, 120, 225, 237, 276, 217, 68, 175, 192, CKV2_AWS_20, CKV2_AWS_28, CKV2_AWS_29, CKV2_AWS_32, CKV2_AWS_42, CKV2_AWS_47, CKV2_AWS_51, CKV2_AWS_57
-- **ECS / container hardening**: CKV_AWS_65, 223, 224, 249, 332, 333, 336, 316
-- **Custom**: EUGUARD_GDPR_001 (regions outside the EU Sovereign Cloud), EUGUARD_NIS2_001 (hardcoded secrets — Terraform and Kubernetes variants)
+- **Encryption (rest + transit)**: CKV_AWS_145, 3, 8, 96, 5, 247, 44, 347, 279, 280, 327, 136, 189, 186, 173, 58, 7, 127, 376, 228, 379, CKV2_AWS_2, CKV2_AWS_64, CKV2_AWS_69
+- **Logging / detection**: CKV_AWS_18, 157, 101, 84, 317, 324, 325, 92, 37, 50, 126, 353, 158, 338, CKV2_AWS_11, CKV2_AWS_30, CKV2_AWS_62
+- **Backup / resilience**: CKV_AWS_21, 144, 326, 361, 139, 115, 116, 135, 318, 313, 362, CKV2_AWS_8, CKV2_AWS_58, CKV2_AWS_59, CKV2_AWS_60, CKV2_AWS_61
+- **Secure development / secrets**: CKV_AWS_226, 363, 272, 51, 163, 41, 45, 46
+- **S3 / RDS / network exposure**: CKV_AWS_20, 53–56, 16, 17, 133, 129, 161, 293, 118, 24, 25, 260, 382, 137, 248, 38, 39, 117, 23, CKV2_AWS_6, CKV2_AWS_12, CKV2_AWS_5
+- **Custom**: EUGUARD_GDPR_001 (regions outside the EU Sovereign Cloud), EUGUARD_NIS2_001 (Terraform/CodeBuild secrets), EUGUARD_NIS2_002 (Kubernetes secrets)
 - **Azure** (23): `tf_eu_guard/mapping/registry-azure.yaml` — storage account encryption/public access, SQL firewall & public network access, Key Vault network rules, App Service HTTPS/auth/logging, NSG SSH rules, and more
 - **GCP** (22): `tf_eu_guard/mapping/registry-gcp.yaml` — GCS bucket CMEK/public IAM, Cloud SQL public IP/SSL/CMEK, GKE private clusters/ABAC/authorized networks, VPC flow logs, and more
-- **Kubernetes** (24): `tf_eu_guard/mapping/registry-kubernetes.yaml` — pod security context (privileged/root/capabilities), RBAC privilege escalation, missing NetworkPolicy, secrets as literals, resource requests/limits, image hygiene, health probes
+- **Kubernetes** (25): `tf_eu_guard/mapping/registry-kubernetes.yaml` — pod security context (privileged/root/capabilities), RBAC privilege escalation, missing NetworkPolicy, secrets as literals, resource requests/limits, image hygiene, health probes
 
 The registry is split per namespace — `registry-aws.yaml`, `registry-azure.yaml`, `registry-gcp.yaml`, `registry-kubernetes.yaml` — and every entry is schema-validated in CI. The AWS registry covers both Terraform source and Terraform plan JSON (same `CKV_AWS_*` IDs fire in both modes).
 
@@ -427,14 +441,15 @@ The registry is split per namespace — `registry-aws.yaml`, `registry-azure.yam
 ┌──────────────────────────────────────────┐
 │  Reports:                                 │
 │  • Terminal rich table                    │
-│  • dev-report.html                        │
-│  • scan-report.html (dashboard)           │
-│  • auditor-report.html (by article)       │
+│  • reports/dev_report_<timestamp>.html   │
+│  • reports/scan_report_<timestamp>.html  │
+│  • reports/auditor_report_<timestamp>.html│
 │  • JSON (for CI/tooling)                  │
+│  • SARIF (for GitHub Code Scanning)       │
 └──────────────────────────────────────────┘
 ```
 
-**Key differentiator**: The EU compliance mapping registry. Without it, this is just another Checkov wrapper. With it, it's the bridge from "S3 bucket not encrypted" to "violates NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a)."
+**Key differentiator**: The EU compliance mapping registry. Without it, this is just another Checkov wrapper. With it, it's the bridge from "S3 bucket not encrypted" to the NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) controls that may be relevant.
 
 > A prose walkthrough of the pipeline (including where the unmapped-findings
 > split happens and why Checkov is a swappable, pinned detection backend):

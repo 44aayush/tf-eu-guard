@@ -34,21 +34,43 @@ NIS2_TITLES: dict[str, str] = {
     "d": "Supply chain security",
     "e": "Security in network and information systems acquisition, development and maintenance",
     "f": "Policies and procedures to assess the effectiveness of risk-management measures",
-    "g": "Cyber hygiene practices and training",
+    "g": "Basic cyber hygiene practices and cybersecurity training",
     "h": "Policies and procedures on the use of cryptography and encryption",
     "i": "Human resources security, access control policies and asset management",
     "j": "Authentication and secured communications",
 }
 
 #: GDPR requirement key -> canonical short title. Art. 32(1)(a)–(d) plus
+#: the breach-notification/definition references used by registry risk text and
 #: Art. 44 (transfers — covered by the custom EUGUARD_GDPR_001 check).
 GDPR_TITLES: dict[str, str] = {
+    "4(12)": "Personal data breach",
     "32(1)(a)": "Pseudonymisation and encryption of personal data",
     "32(1)(b)": "Confidentiality, integrity, availability and resilience of processing systems",
     "32(1)(c)": "Ability to restore availability and access to personal data in a timely manner",
     "32(1)(d)": "Regularly testing, assessing and evaluating effectiveness",
+    "33": "Notification of a personal data breach to the supervisory authority",
     "44": "General principle for transfers of personal data to third countries",
 }
+
+#: Canonical article labels used by every registry entry and report. Keeping
+#: these in one table prevents the auditor report from inheriting whichever
+#: registry happened to be loaded first.
+ARTICLE_TITLES: dict[tuple[Framework, str], str] = {
+    **{
+        (Framework.NIS2, f"Art. 21(2)({letter})"): title
+        for letter, title in NIS2_TITLES.items()
+    },
+    **{
+        (Framework.GDPR, f"Art. {article}"): title
+        for article, title in GDPR_TITLES.items()
+    },
+}
+
+
+def canonical_article_title(framework: Framework, article: str) -> str | None:
+    """Return the authoritative title for an article reference."""
+    return ARTICLE_TITLES.get((framework, article))
 
 # ---------------------------------------------------------------------------
 # The inventory. Authored once: classifications and rationales are human

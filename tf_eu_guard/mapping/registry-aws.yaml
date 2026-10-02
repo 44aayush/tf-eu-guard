@@ -63,12 +63,19 @@ CKV_AWS_288:
     - framework: GDPR
       article: "Art. 32(1)(b)"
       title: "Confidentiality, integrity, availability and resilience of processing systems"
+    - framework: GDPR
+      article: "Art. 4(12)"
+      title: "Personal data breach"
+    - framework: GDPR
+      article: "Art. 33"
+      title: "Notification of a personal data breach to the supervisory authority"
   risk: >
     Broad read actions on all resources (s3:GetObject, secretsmanager:GetSecretValue,
     rds:DownloadDBLogFilePortion on "*") enable bulk exfiltration of data — if that
-    data is personal, any exfiltration through them would be a reportable GDPR
-    breach — and are a direct failure of the access control expected by
-    NIS2 Art. 21(2)(i).
+    data is personal, an exfiltration through them may constitute a personal data
+    breach (GDPR Art. 4(12)); notification under Art. 33 depends on the risk
+    assessment. These permissions may indicate a control gap relevant to the
+    access control expected by NIS2 Art. 21(2)(i).
   remediation: |
     Constrain read actions to specific resource ARNs, never "*":
       "Action": ["s3:GetObject"]
@@ -86,8 +93,8 @@ CKV_AWS_62:
       title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: >
     A policy granting Action "*" on Resource "*" is unrestricted administrative
-    access. It violates least privilege, defeats access segregation, and gives any
-    holder the ability to read, alter, or destroy all data - contrary to both
+    access. It can weaken least privilege and access segregation, and gives any
+    holder the ability to read, alter, or destroy all data - which may weaken both
     NIS2 Art. 21(2)(i) and the confidentiality/integrity goals of GDPR Art. 32(1)(b).
   remediation: |
     Replace the wildcard grant with explicit, scoped statements:
@@ -131,9 +138,9 @@ CKV_AWS_63:
       title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: >
     A statement with Action "*" grants every API action the principal can hold.
-    Even when the resource is scoped, an unrestricted action set defeats least
+    Even when the resource is scoped, an unrestricted action set weakens least
     privilege and lets a compromised identity read or alter any reachable data -
-    contrary to the access control of NIS2 Art. 21(2)(i) and the confidentiality
+    which may weaken the access control of NIS2 Art. 21(2)(i) and the confidentiality
     goal of GDPR Art. 32(1)(b).
   remediation: |
     Enumerate only the actions the workload needs:
@@ -307,8 +314,9 @@ CKV_AWS_20:
       title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: >
     A public-READ ACL exposes every object in the bucket to anonymous internet users.
-    If the bucket holds personal data this is a direct failure of the confidentiality
-    GDPR Art. 32(1)(b) requires and a failure of access control under NIS2 Art. 21(2)(i).
+    If the bucket holds personal data this may weaken the confidentiality safeguards
+    expected by GDPR Art. 32(1)(b) and the access-control measures relevant to NIS2
+    Art. 21(2)(i).
   remediation: |
     Remove the public ACL and keep the bucket private:
       # Before:
@@ -326,7 +334,7 @@ CKV_AWS_53:
       title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: >
     With block_public_acls disabled, a future ACL change can silently make objects
-    public, defeating the confidentiality control GDPR Art. 32(1)(b) requires. The
+    public, weakensing the confidentiality control GDPR Art. 32(1)(b) requires. The
     public access block is the account-level guardrail that prevents that drift.
   remediation: |
     Enable the guardrail on the bucket's public access block:
@@ -397,7 +405,7 @@ CKV_AWS_56:
   risk: >
     With restrict_public_buckets disabled, a public bucket policy grants access to
     all principals and anonymous users rather than only authorised AWS services and
-    users, widening exposure of personal data contrary to GDPR Art. 32(1)(b).
+    users, widening exposure of personal data which may weaken GDPR Art. 32(1)(b).
   remediation: |
     Enable the guardrail on the bucket's public access block:
       restrict_public_buckets = true
@@ -481,8 +489,9 @@ CKV_AWS_17:
       title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: >
     A publicly accessible database is reachable from the internet, exposing personal
-    data to credential-stuffing and exploitation. This is a confidentiality failure
-    under GDPR Art. 32(1)(b) and an access control failure under NIS2 Art. 21(2)(i).
+    data to credential-stuffing and exploitation. This may weaken the
+    confidentiality safeguards expected by GDPR Art. 32(1)(b) and the access
+    control measures relevant to NIS2 Art. 21(2)(i).
   remediation: |
     Keep the instance private and reach it only from within the VPC:
       publicly_accessible = false
@@ -518,7 +527,7 @@ CKV_AWS_129:
   risk: >
     Without database engine logs exported to CloudWatch, suspicious queries and
     authentication failures leave no trail, so a data-access incident cannot be
-    detected or investigated - contrary to NIS2 Art. 21(2)(b).
+    detected or investigated - which may weaken NIS2 Art. 21(2)(b).
   remediation: |
     Export the relevant engine logs:
       enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
@@ -571,7 +580,7 @@ CKV_AWS_118:
   risk: >
     Without enhanced monitoring, OS-level metrics (CPU, memory, process and I/O
     activity) are unavailable, so resource-exhaustion attacks or anomalous database
-    host behaviour cannot be detected or investigated - contrary to the incident
+    host behaviour cannot be detected or investigated - which may weaken the incident
     detection and handling required by NIS2 Art. 21(2)(b).
   remediation: |
     Enable enhanced monitoring with a monitoring role and a non-zero interval:
@@ -710,8 +719,8 @@ CKV_AWS_24:
   risk: >
     SSH (port 22) open to 0.0.0.0/0 exposes administrative shell access to the entire
     internet, inviting brute-force and exploitation of any host that may process
-    personal data. This is a failure of network access control (NIS2 Art. 21(2)(i))
-    and of the confidentiality safeguards GDPR Art. 32(1)(b) requires.
+    personal data. This may weaken the network access-control measures relevant to
+    NIS2 Art. 21(2)(i) and the confidentiality safeguards expected by GDPR Art. 32(1)(b).
   remediation: |
     Restrict SSH to a bastion or corporate CIDR, never the internet:
       # Before:
@@ -908,7 +917,7 @@ CKV2_AWS_2:
   risk: >
     An unencrypted EBS volume attached to an EC2 instance leaves all data on that
     volume readable by anyone who obtains the snapshot or the physical disk. Data at
-    rest without encryption defeats the encryption policies NIS2 Art. 21(2)(h)
+    rest without encryption weakens the encryption policies NIS2 Art. 21(2)(h)
     requires and the pseudonymisation/encryption safeguards of GDPR Art. 32(1)(a).
   remediation: |
     Enable encryption on every EBS volume (and default encryption at the account level):
@@ -952,7 +961,7 @@ CKV_AWS_8:
   risk: >
     Launch configurations and launch templates that omit EBS encryption propagate
     unencrypted root and data volumes to every instance they create, so a single
-    omission scales into fleet-wide plaintext storage — contrary to NIS2 Art. 21(2)(h)
+    omission scales into fleet-wide plaintext storage — which may weaken NIS2 Art. 21(2)(h)
     encryption policies and GDPR Art. 32(1)(a).
   remediation: |
     Enable EBS encryption in the launch template block device mapping:
@@ -978,8 +987,8 @@ CKV_AWS_96:
   risk: >
     An Aurora cluster without storage encryption keeps personal data in plaintext on
     the cluster volume, its snapshots, and replicas. Databases are the most common
-    location of personal data, making this a direct GDPR Art. 32(1)(a) failure and a
-    direct failure of the encryption policy NIS2 Art. 21(2)(h) requires.
+    location of personal data, making this a potential control gap relevant to GDPR Art. 32(1)(a) and a
+    potential gap in the encryption policy expected by NIS2 Art. 21(2)(h).
   remediation: |
     Enable encryption when creating the cluster (cannot be enabled later):
       resource "aws_rds_cluster" "main" {
@@ -1047,7 +1056,7 @@ CKV_AWS_44:
   risk: >
     A Neptune graph database without storage encryption stores its vertices, edges,
     and property data — often relationship graphs of individuals — in plaintext on
-    disk and in snapshots, contrary to NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a).
+    disk and in snapshots, which may weaken NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a).
   remediation: |
     Enable encryption at cluster creation (immutable afterwards):
       resource "aws_neptune_cluster" "main" {
@@ -1155,7 +1164,7 @@ CKV_AWS_136:
   risk: >
     Container images bundle application code, configuration, and sometimes embedded
     secrets. An ECR repository on the default AES256 alias keeps that content outside
-    the organisation's key governance, contrary to the cryptography policy of NIS2
+    the organisation's key governance, which may weaken the cryptography policy of NIS2
     Art. 21(2)(h) and the encryption safeguard of GDPR Art. 32(1)(a).
   remediation: |
     Set a KMS key on the repository:
@@ -1322,7 +1331,7 @@ CKV_AWS_127:
   risk: >
     An ELB listener without an ACM-managed certificate either serves traffic over
     plaintext or with ungoverned certificates that may expire silently, breaking TLS
-    for personal data in transit — contrary to NIS2 Art. 21(2)(h) and GDPR
+    for personal data in transit — which may weaken NIS2 Art. 21(2)(h) and GDPR
     Art. 32(1)(a).
   remediation: |
     Terminate TLS on the load balancer with an ACM certificate:
@@ -1417,8 +1426,8 @@ CKV2_AWS_69:
   risk: >
     An RDS instance without an SSL-enforcing parameter (rds.force_ssl) accepts
     plaintext database sessions, so queries carrying personal data cross the network
-    unencrypted — a failure of the cryptography policy NIS2 Art. 21(2)(h) requires
-    and the encryption GDPR Art. 32(1)(a) names.
+    unencrypted — a potential gap in the cryptography measures relevant to NIS2
+    Art. 21(2)(h) and the encryption safeguard named by GDPR Art. 32(1)(a).
   remediation: |
     Force TLS on the instance's parameter group:
       resource "aws_db_parameter_group" "main" {
@@ -1505,7 +1514,7 @@ CKV_AWS_324:
   risk: >
     An RDS cluster that exports no logs leaves connection attempts, slow queries, and
     errors unrecorded. Detection and analysis of an incident touching personal data
-    becomes impossible, contrary to NIS2 Art. 21(2)(b) and the resilience of
+    becomes impossible, which may weaken NIS2 Art. 21(2)(b) and the resilience of
     processing GDPR Art. 32(1)(b) expects.
   remediation: |
     Export engine logs to CloudWatch:
@@ -1635,7 +1644,7 @@ CKV2_AWS_30:
       title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: >
     Without Postgres log capture (log_connections, log_disconnections, log_statement)
-    there is no record of who touched personal data in the database, defeating the
+    there is no record of who touched personal data in the database, weakensing the
     incident detection and analysis NIS2 Art. 21(2)(b) requires and the accountable
     processing security of GDPR Art. 32(1)(b).
   remediation: |
@@ -1681,9 +1690,10 @@ CKV_AWS_144:
   risk: >
     A bucket replicated only in one region is lost with that region. Cross-region
     replication is the mechanism that keeps personal data available and restorable
-    after a regional outage, as NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c) require.
+    after a regional outage, relevant to NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c).
   remediation: |
-    Replicate the bucket to a second region:
+    Replicate the bucket to another region permitted by the EU Sovereign Cloud
+    policy (an in-policy region, when available):
       resource "aws_s3_bucket_replication_configuration" "data" {
         role   = aws_iam_role.replication.arn
         bucket = aws_s3_bucket.data.id
@@ -2010,7 +2020,7 @@ CKV_AWS_363:
   risk: >
     A deprecated Lambda runtime no longer receives security patches, so the function
     that processes personal data runs on software with known, unfixable
-    vulnerabilities — squarely against the maintenance duties of NIS2 Art. 21(2)(e)
+    vulnerabilities — is inconsistent with the maintenance duties of NIS2 Art. 21(2)(e)
     and the security of processing GDPR Art. 32(1)(b) expects.
   remediation: |
     Rebuild the function on a supported runtime:
@@ -2048,7 +2058,7 @@ CKV_AWS_51:
   articles:
     - framework: NIS2
       article: "Art. 21(2)(e)"
-      title: "Security in network and information systems acquisition and development and maintenance"
+      title: "Security in network and information systems acquisition, development and maintenance"
     - framework: GDPR
       article: "Art. 32(1)(b)"
       title: "Confidentiality, integrity, availability and resilience of processing systems"
@@ -2072,7 +2082,7 @@ CKV_AWS_163:
       title: "Security in network and information systems acquisition, development and maintenance"
     - framework: GDPR
       article: "Art. 32(1)(b)"
-      title: "Pseudonymisation and encryption of personal data"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: >
     Images pushed without scanning carry known CVEs straight into production,
     including into workloads that process personal data. Scan-on-push implements the
@@ -2101,13 +2111,13 @@ CKV_AWS_41:
   risk: >
     Hard-coded AWS credentials in the provider block are committed to version control,
     readable by everyone with repo access and impossible to revoke safely. Insecure
-    handling of secrets is a development-practice failure under NIS2 Art. 21(2)(e)
-    and gives uncontrolled access to personal data, contrary to GDPR Art. 32(1)(b).
+    handling of secrets is a development-practice potential control gap relevant to NIS2 Art. 21(2)(e)
+    and gives uncontrolled access to personal data, which may weaken GDPR Art. 32(1)(b).
   remediation: |
     Never inline credentials — use ambient roles or injected variables:
       provider "aws" {
         # in CI: assume-role / OIDC; locally: aws sso login
-        region = var.region
+        region = "eusc-de-east-1"
       }
   severity: CRITICAL
 
@@ -2174,7 +2184,7 @@ CKV2_AWS_40:
   risk: >
     A policy granting full iam:* lets its holder create users, roles, and policies —
     including new admin access — so privilege escalation is one API call away. This
-    defeats the access control NIS2 Art. 21(2)(i) requires and endangers all personal
+    weakens the access control NIS2 Art. 21(2)(i) requires and endangers all personal
     data under GDPR Art. 32(1)(b).
   remediation: |
     Never grant iam:* ; scope the few IAM actions genuinely needed:
@@ -2198,7 +2208,7 @@ CKV_AWS_109:
     Permissions-management actions (iam:PutRolePolicy, s3:PutBucketPolicy, etc.)
     without resource constraints let a principal rewrite who may access what —
     collapsing the access control NIS2 Art. 21(2)(i) mandates and exposing personal
-    data, contrary to GDPR Art. 32(1)(b).
+    data, which may weaken GDPR Art. 32(1)(b).
   remediation: |
     Bound permission-management actions with explicit resources and conditions:
       {
@@ -2221,7 +2231,7 @@ CKV_AWS_111:
     Unconstrained write access (Action "s3:*" or "logs:*" on Resource "*") lets a
     compromised principal modify or destroy any matching resource — an integrity and
     availability risk to personal data under GDPR Art. 32(1)(b) and a least-
-    privilege failure under NIS2 Art. 21(2)(i).
+    privilege potential control gap relevant to NIS2 Art. 21(2)(i).
   remediation: |
     Constrain writes to named resources:
       {
@@ -2243,8 +2253,8 @@ CKV_AWS_283:
   risk: >
     A Principal of "*" (or any AWS principal) in a resource policy hands the resource
     to every account on the planet — for S3/KMS resources that means public access to
-    personal data, a total failure of the access control NIS2 Art. 21(2)(i) requires
-    and of confidentiality under GDPR Art. 32(1)(b).
+    personal data and a potential control gap relevant to the access-control measures
+    in NIS2 Art. 21(2)(i) and confidentiality safeguards expected by GDPR Art. 32(1)(b).
   remediation: |
     Name the exact principals that need access:
       # Before:
@@ -2287,8 +2297,9 @@ CKV_AWS_70:
   risk: >
     A bucket policy statement whose Principal is "*" makes the bucket world-accessible
     for the listed actions — exposing any personal data in it to unauthenticated
-    access, and a direct failure of the access control NIS2 Art. 21(2)(i) and the
-    confidentiality GDPR Art. 32(1)(b) require.
+    access and creating a potential control gap relevant to the access-control
+    measures in NIS2 Art. 21(2)(i) and the confidentiality safeguards expected by
+    GDPR Art. 32(1)(b).
   remediation: |
     Restrict the bucket policy to named principals:
       {
@@ -2457,7 +2468,7 @@ CKV_AWS_38:
   risk: >
     An EKS API endpoint open to 0.0.0.0/0 lets anyone on the internet attempt
     credential attacks against the cluster that hosts workloads processing personal
-    data — a network access control failure under NIS2 Art. 21(2)(i) and a direct
+    data — a network access control potential control gap relevant to NIS2 Art. 21(2)(i) and a direct
     exposure under GDPR Art. 32(1)(b).
   remediation: |
     Restrict the endpoint to known CIDRs:
@@ -2580,7 +2591,7 @@ CKV_AWS_338:
       title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: >
     Short log retention destroys the evidence trail before many incidents are
-    discovered (breaches are frequently detected months after the fact), defeating
+    discovered (breaches are frequently detected months after the fact), weakensing
     the post-incident analysis NIS2 Art. 21(2)(b) requires and the accountable
     processing security of GDPR Art. 32(1)(b).
   remediation: |
@@ -3664,7 +3675,7 @@ CKV_AWS_333:
     through the load balancer or the NAT gateway that egress is meant to traverse.
     This is the same uncontrolled exposure as a publicly accessible database
     (cf. CKV_AWS_17) or a subnet that assigns public IPs by default
-    (cf. CKV_AWS_130): a network segmentation and access control failure under
+    (cf. CKV_AWS_130): a network segmentation and access control control gap relevant to
     NIS2 Art. 21(2)(i) and a confidentiality risk to the systems that process
     personal data under GDPR Art. 32(1)(b).
   remediation: |
@@ -3899,8 +3910,8 @@ CKV_AWS_31:
   risk: >
     Without an AUTH token any client that can reach the cluster can read and write
     its keys — there is no authentication boundary in front of the session store.
-    That is an access control failure under NIS2 Art. 21(2)(i) and a confidentiality
-    failure under GDPR Art. 32(1)(b).
+    That is an access control control gap relevant to NIS2 Art. 21(2)(i) and a confidentiality
+    control gap relevant to GDPR Art. 32(1)(b).
   remediation: |
     Set an AUTH token and store it in Secrets Manager, not in the module:
       resource "aws_elasticache_replication_group" "sessions" {
@@ -3975,8 +3986,8 @@ CKV_AWS_87:
   risk: >
     A publicly accessible data warehouse is reachable from the internet, exposing
     the analytics copy of personal data to credential-stuffing and exploitation.
-    This is a confidentiality failure under GDPR Art. 32(1)(b) and an access control
-    failure under NIS2 Art. 21(2)(i).
+    This is a confidentiality control gap relevant to GDPR Art. 32(1)(b) and an access control
+    control gap relevant to NIS2 Art. 21(2)(i).
   remediation: |
     Keep the cluster private and reach it only from within the VPC:
       publicly_accessible = false
@@ -4069,7 +4080,7 @@ CKV_AWS_391:
   risk: >
     A well-known master username (`admin`) on an internet-reachable cluster is the
     combination automated scanners look for first, so the database is one guessed
-    password away from exposure. That is an access control failure under NIS2
+    password away from exposure. That is an access control control gap relevant to NIS2
     Art. 21(2)(i) and a confidentiality risk under GDPR Art. 32(1)(b).
   remediation: |
     Use a non-default master username and keep the cluster private:
@@ -4183,7 +4194,7 @@ CKV2_AWS_31:
     A Web ACL with no logging configuration discards every request it sees, so
     blocked and allowed traffic alike leave no record. After an incident there is
     nothing to scope it from, and the WAF cannot be used as security evidence -
-    contrary to NIS2 Art. 21(2)(b), which requires the ability to handle and
+    which may weaken NIS2 Art. 21(2)(b), which requires the ability to handle and
     analyse incidents.
   remediation: |
     Attach a logging configuration:

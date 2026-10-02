@@ -3,6 +3,8 @@
 from pathlib import Path
 
 from rich.console import Console
+from rich.markup import escape
+from rich.text import Text
 
 from tf_eu_guard.models import EnrichedFinding, ScanReport
 from tf_eu_guard.reporting._html_common import safe_guideline
@@ -42,12 +44,12 @@ class DevReporter(BaseReporter):
 
         output = []
         output.append("\n[bold]tf-eu-guard scan results[/bold]")
-        output.append(f"Target: {report.target_path}")
-        output.append(f"Timestamp: {report.scan_timestamp}")
+        output.append(f"Target: {escape(str(report.target_path))}")
+        output.append(f"Timestamp: {escape(str(report.scan_timestamp))}")
         output.append(f"\nFindings: {report.total_failed} failed / {report.total_checks_run} total\n")
 
         for file_path, findings in sorted(by_file.items()):
-            output.append(f"\n[bold cyan]{file_path}[/bold cyan]")
+            output.append(f"\n[bold cyan]{escape(str(file_path))}[/bold cyan]")
 
             # Sort findings by severity within each file (unknown severities last)
             sorted_findings = sorted(
@@ -60,31 +62,39 @@ class DevReporter(BaseReporter):
             for finding in sorted_findings:
                 severity_color = SEVERITY_COLOR_TERMINAL[finding.severity]
 
-                output.append(f"\n  [{severity_color}]●[/{severity_color}] {finding.check_id}: {finding.check_name}")
-                output.append(f"    Resource: {finding.resource}")
+                output.append(
+                    f"\n  [{severity_color}]●[/{severity_color}] "
+                    f"{escape(str(finding.check_id))}: {escape(str(finding.check_name))}"
+                )
+                output.append(f"    Resource: {escape(str(finding.resource))}")
                 line_ref = _line_ref(finding)
                 if line_ref:
-                    output.append(f"    Lines: {line_ref}")
-                output.append(f"    Severity: [{severity_color}]{finding.severity.value}[/{severity_color}]")
+                    output.append(f"    Lines: {escape(str(line_ref))}")
+                output.append(
+                    f"    Severity: [{severity_color}]{escape(finding.severity.value)}"
+                    f"[/{severity_color}]"
+                )
 
                 if finding.articles:
-                    articles_str = ", ".join(f"{a.framework.value} {a.article}" for a in finding.articles)
+                    articles_str = ", ".join(
+                        f"{escape(str(a.framework.value))} {escape(str(a.article))}"
+                        for a in finding.articles
+                    )
                     output.append(f"    Compliance: {articles_str}")
 
-                output.append(f"\n    [dim]{finding.risk_explanation}[/dim]")
+                output.append(f"\n    [dim]{escape(str(finding.risk_explanation))}[/dim]")
 
                 if finding.remediation:
                     output.append("\n    [bold]Fix:[/bold]")
-                    output.append(f"    {finding.remediation}")
+                    output.append(f"    {escape(str(finding.remediation))}")
 
         report_text = "\n".join(output)
 
         if output_path:
-            with open(output_path, "w", encoding="utf-8") as f:
-                # Strip Rich markup for file output
-                import re
-                plain_text = re.sub(r'\[.*?\]', '', report_text)
-                f.write(plain_text)
+            with open(output_path, "w") as f:
+                # Parse the known report markup so escaped user brackets remain
+                # literal instead of being removed by a broad regex.
+                f.write(Text.from_markup(report_text).plain)
 
         return report_text
 
@@ -150,7 +160,7 @@ def generate_dev_report(
 
     # Display findings
     for file_path, file_findings in sorted(by_file.items()):
-        console.print(f"\n[bold cyan]File: {file_path}[/bold cyan]")
+        console.print(f"\n[bold cyan]File: {escape(str(file_path))}[/bold cyan]")
 
         # Sort by severity (unknown severities last)
         sorted_findings = sorted(
@@ -164,37 +174,47 @@ def generate_dev_report(
             # Severity badge
             severity_color = SEVERITY_COLOR_TERMINAL[finding.severity]
 
-            console.print(f"\n  [{severity_color}]●[/{severity_color}] [bold]{finding.check_id}[/bold]: {finding.check_name}")
-            console.print(f"    [dim]Resource:[/dim] {finding.resource}")
+            console.print(
+                f"\n  [{severity_color}]●[/{severity_color}] [bold]"
+                f"{escape(str(finding.check_id))}[/bold]: "
+                f"{escape(str(finding.check_name))}"
+            )
+            console.print(f"    [dim]Resource:[/dim] {escape(str(finding.resource))}")
             line_ref = _line_ref(finding)
             if line_ref:
-                console.print(f"    [dim]Lines:[/dim] {line_ref}")
-            console.print(f"    [dim]Severity:[/dim] [{severity_color}]{finding.severity.value}[/{severity_color}]")
+                console.print(f"    [dim]Lines:[/dim] {escape(str(line_ref))}")
+            console.print(
+                f"    [dim]Severity:[/dim] [{severity_color}]"
+                f"{escape(finding.severity.value)}[/{severity_color}]"
+            )
 
             # Compliance articles
             if finding.articles:
                 articles_str = ", ".join(
-                    f"[bold]{a.framework.value}[/bold] {a.article}"
+                    f"[bold]{escape(str(a.framework.value))}[/bold] "
+                    f"{escape(str(a.article))}"
                     for a in finding.articles
                 )
                 console.print(f"    [dim]Compliance:[/dim] {articles_str}")
 
             # Risk explanation
-            console.print(f"\n    [italic]{finding.risk_explanation}[/italic]")
+            console.print(
+                f"\n    [italic]{escape(str(finding.risk_explanation))}[/italic]"
+            )
 
             # Remediation
             if finding.remediation:
                 console.print("\n    [bold]Remediation:[/bold]")
                 # Indent remediation code
                 for line in finding.remediation.strip().split('\n'):
-                    console.print(f"      [dim]{line}[/dim]")
+                    console.print(f"      [dim]{escape(line)}[/dim]")
 
             # Guideline link — scheme-validated: a javascript: guideline must
             # not become a clickable link in terminal markup either, and Rich
             # [link=...] interpolates the value raw (no markup escaping).
             guideline = safe_guideline(finding.guideline)
             if guideline:
-                console.print(f"\n    [link={guideline}]→ Documentation[/link]")
+                console.print(f"\n    [link={escape(guideline)}]→ Documentation[/link]")
 
     # Footer
     console.print("\n[bold]═══════════════════════════════════════════════════[/bold]\n")

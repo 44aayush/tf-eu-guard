@@ -1,9 +1,11 @@
 """CLI entry point for tf-eu-guard."""
 
 import argparse
+import re
 import sys
 from datetime import UTC
 from pathlib import Path
+from uuid import uuid4
 
 from tf_eu_guard.constants import (
     EXIT_FINDINGS,
@@ -30,6 +32,13 @@ def _fail_on_severity_arg(value: str) -> str | None:
             f"(choose from CRITICAL, HIGH, MEDIUM, LOW, INFO, or '' to disable)",
         )
     return value
+
+
+def _scope_risk_text(text: str, selected: str) -> str:
+    """Remove article citations belonging to an excluded framework."""
+    other = "GDPR" if selected == "NIS2" else "NIS2"
+    pattern = rf"\b{other}\s+Art\.\s+\d+(?:\([^)]*\))*"
+    return re.sub(pattern, "the relevant safeguard", text)
 
 
 def _exit_code_for(error: Exception) -> int:
@@ -124,9 +133,9 @@ def main():
         default=None,
         metavar="FILE",
         help="For --output security|auditor|sarif, write the single report here "
-             "(security/auditor: scan-report.html / auditor-report.html by "
-             "default; sarif: stdout by default). "
-             "Ignored for dev, json and all.",
+             "(HTML defaults to reports/scan_report_<timestamp>.html or "
+             "reports/auditor_report_<timestamp>.html; sarif: stdout by "
+             "default). Ignored for dev, json and all.",
     )
     parser.add_argument(
         "--output-dir",
@@ -206,10 +215,18 @@ def main():
             # Step 4: Filter by framework if requested
             if args.framework != "all":
                 target_framework = Framework(args.framework.upper())
-                enriched = [
-                    f for f in enriched
-                    if any(a.framework == target_framework for a in f.articles)
-                ]
+                filtered: list = []
+                for finding in enriched:
+                    finding.articles = [
+                        article for article in finding.articles
+                        if article.framework == target_framework
+                    ]
+                    if finding.articles:
+                        finding.risk_explanation = _scope_risk_text(
+                            finding.risk_explanation, target_framework.value
+                        )
+                        filtered.append(finding)
+                enriched = filtered
 
             # Step 5: Generate report
             if args.output == "dev":
@@ -292,11 +309,15 @@ def main():
                     generate_security_report,
                 )
 
-                timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
-                timestamp_suffix = datetime.now(UTC).strftime("%d%m%Y%H%M")
+                now = datetime.now(UTC)
+                timestamp = now.strftime("%Y-%m-%d %H:%M UTC")
+                # Microseconds sort chronologically; the random suffix prevents
+                # concurrent scans in the same clock tick from sharing a name.
+                timestamp_suffix = f"{now:%Y%m%dT%H%M%S%fZ}_{uuid4().hex}"
                 target = str(args.path) if args.path else f"checkov-json:{args.checkov_json}"
 
-                # Default to reports/ directory
+                # Default to reports/ directory. Unique names prevent scans
+                # running concurrently from overwriting one another.
                 out_dir = args.output_dir or Path("reports")
                 out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -380,7 +401,11 @@ def main():
             code = _exit_code_for(e)
             label = "invalid input/configuration" if code == EXIT_INVALID_INPUT \
                 else "scanner/runtime failure"
-            print(f"Error ({label}): {e}", file=sys.stderr)
+            detail = str(e)
+            stderr = getattr(e, "stderr", None)
+            if stderr:
+                detail += f"\nCheckov stderr:\n{stderr.rstrip()}"
+            print(f"Error ({label}): {detail}", file=sys.stderr)
             return code
 
     return EXIT_INVALID_INPUT

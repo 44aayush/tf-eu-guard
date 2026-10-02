@@ -6,6 +6,9 @@ report generation and the severity-based exit codes end-to-end.
 """
 
 import json
+import subprocess
+import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -70,22 +73,63 @@ def test_scan_framework_filter_nis2(monkeypatch, tmp_path, repo_root, capsys):
     run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / FIXTURE),
             "--output", "json", "--framework", "nis2")
     data = json.loads(capsys.readouterr().out)
-    assert all(any(a["framework"] == "NIS2" for a in f["articles"]) for f in data)
+    assert data
+    assert all({a["framework"] for a in f["articles"]} == {"NIS2"} for f in data)
 
 
 def test_scan_framework_filter_gdpr(monkeypatch, tmp_path, repo_root, capsys):
     run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / FIXTURE),
             "--output", "json", "--framework", "gdpr")
     data = json.loads(capsys.readouterr().out)
-    assert all(any(a["framework"] == "GDPR" for a in f["articles"]) for f in data)
+    assert data
+    assert all({a["framework"] for a in f["articles"]} == {"GDPR"} for f in data)
+
+
+def test_framework_filter_excludes_articles_from_all_reporters(
+    monkeypatch, tmp_path, repo_root, capsys
+):
+    args = ("--checkov-json", str(repo_root / FIXTURE), "--framework", "nis2")
+
+    run_cli(monkeypatch, tmp_path, *args, "--output", "dev")
+    assert "GDPR" not in capsys.readouterr().out
+
+    run_cli(monkeypatch, tmp_path, *args, "--output", "sarif")
+    sarif = json.loads(capsys.readouterr().out)
+    assert all(
+        all(article.startswith("NIS2 ") for article in result["properties"]["articles"])
+        for result in sarif["runs"][0]["results"]
+        if result["properties"].get("mapped")
+    )
+
+    run_cli(monkeypatch, tmp_path, *args, "--output", "all")
+    for report in tmp_path.glob("reports/*.html"):
+        assert "GDPR Art." not in report.read_text(encoding="utf-8")
 
 
 def test_scan_html_reports(monkeypatch, tmp_path, repo_root):
-    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / FIXTURE),
-                 "--output", "all")
-    assert rc == 0
+    for _ in range(2):
+        rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / FIXTURE),
+                     "--output", "all")
+        assert rc == 0
     htmls = list(tmp_path.glob("reports/*.html"))
-    assert len(htmls) == 3  # dev, security, auditor
+    assert len(htmls) == 6  # two each of dev, security, auditor; no overwrite
+
+
+def test_concurrent_scans_do_not_overwrite_reports(tmp_path, repo_root):
+    cmd = [
+        sys.executable, "-m", "tf_eu_guard.cli", "scan",
+        "--checkov-json", str(repo_root / FIXTURE), "--output", "all",
+    ]
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        runs = list(pool.map(
+            lambda _: subprocess.run(cmd, cwd=tmp_path, capture_output=True, text=True),
+            range(2),
+        ))
+    assert all(run.returncode == 0 for run in runs), [run.stderr for run in runs]
+    names = sorted(path.name for path in (tmp_path / "reports").glob("*.html"))
+    assert len(names) == 6
+    for prefix in ("dev", "scan", "auditor"):
+        assert len([name for name in names if name.startswith(f"{prefix}_report_")]) == 2
 
 
 def test_scan_invalid_framework_exits(monkeypatch, tmp_path):
@@ -145,7 +189,7 @@ def test_scan_iac_type_and_framework_both_apply(monkeypatch, tmp_path, repo_root
         "results": {"failed_checks": [
             {
                 # a registry-mapped K8s check that cites both frameworks
-                "check_id": "EUGUARD_NIS2_001",  # not yet realistic for K8s, but registry-mapped
+                "check_id": "EUGUARD_NIS2_002",  # Kubernetes-specific registry mapping
                 "check_name": "check",
                 "resource": "Secret/app",
                 "file_path": "/secret.yaml",
@@ -162,9 +206,8 @@ def test_scan_iac_type_and_framework_both_apply(monkeypatch, tmp_path, repo_root
     data = json.loads(capsys.readouterr().out)
     assert len(data) == 1
     assert data[0]["resource"] == "Secret/app"
-    # --framework nis2 keeps findings citing NIS2 (this one cites both NIS2 and GDPR)
-    assert any(a["framework"] == "NIS2" for a in data[0]["articles"])
-    assert {"NIS2", "GDPR"} == {a["framework"] for a in data[0]["articles"]}
+    # --framework nis2 removes the excluded GDPR article from each finding.
+    assert {"NIS2"} == {a["framework"] for a in data[0]["articles"]}
 
 
 def test_scan_iac_type_selects_matching_element(monkeypatch, tmp_path, repo_root, capsys):
@@ -260,7 +303,7 @@ def test_scan_kubernetes_fixture(monkeypatch, tmp_path, repo_root, capsys):
     assert any(f["check_id"].startswith("CKV_K8S") or f["check_id"].startswith("CKV2_K8S")
                for f in data)
     # the custom K8s secrets check fires and enriches
-    assert any(f["check_id"] == "EUGUARD_NIS2_001" for f in data)
+    assert any(f["check_id"] == "EUGUARD_NIS2_002" for f in data)
 
 
 def test_scan_kubernetes_framework_filter(monkeypatch, tmp_path, repo_root, capsys):
@@ -434,6 +477,34 @@ def test_malformed_checkov_json_exits_2(monkeypatch, tmp_path):
     f.write_text("{not json")
     rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(f), "--output", "json")
     assert rc == 2
+
+
+def test_checkov_json_directory_exits_2(monkeypatch, tmp_path, capsys):
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(tmp_path), "--output", "json")
+    assert rc == 2
+    assert "invalid input/configuration" in capsys.readouterr().err
+
+
+def test_checkov_json_permission_error_exits_2(monkeypatch, tmp_path, capsys):
+    f = tmp_path / "permission.json"
+    f.write_text("{}")
+    original_read_text = Path.read_text
+
+    def denied(path, *args, **kwargs):
+        if path == f:
+            raise PermissionError(13, "Permission denied")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", denied)
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(f), "--output", "json")
+    assert rc == 2
+    assert "Cannot read Checkov JSON input" in capsys.readouterr().err
+
+
+def test_malformed_checkov_shape_exits_2(monkeypatch, tmp_path):
+    f = tmp_path / "wrong-shape.json"
+    f.write_text(json.dumps({"results": {"failed_checks": "not-a-list"}}))
+    assert run_cli(monkeypatch, tmp_path, "--checkov-json", str(f), "--output", "json") == 2
 
 
 def test_fail_on_severity_empty_findings(monkeypatch, tmp_path):

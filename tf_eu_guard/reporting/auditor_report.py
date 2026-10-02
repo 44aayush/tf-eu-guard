@@ -13,7 +13,10 @@ compliance. See ``PROJECT_PLAN.md`` §4.3.
 
 import re
 from pathlib import Path
+from urllib.parse import quote
 
+from tf_eu_guard import __version__
+from tf_eu_guard.mapping.requirements import canonical_article_title
 from tf_eu_guard.models import EnrichedFinding, Framework
 from tf_eu_guard.reporting._html_common import (
     distinct_files,
@@ -47,9 +50,10 @@ def _build_index(
     for finding in findings:
         for art in finding.articles:
             bucket = index.setdefault(art.framework, {})
-            entry = bucket.setdefault(art.article, {"title": art.title, "findings": []})
-            if not entry["title"] and art.title:
-                entry["title"] = art.title
+            title = canonical_article_title(art.framework, art.article) or art.title
+            entry = bucket.setdefault(art.article, {"title": title, "findings": []})
+            if not entry["title"] and title:
+                entry["title"] = title
             entry["findings"].append(finding)
     return index
 
@@ -111,7 +115,7 @@ def _toc(index: dict[Framework, dict[str, dict]]) -> str:
 
 
 def _article_section(
-    framework: Framework, article: str, entry: dict
+    framework: Framework, article: str, entry: dict, version: str
 ) -> str:
     """Render one article: heading, status, failing-resource table, doc link."""
     anchor = _anchor(framework, article)
@@ -131,12 +135,17 @@ def _article_section(
             "</tr>"
         )
 
-    doc = FRAMEWORK_DOC.get(framework, "")
+    doc_name = FRAMEWORK_DOC.get(framework, "")
+    doc = (
+        f"https://github.com/44aayush/tf-eu-guard/blob/v{quote(version or __version__, safe='')}/docs/{doc_name}"
+        if doc_name else ""
+    )
     title_html = (
         f" <span class=\"title-note\">&mdash; {esc(title)}</span>" if title else ""
     )
     doc_html = (
-        f'<p class="doclink">Mapping rationale: <code>{esc(doc)}</code></p>\n'
+        f'<p class="doclink">Mapping rationale: <a href="{esc(doc)}">'
+        f'<code>{esc(doc)}</code></a></p>\n'
         if doc
         else ""
     )
@@ -215,7 +224,7 @@ def _render(
                 continue
             sections.append(f"<h2>{esc(fw.value)} controls</h2>")
             for article in sorted(articles, key=_article_sort_key):
-                sections.append(_article_section(fw, article, articles[article]))
+                sections.append(_article_section(fw, article, articles[article], version))
         body = "\n".join(sections)
 
     footer = (

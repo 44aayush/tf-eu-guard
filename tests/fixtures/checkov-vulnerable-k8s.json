@@ -3079,7 +3079,7 @@
                 "definition_context_file_path": null
             },
             {
-                "check_id": "EUGUARD_NIS2_001",
+                "check_id": "EUGUARD_NIS2_002",
                 "bc_check_id": null,
                 "check_name": "Ensure containers use secretKeyRef instead of literal sensitive env values",
                 "check_result": {
@@ -3226,7 +3226,7 @@
                 "definition_context_file_path": null
             },
             {
-                "check_id": "EUGUARD_NIS2_001",
+                "check_id": "EUGUARD_NIS2_002",
                 "bc_check_id": null,
                 "check_name": "Ensure Kubernetes Secrets do not contain hardcoded literal values (use a secrets manager)",
                 "check_result": {

@@ -15,8 +15,10 @@ in ``tests/test_sarif_report.py`` (schema vendored under
 """
 
 from typing import Any
+from urllib.parse import quote
 
 from tf_eu_guard.models import EnrichedFinding, Severity
+from tf_eu_guard.reporting._html_common import safe_guideline
 
 #: The OASIS SARIF 2.1.0 schema this output targets (what Code Scanning
 #: ingests). Also the ``$schema`` value written into the document itself.
@@ -45,17 +47,39 @@ def _articles_property(finding: EnrichedFinding) -> list[str]:
     return [f"{a.framework.value} {a.article}" for a in finding.articles]
 
 
-def _physical_location(file_path: str, file_line_range: list[int]) -> dict[str, Any]:
+def _artifact_uri(file_path: object) -> str:
+    """Encode a Checkov filesystem path as a valid relative/file URI."""
+    path = str(file_path or "").replace("\\", "/")
+    # Keep path separators and a Windows drive colon, but encode characters
+    # such as spaces, '#', and '?' that otherwise change URI interpretation.
+    return quote(path, safe="/:@")
+
+
+def _valid_line_range(file_line_range: object) -> tuple[int, int] | None:
+    """Return a valid SARIF line range, or ``None`` for malformed input."""
+    if not isinstance(file_line_range, (list, tuple)) or len(file_line_range) != 2:
+        return None
+    start, end = file_line_range
+    if any(isinstance(value, bool) or not isinstance(value, int)
+           for value in (start, end)):
+        return None
+    if start < 1 or end < start:
+        return None
+    return start, end
+
+
+def _physical_location(file_path: str, file_line_range: object) -> dict[str, Any]:
     location: dict[str, Any] = {
-        "artifactLocation": {"uri": file_path},
+        "artifactLocation": {"uri": _artifact_uri(file_path)},
     }
-    # Checkov emits [start, end]; guard against missing/empty ranges so a
-    # malformed line range degrades to a file-level location, not a crash.
-    if file_line_range and file_line_range[0]:
-        region: dict[str, int] = {"startLine": int(file_line_range[0])}
-        if len(file_line_range) > 1 and file_line_range[1]:
-            region["endLine"] = int(file_line_range[1])
-        location["region"] = region
+    # Checkov emits [start, end]. Invalid, zero, negative, reversed, short,
+    # or non-integer ranges deliberately degrade to a file-level location.
+    line_range = _valid_line_range(file_line_range)
+    if line_range:
+        location["region"] = {
+            "startLine": line_range[0],
+            "endLine": line_range[1],
+        }
     return {"physicalLocation": location}
 
 
@@ -100,8 +124,9 @@ def build_sarif(
             rule["shortDescription"] = {"text": finding.check_name}
         if finding.risk_explanation:
             rule["fullDescription"] = {"text": finding.risk_explanation}
-        if finding.guideline:
-            rule["helpUri"] = finding.guideline
+        guideline = safe_guideline(finding.guideline)
+        if guideline:
+            rule["helpUri"] = guideline
         rule_index[check_id] = len(rules)
         rules.append(rule)
         return rule_index[check_id]
@@ -123,7 +148,8 @@ def build_sarif(
                 "severity": finding.severity.value,
                 "articles": _articles_property(finding),
                 "remediation": finding.remediation,
-                **({"guideline": finding.guideline} if finding.guideline else {}),
+                **({"guideline": safe_guideline(finding.guideline)}
+                   if safe_guideline(finding.guideline) else {}),
             },
         })
 

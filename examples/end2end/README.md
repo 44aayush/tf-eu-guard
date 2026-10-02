@@ -27,9 +27,9 @@ This will:
 1. Run Checkov against all `.tf` files in this directory
 2. Enrich failed checks with NIS2 (Directive 2022/2555 Art. 21(2)) and GDPR (Regulation 2016/679 Art. 32(1), Art. 44) compliance mappings
 3. Generate three HTML reports:
-   - `dev-report.html` — terminal-style output for developers
-   - `scan-report.html` — dashboard sorted by severity (CRITICAL/HIGH/MEDIUM/LOW)
-   - `auditor-report.html` — article-by-article compliance view for auditors
+   - `reports/dev_report_<timestamp>.html` — developer HTML output
+   - `reports/scan_report_<timestamp>.html` — dashboard sorted by severity (CRITICAL/HIGH/MEDIUM/LOW)
+   - `reports/auditor_report_<timestamp>.html` — article-by-article compliance view for auditors
 
 **Expected finding count**: 30+ mapped violations (the exact count depends on the current registry coverage).
 

@@ -111,6 +111,20 @@ def test_dev_reporter_class_generates_text():
     assert "CKV_AWS_18" in text
 
 
+def test_rich_markup_in_user_fields_is_rendered_literally():
+    finding = _finding(
+        check_name="Name [bold]not markup[/bold]",
+        resource="resource [red]literal[/red]",
+        risk_explanation="Risk [italic]literal[/italic]",
+        remediation="fix = [not-a-tag]",
+    )
+    out = _capture([finding])
+    assert "Name [bold]not markup[/bold]" in out
+    assert "resource [red]literal[/red]" in out
+    assert "Risk [italic]literal[/italic]" in out
+    assert "fix = [not-a-tag]" in out
+
+
 def test_dev_reporter_writes_plain_text_file(tmp_path):
     from tf_eu_guard.models import ScanReport
 
@@ -118,13 +132,15 @@ def test_dev_reporter_writes_plain_text_file(tmp_path):
         target_path="./terraform",
         scan_timestamp="2026-08-30",
         checkov_version="3.3.13",
-        findings=[_finding()],
+        findings=[_finding(check_name="Name [bold]literal[/bold]")],
         total_checks_run=50,
         total_failed=1,
         total_passed=49,
     )
     out_path = tmp_path / "dev.txt"
     DevReporter().generate(report, output_path=out_path)
-    content = out_path.read_text(encoding="utf-8")
-    assert "[bold]" not in content  # Rich markup stripped
+    content = out_path.read_text()
+    assert "\n  [bold]" not in content  # report labels are stripped
+    assert "tf-eu-guard scan results" in content
+    assert "Name [bold]literal[/bold]" in content
     assert "CKV_AWS_18" in content

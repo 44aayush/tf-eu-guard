@@ -8,106 +8,20 @@ terraform_plan fix), so this starts now rather than reconstructing
 history later. Versions follow the git tags/`__version__` at each
 release point.
 
-## [Unreleased]
+## [0.5.0] — Unreleased
 
 ### Added
 
-- **Registry coverage expansion (Tasks 4–7)** — 15 more Checkov checks
-  mapped, completing the `examples/end2end/` scenario. Every check that
-  fires in that directory is now mapped, so a scan produces **zero unmapped
-  findings** (295 mapped, measured):
-  - **ElastiCache** (`elasticache.tf`): `CKV_AWS_29`, `CKV_AWS_30`,
-    `CKV_AWS_31`, `CKV_AWS_191`, and graph check `CKV2_AWS_50`.
-  - **Redshift** (`redshift.tf`): `CKV_AWS_87`, `CKV_AWS_64`,
-    `CKV_AWS_142`, `CKV_AWS_71`, `CKV_AWS_321`, `CKV_AWS_391`, and graph
-    check `CKV_AWS_154`.
-  - **WAFv2** (`waf.tf`): `CKV_AWS_192`, `CKV_AWS_175`, and graph check
-    `CKV2_AWS_31`.
-  - The Aurora `rds-cluster.tf` fixture needed no new entries — all nine
-    checks it fires were already registered.
-  Severity was calibrated against existing precedents (`CKV_AWS_87` matches
-  the public-RDS `CKV_AWS_17` at CRITICAL, `CKV_AWS_64` matches the
-  unencrypted-RDS `CKV_AWS_16` at HIGH), and `CKV_AWS_321` (enhanced VPC
-  routing) is NIS2-only — a network-path control, not a confidentiality
-  measure.
-
-- **Registry coverage expansion (Tasks 1–3)** — 15 additional Checkov checks
-  mapped, exercised by three new resources in `examples/end2end/`:
-  - **CloudTrail** (`cloudtrail.tf`): `CKV_AWS_67`, `CKV_AWS_35`,
-    `CKV_AWS_36`, `CKV_AWS_252`, and graph check `CKV2_AWS_10`.
-  - **CodeBuild** (`codebuild.tf`): `CKV_AWS_316`, `CKV_AWS_147`,
-    `CKV_AWS_314`.
-  - **ECS** (`ecs.tf`): `CKV_AWS_333`, `CKV_AWS_223`, `CKV_AWS_224`,
-    `CKV_AWS_336`, `CKV_AWS_332`, `CKV_AWS_249`, `CKV_AWS_65`.
-  Every check that fires on those three files is now mapped, so a scan of
-  that directory produces zero unmapped findings from them.
-
-- **`EUGUARD_NIS2_001` now covers `aws_codebuild_project`** — the check
-  previously classified secrets in top-level arguments only. CodeBuild
-  passes secrets through the nested `environment_variable` block, which
-  Terraform cannot mark sensitive, so the variable *name*
-  (`PASSWORD`/`TOKEN`/`SECRET`/`KEY`/…) is the signal — the same convention
-  the Kubernetes variant already uses. The `_FILE`/`_PATH` suffix is
-  treated as a mounted secret file, not a literal.
+- Immutable GitHub Action references, Dependabot updates, runtime dependency
+  locking, `pip-audit`, and CycloneDX SBOM generation in CI and releases.
+- Release builds and PyPI publishing run as separate least-privilege jobs.
 
 ### Changed
 
-- **`examples/end2end/` fixtures** — `codebuild.tf` now produces real S3
-  build output (so `CKV_AWS_147` fires on the missing KMS key), and
-  `ecs.tf` carries two clusters: one with `logging = "OVERRIDE"` and a CMK
-  but no encrypted log destination (`CKV_AWS_224`), and one with
-  `logging = "NONE"` (`CKV_AWS_223`) — the two checks are mutually exclusive
-  on a single resource. Inline check-ID comments corrected to the IDs that
-  actually fire.
-- **`examples/end2end/EXPECTED_FINDINGS.md`** — added per-check tables for
-  the CloudTrail, CodeBuild, ECS, ElastiCache, Aurora, Redshift, and WAFv2
-  resources, and rewrote the IAM / S3 / RDS / network core sections from a
-  live Checkov scan (correct check names, article citations, severities and
-  firing resources; the non-firing mappings moved to a "mapped but not
-  triggered" note). Predicted total 290–300 (measured: 295 mapped, zero
-  unmapped).
-- **`docs/check-mapping-table.md`** — corrected the stock/custom split of
-  the mapped AWS check IDs (178 stock + 2 custom) and replaced the stale
-  "could not run Checkov" provenance note with measured live-scan results
-  (`examples/vulnerable-aws/`: 50 failing checks, all mapped;
-  `examples/end2end/`: 295, all mapped). `CKV_AWS_24` and `CKV_AWS_260` are
-  now confirmed firing, so the † marker is gone; `CKV_AWS_25` joins the
-  dormant ‡ list.
-- Documented mapping counts regenerated from the registries: AWS 150 → 180,
-  total 219 → 249 (`README.md`, `CONTRIBUTING.md`, `docs/check-mapping-table.md`,
-  `docs/regulatory-coverage.md`). `tools/check_doc_counts.py` now also
-  verifies the "N of Checkov's ~700 AWS checks mapped" prose sentence and
-  the stock/custom split.
-- **`README.md`** — per-theme check lists completed: every one of the 178
-  stock AWS mappings now appears in a theme bullet (57 were missing), and
-  the unmapped-findings count was corrected from 185 to 180.
-- **`examples/end2end/consts.tf`** — `type = "string"` constraints replaced
-  with `type = string` (Terraform 0.12+ syntax; the quoted form is a
-  deprecation warning and breaks `terraform validate` under newer
-  providers). Scan result unchanged at 295 findings.
-- **`CHANGELOG.md`** — compare links now use the actual `v`-prefixed git
-  tags (`v0.4.2...v0.5.0`, etc.).
-- `examples/end2end` added to `tools/smoke_baselines.json`, so the CLI smoke
-  check and the CI smoke step now cover the full scenario (expected 295,
-  floor 280).
-- **`install_and_test.sh`** — activates `.venv/Scripts/activate` on Windows,
-  where the venv layout is `Scripts/` rather than `bin/`.
-
-## [0.5.0] — 2026-09-24
-
-### Added
-
-- **Registry coverage expansion** — additional Checkov checks mapped across
-  DynamoDB, CloudFront, API Gateway, SNS, Secrets Manager, and Application
-  Load Balancer, exercised by the `examples/end2end/` scenario. Every check
-  that fires on those services is now mapped, so a scan of that directory
-  produces zero unmapped findings.
-
-### Changed
-
-- **`examples/end2end/EXPECTED_FINDINGS.md`** — rewritten to describe
-  coverage by service rather than by file, with the predicted total raised
-  to 100–120 mapped findings.
+- The package and documented Action/pre-commit references now use `0.5.0`.
+- Auditor mapping rationale links resolve to the versioned public documentation,
+  including from pip-installed reports.
+- Documentation and CI use the timestamped `reports/*_report_*.html` contract.
 
 ## [0.4.2] — 2026-09-11
 
@@ -369,12 +283,11 @@ registries.**
 - `--checkov-json` for pre-generated Checkov output, `--framework`
   filter, `--fail-on-severity` / `--fail-on-any` CI gating.
 
-[0.5.0]: https://github.com/44aayush/tf-eu-guard/compare/v0.4.2...v0.5.0
-[0.4.2]: https://github.com/44aayush/tf-eu-guard/compare/v0.4.1...v0.4.2
-[0.4.1]: https://github.com/44aayush/tf-eu-guard/compare/v0.4.0...v0.4.1
-[0.4.0]: https://github.com/44aayush/tf-eu-guard/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/44aayush/tf-eu-guard/compare/v0.2.2...v0.3.0
-[0.2.2]: https://github.com/44aayush/tf-eu-guard/compare/v0.2.1...v0.2.2
-[0.2.1]: https://github.com/44aayush/tf-eu-guard/compare/v0.2.0...v0.2.1
-[0.2.0]: https://github.com/44aayush/tf-eu-guard/compare/v0.1.0...v0.2.0
+[0.4.2]: https://github.com/44aayush/tf-eu-guard/compare/0.4.1...0.4.2
+[0.4.1]: https://github.com/44aayush/tf-eu-guard/compare/0.4.0...0.4.1
+[0.4.0]: https://github.com/44aayush/tf-eu-guard/compare/0.3.0...0.4.0
+[0.3.0]: https://github.com/44aayush/tf-eu-guard/compare/0.2.2...0.3.0
+[0.2.2]: https://github.com/44aayush/tf-eu-guard/compare/0.2.1...0.2.2
+[0.2.1]: https://github.com/44aayush/tf-eu-guard/compare/0.2.0...0.2.1
+[0.2.0]: https://github.com/44aayush/tf-eu-guard/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/44aayush/tf-eu-guard/releases/tag/v0.1.0

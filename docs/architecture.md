@@ -10,7 +10,7 @@ made) — this document is the *how*, and stays descriptive of the code in
 
 tf-eu-guard runs Checkov against your infrastructure code, joins every
 **failed** check to a curated NIS2/GDPR mapping registry entry, and
-renders the enriched findings as developer, security, and auditor
+renders the enriched findings as developer, security, auditor, JSON, and SARIF
 reports. Checkov detects; the registry and the reports are the product.
 
 ## Pipeline
@@ -28,7 +28,7 @@ target ─▶ 1. run_checkov() ─▶ 2. extract_failed_checks() ─▶ 3. load_
                                                               │
                                                               ▼
                                                   6. report: dev / json /
-                                                     security / auditor
+                                                     security / auditor / SARIF
                                                               │
                                                               ▼
                                                   7. gate: --fail-on-*
@@ -85,11 +85,12 @@ to *report*.
 
 ### 6. Report — `tf_eu_guard/reporting/`
 
-One scan, four formats (plus `all`): `dev` (terminal table, severity
+One scan, five formats (plus `all`): `dev` (terminal table, severity
 sorted), `json` (pure findings array on stdout, unmapped count on
-stderr), `security` and `auditor` (HTML; the auditor report is
-article-by-article for audit preparation). All formats consume the same
-enriched list, so counts can't disagree between them.
+stderr), `sarif` (SARIF 2.1.0 for GitHub Code Scanning), `security` and
+`auditor` (HTML; the auditor report is article-by-article for audit
+preparation). All formats consume the same enriched list, so counts can't
+disagree between them.
 
 ### 7. Gate — `tf_eu_guard/cli.py`
 

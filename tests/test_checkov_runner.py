@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from tf_eu_guard.checkov_runner import (
+    CheckovRuntimeError,
     _normalize_checkov_output,
     extract_failed_checks,
     load_checkov_json,
@@ -94,6 +95,12 @@ def test_extract_raw_terraform_plan_raises():
 def test_extract_results_wrong_type_raises():
     with pytest.raises(ValueError, match="does not look like Checkov output"):
         extract_failed_checks({"results": "not a dict"})
+
+
+@pytest.mark.parametrize("failed_checks", ["not a list", {}, ["not an object"], [None]])
+def test_extract_failed_checks_requires_list_of_mappings(failed_checks):
+    with pytest.raises(ValueError, match="failed_checks"):
+        extract_failed_checks({"results": {"failed_checks": failed_checks}})
 
 
 def test_extract_defaults_line_range_when_absent():
@@ -189,6 +196,45 @@ def test_load_checkov_json_threads_iac_type(tmp_path):
     p.write_text(json.dumps(MIXED_FRAMEWORKS))
     out = extract_failed_checks(load_checkov_json(p, "kubernetes"))
     assert [c["check_id"] for c in out] == ["CKV_K8S_17"]
+
+
+@pytest.mark.parametrize("returncode", [1, 2])
+def test_run_checkov_invalid_json_is_runtime_failure(tmp_path, returncode):
+    def fake_run(cmd, **kwargs):
+        return type(
+            "R", (), {
+                "returncode": returncode,
+                "stdout": "",
+                "stderr": "traceback line\nfinal Checkov crash detail",
+            }
+        )()
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
+    try:
+        (tmp_path / "main.tf").write_text('resource "aws_x" "y" {}\n')
+        with pytest.raises(CheckovRuntimeError, match="final Checkov crash detail"):
+            run_checkov(tmp_path)
+    finally:
+        monkeypatch.undo()
+
+
+def test_run_checkov_nonzero_status_includes_stderr(tmp_path):
+    def fake_run(cmd, **kwargs):
+        return type("R", (), {
+            "returncode": 2,
+            "stdout": "{}",
+            "stderr": "configuration error: bad fixture",
+        })()
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
+    try:
+        (tmp_path / "main.tf").write_text('resource "aws_x" "y" {}\n')
+        with pytest.raises(CheckovRuntimeError, match="configuration error: bad fixture"):
+            run_checkov(tmp_path)
+    finally:
+        monkeypatch.undo()
 
 
 def test_run_checkov_rejects_unknown_iac_type(tmp_path):
@@ -296,6 +342,25 @@ def test_load_checkov_json_from_file(tmp_path):
     p.write_text(json.dumps(SAMPLE))
     out = extract_failed_checks(load_checkov_json(p))
     assert [c["check_id"] for c in out] == ["CKV_AWS_17", "CKV_AWS_20"]
+
+
+def test_load_checkov_json_rejects_directory(tmp_path):
+    from tf_eu_guard.checkov_runner import CheckovInputError
+
+    with pytest.raises(CheckovInputError, match="must be a file"):
+        load_checkov_json(tmp_path)
+
+
+def test_load_checkov_json_permission_error_is_user_input(monkeypatch, tmp_path):
+    from tf_eu_guard.checkov_runner import CheckovInputError
+
+    p = tmp_path / "ckv.json"
+    p.write_text("{}")
+    monkeypatch.setattr(Path, "read_text", lambda *args, **kwargs: (_ for _ in ()).throw(
+        PermissionError(13, "Permission denied")
+    ))
+    with pytest.raises(CheckovInputError, match="Cannot read Checkov JSON input"):
+        load_checkov_json(p)
 
 
 def test_load_checkov_json_array_from_file(tmp_path):
