@@ -53,7 +53,7 @@ jobs:
       - name: Generate CycloneDX SBOM
         run: cyclonedx-py requirements requirements.lock --of JSON --output-reproducible -o sbom.json
       - name: Upload SBOM
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: runtime-sbom
           path: sbom.json
@@ -88,7 +88,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: coverage-${{ matrix.python-version }}
           path: coverage.xml
@@ -239,7 +239,7 @@ jobs:
 
       - name: Upload HTML reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: compliance-reports
           path: reports/*.html
