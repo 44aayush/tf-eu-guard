@@ -50,7 +50,14 @@ def test_ci_smoke_tests_a_non_editable_wheel_from_outside_checkout():
     job = workflow["jobs"]["wheel-install"]
     commands = "\n".join(step.get("run", "") for step in job["steps"])
 
-    assert job["env"]["WHEEL_VENV_DIR"] == "${{ runner.temp }}/tf-eu-guard-wheel-venv"
+    assert "env" not in job
+    for step in job["steps"]:
+        if step.get("name") in {
+            "Create fresh wheel installation environment",
+            "Install the locked runtime and built wheel",
+            "Smoke-test the installed wheel outside the checkout",
+        }:
+            assert step["env"]["WHEEL_VENV_DIR"] == "${{ runner.temp }}/tf-eu-guard-wheel-venv"
     assert "python -m build --wheel --no-isolation --outdir dist" in commands
     assert 'python -m venv "$WHEEL_VENV_DIR"' in commands
     assert '"$WHEEL_VENV_DIR/bin/python" -m pip install --no-deps dist/*.whl' in commands
