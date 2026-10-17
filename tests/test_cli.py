@@ -20,6 +20,11 @@ PLAN_FIXTURE = "tests/fixtures/checkov-vulnerable-plan.json"
 K8S_FIXTURE = "tests/fixtures/checkov-vulnerable-k8s.json"
 REGION_FIXTURE = "tests/fixtures/region-aliases"
 SECRET_SHAPES_FIXTURE = "tests/fixtures/secret-shapes"
+SOURCE_ERROR_FIXTURES = (
+    "tests/fixtures/invalid-only",
+    "tests/fixtures/mixed-valid-invalid",
+    "tests/fixtures/empty-directory",
+)
 
 
 def run_cli(monkeypatch, tmp_path, *argv):
@@ -56,6 +61,28 @@ def test_scan_defaults_to_cwd(monkeypatch, tmp_path, capsys):
     assert json.loads(capsys.readouterr().out) == []
 
 
+@pytest.mark.parametrize("fixture", SOURCE_ERROR_FIXTURES)
+def test_source_scan_fails_closed_on_incomplete_checkov_output(
+    monkeypatch, tmp_path, repo_root, capsys, fixture
+):
+    """Invalid, mixed, and empty source scans cannot report a clean result."""
+    rc = run_cli(
+        monkeypatch,
+        tmp_path,
+        str(repo_root / fixture),
+        "--output",
+        "json",
+        "--fail-on-any",
+    )
+    assert rc == 3
+    error = capsys.readouterr().err
+    assert "scanner/runtime failure" in error
+    if fixture.endswith("empty-directory"):
+        assert "no terraform scan results" in error
+    else:
+        assert "parsing error" in error
+
+
 def test_scan_dev_output(monkeypatch, tmp_path, repo_root):
     rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / FIXTURE),
                  "--output", "dev")
@@ -69,6 +96,22 @@ def test_scan_json_output(monkeypatch, tmp_path, repo_root, capsys):
     data = json.loads(capsys.readouterr().out)
     assert isinstance(data, list) and len(data) > 0
     assert all("check_id" in f and "articles" in f for f in data)
+
+
+def test_scan_json_output_is_byte_stable(monkeypatch, tmp_path, repo_root, capsys):
+    """The machine-readable JSON contract is stable across repeated scans."""
+    outputs = []
+    for _ in range(2):
+        assert run_cli(
+            monkeypatch,
+            tmp_path,
+            "--checkov-json",
+            str(repo_root / FIXTURE),
+            "--output",
+            "json",
+        ) == 0
+        outputs.append(capsys.readouterr().out.encode())
+    assert outputs[0] == outputs[1]
 
 
 def test_region_policy_and_transfer_review_are_distinct_live_cli_findings(
@@ -590,8 +633,10 @@ def test_malformed_checkov_json_exits_2(monkeypatch, tmp_path):
 
 def test_checkov_json_directory_exits_2(monkeypatch, tmp_path, capsys):
     rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(tmp_path), "--output", "json")
+    captured = capsys.readouterr()
     assert rc == 2
-    assert "invalid input/configuration" in capsys.readouterr().err
+    assert captured.out == ""
+    assert "invalid input/configuration" in captured.err
 
 
 def test_checkov_json_permission_error_exits_2(monkeypatch, tmp_path, capsys):
@@ -614,6 +659,96 @@ def test_malformed_checkov_shape_exits_2(monkeypatch, tmp_path):
     f = tmp_path / "wrong-shape.json"
     f.write_text(json.dumps({"results": {"failed_checks": "not-a-list"}}))
     assert run_cli(monkeypatch, tmp_path, "--checkov-json", str(f), "--output", "json") == 2
+
+
+@pytest.mark.parametrize(
+    "field_value",
+    [
+        {"check_id": None},
+        {"check_id": ""},
+        {"resource": ["not", "a", "string"]},
+        {"file_path": None},
+        {"file_line_range": ["1", "2"]},
+    ],
+)
+def test_malformed_checkov_finding_exits_2_without_null_sarif_id(
+    monkeypatch, tmp_path, capsys, field_value
+):
+    check = {
+        "check_id": "CKV_AWS_18",
+        "check_name": "check",
+        "resource": "aws_x.y",
+        "file_path": "/main.tf",
+        "file_line_range": [1, 2],
+    }
+    check.update(field_value)
+    source = tmp_path / "malformed.json"
+    source.write_text(json.dumps({"results": {"failed_checks": [check]}}))
+
+    rc = run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(source),
+        "--output",
+        "sarif",
+    )
+
+    assert rc == 2
+    assert "invalid input/configuration" in capsys.readouterr().err
+
+
+def test_malformed_checkov_fixture_exits_2(monkeypatch, tmp_path, repo_root, capsys):
+    rc = run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(repo_root / "tests/fixtures/malformed-checkov.json"),
+        "--output",
+        "sarif",
+    )
+
+    captured = capsys.readouterr()
+    assert rc == 2
+    assert captured.out == ""
+    assert "check_id must be a non-empty string" in captured.err
+
+
+def test_symlink_outside_scan_root_exits_2(monkeypatch, tmp_path, repo_root, capsys):
+    rc = run_cli(
+        monkeypatch,
+        tmp_path,
+        str(repo_root / "tests/fixtures/symlink-outside"),
+        "--output",
+        "json",
+    )
+
+    assert rc == 2
+    assert "resolves outside scan root" in capsys.readouterr().err
+
+
+def test_malformed_registry_injected_into_cli_exits_3(
+    monkeypatch, tmp_path, capsys, repo_root
+):
+    empty_registry = tmp_path / "empty-mapping"
+    empty_registry.mkdir()
+    source = repo_root / FIXTURE
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["tf-eu-guard", "scan", "--checkov-json", str(source), "--output", "json"],
+    )
+
+    assert main(registry_path=empty_registry) == 3
+    assert "scanner/runtime failure" in capsys.readouterr().err
+
+    monkeypatch.setattr(
+        "sys.argv",
+        ["tf-eu-guard", "scan", "--checkov-json", str(source), "--output", "json"],
+    )
+    assert main(registry_path=tmp_path / "missing-mapping") == 3
+    assert "registry path does not exist" in capsys.readouterr().err
 
 
 def test_fail_on_severity_empty_findings(monkeypatch, tmp_path):

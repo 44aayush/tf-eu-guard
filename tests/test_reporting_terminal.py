@@ -99,7 +99,7 @@ def test_dev_reporter_class_generates_text():
     report = ScanReport(
         target_path="./terraform",
         scan_timestamp="2026-08-30",
-        checkov_version="3.3.13",
+        checkov_version="3.3.29",
         findings=[_finding()],
         total_checks_run=50,
         total_failed=1,
@@ -131,7 +131,7 @@ def test_dev_reporter_writes_plain_text_file(tmp_path):
     report = ScanReport(
         target_path="./terraform",
         scan_timestamp="2026-08-30",
-        checkov_version="3.3.13",
+        checkov_version="3.3.29",
         findings=[_finding(check_name="Name [bold]literal[/bold]")],
         total_checks_run=50,
         total_failed=1,

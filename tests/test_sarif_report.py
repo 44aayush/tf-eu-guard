@@ -8,6 +8,7 @@ rejected by GitHub Code Scanning.
 
 import json
 from pathlib import Path
+from urllib.parse import unquote
 
 import pytest
 
@@ -113,6 +114,40 @@ def test_rules_deduplicated_and_referenced(findings):
         assert result["ruleIndex"] < len(rule_ids)
 
 
+def test_sarif_is_byte_stable_and_rule_indexes_follow_sorted_rules(findings):
+    """A Checkov result permutation must produce identical serialized SARIF."""
+    unmapped = [
+        {
+            "check_id": "CKV_UNMAPPED_002",
+            "check_name": "Unmapped later file",
+            "resource": "aws_example.later",
+            "file_path": "z.tf",
+            "file_line_range": [2, 3],
+        },
+        {
+            "check_id": "CKV_UNMAPPED_001",
+            "check_name": "Unmapped earlier file",
+            "resource": "aws_example.earlier",
+            "file_path": "a.tf",
+            "file_line_range": [2, 3],
+        },
+    ]
+    first = build_sarif(findings, unmapped=unmapped, version="1.2.3")
+    second = build_sarif(
+        list(reversed(findings)),
+        unmapped=list(reversed(unmapped)),
+        version="1.2.3",
+    )
+    first_bytes = json.dumps(first, indent=2, sort_keys=True).encode()
+    second_bytes = json.dumps(second, indent=2, sort_keys=True).encode()
+    assert first_bytes == second_bytes
+
+    run = first["runs"][0]
+    rules = run["tool"]["driver"]["rules"]
+    for result in run["results"]:
+        assert result["ruleId"] == rules[result["ruleIndex"]]["id"]
+
+
 def test_result_fields_carry_regulatory_metadata(findings):
     result = build_sarif(findings)["runs"][0]["results"][0]
     assert result["ruleId"] == "CKV_AWS_18"
@@ -166,9 +201,24 @@ def test_unmapped_results_are_note_level_and_tagged(validator):
     (result,) = run["results"]
     assert result["level"] == "note"
     assert result["properties"]["mapped"] is False
+    assert result["properties"]["resource"] == "aws_example.thing"
+    assert result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == (
+        "other.tf"
+    )
+    assert "remediation" not in result["properties"]
     assert "no current EU regulatory mapping" in result["message"]["text"]
     (rule,) = run["tool"]["driver"]["rules"]
     assert rule["properties"]["mapped"] is False
+    assert rule["shortDescription"]["text"] == "A check with no EU mapping"
+    assert "remediation" not in rule["properties"]
+
+
+def test_sarif_rejects_empty_rule_ids():
+    with pytest.raises(ValueError, match="rule IDs must be non-empty strings"):
+        build_sarif([make_finding(check_id="")])
+
+    with pytest.raises(ValueError, match="rule IDs must be non-empty strings"):
+        build_sarif([], unmapped=[{"check_id": None}])
 
 
 @pytest.mark.parametrize(
@@ -202,6 +252,60 @@ def test_valid_line_range_and_path_are_uri_safe(validator):
     assert location["physicalLocation"]["region"] == {"startLine": 4, "endLine": 5}
 
 
+def test_checkov_scan_relative_path_becomes_repository_relative(validator, tmp_path):
+    repo = tmp_path / "checkout"
+    scan = repo / "examples" / "vulnerable-aws"
+    scan.mkdir(parents=True)
+
+    document = build_sarif(
+        [make_finding(file_path="/iam.tf")],
+        scan_root=scan,
+        repository_root=repo,
+    )
+    validator.validate(document)
+    location = document["runs"][0]["results"][0]["locations"][0]
+    assert location["physicalLocation"]["artifactLocation"]["uri"] == (
+        "examples/vulnerable-aws/iam.tf"
+    )
+
+
+def test_path_outside_repository_is_retained_without_unsafe_location(
+    validator, tmp_path
+):
+    repo = tmp_path / "checkout"
+    scan = repo / "examples" / "vulnerable-aws"
+    scan.mkdir(parents=True)
+    unmapped = [{
+        "check_id": "CKV_UNMAPPED_999",
+        "check_name": "A check with no EU mapping",
+        "resource": "aws_example.thing",
+        "file_path": "../../../../outside.tf",
+        "file_line_range": [3, 4],
+    }]
+
+    document = build_sarif(
+        [make_finding(file_path="../../../../outside.tf")],
+        unmapped=unmapped,
+        scan_root=scan,
+        repository_root=repo,
+    )
+    validator.validate(document)
+    assert all(not result["locations"] for result in document["runs"][0]["results"])
+
+
+def test_windows_separators_and_uri_delimiters_are_preserved_safely(validator):
+    document = build_sarif(
+        [make_finding(file_path=r"\src\my file#1?.tf")],
+        scan_root=r"C:\checkout\examples\vulnerable-aws",
+        repository_root=r"C:\checkout",
+    )
+    validator.validate(document)
+    location = document["runs"][0]["results"][0]
+    assert location["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == (
+        "examples/vulnerable-aws/src/my%20file%231%3F.tf"
+    )
+
+
 def test_driver_identifies_the_tool(findings):
     driver = build_sarif(findings, version="9.9.9")["runs"][0]["tool"]["driver"]
     assert driver["name"] == "tf-eu-guard"
@@ -232,6 +336,34 @@ def test_cli_sarif_output_validates(monkeypatch, tmp_path, repo_root, capsys, va
         for result in run["results"]
         for article in result["properties"]["articles"]
     )
+
+
+def test_cli_source_scan_uses_repository_relative_locations(
+    monkeypatch, tmp_path, repo_root, capsys, validator
+):
+    """A source scan keeps Checkov's /file.tf paths anchored to the scan root."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "tf-eu-guard", "scan", str(repo_root / "examples" / "vulnerable-aws"),
+            "--checkov-json", str(repo_root / "tests/fixtures/checkov-vulnerable-tf.json"),
+            "--output", "sarif",
+        ],
+    )
+    from tf_eu_guard.cli import main
+
+    assert main() == 0
+    document = json.loads(capsys.readouterr().out)
+    validator.validate(document)
+    repository_uris = [
+        result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
+        for result in document["runs"][0]["results"]
+        if result["locations"]
+    ]
+    assert "examples/vulnerable-aws/iam.tf" in repository_uris
+    assert all(".." not in uri and not uri.startswith("/") for uri in repository_uris)
+    assert all((repo_root / unquote(uri)).is_file() for uri in repository_uris)
 
 
 def test_cli_sarif_output_file(monkeypatch, tmp_path, repo_root, capsys, validator):

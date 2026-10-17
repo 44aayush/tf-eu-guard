@@ -11,6 +11,7 @@ import html
 from urllib.parse import urlparse
 
 from tf_eu_guard.models import EnrichedFinding, Severity
+from tf_eu_guard.reporting._sorting import sorted_articles
 from tf_eu_guard.reporting.styles import SEVERITY_COLOR, SEVERITY_ORDER
 
 
@@ -119,7 +120,7 @@ def finding_card(finding: EnrichedFinding) -> str:
     if finding.articles:
         badges = " ".join(
             f'<span class="art">{esc(a.framework.value)} {esc(a.article)}</span>'
-            for a in finding.articles
+            for a in sorted_articles(finding)
         )
         parts.append(f"    <dt>Compliance</dt><dd>{badges}</dd>")
     parts.append("  </dl>")

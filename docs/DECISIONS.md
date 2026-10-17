@@ -5,7 +5,7 @@ implementation history.
 
 ## 1. Wrap Checkov; don't reimplement scanning
 
-Checkov (pinned at 3.3.13 for reproducible scans) provides detection; tf-eu-guard
+Checkov (pinned at 3.3.29 for reproducible scans) provides detection; tf-eu-guard
 adds the compliance layer: parsing Checkov's JSON, joining each failed check to
 the NIS2/GDPR registry entry, and rendering reports. Pre-generated Checkov JSON
 can also be piped in (`--checkov-json`), so existing Checkov CI jobs work
@@ -13,15 +13,20 @@ unchanged.
 
 ## 2. Severity is authored in the registry
 
-Checkov 3.3.13 emits `severity: null` for most checks. tf-eu-guard therefore
+Checkov 3.3.29 emits `severity: null` for most checks. tf-eu-guard therefore
 assigns each mapping a severity (CRITICAL/HIGH/MEDIUM/LOW) in the registry,
 weighted by regulatory impact.
 
-## 3. Unmapped findings are dropped by design
+## 3. Unmapped findings stay visible without invented compliance advice
 
-Findings with no registry mapping are excluded from reports — the tool's output
-is *compliance-relevant* gaps, not raw security noise. An empty result means
-"no mapped compliance gaps," not "no Checkov findings."
+Findings with no registry mapping are kept in a separate list rather than
+silently discarded. The dev, security, and auditor reports show an unmapped
+count and caveat; JSON keeps its mapped-findings-only contract and writes the
+unmapped count to stderr; SARIF includes each unmapped result with its Checkov
+identity, resource, and location. Unmapped SARIF rules/results carry
+`properties.mapped: false` and no registry-authored severity, articles, or
+remediation. An empty mapped result therefore means "no mapped compliance
+gaps," not "no Checkov findings."
 
 ## 4. Article citations are verified against the legal text
 

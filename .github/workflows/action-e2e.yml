@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   docker-action-e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       # Fork PRs cannot grant this permission; upload-sarif is disabled there.
       contents: read
@@ -136,9 +136,19 @@ jobs:
       - name: Assert the HTML reports were written for the artifact
         run: |
           set -euo pipefail
-          ls action-artifacts/ | grep -E 'dev_report_.*\.html'
-          ls action-artifacts/ | grep -E 'scan_report_.*\.html'
-          ls action-artifacts/ | grep -E 'auditor_report_.*\.html'
+          for prefix in dev_report scan_report auditor_report; do
+            found=false
+            for report in "action-artifacts/${prefix}"_*.html; do
+              if [ -f "$report" ]; then
+                found=true
+                break
+              fi
+            done
+            if [ "$found" != true ]; then
+              echo "::error::No ${prefix} HTML report was written"
+              exit 1
+            fi
+          done
 
       # 4b. A single HTML report with output-file must be written to that
       #     exact file, rather than under output-dir. This invocation leaves

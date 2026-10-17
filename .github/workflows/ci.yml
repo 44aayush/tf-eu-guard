@@ -11,7 +11,7 @@ on:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -29,8 +29,12 @@ jobs:
         run: |
           ruff check tf_eu_guard/ tools/
 
+      - name: Type-check with mypy
+        run: |
+          mypy --ignore-missing-imports tf_eu_guard
+
   supply-chain:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up Python
@@ -43,10 +47,11 @@ jobs:
         run: python -m venv .ci-tools
       - name: Install hashed supply-chain tooling lock
         run: .ci-tools/bin/python -m pip install --require-hashes -r requirements-ci.lock
+      - name: Validate bounded dependency exceptions
+        run: python tools/check_dependency_exceptions.py
       - name: Audit the runtime lock
-        # Checkov 3.3.13 pins asteval==1.0.6 and ecdsa==0.19.2; neither
-        # can be upgraded without upgrading Checkov. Keep the exceptions
-        # explicit until Checkov offers a compatible fix (see ISSUES.md).
+        # The three ignores are bounded records in dependency-exceptions.json;
+        # the validation step above makes expiry and workflow drift fatal.
         run: |
           .ci-tools/bin/pip-audit --strict --disable-pip --no-deps -r requirements.lock \
             --ignore-vuln PYSEC-2026-3807 \
@@ -54,6 +59,8 @@ jobs:
             --ignore-vuln PYSEC-2026-1325
       - name: Generate CycloneDX SBOM
         run: .ci-tools/bin/cyclonedx-py requirements requirements.lock --of JSON --output-reproducible -o sbom.json
+      - name: Verify SBOM matches the runtime lock
+        run: python tools/check_sbom_lock.py requirements.lock sbom.json
       - name: Upload SBOM
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
@@ -63,7 +70,7 @@ jobs:
           retention-days: 30
 
   wheel-install:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [supply-chain]
 
     steps:
@@ -81,7 +88,12 @@ jobs:
         run: .ci-tools/bin/python -m pip install --require-hashes -r requirements-ci.lock
 
       - name: Build wheel
-        run: .ci-tools/bin/python -m build --wheel --no-isolation --outdir dist
+        run: |
+          set -euo pipefail
+          .ci-tools/bin/python -m build --wheel --no-isolation --outdir dist
+          .ci-tools/bin/python -m build --wheel --no-isolation --outdir "$RUNNER_TEMP/tf-eu-guard-wheel-rebuild"
+          cmp dist/*.whl "$RUNNER_TEMP/tf-eu-guard-wheel-rebuild/"*.whl
+          echo "OK: repeated no-isolation wheel builds are byte-for-byte identical"
 
       - name: Create fresh wheel installation environment
         env:
@@ -138,7 +150,7 @@ jobs:
           echo "OK: installed wheel scanned examples/compliant-aws with zero mapped findings"
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [lint, supply-chain]
     strategy:
       fail-fast: false
@@ -190,7 +202,7 @@ jobs:
           python tools/generate_coverage_doc.py --check
 
   example-scan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: test
 
     steps:

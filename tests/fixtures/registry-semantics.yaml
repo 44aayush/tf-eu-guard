@@ -1,0 +1,655 @@
+# Semantic probes for the Azure/GCP registry entries reconciled with Checkov
+# 3.3.29. The configurations use Checkov's normalized Terraform shape.
+CKV_AZURE_44:
+  check_name: "Ensure Storage Account is using the latest version of TLS encryption"
+  supported_resource: azurerm_storage_account
+  articles:
+    - [NIS2, "Art. 21(2)(h)"]
+    - [GDPR, "Art. 32(1)(a)"]
+  severity: HIGH
+  remediation_contains: [min_tls_version, TLS1_2]
+  fail_conf:
+    min_tls_version: [TLS1_1]
+  pass_conf:
+    min_tls_version: [TLS1_2]
+
+CKV_AZURE_110:
+  check_name: "Ensure that key vault enables purge protection"
+  supported_resource: azurerm_key_vault
+  articles:
+    - [NIS2, "Art. 21(2)(c)"]
+    - [GDPR, "Art. 32(1)(c)"]
+  severity: HIGH
+  remediation_contains: [purge_protection_enabled, "true"]
+  fail_conf:
+    purge_protection_enabled: [false]
+  pass_conf:
+    purge_protection_enabled: [true]
+
+CKV_AZURE_139:
+  check_name: "Ensure ACR set to disable public networking"
+  supported_resource: azurerm_container_registry
+  articles:
+    - [NIS2, "Art. 21(2)(i)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: HIGH
+  remediation_contains: [public_network_access_enabled, "false"]
+  fail_conf:
+    public_network_access_enabled: [true]
+  pass_conf:
+    public_network_access_enabled: [false]
+
+CKV_AZURE_160:
+  check_name: "Ensure that HTTP (port 80) access is restricted from the internet"
+  supported_resource: azurerm_network_security_rule
+  articles:
+    - [NIS2, "Art. 21(2)(g)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: HIGH
+  remediation_contains: [destination_port_range, '"80"']
+  fail_conf:
+    access: [Allow]
+    direction: [Inbound]
+    protocol: [Tcp]
+    destination_port_range: ['80']
+    source_address_prefix: ['*']
+  pass_conf:
+    access: [Allow]
+    direction: [Inbound]
+    protocol: [Tcp]
+    destination_port_range: ['80']
+    source_address_prefix: [10.0.0.0/8]
+
+CKV_AZURE_103:
+  check_name: "Ensure that Azure Data Factory uses Git repository for source control"
+  supported_resource: azurerm_data_factory
+  articles:
+    - [NIS2, "Art. 21(2)(d)"]
+    - [GDPR, "Art. 32(1)(d)"]
+  severity: LOW
+  remediation_contains: [github_configuration, repository_name]
+  fail_conf:
+    github_configuration: [{}]
+  pass_conf:
+    github_configuration:
+      - repository_name: [data-factory]
+
+CKV_AZURE_37:
+  check_name: "Ensure that Activity Log Retention is set 365 days or greater"
+  supported_resource: azurerm_monitor_log_profile
+  articles:
+    - [NIS2, "Art. 21(2)(b)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: MEDIUM
+  remediation_contains: [retention_policy, 'days    = 365']
+  fail_conf:
+    retention_policy:
+      - enabled: [true]
+        days: [90]
+  pass_conf:
+    retention_policy:
+      - enabled: [true]
+        days: [365]
+
+CKV_AZURE_38:
+  check_name: "Ensure audit profile captures all the activities"
+  supported_resource: azurerm_monitor_log_profile
+  articles:
+    - [NIS2, "Art. 21(2)(b)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: MEDIUM
+  remediation_contains: [categories, Write, Delete, Action]
+  fail_conf:
+    categories: [[Write, Delete]]
+  pass_conf:
+    categories: [[Write, Delete, Action]]
+
+CKV_GCP_62:
+  check_name: "Bucket should log access"
+  supported_resource: google_storage_bucket
+  articles:
+    - [NIS2, "Art. 21(2)(b)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: MEDIUM
+  remediation_contains: [logging, log_bucket]
+  fail_conf: {}
+  pass_conf:
+    logging:
+      - log_bucket: [google_storage_bucket.audit.name]
+
+CKV_GCP_11:
+  check_name: "Ensure that Cloud SQL database Instances are not open to the world"
+  supported_resource: google_sql_database_instance
+  articles:
+    - [NIS2, "Art. 21(2)(g)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: CRITICAL
+  remediation_contains: [authorized_networks, 10.0.0.0/8]
+  fail_conf:
+    settings:
+      - ip_configuration:
+          - authorized_networks:
+              - value: [0.0.0.0/0]
+  pass_conf:
+    settings:
+      - ip_configuration:
+          - authorized_networks:
+              - value: [10.0.0.0/8]
+
+CKV_GCP_51:
+  check_name: "Ensure PostgreSQL database 'log_checkpoints' flag is set to 'on'"
+  supported_resource: google_sql_database_instance
+  articles:
+    - [NIS2, "Art. 21(2)(b)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: MEDIUM
+  remediation_contains: [database_flags, log_checkpoints, 'value = "on"']
+  fail_conf:
+    database_version: [POSTGRES_15]
+    settings:
+      - database_flags:
+          - name: [log_checkpoints]
+            value: ["off"]
+  pass_conf:
+    database_version: [POSTGRES_15]
+    settings:
+      - database_flags:
+          - name: [log_checkpoints]
+            value: ["on"]
+
+CKV_GCP_6:
+  check_name: "Ensure all Cloud SQL database instance requires all incoming connections to use SSL"
+  supported_resource: google_sql_database_instance
+  articles:
+    - [NIS2, "Art. 21(2)(h)"]
+    - [GDPR, "Art. 32(1)(a)"]
+  severity: HIGH
+  remediation_contains: [require_ssl, "true"]
+  fail_conf:
+    settings:
+      - ip_configuration:
+          - require_ssl: [false]
+  pass_conf:
+    settings:
+      - ip_configuration:
+          - require_ssl: [true]
+
+CKV_GCP_88:
+  check_name: "Ensure Google compute firewall ingress does not allow unrestricted mysql access"
+  supported_resource: google_compute_firewall
+  articles:
+    - [NIS2, "Art. 21(2)(g)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: CRITICAL
+  remediation_contains: [google_compute_firewall, '3306', source_ranges]
+  fail_conf:
+    allow:
+      - ports: ['3306']
+    source_ranges: [[0.0.0.0/0]]
+  pass_conf:
+    allow:
+      - ports: ['3306']
+    source_ranges: [[10.0.0.0/8]]
+
+CKV_GCP_13:
+  check_name: "Ensure client certificate authentication to Kubernetes Engine Clusters is disabled"
+  supported_resource: google_container_cluster
+  articles:
+    - [NIS2, "Art. 21(2)(j)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: MEDIUM
+  remediation_contains: [issue_client_certificate, "false"]
+  fail_conf:
+    master_auth:
+      - client_certificate_config:
+          - issue_client_certificate: [true]
+  pass_conf:
+    master_auth:
+      - client_certificate_config:
+          - issue_client_certificate: [false]
+
+CKV_AZURE_3:
+  check_name: "Ensure that 'enable_https_traffic_only' is enabled"
+  supported_resource: azurerm_storage_account
+  articles:
+    - [NIS2, "Art. 21(2)(h)"]
+    - [GDPR, "Art. 32(1)(a)"]
+  severity: HIGH
+  remediation_contains: [enable_https_traffic_only, "true"]
+  fail_conf:
+    enable_https_traffic_only: [false]
+  pass_conf:
+    enable_https_traffic_only: [true]
+
+CKV_AZURE_41:
+  check_name: "Ensure that the expiration date is set on all secrets"
+  supported_resource: azurerm_key_vault_secret
+  articles:
+    - [NIS2, "Art. 21(2)(i)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: MEDIUM
+  remediation_contains: [expiration_date]
+  fail_conf: {}
+  pass_conf:
+    expiration_date: [2027-01-01T00:00:00Z]
+
+CKV_AZURE_35:
+  check_name: "Ensure default network access rule for Storage Accounts is set to deny"
+  supported_resource: azurerm_storage_account_network_rules
+  articles:
+    - [NIS2, "Art. 21(2)(i)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: HIGH
+  remediation_contains: [default_action, Deny]
+  fail_conf:
+    default_action: [Allow]
+  pass_conf:
+    default_action: [Deny]
+
+CKV_AZURE_36:
+  check_name: "Ensure 'Trusted Microsoft Services' is enabled for Storage Account access"
+  supported_resource: azurerm_storage_account_network_rules
+  articles:
+    - [NIS2, "Art. 21(2)(i)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: LOW
+  remediation_contains: [bypass, AzureServices]
+  fail_conf:
+    default_action: [Deny]
+    bypass: [[Logging]]
+  pass_conf:
+    default_action: [Deny]
+    bypass: [[AzureServices]]
+
+CKV_AZURE_11:
+  check_name: "Ensure no SQL Databases allow ingress from 0.0.0.0/0 (ANY IP)"
+  supported_resource: azurerm_postgresql_firewall_rule
+  articles:
+    - [NIS2, "Art. 21(2)(g)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: CRITICAL
+  remediation_contains: [start_ip_address, end_ip_address]
+  fail_conf:
+    start_ip_address: [0.0.0.0]
+    end_ip_address: [255.255.255.255]
+  pass_conf:
+    start_ip_address: [10.0.0.0]
+    end_ip_address: [10.0.0.255]
+
+CKV_AZURE_53:
+  check_name: "Ensure 'public network access enabled' is set to 'False' for mySQL servers"
+  supported_resource: azurerm_mysql_server
+  articles:
+    - [NIS2, "Art. 21(2)(g)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: HIGH
+  remediation_contains: [public_network_access_enabled, "false"]
+  fail_conf:
+    public_network_access_enabled: [true]
+  pass_conf:
+    public_network_access_enabled: [false]
+
+CKV_AZURE_48:
+  check_name: "Ensure 'public network access enabled' is set to 'False' for MariaDB servers"
+  supported_resource: azurerm_mariadb_server
+  articles:
+    - [NIS2, "Art. 21(2)(g)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: HIGH
+  remediation_contains: [public_network_access_enabled, "false"]
+  fail_conf:
+    public_network_access_enabled: [true]
+  pass_conf:
+    public_network_access_enabled: [false]
+
+CKV_AZURE_59:
+  check_name: "Ensure that Storage accounts disallow public access"
+  supported_resource: azurerm_storage_account
+  articles:
+    - [NIS2, "Art. 21(2)(i)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: CRITICAL
+  remediation_contains: [public_network_access_enabled, "false"]
+  fail_conf:
+    public_network_access_enabled: [true]
+  pass_conf:
+    public_network_access_enabled: [false]
+
+CKV_AZURE_84:
+  check_name: "Ensure that Azure Defender is set to On for Storage"
+  supported_resource: azurerm_security_center_subscription_pricing
+  articles:
+    - [NIS2, "Art. 21(2)(b)"]
+    - [GDPR, "Art. 32(1)(d)"]
+  severity: MEDIUM
+  remediation_contains: [resource_type, StorageAccounts, Standard]
+  fail_conf:
+    resource_type: [StorageAccounts]
+    tier: [Free]
+  pass_conf:
+    resource_type: [StorageAccounts]
+    tier: [Standard]
+
+CKV_AZURE_17:
+  check_name: "Ensure the web app has 'Client Certificates (Incoming client certificates)' set"
+  supported_resource: azurerm_linux_web_app
+  articles:
+    - [NIS2, "Art. 21(2)(j)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: MEDIUM
+  remediation_contains: [client_certificate_enabled, "true"]
+  fail_conf:
+    client_certificate_enabled: [false]
+  pass_conf:
+    client_certificate_enabled: [true]
+
+CKV_AZURE_66:
+  check_name: "Ensure that App service enables failed request tracing"
+  supported_resource: azurerm_linux_web_app
+  articles:
+    - [NIS2, "Art. 21(2)(b)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: MEDIUM
+  remediation_contains: [failed_request_tracing, "true"]
+  fail_conf:
+    logs:
+      - failed_request_tracing: [false]
+  pass_conf:
+    logs:
+      - failed_request_tracing: [true]
+
+CKV_AZURE_82:
+  check_name: "Ensure that 'Python version' is the latest, if used to run the web app"
+  supported_resource: azurerm_app_service
+  articles:
+    - [NIS2, "Art. 21(2)(e)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: MEDIUM
+  remediation_contains: [python_version, '"3.4"']
+  fail_conf:
+    site_config:
+      - python_version: ["3.3"]
+  pass_conf:
+    site_config:
+      - python_version: ["3.4"]
+
+CKV_AZURE_50:
+  check_name: "Ensure Virtual Machine Extensions are not Installed"
+  supported_resource: azurerm_linux_virtual_machine
+  articles:
+    - [NIS2, "Art. 21(2)(d)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: LOW
+  remediation_contains: [allow_extension_operations, "false"]
+  fail_conf:
+    allow_extension_operations: [true]
+  pass_conf:
+    allow_extension_operations: [false]
+
+CKV_AZURE_52:
+  check_name: "Ensure MSSQL is using the latest version of TLS encryption"
+  supported_resource: azurerm_mssql_server
+  articles:
+    - [NIS2, "Art. 21(2)(h)"]
+    - [GDPR, "Art. 32(1)(a)"]
+  severity: MEDIUM
+  remediation_contains: [minimum_tls_version, '"1.2"']
+  fail_conf:
+    minimum_tls_version: ["1.0"]
+  pass_conf:
+    minimum_tls_version: ["1.2"]
+
+CKV_AZURE_45:
+  check_name: "Ensure that no sensitive credentials are exposed in VM custom_data"
+  supported_resource: azurerm_virtual_machine
+  articles:
+    - [NIS2, "Art. 21(2)(e)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: HIGH
+  remediation_contains: [os_profile, custom_data]
+  fail_conf:
+    os_profile:
+      - custom_data: ['client_id = "12345678-1234-1234-1234-123456789abc"']
+  pass_conf:
+    os_profile:
+      - custom_data: ['#!/bin/sh\necho configure application']
+
+CKV_AZURE_49:
+  check_name: "Ensure Azure linux scale set does not use basic authentication(Use SSH Key Instead)"
+  supported_resource: azurerm_linux_virtual_machine_scale_set
+  articles:
+    - [NIS2, "Art. 21(2)(j)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: MEDIUM
+  remediation_contains: [disable_password_authentication, "true"]
+  fail_conf:
+    disable_password_authentication: [false]
+  pass_conf:
+    disable_password_authentication: [true]
+
+CKV_GCP_26:
+  check_name: "Ensure that VPC Flow Logs is enabled for every subnet in a VPC Network"
+  supported_resource: google_compute_subnetwork
+  articles:
+    - [NIS2, "Art. 21(2)(b)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: MEDIUM
+  remediation_contains: [log_config]
+  fail_conf: {}
+  pass_conf:
+    log_config: [{}]
+
+CKV_GCP_28:
+  check_name: "Ensure that Cloud Storage bucket is not anonymously or publicly accessible"
+  supported_resource: google_storage_bucket_iam_binding
+  articles:
+    - [NIS2, "Art. 21(2)(i)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: CRITICAL
+  remediation_contains: [allUsers, allAuthenticatedUsers]
+  fail_conf:
+    members: [[allUsers]]
+  pass_conf:
+    members: [[user:analyst@example.com]]
+
+CKV_GCP_49:
+  check_name: "Ensure roles do not impersonate or manage Service Accounts used at project level"
+  supported_resource: google_project_iam_member
+  articles:
+    - [NIS2, "Art. 21(2)(i)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: HIGH
+  remediation_contains: [roles/editor, service-account, google_project_iam_member]
+  fail_conf:
+    role: [roles/editor]
+  pass_conf:
+    role: [roles/logging.logWriter]
+
+CKV_GCP_27:
+  check_name: "Ensure that the default network does not exist in a project"
+  supported_resource: google_project
+  articles:
+    - [NIS2, "Art. 21(2)(g)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: MEDIUM
+  remediation_contains: [auto_create_network, "false"]
+  fail_conf:
+    auto_create_network: [true]
+  pass_conf:
+    auto_create_network: [false]
+
+CKV_GCP_18:
+  check_name: "Ensure GKE Control Plane is not public"
+  supported_resource: google_container_cluster
+  articles:
+    - [NIS2, "Art. 21(2)(g)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: HIGH
+  remediation_contains: [master_authorized_networks_config, 10.0.0.0/8]
+  fail_conf:
+    master_authorized_networks_config:
+      - cidr_blocks:
+          - cidr_block: [0.0.0.0/0]
+  pass_conf:
+    master_authorized_networks_config:
+      - cidr_blocks:
+          - cidr_block: [10.0.0.0/8]
+
+CKV_GCP_25:
+  check_name: "Ensure Kubernetes Cluster is created with Private cluster enabled"
+  supported_resource: google_container_cluster
+  articles:
+    - [NIS2, "Art. 21(2)(g)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: HIGH
+  remediation_contains: [private_cluster_config]
+  fail_conf: {}
+  pass_conf:
+    private_cluster_config: [{}]
+
+CKV_GCP_20:
+  check_name: "Ensure master authorized networks is set to enabled in GKE clusters"
+  supported_resource: google_container_cluster
+  articles:
+    - [NIS2, "Art. 21(2)(g)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: MEDIUM
+  remediation_contains: [master_authorized_networks_config]
+  fail_conf: {}
+  pass_conf:
+    master_authorized_networks_config: [{}]
+
+CKV_GCP_68:
+  check_name: "Ensure Secure Boot for Shielded GKE Nodes is Enabled"
+  supported_resource: google_container_cluster
+  articles:
+    - [NIS2, "Art. 21(2)(d)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: MEDIUM
+  remediation_contains: [enable_secure_boot, "true"]
+  fail_conf:
+    node_config:
+      - shielded_instance_config:
+          - enable_secure_boot: [false]
+  pass_conf:
+    node_config:
+      - shielded_instance_config:
+          - enable_secure_boot: [true]
+
+CKV_GCP_10:
+  check_name: "Ensure 'Automatic node upgrade' is enabled for Kubernetes Clusters"
+  supported_resource: google_container_node_pool
+  articles:
+    - [NIS2, "Art. 21(2)(e)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: MEDIUM
+  remediation_contains: [auto_upgrade, "true"]
+  fail_conf:
+    management:
+      - auto_upgrade: [false]
+  pass_conf:
+    management:
+      - auto_upgrade: [true]
+
+CKV_GCP_22:
+  check_name: "Ensure Container-Optimized OS (cos) is used for Kubernetes Engine Clusters Node image"
+  supported_resource: google_container_node_pool
+  articles:
+    - [NIS2, "Art. 21(2)(d)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: LOW
+  remediation_contains: [image_type, COS_CONTAINERD]
+  fail_conf:
+    version: ["1.23"]
+    node_config:
+      - image_type: [UBUNTU]
+  pass_conf:
+    version: ["1.23"]
+    node_config:
+      - image_type: [COS_CONTAINERD]
+
+CKV_GCP_30:
+  check_name: "Ensure that instances are not configured to use the default service account"
+  supported_resource: google_compute_instance
+  articles:
+    - [NIS2, "Art. 21(2)(i)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: MEDIUM
+  remediation_contains: [service_account, email]
+  fail_conf:
+    service_account:
+      - email: [123-compute@developer.gserviceaccount.com]
+  pass_conf:
+    service_account:
+      - email: [workload@example.iam.gserviceaccount.com]
+
+CKV_GCP_33:
+  check_name: "Ensure oslogin is enabled for a Project"
+  supported_resource: google_compute_project_metadata
+  articles:
+    - [NIS2, "Art. 21(2)(i)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: LOW
+  remediation_contains: [enable-oslogin, "TRUE"]
+  fail_conf:
+    metadata:
+      - enable-oslogin: ["FALSE"]
+  pass_conf:
+    metadata:
+      - enable-oslogin: ["TRUE"]
+
+CKV_GCP_38:
+  check_name: "Ensure VM disks for critical VMs are encrypted with Customer Supplied Encryption Keys (CSEK)"
+  supported_resource: google_compute_instance
+  articles:
+    - [NIS2, "Art. 21(2)(h)"]
+    - [GDPR, "Art. 32(1)(a)"]
+  severity: HIGH
+  remediation_contains: [boot_disk, kms_key_self_link]
+  fail_conf:
+    boot_disk: [{}]
+  pass_conf:
+    boot_disk:
+      - kms_key_self_link: [projects/p/locations/l/keyRings/r/cryptoKeys/k]
+
+CKV_GCP_78:
+  check_name: "Ensure Cloud storage has versioning enabled"
+  supported_resource: google_storage_bucket
+  articles:
+    - [NIS2, "Art. 21(2)(c)"]
+    - [GDPR, "Art. 32(1)(c)"]
+  severity: MEDIUM
+  remediation_contains: [versioning, enabled]
+  fail_conf:
+    versioning:
+      - enabled: [false]
+  pass_conf:
+    versioning:
+      - enabled: [true]
+
+CKV_GCP_16:
+  check_name: "Ensure that DNSSEC is enabled for Cloud DNS"
+  supported_resource: google_dns_managed_zone
+  articles:
+    - [NIS2, "Art. 21(2)(h)"]
+    - [GDPR, "Art. 32(1)(a)"]
+  severity: MEDIUM
+  remediation_contains: [dnssec_config, 'state = "on"']
+  fail_conf:
+    dnssec_config:
+      - state: ["off"]
+  pass_conf:
+    dnssec_config:
+      - state: ["on"]
+
+CKV_GCP_23:
+  check_name: "Ensure Kubernetes Cluster is created with Alias IP ranges enabled"
+  supported_resource: google_container_cluster
+  articles:
+    - [NIS2, "Art. 21(2)(g)"]
+    - [GDPR, "Art. 32(1)(b)"]
+  severity: MEDIUM
+  remediation_contains: [ip_allocation_policy]
+  fail_conf: {}
+  pass_conf:
+    ip_allocation_policy: [{}]

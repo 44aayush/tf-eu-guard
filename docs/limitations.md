@@ -66,9 +66,11 @@ Recurring structural blind spots (each also noted in the article docs):
 
 Only findings with an honest compliance link get a mapping; the rest
 are deliberately unmapped (methodology in
-[`check-mapping-table.md`](check-mapping-table.md)). They are surfaced
-as a count in every report format and never gate a build — but their
-absence from the compliance view is a statement about *mapping
+[`check-mapping-table.md`](check-mapping-table.md)). They are surfaced as a
+count in terminal/HTML reports and as a stderr count beside JSON; SARIF also
+preserves each unmapped identity, resource, and location with
+`properties.mapped: false` but no registry remediation. They never gate a
+build — but their absence from the compliance view is a statement about *mapping
 coverage*, not about their security relevance. A scan that shows "53
 mapped, 9 unmapped" is reporting 62 real Checkov failures, not 53.
 
@@ -78,12 +80,12 @@ mapped, 9 unmapped" is reporting 62 real Checkov failures, not 53.
   security of *personal-data* processing; the tool cannot know which
   resources hold personal data, so it takes the conservative
   assumption that the scanned infrastructure does.
-- **Severity is authored, not detected.** Checkov 3.3.13 emits
+- **Severity is authored, not detected.** Checkov 3.3.29 emits
   `severity: null` for most checks, so severities come from the
   registry, weighted by regulatory impact. Two people could defensibly
   disagree with a given rating — the registry is versioned and
   reviewable for exactly that reason.
-- **Checkov 3.3.13 is pinned.** Check IDs (the registry's join keys)
+- **Checkov 3.3.29 is pinned.** Check IDs (the registry's join keys)
   are stable within that pin; upgrading the backend is a deliberate,
   registry-reviewed event, not a floating dependency.
 

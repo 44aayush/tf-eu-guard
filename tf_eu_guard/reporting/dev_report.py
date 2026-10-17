@@ -6,8 +6,9 @@ from rich.console import Console
 from rich.markup import escape
 from rich.text import Text
 
-from tf_eu_guard.models import EnrichedFinding, ScanReport
+from tf_eu_guard.models import EnrichedFinding, ScanReport, Severity
 from tf_eu_guard.reporting._html_common import safe_guideline
+from tf_eu_guard.reporting._sorting import finding_sort_key, sort_findings, sorted_articles
 from tf_eu_guard.reporting.base import BaseReporter
 from tf_eu_guard.reporting.styles import SEVERITY_COLOR_TERMINAL, SEVERITY_ORDER
 
@@ -37,7 +38,7 @@ class DevReporter(BaseReporter):
         """Generate developer-focused terminal report."""
         # Group findings by file for easier navigation
         by_file: dict[str, list] = {}
-        for finding in report.findings:
+        for finding in sort_findings(report.findings):
             if finding.file_path not in by_file:
                 by_file[finding.file_path] = []
             by_file[finding.file_path].append(finding)
@@ -54,9 +55,12 @@ class DevReporter(BaseReporter):
             # Sort findings by severity within each file (unknown severities last)
             sorted_findings = sorted(
                 findings,
-                key=lambda f: SEVERITY_ORDER.index(f.severity)
-                if f.severity in SEVERITY_ORDER
-                else len(SEVERITY_ORDER),
+                key=lambda f: (
+                    SEVERITY_ORDER.index(f.severity)
+                    if f.severity in SEVERITY_ORDER
+                    else len(SEVERITY_ORDER),
+                    finding_sort_key(f),
+                ),
             )
 
             for finding in sorted_findings:
@@ -78,7 +82,7 @@ class DevReporter(BaseReporter):
                 if finding.articles:
                     articles_str = ", ".join(
                         f"{escape(str(a.framework.value))} {escape(str(a.article))}"
-                        for a in finding.articles
+                        for a in sorted_articles(finding)
                     )
                     output.append(f"    Compliance: {articles_str}")
 
@@ -135,7 +139,7 @@ def generate_dev_report(
         return
 
     # Summary
-    severity_counts = {}
+    severity_counts: dict[Severity, int] = {}
     for f in findings:
         severity_counts[f.severity] = severity_counts.get(f.severity, 0) + 1
 
@@ -153,7 +157,7 @@ def generate_dev_report(
 
     # Group by file
     by_file: dict[str, list[EnrichedFinding]] = {}
-    for finding in findings:
+    for finding in sort_findings(findings):
         if finding.file_path not in by_file:
             by_file[finding.file_path] = []
         by_file[finding.file_path].append(finding)
@@ -165,9 +169,12 @@ def generate_dev_report(
         # Sort by severity (unknown severities last)
         sorted_findings = sorted(
             file_findings,
-            key=lambda f: SEVERITY_ORDER.index(f.severity)
-            if f.severity in SEVERITY_ORDER
-            else len(SEVERITY_ORDER),
+            key=lambda f: (
+                SEVERITY_ORDER.index(f.severity)
+                if f.severity in SEVERITY_ORDER
+                else len(SEVERITY_ORDER),
+                finding_sort_key(f),
+            ),
         )
 
         for finding in sorted_findings:
@@ -193,7 +200,7 @@ def generate_dev_report(
                 articles_str = ", ".join(
                     f"[bold]{escape(str(a.framework.value))}[/bold] "
                     f"{escape(str(a.article))}"
-                    for a in finding.articles
+                    for a in sorted_articles(finding)
                 )
                 console.print(f"    [dim]Compliance:[/dim] {articles_str}")
 

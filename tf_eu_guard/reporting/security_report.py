@@ -18,6 +18,7 @@ from tf_eu_guard.reporting._html_common import (
     finding_card,
     severity_counts,
 )
+from tf_eu_guard.reporting._sorting import finding_sort_key, sort_findings
 from tf_eu_guard.reporting.styles import SECURITY_CSS, SEVERITY_COLOR, SEVERITY_ORDER
 
 
@@ -95,6 +96,7 @@ def _render(
     unmapped_count: int = 0,
 ) -> str:
     """Assemble the complete HTML document."""
+    findings = sort_findings(findings)
     unmapped_span = (
         f"<span>Unmapped Checkov findings: {unmapped_count}</span>"
         if unmapped_count
@@ -144,7 +146,7 @@ def _render(
             group = by_sev.get(sev) or []
             if not group:
                 continue
-            group.sort(key=lambda f: (f.file_path, f.check_id))
+            group.sort(key=finding_sort_key)
             detail.append(
                 f'<h3 style="color:{SEVERITY_COLOR[sev]}">{esc(sev.value)} '
                 f"({len(group)})</h3>"
@@ -159,6 +161,7 @@ def _render(
         "Only failed checks that map to a NIS2, GDPR, or project-policy control are shown; "
         f"{unmapped_count} unmapped Checkov finding(s) "
         "were reported separately; "
+        "this report is not legal advice and is not a certification; "
         "absence of a finding is not evidence of compliance.</footer>"
     )
 

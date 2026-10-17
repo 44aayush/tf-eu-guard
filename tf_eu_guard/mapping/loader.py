@@ -29,6 +29,12 @@ class RegistryValidationError(ValueError):
     """Raised when a registry file violates the mapping schema."""
 
 
+# These namespaces are part of the runtime contract: a package with one of
+# them missing cannot produce a complete compliance report, even if the YAML
+# files that remain are individually valid.
+EXPECTED_REGISTRY_NAMESPACES = ("aws", "azure", "gcp", "kubernetes")
+
+
 _ARTICLE_RE = re.compile(r"^(Art\. \d+(\(\d+\))?(\([a-z]\))?|Policy [A-Za-z0-9_.-]+)$")
 
 
@@ -182,15 +188,37 @@ def load_registry(registry_path: Path) -> dict[str, ComplianceMapping]:
     Accepts either a single registry file (``registry-*.yaml``) or — when given
     the mapping directory — merges every ``registry-*.yaml`` file found there.
     """
+    if not registry_path.exists():
+        raise RegistryValidationError(f"registry path does not exist: {registry_path}")
+
     if registry_path.is_dir():
+        paths = sorted(registry_path.glob("registry-*.yaml"))
+        if not paths:
+            raise RegistryValidationError(
+                f"no registry-*.yaml files found in {registry_path}; expected "
+                f"namespaces: {', '.join(EXPECTED_REGISTRY_NAMESPACES)}"
+            )
+
         merged: dict[str, ComplianceMapping] = {}
-        for path in sorted(registry_path.glob("registry-*.yaml")):
-            for check_id, mapping in load_registry_file(path).items():
+        found_namespaces = set()
+        for path in paths:
+            namespace = path.stem.removeprefix("registry-")
+            found_namespaces.add(namespace)
+            file_mappings = load_registry_file(path)
+            if not file_mappings:
+                raise RegistryValidationError(f"{path.name}: no entries found")
+            for check_id, mapping in file_mappings.items():
                 if check_id in merged:
                     raise RegistryValidationError(
                         f"duplicate check_id '{check_id}' in {path.name}"
                     )
                 merged[check_id] = mapping
+
+        missing = sorted(set(EXPECTED_REGISTRY_NAMESPACES) - found_namespaces)
+        if missing:
+            raise RegistryValidationError(
+                f"missing expected registry namespace(s): {', '.join(missing)}"
+            )
         return merged
 
     return load_registry_file(registry_path)
@@ -204,13 +232,22 @@ def validate_all(mapping_dir: Path | None = None) -> dict[str, int]:
     """
     mapping_dir = mapping_dir or Path(__file__).parent
     counts = {}
-    for path in sorted(mapping_dir.glob("registry-*.yaml")):
+    paths = sorted(mapping_dir.glob("registry-*.yaml"))
+    for path in paths:
         mappings = load_registry_file(path)
         if not mappings:
             raise RegistryValidationError(f"{path.name}: no entries found")
         counts[path.name] = len(mappings)
     if not counts:
         raise RegistryValidationError(f"no registry-*.yaml files found in {mapping_dir}")
+    found_namespaces = {
+        path.stem.removeprefix("registry-") for path in paths
+    }
+    missing = sorted(set(EXPECTED_REGISTRY_NAMESPACES) - found_namespaces)
+    if missing:
+        raise RegistryValidationError(
+            f"missing expected registry namespace(s): {', '.join(missing)}"
+        )
     return counts
 
 

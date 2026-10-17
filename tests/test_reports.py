@@ -6,6 +6,8 @@ Checkov nor the registry — they exercise the ``dev`` (HTML), ``security`` and
 file output, the empty-findings edge case, and HTML-escaping of untrusted fields.
 """
 
+from pathlib import Path
+
 from tf_eu_guard.models import ArticleReference, EnrichedFinding, Framework, Severity
 from tf_eu_guard.reporting.auditor_report import generate_auditor_report
 from tf_eu_guard.reporting.dev_html_report import generate_dev_html_report
@@ -244,7 +246,7 @@ class TestAuditorReport:
         doc = generate_auditor_report(_sample_findings(), version="9.8.7")
         assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v9.8.7/docs/nis2-mapping.md"' in doc
         assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v9.8.7/docs/gdpr-mapping.md"' in doc
-        assert "blob/v0.6.0/docs/" not in doc
+        assert "blob/v0.7.0/docs/" not in doc
 
     def test_toc_anchors_resolve(self):
         doc = generate_auditor_report(_sample_findings())
@@ -460,7 +462,19 @@ def test_html_reports_still_link_safe_guidelines():
     # not turn the untrusted Checkov guideline into an external link.
     auditor = generate_auditor_report(findings)
     assert 'href="https://docs.prismacloud.io' not in auditor
-    assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v0.6.0/docs/' in auditor
+    assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v0.7.0/docs/' in auditor
+
+
+def test_committed_html_reports_use_hedged_language_and_keep_disclaimers():
+    """Committed report examples must not turn technical signals into verdicts."""
+    screenshot_dir = Path(__file__).resolve().parents[1] / "docs" / "screenshots"
+    for report_path in screenshot_dir.glob("*.html"):
+        text = report_path.read_text(encoding="utf-8").lower()
+        assert "reportable breach under gdpr" not in text
+        assert "data-residency violation" not in text
+        assert "not legal advice" in text
+        assert "not a certification" in text
+        assert "absence of a finding is not evidence of compliance" in text
 
 
 def test_terminal_report_renders_no_link_for_javascript_guideline():
@@ -500,3 +514,19 @@ def test_terminal_report_still_links_safe_guidelines():
         sys.stdout = real_stdout
     out = buf.getvalue()
     assert "→ Documentation" in out  # link line rendered
+
+
+def test_html_report_order_is_stable_for_permuted_findings():
+    """HTML body ordering must not depend on Checkov's input collection order."""
+    findings = _sample_findings()
+    kwargs = {
+        "target": "examples/vulnerable-aws",
+        "timestamp": "2026-01-01 00:00 UTC",
+        "version": "0.7.0",
+    }
+    for generator in (
+        generate_security_report,
+        generate_auditor_report,
+        generate_dev_html_report,
+    ):
+        assert generator(findings, **kwargs) == generator(list(reversed(findings)), **kwargs)

@@ -2,6 +2,9 @@
 
 Thanks for your interest in improving EU infrastructure compliance tooling!
 
+For suspected vulnerabilities, use the private process in
+[SECURITY.md](SECURITY.md) rather than opening a public issue or pull request.
+
 ## Ways to contribute
 
 1. **Registry expansion** — map more Checkov checks to NIS2/GDPR articles (the highest-value contribution)

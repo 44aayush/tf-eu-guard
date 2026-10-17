@@ -8,7 +8,18 @@ terraform_plan fix), so this starts now rather than reconstructing
 history later. Versions follow the git tags/`__version__` at each
 release point.
 
-## [0.6.0] — Unreleased
+## [0.7.0] — 2026-10-18
+
+### Changed
+
+- Project version and current release examples are now `0.7.0`, including the
+  GitHub Action and pre-commit references.
+- GitHub Actions workflows now run on explicitly selected Ubuntu 24.04 runners
+  instead of the moving `ubuntu-latest` label.
+- Removed the standalone Docker image-build command from the project task and
+  release-validation documentation; the Action's runtime behavior is unchanged.
+
+## [0.6.0] — 2026-10-17
 
 ### Added
 
@@ -54,7 +65,7 @@ release point.
 - The hashed CI tooling lock now explicitly includes `typing-extensions`, a
   conditional dependency required by `cyclonedx-python-lib` on Python 3.12.
 
-## [0.5.0] — Unreleased
+## [0.5.0] — 2026-10-02
 
 ### Added
 
@@ -111,11 +122,12 @@ release point.
 
 - **SARIF 2.1.0 output** (`--output sarif`) — each finding maps to a SARIF
   `result` (`ruleId` = check ID, `level` from severity, `physicalLocation`
-  from file/line range) with the NIS2/GDPR articles, remediation, and
-  mapped/unmapped metadata in `properties` on both the rule and the result.
-  Output goes to stdout (like `--output json`) or to `--output-file`.
-  Unmapped Checkov findings ship as note-level results tagged
-  `mapped: false`. The document is validated against the official OASIS
+  from file/line range). Mapped rules/results carry the NIS2/GDPR articles,
+  registry remediation, and mapped metadata in `properties`; unmapped rules/
+  results carry identity/location metadata and `mapped: false` without
+  registry remediation. Output goes to stdout (like `--output json`) or to
+  `--output-file`. Unmapped Checkov findings ship as note-level results. The
+  document is validated against the official OASIS
   SARIF 2.1.0 JSON schema in `tests/test_sarif_report.py` (schema vendored
   under `tests/schemas/`; `jsonschema` added to the `dev` extras).
 - **GitHub Action: `iac-type` input** — the Action was rewritten from
@@ -316,7 +328,8 @@ registries.**
 
 **Initial release.**
 
-- Checkov 3.3.13 wrapper (pinned for reproducible scans) with
+- Historical Checkov 3.3.13 wrapper (pinned for reproducible scans at the
+  initial release; current releases pin Checkov 3.3.29) with
   enrichment against the NIS2 Art. 21(2) / GDPR Art. 32(1) mapping
   registry.
 - AWS registry: 116 `CKV_AWS_*`/`CKV2_AWS_*` mappings, article
@@ -329,6 +342,9 @@ registries.**
 - `--checkov-json` for pre-generated Checkov output, `--framework`
   filter, `--fail-on-severity` / `--fail-on-any` CI gating.
 
+[0.7.0]: https://github.com/44aayush/tf-eu-guard/compare/0.6.0...0.7.0
+[0.6.0]: https://github.com/44aayush/tf-eu-guard/compare/0.5.0...0.6.0
+[0.5.0]: https://github.com/44aayush/tf-eu-guard/compare/0.4.2...0.5.0
 [0.4.2]: https://github.com/44aayush/tf-eu-guard/compare/0.4.1...0.4.2
 [0.4.1]: https://github.com/44aayush/tf-eu-guard/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/44aayush/tf-eu-guard/compare/0.3.0...0.4.0

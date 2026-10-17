@@ -1,15 +1,22 @@
 ---
 name: tf-eu-guard
-description: Scan Terraform (source, plan JSON) and Kubernetes IaC for EU compliance gaps (NIS2 + GDPR) using the tf-eu-guard CLI, which wraps Checkov and maps each finding to specific NIS2 Art. 21(2) and GDPR Art. 32 articles. Use when the user asks to check Terraform or Kubernetes for NIS2, GDPR, or EU compliance, map a Checkov scan to EU regulations, or produce a compliance report for infrastructure-as-code.
+description: >
+  Scan Terraform (source or plan JSON) and Kubernetes IaC for EU compliance
+  gaps (NIS2 + GDPR) using the tf-eu-guard CLI. Mapped findings receive
+  registry-backed article, risk, severity, and remediation context; unmapped
+  findings remain visible with their Checkov identity and location. Use when
+  the user asks to check IaC for NIS2, GDPR, or EU compliance, map Checkov
+  output to EU regulations, or produce a compliance report.
 ---
 
 # tf-eu-guard — EU compliance scan for IaC
 
 `tf-eu-guard` runs Checkov against Terraform (source or plan JSON) or Kubernetes
-manifests and enriches every finding with its **NIS2 Art. 21(2)** / **GDPR
-Art. 32** (and 44) reference, a plain-language risk, remediation, and a
-severity. Findings with no EU mapping are **not discarded** — they're tracked
-separately and reported as an unmapped count (see "Interpreting the output").
+manifests. Findings with a registry mapping receive their **NIS2 Art. 21(2)** /
+**GDPR Art. 32** (and 44) reference, a plain-language risk, registry
+remediation, and severity. Findings with no EU mapping are **not discarded** —
+they retain their Checkov identity/location, are tracked separately, and are
+reported as an unmapped count (see "Interpreting the output").
 
 ## When to use
 - The user asks to check Terraform or Kubernetes / IaC for **NIS2**, **GDPR**, or "EU compliance".
@@ -17,13 +24,13 @@ separately and reported as an unmapped count (see "Interpreting the output").
 - The user wants a compliance report (terminal, HTML, JSON, or SARIF) for an IaC stack.
 
 ## Prerequisites
-Run from the repo root. Install once (this also installs Checkov 3.3.13; requires Python ≥ 3.11):
+Run from the repo root. Install once (this also installs Checkov 3.3.29; requires Python ≥ 3.11):
 
 ```bash
 pip install -e .
 ```
 
-Verify with `tf-eu-guard version` (prints `tf-eu-guard version 0.6.0` for this release).
+Verify with `tf-eu-guard version` (prints `tf-eu-guard version 0.7.0` for this release).
 
 ## How to run
 
@@ -57,6 +64,17 @@ checkov -d <terraform-dir> --output json --framework terraform --quiet \
   | tf-eu-guard scan --checkov-json - --output json
 ```
 
+**Mode 4 — produce complete SARIF, including unmapped findings**:
+
+```bash
+tf-eu-guard scan examples/unmapped-aws/ --output sarif --output-file unmapped.sarif
+```
+
+Mapped SARIF rules and results carry the registry's remediation. Unmapped SARIF
+rules and results carry the Checkov rule identity, resource, and source location
+with `properties.mapped: false`; they do not carry registry remediation,
+severity, or article metadata.
+
 Flags:
 - `--iac-type` — `terraform` (default), `terraform_plan`, or `kubernetes`. **What to scan.**
   `terraform_plan` scans a plan file: pass its path as PATH. `--checkov-json` expects
@@ -64,10 +82,12 @@ Flags:
 - `--framework` — `nis2`, `gdpr`, or `all` (default). **Which compliance regime to report.**
   Unrelated to `--iac-type` despite the similar name.
 - `--output` — `dev` (Rich terminal, default), `json` (mapped findings only — see below),
-  `sarif` (SARIF 2.1.0, includes **both** mapped and unmapped findings, each tagged with a
-  `properties.mapped` boolean and full remediation text), `security` (HTML dashboard with
-  severity breakdown and unmapped count), `auditor` (HTML article-by-article compliance
-  matrix), or `all` (writes the dev, security, and auditor HTML reports together).
+  `sarif` (SARIF 2.1.0, includes **both** mapped and unmapped findings; mapped
+  rules/results carry registry remediation, while unmapped rules/results carry
+  identity/location and `properties.mapped: false` without remediation),
+  `security` (HTML dashboard with severity breakdown and unmapped count),
+  `auditor` (HTML article-by-article compliance matrix), or `all` (writes the
+  dev, security, and auditor HTML reports together).
   For a compliance review, recommend `--output auditor`; for full coverage including
   unmapped findings in a parseable format, recommend `--output sarif` over `--output json`.
 - `--output-file FILE` — for `--output security|auditor|sarif`, write the single report
@@ -92,10 +112,13 @@ and one or more `articles` (`{framework, article}`).
 **`--output json` returns mapped findings only** — a Checkov finding with no registry entry
 is silently absent from this array specifically. It is *not* absent from the scan: `dev` and
 `security` output show an "Unmapped Checkov findings: N" count, and `--output sarif` includes
-every unmapped finding as a full result with `properties.mapped: false`. If you only ever
-call `--output json`, the unmapped count is printed to stderr rather than included in the
-JSON array — say so if you report a scan as "clean" based on JSON output alone, since a
-JSON-based "0 findings" can still mean real unmapped Checkov findings exist.
+every unmapped finding as a result with its identity/location and
+`properties.mapped: false`, without registry remediation. Mapped SARIF results
+and their rules include the registry remediation text. If you only ever call
+`--output json`, the unmapped count is printed to stderr rather than included
+in the JSON array — say so if you report a scan as "clean" based on JSON output
+alone, since a JSON-based "0 findings" can still mean real unmapped Checkov
+findings exist.
 
 Resource and line formats differ by `--iac-type`:
 - Terraform source: `aws_s3_bucket.data` addresses with real line ranges.

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/44aayush/tf-eu-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/44aayush/tf-eu-guard/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
-[![Checkov 3.3.13](https://img.shields.io/badge/checkov-3.3.13-8A2BE2)](https://www.checkov.io/)
+[![Checkov 3.3.29](https://img.shields.io/badge/checkov-3.3.29-8A2BE2)](https://www.checkov.io/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Mappings](https://img.shields.io/badge/NIS2%20%2B%20GDPR%20mappings-251-orange)](tf_eu_guard/mapping/registry-aws.yaml)
 
@@ -24,7 +24,7 @@ Most organizations scan infrastructure-as-code with tools like Checkov or tfsec,
 
 1. **Scans IaC using Checkov** — Terraform source, Terraform plan JSON (`terraform show -json`), and Kubernetes manifests (`--iac-type`)
 2. **Enriches findings** with NIS2 Article 21(2), GDPR Article 32(1) / 44, and the project's EUSC sovereignty policy mappings from a curated registry
-3. **Reports mapped and unmapped findings separately** — Checkov failures with no current EU mapping are surfaced as a count in every report format ("53 mapped findings, 9 unmapped"), never silently dropped; see [Unmapped findings](#unmapped-findings)
+3. **Reports mapped and unmapped findings separately** — Checkov failures with no current EU mapping are surfaced as counts in terminal/HTML reports, a stderr note beside JSON, and full note-level SARIF results, never silently dropped; see [Unmapped findings](#unmapped-findings)
 4. **Generates three report formats** from one scan:
    - **Dev report** (terminal/HTML): severity-sorted findings for engineers
    - **Security dashboard** (HTML): CRITICAL/HIGH/MEDIUM/LOW breakdown with stats
@@ -41,7 +41,7 @@ Most organizations scan infrastructure-as-code with tools like Checkov or tfsec,
 
 ### Installation
 
-Requires **Python ≥ 3.11** and [uv](https://docs.astral.sh/uv/). Installs Checkov 3.3.13 as a dependency.
+Requires **Python ≥ 3.11** and [uv](https://docs.astral.sh/uv/). Installs Checkov 3.3.29 as a dependency.
 
 ```bash
 uv tool install tf-eu-guard
@@ -128,6 +128,21 @@ checkov -d ./terraform --output json --framework terraform --quiet \
 
 > Use `--framework terraform` in Checkov to get a single JSON object. tf-eu-guard also handles the multi-check-type array and extracts the `terraform` result automatically.
 
+> Checkov results must identify the requested IaC type when `check_type` is
+> present. Arrays are accepted only when they contain a matching element. For
+> compatibility, a single legacy object without `check_type` is interpreted as
+> the requested type. Source scans fail closed on Checkov parsing errors and
+> empty/unsupported directories; `.tf.json` source files are not supported by
+> the selected Checkov framework (use Terraform HCL or scan a plan with
+> `--iac-type terraform_plan`).
+
+> **Symlink boundary:** For a source-directory scan, tf-eu-guard resolves every
+> symlink before Checkov runs. A symlinked file or directory that resolves
+> outside the requested scan root (or a broken symlink) is rejected with exit
+> code `2`. Symlinks that resolve inside the scan root are allowed; Checkov
+> scans their targets, and directory cycles are visited only once. Plan-file
+> scans are not directory traversals and do not apply this source-root check.
+
 ### Use as a Claude Code Skill
 
 This repo includes a Claude Code skill at `.claude/skills/tf-eu-guard/`. In Claude Code:
@@ -194,11 +209,13 @@ Emits a [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.
 document — the format GitHub Code Scanning ingests directly. Each finding
 becomes a `result` with `ruleId` = Checkov check ID, `level` derived from
 severity (CRITICAL/HIGH → `error`, MEDIUM → `warning`, LOW/INFO → `note`),
-and a `physicalLocation` from the finding's file and line range. The EU
-regulatory context (NIS2/GDPR articles, severity, remediation) rides along
-in `properties` on both the rule and the result, so Code Scanning shows the
-article metadata with the finding. Unmapped Checkov findings are included
-as `note`-level results tagged `mapped: false`.
+and a `physicalLocation` from the finding's file and line range. For mapped
+findings, the registry-backed EU context (NIS2/GDPR articles, severity, and
+remediation) rides along in `properties` on both the rule and the result, so
+Code Scanning shows the remediation with the finding. Unmapped Checkov
+findings are included as `note`-level results with their Checkov identity,
+resource, and location, tagged `properties.mapped: false`; they carry no
+registry remediation or severity.
 
 The document is validated against the official OASIS SARIF 2.1.0 JSON
 schema in the test suite (`tests/test_sarif_report.py`). Use
@@ -266,7 +283,7 @@ family (`CKV_AWS_10`–`15`).
 ### GitHub Action
 
 ```yaml
-- uses: 44aayush/tf-eu-guard@v0.6.0
+- uses: 44aayush/tf-eu-guard@v0.7.0
   with:
     path: './infra'
     iac-type: 'terraform'        # terraform | terraform_plan | kubernetes
@@ -317,12 +334,12 @@ Two optional extras:
 ```yaml
 jobs:
   compliance:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       security-events: write   # for upload-sarif
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: 44aayush/tf-eu-guard@v0.6.0
+      - uses: 44aayush/tf-eu-guard@v0.7.0
         with:
           path: './infra'
           output: sarif
@@ -333,7 +350,7 @@ For HTML artifacts, select an HTML-producing output and optionally choose a
 directory for the generated reports:
 
 ```yaml
-- uses: 44aayush/tf-eu-guard@v0.6.0
+- uses: 44aayush/tf-eu-guard@v0.7.0
   with:
     path: './infra'
     output: all
@@ -346,7 +363,7 @@ directory for the generated reports:
 ```yaml
 repos:
   - repo: https://github.com/44aayush/tf-eu-guard
-    rev: v0.6.0
+    rev: v0.7.0
     hooks:
       - id: tf-eu-guard
 ```
@@ -487,7 +504,7 @@ The registry is split per namespace — `registry-aws.yaml`, `registry-azure.yam
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines — especially on proposing new registry mappings. Release history lives in [CHANGELOG.md](CHANGELOG.md). Contributions welcome:
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines — especially on proposing new registry mappings. See [SECURITY.md](SECURITY.md) for private vulnerability reporting, supported versions, and safe handling guidance. Release history lives in [CHANGELOG.md](CHANGELOG.md). Contributions welcome:
 
 1. **Registry expansion**: Map more Checkov checks to NIS2/GDPR
 2. **New custom checks**: EU-specific patterns Checkov doesn't cover

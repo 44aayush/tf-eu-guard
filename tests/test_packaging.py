@@ -33,7 +33,7 @@ def test_runtime_version_comes_from_distribution_metadata():
     from tf_eu_guard import __version__
 
     assert __version__ == installed_version("tf-eu-guard")
-    assert __version__ == "0.6.0"
+    assert __version__ == "0.7.0"
 
 #: The registry data files that must ship inside the wheel, verbatim.
 REGISTRY_FILES = (
@@ -93,6 +93,17 @@ def test_publish_build_tools_live_outside_checkout():
     assert ".ci-tools" not in commands
 
 
+def test_docker_build_uses_locked_no_isolation_wheel_builder():
+    """The image must install a wheel built by the locked CI toolchain."""
+    dockerfile = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
+    assert "COPY requirements-ci.lock /tmp/requirements-ci.lock" in dockerfile
+    assert "--require-hashes -r /tmp/requirements-ci.lock" in dockerfile
+    assert "python -m build --wheel --no-isolation --outdir /dist" in dockerfile
+    assert "COPY --from=build /dist/tf_eu_guard-*.whl /tmp/" in dockerfile
+    assert "pip install --no-cache-dir --no-deps /tmp/tf_eu_guard-*.whl" in dockerfile
+    assert "pip install --no-cache-dir --no-deps /src" not in dockerfile
+
+
 def test_ci_lock_keeps_python312_conditional_dependency_hashed():
     """The CI lock must work on Python 3.12 as well as the lock generator's Python."""
     lock = (REPO_ROOT / "requirements-ci.lock").read_text(encoding="utf-8")
@@ -103,6 +114,11 @@ def test_ci_lock_keeps_python312_conditional_dependency_hashed():
 
 def _build_wheel(tmp_path: Path) -> Path:
     """Build the project wheel (no isolation, no network) and return its path."""
+    if installed_version("hatchling") != "1.32.4":
+        pytest.skip(
+            "wheel-content checks require the pinned Hatchling 1.32.4 CI build "
+            "environment; use requirements-ci.lock"
+        )
     result = subprocess.run(
         [
             sys.executable, "-m", "build", "--wheel", "--no-isolation",

@@ -46,6 +46,7 @@ SAMPLE = {
             },
         ]
     },
+    "summary": {"parsing_errors": 0},
 }
 
 
@@ -105,9 +106,43 @@ def test_extract_failed_checks_requires_list_of_mappings(failed_checks):
 
 def test_extract_defaults_line_range_when_absent():
     payload = {"results": {"failed_checks": [{"check_id": "X"}]}}
-    out = extract_failed_checks(payload)
-    assert out[0]["check_id"] == "X"
-    assert out[0]["file_line_range"] == [0, 0]
+    with pytest.raises(ValueError, match="missing required field.*file_line_range"):
+        extract_failed_checks(payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("check_id", None, "check_id must be a non-empty string"),
+        ("check_id", "", "check_id must be a non-empty string"),
+        ("check_id", "   ", "check_id must be a non-empty string"),
+        ("check_name", None, "check_name must be a non-empty string"),
+        ("resource", 42, "resource must be a string"),
+        ("file_path", None, "file_path must be a string"),
+        ("file_line_range", "1-2", "file_line_range must contain"),
+        ("file_line_range", (1, 2), "file_line_range must contain"),
+        ("file_line_range", [1], "file_line_range must contain"),
+        ("file_line_range", [1, "2"], "file_line_range must contain"),
+        ("file_line_range", [2, 1], "file_line_range must contain"),
+        ("file_line_range", [-1, 2], "file_line_range must contain"),
+    ],
+)
+def test_extract_rejects_malformed_required_finding_fields(field, value, message):
+    check = dict(SAMPLE["results"]["failed_checks"][0])
+    check[field] = value
+    payload = {"results": {"failed_checks": [check]}}
+
+    with pytest.raises(ValueError, match=message):
+        extract_failed_checks(payload)
+
+
+@pytest.mark.parametrize("field", ["check_id", "check_name", "resource", "file_path", "file_line_range"])
+def test_extract_rejects_missing_required_finding_fields(field):
+    check = dict(SAMPLE["results"]["failed_checks"][0])
+    del check[field]
+
+    with pytest.raises(ValueError, match=f"missing required field.*{field}"):
+        extract_failed_checks({"results": {"failed_checks": [check]}})
 
 
 @pytest.mark.skipif(
@@ -133,7 +168,13 @@ MULTI_TYPE = [
 
 K8S_ELEMENT = {
     "check_type": "kubernetes",
-    "results": {"failed_checks": [{"check_id": "CKV_K8S_17"}]},
+    "results": {"failed_checks": [{
+        "check_id": "CKV_K8S_17",
+        "check_name": "Kubernetes check",
+        "resource": "Pod/example",
+        "file_path": "/pod.yaml",
+        "file_line_range": [1, 2],
+    }]},
 }
 
 # A repo with both Terraform and Kubernetes files: Checkov returns one element
@@ -146,6 +187,17 @@ MIXED_FRAMEWORKS = [
 
 def test_normalize_dict_passthrough():
     assert _normalize_checkov_output(SAMPLE) is SAMPLE
+
+
+def test_normalize_legacy_single_object_without_type_is_supported():
+    """Legacy single-object captures may omit check_type for compatibility."""
+    legacy = {"results": {"failed_checks": [{"check_id": "LEGACY"}]}}
+    assert _normalize_checkov_output(legacy, "terraform") is legacy
+
+
+def test_normalize_single_object_rejects_wrong_type():
+    with pytest.raises(ValueError, match="declares check_type.*kubernetes"):
+        _normalize_checkov_output(K8S_ELEMENT, "terraform")
 
 
 def test_normalize_array_picks_terraform():
@@ -170,15 +222,16 @@ def test_normalize_defaults_to_terraform():
     assert _normalize_checkov_output(MIXED_FRAMEWORKS)["check_type"] == "terraform"
 
 
-def test_normalize_missing_requested_type_falls_back():
-    """Requesting kubernetes in a terraform+secrets array falls back to an object."""
-    picked = _normalize_checkov_output(MULTI_TYPE, "kubernetes")
-    assert picked["check_type"] == "secrets"  # first usable element
+def test_normalize_missing_requested_type_raises():
+    """A typed array must not fall back to a result from another framework."""
+    with pytest.raises(ValueError, match="no result object.*kubernetes"):
+        _normalize_checkov_output(MULTI_TYPE, "kubernetes")
 
 
-def test_normalize_array_falls_back_to_first_object():
+def test_normalize_legacy_array_without_type_raises():
     data = [{"results": {"failed_checks": [{"check_id": "Z"}]}}]
-    assert _normalize_checkov_output(data)["results"]["failed_checks"][0]["check_id"] == "Z"
+    with pytest.raises(ValueError, match="no result object"):
+        _normalize_checkov_output(data)
 
 
 def test_normalize_empty_array_raises():
@@ -237,6 +290,94 @@ def test_run_checkov_nonzero_status_includes_stderr(tmp_path):
         monkeypatch.undo()
 
 
+def test_run_checkov_rejects_parsing_errors_and_names_files(tmp_path):
+    payload = {
+        "check_type": "terraform",
+        "results": {
+            "failed_checks": [],
+            "parsing_errors": ["broken.tf"],
+        },
+        "summary": {"parsing_errors": 1},
+    }
+
+    def fake_run(cmd, **kwargs):
+        return type("R", (), {
+            "returncode": 0,
+            "stdout": json.dumps(payload),
+            "stderr": "",
+        })()
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
+    try:
+        (tmp_path / "main.tf").write_text('resource "aws_x" "y" {}\n')
+        with pytest.raises(CheckovRuntimeError, match=r"parsing error.*broken\.tf"):
+            run_checkov(tmp_path)
+    finally:
+        monkeypatch.undo()
+
+
+def test_run_checkov_rejects_summary_only_empty_source_scan(tmp_path):
+    payload = {
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0,
+        "parsing_errors": 0,
+        "resource_count": 0,
+    }
+
+    def fake_run(cmd, **kwargs):
+        return type("R", (), {
+            "returncode": 0,
+            "stdout": json.dumps(payload),
+            "stderr": "",
+        })()
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
+    try:
+        with pytest.raises(CheckovRuntimeError, match="no terraform scan results"):
+            run_checkov(tmp_path)
+    finally:
+        monkeypatch.undo()
+
+
+def test_run_checkov_rejects_tf_json_source(tmp_path):
+    (tmp_path / "main.tf.json").write_text("{}\n")
+    with pytest.raises(ValueError, match=r"\.tf\.json"):
+        run_checkov(tmp_path)
+
+
+def test_run_checkov_rejects_symlink_outside_scan_root(repo_root):
+    target = repo_root / "tests" / "fixtures" / "symlink-outside"
+
+    with pytest.raises(ValueError, match="resolves outside scan root"):
+        run_checkov(target)
+
+
+def test_run_checkov_rejects_symlink_directory_outside_scan_root(repo_root):
+    target = repo_root / "tests" / "fixtures" / "symlink-outside-dir"
+
+    with pytest.raises(ValueError, match="resolves outside scan root"):
+        run_checkov(target)
+
+
+def test_run_checkov_allows_in_root_symlinks(repo_root, monkeypatch):
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        return type("R", (), {"returncode": 0, "stdout": json.dumps(SAMPLE), "stderr": ""})()
+
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
+    target = repo_root / "tests" / "fixtures" / "symlink-in-root"
+
+    output = run_checkov(target)
+
+    assert output["results"]["failed_checks"]
+    assert captured["cmd"][captured["cmd"].index("-d") + 1] == str(target.resolve())
+
+
 def test_run_checkov_rejects_unknown_iac_type(tmp_path):
     with pytest.raises(ValueError, match="Unsupported iac_type"):
         run_checkov(tmp_path, "bogus_framework")
@@ -259,7 +400,8 @@ def test_run_checkov_plan_builds_file_invocation(repo_root):
 
     def fake_run(cmd, **kwargs):
         captured["cmd"] = cmd
-        return type("R", (), {"returncode": 0, "stdout": json.dumps(SAMPLE), "stderr": ""})()
+        plan_output = {**SAMPLE, "check_type": "terraform_plan"}
+        return type("R", (), {"returncode": 0, "stdout": json.dumps(plan_output), "stderr": ""})()
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
@@ -301,13 +443,7 @@ def test_run_checkov_directory_uses_dash_d(tmp_path):
 
 
 def test_run_checkov_invokes_own_interpreter(tmp_path):
-    """Checkov must run via this process's interpreter (``python -m
-    checkov.main``), never a bare ``checkov`` resolved from PATH — a stray
-    global install elsewhere on PATH could otherwise shadow the environment
-    tf-eu-guard actually runs in, and a working feature would look broken
-    (this happened). Note the module is ``checkov.main``: Checkov ships no
-    package-level ``__main__.py``, so ``python -m checkov`` errors out.
-    This pins the environment guarantee."""
+    """Checkov runs in isolated mode through this process's interpreter."""
     import sys as _sys
 
     captured = {}
@@ -326,9 +462,63 @@ def test_run_checkov_invokes_own_interpreter(tmp_path):
 
     cmd = captured["cmd"]
     assert cmd[0] == _sys.executable
-    assert cmd[1] == "-m"
-    assert cmd[2] == "checkov.main"
-    assert "checkov" != cmd[2]  # guard against reverting to the non-executable package
+    assert cmd[1] == "-I"
+    assert cmd[2] == "-c"
+    assert "checkov.main" in cmd[3]
+
+
+def test_run_checkov_does_not_forward_checkov_skip_environment(tmp_path, monkeypatch):
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured.update(kwargs)
+        return type("R", (), {"returncode": 0, "stdout": json.dumps(SAMPLE), "stderr": ""})()
+
+    monkeypatch.setenv("CKV_SKIP_CHECK", "CKV_AWS_18")
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
+    (tmp_path / "main.tf").write_text('resource "aws_x" "y" {}\n')
+
+    run_checkov(tmp_path, "terraform")
+
+    assert captured["env"]["PATH"]
+    assert "CKV_SKIP_CHECK" not in captured["env"]
+    assert captured["cwd"] != tmp_path
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("checkov") is None,
+    reason="Checkov is not installed",
+)
+def test_run_checkov_checkout_cannot_shadow_checkov(tmp_path):
+    """A package under the scanned directory is not importable by Checkov."""
+    target = tmp_path / "target"
+    target.mkdir()
+    (target / "main.tf").write_text('resource "aws_s3_bucket" "data" {}\n')
+    sentinel = tmp_path / "shadowed"
+    fake_checkov = target / "checkov"
+    fake_checkov.mkdir()
+    (fake_checkov / "__init__.py").write_text("")
+    (fake_checkov / "main.py").write_text(
+        "from pathlib import Path\n"
+        f"Path({str(sentinel)!r}).write_text('shadowed')\n"
+    )
+
+    output = run_checkov(target)
+    assert output["check_type"] == "terraform"
+    assert not sentinel.exists()
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("checkov") is None,
+    reason="Checkov is not installed",
+)
+def test_run_checkov_ignores_checkout_checkov_config(tmp_path):
+    """A checkout .checkov.yml cannot suppress wrapper-required checks."""
+    (tmp_path / "main.tf").write_text('resource "aws_s3_bucket" "data" {}\n')
+    (tmp_path / ".checkov.yml").write_text("skip-check: CKV_AWS_18\n")
+
+    output = run_checkov(tmp_path)
+    assert any(check["check_id"] == "CKV_AWS_18" for check in output["results"]["failed_checks"])
 
 
 def test_supported_iac_types_contents():

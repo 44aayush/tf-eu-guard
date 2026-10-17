@@ -19,6 +19,42 @@ from tf_eu_guard.constants import (
 from tf_eu_guard.models import Severity
 
 
+def _find_repository_root(scan_root: Path | None = None) -> Path | None:
+    """Find the checkout root available to the SARIF report.
+
+    The CLI normally runs from the checkout root, but accepting a scan path
+    outside the current directory is useful for tests and CI wrappers. Look
+    from both locations without invoking Git or changing scan behavior.
+    """
+    starts: list[Path] = []
+    if scan_root is not None:
+        target = scan_root.expanduser()
+        if not target.is_absolute():
+            target = Path.cwd() / target
+        starts.append(target if target.is_dir() else target.parent)
+    starts.append(Path.cwd())
+
+    seen: set[Path] = set()
+    for start in starts:
+        resolved = start.resolve(strict=False)
+        for candidate in (resolved, *resolved.parents):
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            if (candidate / ".git").exists():
+                return candidate
+    return None
+
+
+def _sarif_scan_root(path: Path | None, iac_type: str) -> Path | None:
+    """Return the directory whose paths Checkov reports relative to."""
+    if path is None:
+        return None
+    # Plan mode scans a file, so its containing directory is the meaningful
+    # scan root for a finding such as ``/plan.json``.
+    return path.parent if iac_type == "terraform_plan" else path
+
+
 def _fail_on_severity_arg(value: str) -> str | None:
     """argparse type for ``--fail-on-severity``: '' (as passed through by the
     GitHub Action when a user clears the input) means "no gating" → ``None``;
@@ -72,8 +108,12 @@ def _exit_code_for(error: Exception) -> int:
     return EXIT_RUNTIME_FAILURE
 
 
-def main():
-    """Main CLI entry point."""
+def main(registry_path: Path | None = None):
+    """Main CLI entry point.
+
+    ``registry_path`` is an internal/test injection seam. Normal CLI callers
+    leave it unset so the registries shipped beside the package are used.
+    """
     parser = argparse.ArgumentParser(
         prog="tf-eu-guard",
         description="EU compliance security linter for Terraform (source, plan JSON) "
@@ -204,8 +244,8 @@ def main():
             findings = extract_failed_checks(checkov_output)
 
             # Step 2: Load compliance registry (all registry-*.yaml files)
-            registry_path = Path(__file__).parent / "mapping"
-            registry = load_registry(registry_path)
+            registry_dir = registry_path or (Path(__file__).parent / "mapping")
+            registry = load_registry(registry_dir)
 
             # Step 3: Enrich findings with compliance mappings, keeping the
             # unmapped Checkov findings aside so every report can surface them
@@ -234,17 +274,23 @@ def main():
                 generate_dev_report(enriched, unmapped_count=len(unmapped))
             elif args.output == "json":
                 import json
+
+                from tf_eu_guard.reporting._sorting import sort_findings, sorted_articles
+
                 output = [
                     {
                         "check_id": f.check_id,
                         "severity": f.severity.value,
                         "resource": f.resource,
                         "file_path": f.file_path,
-                        "articles": [{"framework": a.framework.value, "article": a.article} for a in f.articles]
+                        "articles": [
+                            {"framework": a.framework.value, "article": a.article}
+                            for a in sorted_articles(f)
+                        ]
                     }
-                    for f in enriched
+                    for f in sort_findings(enriched)
                 ]
-                print(json.dumps(output, indent=2))
+                print(json.dumps(output, indent=2, sort_keys=True))
                 # Machine-readable stdout stays a pure findings array; the
                 # unmapped count goes to stderr so pipelines parsing stdout
                 # are unaffected while humans still see it.
@@ -268,23 +314,27 @@ def main():
                     str(args.path) if args.path
                     else f"checkov-json:{args.checkov_json}"
                 )
+                scan_root = _sarif_scan_root(args.path, args.iac_type)
                 document = build_sarif(
                     enriched,
                     unmapped=unmapped,
                     version=__version__,
                     target=target,
+                    scan_root=scan_root,
+                    repository_root=_find_repository_root(scan_root),
                 )
                 if args.output_file:
                     args.output_file.parent.mkdir(parents=True, exist_ok=True)
                     args.output_file.write_text(
-                        json.dumps(document, indent=2) + "\n", encoding="utf-8"
+                        json.dumps(document, indent=2, sort_keys=True) + "\n",
+                        encoding="utf-8",
                     )
                     print(
                         f"SARIF report written to {args.output_file} "
                         f"({len(enriched)} mapped, {len(unmapped)} unmapped findings)."
                     )
                 else:
-                    print(json.dumps(document, indent=2))
+                    print(json.dumps(document, indent=2, sort_keys=True))
                     # Same stdout-purity policy as --output json: the
                     # unmapped note goes to stderr.
                     if unmapped:

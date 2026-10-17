@@ -2,8 +2,8 @@
 """Verify that every mapping count in the docs matches the registries.
 
 The README drifted before — stale "38"/"44"/"30" leftovers sat alongside the
-real figures (AWS 116 · Azure 23 · GCP 22 · Kubernetes 24) because every
-number was hand-typed. This script computes the counts directly from
+real figures (currently AWS 181 · Azure 23 · GCP 22 · Kubernetes 25) because
+every number was hand-typed. This script computes the counts directly from
 ``tf_eu_guard/mapping/registry-*.yaml`` and fails when a documented number
 disagrees, so the drift can't recur.
 

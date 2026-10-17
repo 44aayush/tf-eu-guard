@@ -16,10 +16,11 @@ scope because Checkov already supplies dedicated checks for those shapes:
 scopes separate avoids claiming that one custom check covers a Terraform
 configuration shape it does not inspect.
 
-Checkov renders variable defaults before checks run, so a ``var.db_password``
-whose default is a literal is caught here too — which is the intent. References
-to other resources/data sources (e.g. ``data.aws_secretsmanager_secret_version``,
-rendered as ``"${...}"``) and unset values are treated as compliant.
+Checkov may normalise Terraform references before checks run, so bare
+``var.db_password`` values and wrapped forms such as
+``"${data.aws_secretsmanager_secret_version.db.secret_string}"`` are treated
+as compliant indirections. Unset values are also treated as compliant; a
+literal value that reaches a supported field is still rejected.
 """
 
 from checkov.common.models.enums import CheckCategories, CheckResult
@@ -27,6 +28,7 @@ from checkov.terraform.checks.resource.base_resource_check import BaseResourceCh
 
 from tf_eu_guard.checks.nis2.secret_names import (
     is_literal_env_value,
+    is_literal_secret_value,
     is_sensitive_env_name,
 )
 
@@ -71,7 +73,7 @@ class HardcodedSecrets(BaseResourceCheck):
 
         for field in _SECRET_FIELDS_BY_RESOURCE.get(self.entity_type, ()):
             value = _first_scalar(conf.get(field))
-            if _is_hardcoded_secret(value):
+            if is_literal_secret_value(value):
                 self.evaluated_keys = [field]
                 return CheckResult.FAILED
         return CheckResult.PASSED
@@ -109,16 +111,8 @@ def _mapping_values(value):
 
 
 def _is_hardcoded_secret(value) -> bool:
-    """True when ``value`` is a non-empty literal string (not an interpolation)."""
-    if not isinstance(value, str):
-        return False
-    stripped = value.strip()
-    if not stripped:
-        return False
-    # A "${...}" reference to a var/resource/data source is not a hardcoded literal.
-    if stripped.startswith("${") and stripped.endswith("}"):
-        return False
-    return True
+    """Backward-compatible alias for the shared secret-value predicate."""
+    return is_literal_secret_value(value)
 
 
 def _first_scalar(value):

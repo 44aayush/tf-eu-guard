@@ -5,12 +5,12 @@
 - ✅ AWS Terraform support
 - ✅ Three report formats (dev, security, auditor)
 
-## Future Work
-
 ### Multi-cloud Support
 
-- Azure (NIS2/GDPR mapping for Azure Resource Manager)
-- GCP (NIS2/GDPR mapping for GCP resources)
+- ✅ Azure (NIS2/GDPR mapping for Azure Resource Manager)
+- ✅ GCP (NIS2/GDPR mapping for GCP resources)
+
+## Future Work
 
 ### Additional Frameworks
 

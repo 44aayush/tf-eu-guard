@@ -1,7 +1,7 @@
 # Checkov JSON Schema Documentation
 
 **Date**: 2026-08-23  
-**Checkov Version**: 3.3.13  
+**Checkov Version**: 3.3.29
 **Source**: Scan of vulnerable TF files at `/home/aayush/Desktop/tf-eu-guard/tf/`
 
 ## Top-Level Structure
@@ -35,7 +35,7 @@ Each entry in `results.failed_checks[]` contains:
 | `guideline` | string | "https://docs.prismacloud.io/..." | ✅ External reference link |
 | `check_result` | object | `{"result": "FAILED", ...}` | ❌ Not used (status is implicit) |
 | `code_block` | array/null | Code snippet | ⚠️ Often null, not reliable |
-| `severity` | string/null | "HIGH" / null | ⚠️ Often null in 3.3.13 |
+| `severity` | string/null | "HIGH" / null | ⚠️ Often null in 3.3.29 |
 | `entity_tags` | object | `{"Name": "..."}` | ❌ Not used |
 | `breadcrumbs` | object | Variable tracing | ❌ Not used |
 
@@ -45,20 +45,22 @@ Each entry in `results.failed_checks[]` contains:
 Our `checkov_runner.extract_failed_checks()` function expects:
 ```python
 {
-    "check_id": str,       # ✓ Present
-    "check_name": str,     # ✓ Present
-    "resource": str,       # ✓ Present
-    "file_path": str,      # ✓ Present
-    "file_line_range": [int, int],  # ✓ Present
+    "check_id": str,       # ✓ required, non-empty
+    "check_name": str,     # ✓ required, non-empty
+    "resource": str,       # ✓ required
+    "file_path": str,      # ✓ required
+    "file_line_range": [int, int],  # ✓ required, ordered, non-negative
     "guideline": str       # ✓ Present (can be null)
 }
 ```
 
-**Result**: ✅ All required fields are present and match our expectations.
+Missing or incorrectly typed required fields are rejected before enrichment.
+This is invalid `--checkov-json` input and the CLI exits `2`; in particular,
+it cannot create a SARIF result with a null `ruleId`.
 
 ### ⚠️ Severity Handling
 
-**Observation**: The `severity` field is often `null` in Checkov 3.3.13 output.
+**Observation**: The `severity` field is often `null` in Checkov 3.3.29 output.
 
 **Impact**: We must define severity in our `registry-aws.yaml` mappings, not rely on Checkov's severity.
 
@@ -112,3 +114,29 @@ CKV_AWS_273:
 **Status**: Schema verification complete ✓  
 **Blockers**: None  
 **Ready for**: Phase 1.4 - End-to-end pipeline test
+
+## Framework and completeness rules
+
+`tf-eu-guard` requires a Checkov result's declared `check_type` to match
+`--iac-type`. A single result object whose `check_type` conflicts with the
+requested type is rejected, and a JSON array is accepted only when it contains
+an element with the requested type; the first object is never used as a
+fallback. This prevents a Terraform report from being interpreted as a
+Kubernetes report (or vice versa).
+
+For compatibility with older Checkov captures, a **single** legacy result
+object that omits `check_type` is still accepted and interpreted as the
+requested type. Arrays must identify their framework explicitly.
+
+For source scans, a nonzero `summary.parsing_errors` count is a scanner
+failure, including when valid findings are also present. Checkov's summary-only
+output for an empty or unsupported source directory is also rejected rather
+than reported as zero findings. Terraform `.tf.json` source files are rejected
+explicitly because the selected Checkov source framework does not scan them;
+Terraform plan JSON must use `--iac-type terraform_plan`.
+
+The wrapper runs the installed Checkov module in isolated Python mode from a
+trusted working directory, disables automatic `.checkov.yml`/`.checkov.yaml`
+discovery, and removes Checkov filter environment variables. A scanned
+checkout therefore cannot shadow Checkov or silently suppress the required
+checks.

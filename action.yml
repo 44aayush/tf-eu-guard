@@ -112,6 +112,10 @@ runs:
           args+=(--output-file /workspace/tf-eu-guard.sarif)
         fi
 
+        # The Python runner executes the installed Checkov package from a
+        # trusted directory and ignores checkout .checkov.yml filters. Keep
+        # the mounted workspace available only as the scan target.
+
         # The scan's exit code IS the gate (1 = findings at/above
         # threshold, 2 = bad invocation, 3 = tool failure); let it
         # propagate.

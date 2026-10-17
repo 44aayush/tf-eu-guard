@@ -223,6 +223,35 @@ def test_remediations_match_eusc_region_policy(registry):
     assert 'region = "eusc-de-east-1"' in registry["CKV_AWS_41"].remediation
 
 
+@pytest.mark.parametrize("cid", ["CKV_AWS_24", "CKV_AWS_25", "CKV_AWS_260", "CKV_AWS_382"])
+def test_security_group_remediation_covers_both_ip_families(registry, cid):
+    remediation = registry[cid].remediation
+    assert 'resource "aws_security_group"' in remediation
+    assert "cidr_blocks" in remediation
+    assert "ipv6_cidr_blocks" in remediation
+    assert "0.0.0.0/0" in remediation
+    assert "::/0" in remediation
+
+
+def test_ecs_embedded_json_uses_provider_api_key(registry):
+    remediation = registry["CKV_AWS_336"].remediation
+    assert 'resource "aws_ecs_task_definition"' in remediation
+    assert "container_definitions = jsonencode" in remediation
+    assert "readonlyRootFilesystem = true" in remediation
+    assert "readonly_root_filesystem" not in remediation
+
+
+def test_api_gateway_certificate_remediation_names_trust_direction(registry):
+    mapping = registry["CKV2_AWS_51"]
+    text = mapping.risk_explanation + "\n" + mapping.remediation
+    assert 'resource "aws_api_gateway_client_certificate"' in text
+    assert 'resource "aws_api_gateway_stage"' in text
+    assert "integration backend" in text
+    assert "incoming caller mTLS" in text
+    assert "mutual_tls_authentication" in text
+    assert "truststore_uri" in text
+
+
 def test_k8s_read_only_filesystem_declares_gdpr_article(registry):
     mapping = registry["CKV_K8S_22"]
     assert (Framework.GDPR, "Art. 32(1)(b)") in {
@@ -269,6 +298,40 @@ def test_registry_schema_rejects_bad_entry(tmp_path):
         raise AssertionError("expected RegistryValidationError")
     except RegistryValidationError:
         pass
+
+
+def test_runtime_registry_requires_all_expected_namespaces(tmp_path):
+    from tf_eu_guard.mapping.loader import RegistryValidationError, load_registry
+
+    mapping_dir = tmp_path / "mapping"
+    mapping_dir.mkdir()
+    (mapping_dir / "registry-aws.yaml").write_text("{}\n")
+
+    with pytest.raises(RegistryValidationError, match="no entries found"):
+        load_registry(mapping_dir)
+
+
+def test_runtime_registry_rejects_missing_path(tmp_path):
+    from tf_eu_guard.mapping.loader import RegistryValidationError, load_registry
+
+    with pytest.raises(RegistryValidationError, match="does not exist"):
+        load_registry(tmp_path / "missing-mapping")
+
+
+def test_runtime_registry_rejects_missing_namespace(tmp_path, repo_root):
+    from tf_eu_guard.mapping.loader import RegistryValidationError, load_registry
+
+    mapping_dir = tmp_path / "mapping"
+    mapping_dir.mkdir()
+    source = repo_root / "tf_eu_guard" / "mapping"
+    for namespace in ("aws", "azure", "gcp"):
+        (mapping_dir / f"registry-{namespace}.yaml").write_text(
+            (source / f"registry-{namespace}.yaml").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+
+    with pytest.raises(RegistryValidationError, match="kubernetes"):
+        load_registry(mapping_dir)
 
 
 @pytest.mark.parametrize(
@@ -429,10 +492,11 @@ def test_end2end_findings_are_all_mapped(repo_root, registry):
     )
 
 # --- Registry expansion: CloudTrail / CodeBuild / ECS / ElastiCache / Aurora ---
-# These IDs were confirmed by running Checkov 3.3.13 against the corresponding
-# examples/end2end/*.tf fixtures, then authored. The tests guard the mapping
-# (not the fixture): if an entry is removed, the finding goes back to being
-# silently unmapped.
+# These IDs were originally confirmed from the historical Checkov 3.3.13
+# capture of the corresponding examples/end2end/*.tf fixtures, then authored.
+# Current runtime verification uses live Checkov 3.3.29 scans. The tests guard
+# the mapping (not the capture): if an entry is removed, the finding goes back
+# to being unmapped.
 
 EXPANSION_IDS = {
     # cloudtrail.tf
