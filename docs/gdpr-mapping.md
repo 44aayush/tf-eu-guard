@@ -126,34 +126,46 @@ replace penetration testing, DPIAs, or periodic organisational review.
 > measures to the risks of processing.
 
 **Infrastructure controls** — this project is based on the **AWS European
-Sovereign Cloud**: a provider pinned to any other region either transfers
-personal data outside the EU/EEA (a non-EU region) or leaves the Sovereign
-Cloud (a commercial EU region, GDPR-permissible but outside this project's
-sovereignty requirement):
+Sovereign Cloud**. The provider-region checks deliberately separate the
+project's stricter sovereignty policy from the GDPR Chapter V review signal:
 
 | Check | Control |
 |-------|---------|
-| EUGUARD_GDPR_001 | AWS provider `region` is in the EU Sovereign Cloud (**custom** Phase 3 check) |
+| EUGUARD_GDPR_001 | AWS provider `region` is in the EU Sovereign Cloud (**project policy** custom check) |
+| EUGUARD_GDPR_002 | A known AWS provider region outside the EU/EEA receives a Chapter V review signal (**custom** check) |
 
-`EUGUARD_GDPR_001` is a **custom tf-eu-guard check** (added in Phase 3, implemented
-in [`tf_eu_guard/checks/gdpr/data_residency.py`](../tf_eu_guard/checks/gdpr/data_residency.py)).
-It is a **provider-level** check — data residency is a property of *where* the `aws`
-provider deploys, not of any single resource — so it inspects each provider block's
-`region`. Classification is an **explicit allowlist, fail-closed**: only a region on
-the allowlist — the EU Sovereign Cloud's `eusc-de-east-1` — passes; everything
-else fails. That includes `eu-west-2` (London, UK) and `eu-central-2` (Zurich,
-Switzerland), which carry the "eu-" naming prefix but are GDPR third countries,
-and the commercial EU regions (`eu-central-1` Frankfurt et al.), which GDPR would
-permit but which are not part of the Sovereign Cloud. A still-unresolved region
-reference (`var.region` with no default) also fails, because a deployment target
-that cannot be proven statically is flagged for review rather than waved through;
-only a fully *unset* region (inherited at apply time) returns *unknown*.
+`EUGUARD_GDPR_001` and `EUGUARD_GDPR_002` are **custom tf-eu-guard checks**
+(added in Phase 3, implemented in
+[`tf_eu_guard/checks/gdpr/data_residency.py`](../tf_eu_guard/checks/gdpr/data_residency.py)).
+They are **provider-level** checks — the deployment region is a property of
+*where* the `aws` provider deploys, not of any single resource — so they inspect
+each provider block's `region`.
 
-**Why Art. 44, not Art. 32**: EU data residency is a *lawful-transfer* question
-(Chapter V), not a *security-of-processing* control (Art. 32). Mapping it to Art. 44
-keeps the legal citation honest — the check enforces a policy *stricter* than the
-Art. 44 baseline (which would accept any EU/EEA region), so an EUGUARD_GDPR_001
-finding on a commercial EU region is a policy deviation, not a legal violation.
+`EUGUARD_GDPR_001` uses an **explicit allowlist, fail-closed**: only the EU
+Sovereign Cloud's `eusc-de-east-1` passes. Everything else fails the project's
+sovereignty policy, including commercial EU regions such as `eu-central-1`,
+which GDPR would permit geographically. Its mapping is `POLICY Policy EUSC-001`,
+not GDPR Art. 44. A still-unresolved region reference (`var.region` with no
+default) also fails this policy check, because a deployment target that cannot
+be proven statically is flagged for review rather than waved through; only a
+fully *unset* region (inherited at apply time) returns *unknown*.
+
+`EUGUARD_GDPR_002` uses a separate known-region table and returns a failed
+check only for known AWS regions outside the EU/EEA, such as `us-east-1`.
+Commercial EU/EEA and EUSC regions pass this check; unknown or unresolved
+values remain unknown rather than being labelled third countries. Therefore a
+provider pinned to `eu-central-1` produces only the sovereignty-policy finding,
+while `us-east-1` produces both the policy finding and a hedged GDPR Art. 44
+review signal.
+
+**Why Art. 44, not Art. 32**: a known third-country transfer review is a
+*lawful-transfer* question (Chapter V), not a *security-of-processing* control
+(Art. 32). Mapping only `EUGUARD_GDPR_002` to Art. 44 keeps the legal citation
+honest: `EUGUARD_GDPR_001` enforces a separate policy *stricter* than the Art. 44
+baseline (which would accept any EU/EEA region), so its commercial-EU finding is
+a policy deviation, not a legal violation. The Art. 44 finding is likewise a
+review signal, not a definitive conclusion about whether a transfer occurs or
+which Chapter V mechanism applies.
 
 **Limitations**: Region of deployment is a strong signal but not dispositive of a
 lawful transfer analysis — adequacy decisions, SCCs, and BCRs can permit transfers to
@@ -170,7 +182,7 @@ legality, and it cannot see transfers made by application code or downstream ser
 | (b) confidentiality / integrity / availability / resilience | ✓ strong | 10 |
 | (c) restore availability in a timely manner | ✓ | 3 |
 | (d) regularly testing effectiveness | ✓ via CI usage | tool itself |
-| Ch. V (Art. 44) transfers / data residency | ✓ custom check | EUGUARD_GDPR_001 |
+| Ch. V (Art. 44) transfers / data residency | ✓ custom check | EUGUARD_GDPR_002 |
 
 ✓ covered · ◐ partial/planned
 

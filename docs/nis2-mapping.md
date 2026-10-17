@@ -86,18 +86,38 @@ practice in the Terraform itself, plus timely patching of managed components:
 
 | Check | Control |
 |-------|---------|
-| EUGUARD_NIS2_001 | No hardcoded secrets in Terraform IaC (**custom** Phase 3 check) |
+| EUGUARD_NIS2_001 | No hardcoded secrets in selected Terraform fields (**custom** Phase 3 check) |
 | CKV_AWS_226 (candidate) | RDS auto minor version upgrades — timely patching |
 
 `EUGUARD_NIS2_001` is a **custom tf-eu-guard check** (added in Phase 3, implemented
-in [`tf_eu_guard/checks/nis2/secrets_in_code.py`](../tf_eu_guard/checks/nis2/secrets_in_code.py))
-that fails when a literal credential is inlined in a resource argument — e.g. an
-`aws_db_instance` `password`, an `aws_rds_cluster` `master_password`, or an
-`aws_elasticache_replication_group` `auth_token` — instead of being sourced from a
-secrets manager or a `sensitive` variable resolved at apply time. Committing secrets
-to code is a canonical insecure-development failure; keeping them out of the IaC is
-precisely the "security in ... development" that (e) requires. `CKV_AWS_226`
-(patching) remains a documented **expansion candidate** (not yet in the registry).
+in [`tf_eu_guard/checks/nis2/secrets_in_code.py`](../tf_eu_guard/checks/nis2/secrets_in_code.py)).
+Its supported Terraform shapes are deliberately narrow:
+
+| Terraform shape | Fields inspected |
+|---|---|
+| `aws_db_instance` | `password` |
+| `aws_rds_cluster` | `master_password` |
+| `aws_redshift_cluster` | `master_password` |
+| `aws_docdb_cluster` | `master_password` |
+| `aws_elasticache_replication_group` | `auth_token` |
+| `aws_codebuild_project` | sensitive-name plaintext `environment.environment_variable` entries |
+
+The provider `access_key`/`secret_key`, EC2 `user_data`, and Lambda
+`environment.variables` shapes are explicitly outside this custom check. They are
+covered by the independently mapped stock checks `CKV_AWS_41`, `CKV_AWS_46`, and
+`CKV_AWS_45`, respectively. The real CLI fixture at
+[`tests/fixtures/secret-shapes`](../tests/fixtures/secret-shapes) asserts one
+finding for every supported shape, one mapped replacement finding for each of
+these unsupported shapes, and no duplicate `EUGUARD_NIS2_001` finding. This
+scope separation avoids claiming that the custom check inspects a Terraform
+configuration shape it does not inspect.
+
+For supported fields, a literal credential is rejected instead of being sourced
+from a secrets manager or a `sensitive` variable resolved at apply time.
+Committing secrets to code is a canonical insecure-development failure; keeping
+them out of the IaC is precisely the "security in ... development" that (e)
+requires. `CKV_AWS_226` (patching) remains a documented **expansion candidate**
+(not yet in the registry).
 
 **Evidence / limitations**: Running tf-eu-guard *is itself* part of secure
 development — it is a security gate in the IaC pipeline. But (e) also covers SDLC

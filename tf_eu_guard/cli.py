@@ -341,6 +341,10 @@ def main():
                         out_path = out_dir / default_name
                     else:
                         out_path = args.output_file or (out_dir / default_name)
+                    # Keep --output-file behavior consistent across report
+                    # formats: custom HTML destinations may point into a
+                    # directory that does not exist yet.
+                    out_path.parent.mkdir(parents=True, exist_ok=True)
                     generator(
                         enriched,
                         target=target,

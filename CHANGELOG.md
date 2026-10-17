@@ -8,6 +8,50 @@ terraform_plan fix), so this starts now rather than reconstructing
 history later. Versions follow the git tags/`__version__` at each
 release point.
 
+## [0.6.0] — Unreleased
+
+### Added
+
+- A separate `EUGUARD_GDPR_002` third-country transfer-review signal, keeping
+  the EUSC sovereignty policy (`EUGUARD_GDPR_001`) separate from GDPR Chapter V
+  review. Commercial EU regions remain policy findings without an Art. 44
+  citation.
+- Live secret-shape fixtures and assertions covering the supported custom
+  secret check plus Checkov's provider, EC2 user-data, and Lambda environment
+  replacements.
+- A clean-install CI job that builds a wheel, installs it non-editably in a
+  fresh environment outside the checkout, verifies bundled registries and
+  custom checks, and scans a compliant fixture.
+
+### Changed
+
+- GitHub Action report uploads now follow the effective `output-dir` and
+  `output-file` destinations, upload only HTML-producing outputs, and pass the
+  exact SARIF file to Code Scanning. Action e2e coverage covers default and
+  custom destinations.
+- CI and release tooling (`build`, `cyclonedx-bom`, `pip-audit`, and related
+  build dependencies) is installed from the hashed `requirements-ci.lock`
+  lockfile.
+- The documented `EUGUARD_NIS2_001` scope now matches its supported
+  database/cache and CodeBuild fields; unsupported provider, user-data, and
+  Lambda shapes are documented with their independently verified stock checks.
+- The pre-commit hook and README now consistently document its HIGH-or-worse
+  mapped-finding threshold.
+- Demo documentation now describes the CSS severity bars, actual auditor
+  article/resource tables, and framework aggregation from JSON output.
+- Project version and release references are now `0.6.0`.
+- Auditor mapping rationale links resolve to the versioned public documentation,
+  including from pip-installed reports.
+- Documentation and CI use the timestamped `reports/*_report_*.html` contract.
+
+### Fixed
+
+- HTML `--output-file` destinations now create missing parent directories,
+  matching SARIF behavior.
+- Registry validation now converts non-string and unhashable YAML mapping keys
+  into contextual `RegistryValidationError` failures instead of leaking
+  `TypeError`.
+
 ## [0.5.0] — Unreleased
 
 ### Added

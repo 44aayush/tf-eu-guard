@@ -1,6 +1,6 @@
 - id: tf-eu-guard
   name: tf-eu-guard EU Compliance Check
-  description: Scans Terraform for NIS2/GDPR compliance gaps and fails on findings.
+  description: Scans Terraform for NIS2/GDPR compliance gaps and fails on HIGH or CRITICAL mapped findings.
   entry: tf-eu-guard scan
   language: python
   files: \.tf$

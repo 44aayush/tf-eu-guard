@@ -44,13 +44,14 @@ SEVERITY_COLOR_TERMINAL: dict[Severity, str] = {
 
 # Framework display order and the mapping-doc each framework links to
 # (auditor report).
-FRAMEWORK_ORDER: list[Framework] = [Framework.NIS2, Framework.GDPR]
+FRAMEWORK_ORDER: list[Framework] = [Framework.NIS2, Framework.GDPR, Framework.POLICY]
 # Public documentation links must work for users running an installed wheel;
 # the repository's docs/ files are not included in the distribution. The
 # report's installed version selects its matching source tag.
 FRAMEWORK_DOC: dict[Framework, str] = {
     Framework.NIS2: "nis2-mapping.md",
     Framework.GDPR: "gdpr-mapping.md",
+    Framework.POLICY: "DECISIONS.md",
 }
 
 # Per-report embedded stylesheets. Each is layout-specific (the security

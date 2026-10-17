@@ -1,0 +1,6 @@
+# Keep these tools separate from the runtime lock and install them with hashes.
+build==1.6.1
+cyclonedx-bom==7.5.0
+# The release workflow builds with --no-isolation, so pin the backend here too.
+hatchling==1.32.4
+pip-audit==2.10.1

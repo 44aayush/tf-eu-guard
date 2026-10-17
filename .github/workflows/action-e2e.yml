@@ -36,6 +36,9 @@ jobs:
           path: examples/vulnerable-aws
           output: sarif
           fail-on-severity: ''
+          # upload-reports is intentionally harmless for SARIF: it must not
+          # try to upload the absent reports/ directory.
+          upload-reports: true
           # Code Scanning upload only on push — fork PRs can't write
           # security events.
           upload-sarif: ${{ github.event_name == 'push' && 'true' || 'false' }}
@@ -56,6 +59,24 @@ jobs:
           jq -e '.runs[0].results[] | select((.properties.articles | length) > 0)' \
             tf-eu-guard.sarif > /dev/null
           jq -e '.runs[0].tool.driver.name == "tf-eu-guard"' tf-eu-guard.sarif > /dev/null
+
+      # 1b. A custom SARIF destination must be the file consumed by the
+      #     Code Scanning upload step, rather than the default path.
+      - name: Scan with a custom SARIF output file
+        uses: ./
+        with:
+          path: examples/vulnerable-aws
+          output: sarif
+          output-file: action-artifacts/custom-result.sarif
+          fail-on-severity: ''
+          upload-sarif: ${{ github.event_name == 'push' && 'true' || 'false' }}
+
+      - name: Assert the custom SARIF destination
+        run: |
+          set -euo pipefail
+          test -f action-artifacts/custom-result.sarif
+          jq -e '.runs[0].tool.driver.name == "tf-eu-guard"' \
+            action-artifacts/custom-result.sarif > /dev/null
 
       # 2. Kubernetes through the Action — the iac-type passthrough.
       - name: "Scan Kubernetes fixture (iac-type: kubernetes)"
@@ -99,23 +120,38 @@ jobs:
             echo "OK: $expected present"
           done
 
-      # 4. HTML reports must be retrievable as a workflow artifact.
-      - name: Scan with HTML reports and artifact upload
+      # 4. All three HTML reports must be retrievable as a workflow artifact,
+      #    including when output-dir is not the CLI default.
+      - name: Scan with custom-directory HTML reports and artifact upload
         uses: ./
         with:
           path: examples/vulnerable-aws
           output: all
+          output-dir: action-artifacts
           fail-on-severity: ''
           upload-reports: true
 
       - name: Assert the HTML reports were written for the artifact
         run: |
           set -euo pipefail
-          # The artifact upload step (if-no-files-found: ignore) won't
-          # fail on its own if the reports never landed — assert here.
-          ls reports/ | grep -E 'dev_report_.*\.html'
-          ls reports/ | grep -E 'scan_report_.*\.html'
-          ls reports/ | grep -E 'auditor_report_.*\.html'
+          ls action-artifacts/ | grep -E 'dev_report_.*\.html'
+          ls action-artifacts/ | grep -E 'scan_report_.*\.html'
+          ls action-artifacts/ | grep -E 'auditor_report_.*\.html'
+
+      # 4b. A single HTML report with output-file must be written to that
+      #     exact file, rather than under output-dir. This invocation leaves
+      #     artifact upload disabled because upload-artifact v4 does not allow
+      #     two action invocations in one workflow run to reuse one artifact name.
+      - name: Scan with a custom single HTML report
+        uses: ./
+        with:
+          path: examples/vulnerable-aws
+          output: security
+          output-file: action-artifacts/custom-security.html
+          fail-on-severity: ''
+
+      - name: Assert the custom HTML report was written
+        run: test -f action-artifacts/custom-security.html
 
       # 5. The severity gate must actually fail the scan step: default
       #    fail-on-severity (HIGH) on a fixture with HIGH findings.

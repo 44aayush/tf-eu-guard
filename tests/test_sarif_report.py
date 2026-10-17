@@ -64,7 +64,7 @@ def findings():
     return [
         make_finding(),
         make_finding(
-            check_id="EUGUARD_GDPR_001",
+            check_id="EUGUARD_GDPR_002",
             resource="aws.provider",
             severity=Severity.MEDIUM,
         ),
@@ -107,7 +107,7 @@ def test_rules_deduplicated_and_referenced(findings):
     document = build_sarif(findings)
     run = document["runs"][0]
     rule_ids = [rule["id"] for rule in run["tool"]["driver"]["rules"]]
-    assert rule_ids == ["CKV_AWS_18", "EUGUARD_GDPR_001"]
+    assert rule_ids == ["CKV_AWS_18", "EUGUARD_GDPR_002"]
     for result in run["results"]:
         assert result["ruleId"] == rule_ids[result["ruleIndex"]]
         assert result["ruleIndex"] < len(rule_ids)
@@ -235,7 +235,7 @@ def test_cli_sarif_output_validates(monkeypatch, tmp_path, repo_root, capsys, va
 
 
 def test_cli_sarif_output_file(monkeypatch, tmp_path, repo_root, capsys, validator):
-    out_file = tmp_path / "results.sarif"
+    out_file = tmp_path / "nested" / "results.sarif"
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
         "sys.argv",

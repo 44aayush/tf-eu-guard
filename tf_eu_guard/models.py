@@ -14,9 +14,10 @@ class Severity(StrEnum):
 
 
 class Framework(StrEnum):
-    """Supported compliance frameworks."""
+    """Regulatory frameworks and project policy scopes used in reports."""
     NIS2 = "NIS2"
     GDPR = "GDPR"
+    POLICY = "POLICY"
 
 
 @dataclass
@@ -87,6 +88,7 @@ class ScanReport:
         grouped: dict[Framework, list[EnrichedFinding]] = {
             Framework.NIS2: [],
             Framework.GDPR: [],
+            Framework.POLICY: [],
         }
         for finding in self.findings:
             for framework in finding.frameworks:

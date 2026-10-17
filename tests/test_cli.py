@@ -18,6 +18,8 @@ from tf_eu_guard.cli import main
 FIXTURE = "tests/fixtures/checkov-vulnerable-tf.json"
 PLAN_FIXTURE = "tests/fixtures/checkov-vulnerable-plan.json"
 K8S_FIXTURE = "tests/fixtures/checkov-vulnerable-k8s.json"
+REGION_FIXTURE = "tests/fixtures/region-aliases"
+SECRET_SHAPES_FIXTURE = "tests/fixtures/secret-shapes"
 
 
 def run_cli(monkeypatch, tmp_path, *argv):
@@ -69,6 +71,81 @@ def test_scan_json_output(monkeypatch, tmp_path, repo_root, capsys):
     assert all("check_id" in f and "articles" in f for f in data)
 
 
+def test_region_policy_and_transfer_review_are_distinct_live_cli_findings(
+    monkeypatch, tmp_path, repo_root, capsys
+):
+    """A real Checkov-backed scan keeps EUSC policy separate from Chapter V."""
+    fixture = repo_root / REGION_FIXTURE
+    rc = run_cli(monkeypatch, tmp_path, str(fixture), "--output", "json")
+    assert rc == 0
+    findings = json.loads(capsys.readouterr().out)
+
+    def rows(resource):
+        return [f for f in findings if f["resource"] == resource]
+
+    frankfurt = rows("aws.frankfurt")
+    assert {f["check_id"] for f in frankfurt} == {"EUGUARD_GDPR_001"}
+    assert frankfurt[0]["articles"] == [
+        {"framework": "POLICY", "article": "Policy EUSC-001"}
+    ]
+
+    virginia = rows("aws.virginia")
+    assert {f["check_id"] for f in virginia} == {
+        "EUGUARD_GDPR_001", "EUGUARD_GDPR_002",
+    }
+    assert next(f for f in virginia if f["check_id"] == "EUGUARD_GDPR_001")["articles"] == [
+        {"framework": "POLICY", "article": "Policy EUSC-001"}
+    ]
+    assert next(f for f in virginia if f["check_id"] == "EUGUARD_GDPR_002")["articles"] == [
+        {"framework": "GDPR", "article": "Art. 44"}
+    ]
+    assert not rows("aws.sovereign")
+
+    # A GDPR-only report contains the third-country review, not the separate
+    # project-policy finding for the commercial EU region.
+    run_cli(monkeypatch, tmp_path, str(fixture), "--framework", "gdpr", "--output", "json")
+    gdpr_findings = json.loads(capsys.readouterr().out)
+    assert {f["resource"] for f in gdpr_findings} == {"aws.london", "aws.zurich", "aws.virginia"}
+    assert all(f["check_id"] == "EUGUARD_GDPR_002" for f in gdpr_findings)
+
+
+def test_secret_shape_fixture_covers_custom_and_stock_checks_live_cli(
+    monkeypatch, tmp_path, repo_root, capsys
+):
+    """Each documented secret shape has an observed mapped CLI finding."""
+    fixture = repo_root / SECRET_SHAPES_FIXTURE
+    rc = run_cli(monkeypatch, tmp_path, str(fixture), "--output", "json")
+    assert rc == 0
+    findings = json.loads(capsys.readouterr().out)
+
+    custom_resources = {
+        f["resource"] for f in findings if f["check_id"] == "EUGUARD_NIS2_001"
+    }
+    assert custom_resources == {
+        "aws_db_instance.database",
+        "aws_rds_cluster.rds",
+        "aws_redshift_cluster.warehouse",
+        "aws_docdb_cluster.documents",
+        "aws_elasticache_replication_group.cache",
+        "aws_codebuild_project.build",
+    }
+
+    stock_replacements = {
+        "CKV_AWS_41": "aws.credential_shape",
+        "CKV_AWS_46": "aws_instance.user_data_shape",
+        "CKV_AWS_45": "aws_lambda_function.environment_shape",
+    }
+    for check_id, resource in stock_replacements.items():
+        assert any(
+            f["check_id"] == check_id and f["resource"] == resource
+            for f in findings
+        )
+        assert not any(
+            f["check_id"] == "EUGUARD_NIS2_001" and f["resource"] == resource
+            for f in findings
+        )
+
+
 def test_scan_framework_filter_nis2(monkeypatch, tmp_path, repo_root, capsys):
     run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / FIXTURE),
             "--output", "json", "--framework", "nis2")
@@ -113,6 +190,27 @@ def test_scan_html_reports(monkeypatch, tmp_path, repo_root):
         assert rc == 0
     htmls = list(tmp_path.glob("reports/*.html"))
     assert len(htmls) == 6  # two each of dev, security, auditor; no overwrite
+
+
+@pytest.mark.parametrize("output", ["security", "auditor"])
+def test_html_output_file_creates_missing_parent(
+    monkeypatch, tmp_path, repo_root, output
+):
+    out_file = tmp_path / "nested" / output / "report.html"
+
+    rc = run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(repo_root / FIXTURE),
+        "--output",
+        output,
+        "--output-file",
+        str(out_file),
+    )
+
+    assert rc == 0
+    assert out_file.is_file()
 
 
 def test_concurrent_scans_do_not_overwrite_reports(tmp_path, repo_root):
@@ -423,7 +521,20 @@ def test_exit_code_for_maps_exceptions():
     assert _exit_code_for(RuntimeError("unexpected")) == 3
 
 
-def test_malformed_registry_exits_3(monkeypatch, tmp_path, capsys):
+@pytest.mark.parametrize(
+    ("registry_text", "expected_error"),
+    [
+        (
+            "CKV_AWS_1:\n  check_name: x\n",
+            "missing required field",
+        ),
+        ("? [a, b]\n: value\n", "non-string mapping key"),
+    ],
+    ids=["schema-error", "unhashable-key"],
+)
+def test_malformed_registry_exits_3(
+    monkeypatch, tmp_path, capsys, registry_text, expected_error
+):
     """The plan's done-when: a deliberately broken registry file (malformed,
     fails schema validation) makes the scan exit 3 — 'the tool is broken' —
     not 1, so a CI pipeline distinguishes 'we found problems' from 'the
@@ -438,9 +549,7 @@ def test_malformed_registry_exits_3(monkeypatch, tmp_path, capsys):
     fake_pkg = tmp_path / "fake_pkg"
     mapping_dir = fake_pkg / "mapping"
     mapping_dir.mkdir(parents=True)
-    (mapping_dir / "registry-broken.yaml").write_text(
-        "CKV_AWS_1:\n  check_name: x\n"  # missing required fields
-    )
+    (mapping_dir / "registry-broken.yaml").write_text(registry_text)
 
     # cli.py resolves the registry as Path(__file__).parent / "mapping";
     # __file__ is a module global read at call time, so pointing it at the
@@ -454,7 +563,7 @@ def test_malformed_registry_exits_3(monkeypatch, tmp_path, capsys):
     assert rc == 3
     err = capsys.readouterr().err
     assert "scanner/runtime failure" in err
-    assert "missing required field" in err
+    assert expected_error in err
 
 
 def test_checkov_crash_exits_3(monkeypatch, tmp_path, capsys):

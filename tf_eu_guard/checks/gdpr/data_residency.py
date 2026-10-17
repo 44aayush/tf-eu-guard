@@ -1,12 +1,15 @@
 """
-Custom Checkov check: EU data-residency enforcement (GDPR Chapter V, Art. 44-49).
+Custom Checkov checks for AWS region policy and transfer review.
 
-This project is based on the AWS European Sovereign Cloud: only EUSC regions
-are acceptable deployment targets. Any other region — a non-EU region (which
-under GDPR Art. 44 is a transfer to a third country requiring Chapter V
-safeguards) or a *commercial* EU region such as ``eu-central-1`` (which GDPR
-would permit, but which does not meet this project's sovereignty requirement) —
-is flagged for review.
+The project has two deliberately separate signals:
+
+* ``EUGUARD_GDPR_001`` is the project's EUSC-only sovereignty policy. It flags
+  commercial EU regions such as ``eu-central-1`` because they are outside the
+  chosen AWS partition, without making a GDPR Chapter V claim.
+* ``EUGUARD_GDPR_002`` is a narrower Chapter V review signal. It fires only
+  for a known AWS region outside the EU/EEA, such as ``us-east-1``. It does
+  not decide whether a transfer is lawful; adequacy decisions, SCCs, BCRs or
+  another Chapter V mechanism still require human review.
 
 Design note: region is configured on the AWS *provider*, not on individual
 resources (``aws_s3_bucket`` / ``aws_db_instance`` / ``aws_instance`` have no
@@ -19,33 +22,34 @@ This deliberately deviates from the resource-level sketch in PROJECT_PLAN.md
 §3.1, which would return UNKNOWN for every resource because the ``region``
 attribute never appears in a resource's configuration.
 
-Region classification is fail-closed: the explicit allowlist —
-:data:`tf_eu_guard.regions.EUSC_REGIONS`, not AWS's "eu-" naming prefix —
-is the source of truth. The prefix is a *geographic*
+For the sovereignty policy, region classification is fail-closed: the explicit
+allowlist — :data:`tf_eu_guard.regions.EUSC_REGIONS`, not AWS's "eu-" naming
+prefix — is the source of truth. The prefix is a *geographic*
 ("Europe") label, not an EU-membership one, and no longer a residency signal
 at all under this policy: ``eu-west-2`` (London, UK) and ``eu-central-2``
 (Zurich, Switzerland) are GDPR third countries, and the commercial EU regions
 (``eu-central-1`` et al.) are GDPR-permissible but outside the Sovereign Cloud.
 Any region not on the allowlist — non-EUSC regions, malformed strings, and
 unresolved variable references (``var.region`` / ``"${var.region}"``, which
-Checkov passes through as raw text) — fails the check: a deployment target
-that cannot be proven to be the Sovereign Cloud statically is flagged for
-review, not waved through.
+Checkov passes through as raw text) — fails the policy check: a deployment
+target that cannot be proven to be the Sovereign Cloud statically is flagged
+for review, not waved through. The Chapter V check uses a separate known-region
+table and leaves unknown values undecided.
 """
 
 from checkov.common.models.enums import CheckCategories, CheckResult
 from checkov.terraform.checks.provider.base_check import BaseProviderCheck
 
-from tf_eu_guard.regions import EUSC_REGIONS
+from tf_eu_guard.regions import EU_EEA_REGIONS, EUSC_REGIONS, KNOWN_AWS_REGIONS
 
 
 class EURegionEnforcement(BaseProviderCheck):
-    """Flag AWS provider blocks configured outside the EU Sovereign Cloud."""
+    """Flag AWS provider blocks outside the project's EUSC-only policy."""
 
     def __init__(self):
         name = (
             "Ensure the AWS provider region is in the EU Sovereign Cloud "
-            "(GDPR data residency, Art. 44-49)"
+            "(project sovereignty policy)"
         )
         check_id = "EUGUARD_GDPR_001"
         supported_provider = ["aws"]
@@ -84,6 +88,44 @@ class EURegionEnforcement(BaseProviderCheck):
         return CheckResult.FAILED
 
 
+class ThirdCountryTransferReview(BaseProviderCheck):
+    """Flag known non-EU/EEA AWS regions for a hedged Chapter V review."""
+
+    def __init__(self):
+        name = (
+            "Review AWS provider regions outside the EU/EEA for GDPR Chapter V "
+            "transfer safeguards"
+        )
+        check_id = "EUGUARD_GDPR_002"
+        supported_provider = ["aws"]
+        categories = [CheckCategories.GENERAL_SECURITY]
+        super().__init__(
+            name=name,
+            id=check_id,
+            categories=categories,
+            supported_provider=supported_provider,
+        )
+
+    def scan_provider_conf(self, conf):
+        """Return FAILED only for a known third-country region.
+
+        Commercial EU/EEA and EUSC regions are not Chapter V signals. An unset,
+        unresolved, malformed, or otherwise unknown region is left UNKNOWN:
+        this check must not turn a lack of static information into a legal
+        conclusion.
+        """
+        region = _first_scalar(conf.get("region"))
+        if not isinstance(region, str) or not region.strip():
+            return CheckResult.UNKNOWN
+
+        normalized = region.strip().lower()
+        if normalized in EU_EEA_REGIONS:
+            return CheckResult.PASSED
+        if normalized in KNOWN_AWS_REGIONS and normalized not in EU_EEA_REGIONS:
+            return CheckResult.FAILED
+        return CheckResult.UNKNOWN
+
+
 def _first_scalar(value):
     """Unwrap Checkov's single-element list wrapping around attribute values."""
     if isinstance(value, list):
@@ -92,3 +134,4 @@ def _first_scalar(value):
 
 
 check = EURegionEnforcement()
+transfer_review_check = ThirdCountryTransferReview()

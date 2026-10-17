@@ -29,13 +29,18 @@ NIS2 Art. 21(2) sub-point letters and GDPR Art. 32(1) letters are checked
 against Directive (EU) 2022/2555 and Regulation (EU) 2016/679 directly (see
 `docs/nis2-mapping.md` and `docs/gdpr-mapping.md`). Notable corrections:
 access control is Art. 21(2)(i) (not (e)); encryption is Art. 21(2)(h) /
-GDPR 32(1)(a); data residency maps to GDPR Chapter V (Art. 44), not Art. 32.
+GDPR 32(1)(a); known third-country transfer review maps to GDPR Chapter V
+(Art. 44), not Art. 32. The separate EUSC-only deployment rule is a project
+policy control, not a GDPR citation.
 
 ## 5. Custom EU-specific checks for gaps Checkov doesn't cover
 
-`EUGUARD_GDPR_001` (non-EU regions, GDPR Chapter V transfers) and
-`EUGUARD_NIS2_001` (hardcoded secrets, Art. 21(2)(e) secure development) load
-through Checkov's external-check mechanism.
+`EUGUARD_GDPR_001` (EUSC-only sovereignty policy),
+`EUGUARD_GDPR_002` (known third-country regions, GDPR Chapter V review), and
+`EUGUARD_NIS2_001` (selected hardcoded secret fields, Art. 21(2)(e) secure
+development) load through Checkov's external-check mechanism. Provider
+credentials, EC2 user-data, and Lambda environment secrets remain covered by
+their mapped stock Checkov checks rather than the custom check.
 
 ## 6. Registry partitioned per provider with schema validation
 
@@ -58,10 +63,10 @@ so a separate file costs nothing and makes the (largest single chunk of)
 net-new mapping work visible on its own. `loader.py` glob-loads
 `registry-*.yaml` with a duplicate-key guard, so no loader change was needed.
 
-## 9. EUGUARD_GDPR_001 (data residency) is Terraform-only by design
+## 9. Provider-region checks are Terraform-only by design
 
-**Decision (2026-09):** the EU data-residency check (GDPR Chapter V,
-Art. 44–49) applies only to Terraform targets. Kubernetes manifests are
+**Decision (2026-09):** the provider-region checks for EUSC sovereignty and
+GDPR Chapter V review apply only to Terraform targets. Kubernetes manifests are
 cloud-agnostic: a manifest doesn't declare where the cluster runs, and region
 context lives at the cluster/cloud-provider level (node labels,
 `topology.kubernetes.io/region`), not per-resource in the manifest. Any
@@ -73,20 +78,25 @@ denying cluster creation in non-EU regions), or admission policy on
 node-selector labels for the rare topology-pinned workload.
 
 **Consequence:** the README's scope table claims GDPR Art. 44 coverage for
-Terraform only; the gap is documented rather than silently implied.
+Terraform only through `EUGUARD_GDPR_002`; the separate `EUGUARD_GDPR_001`
+sovereignty policy is not presented as a GDPR transfer citation. The
+Kubernetes gap is documented rather than silently implied.
 
 ## 10. EUGUARD_GDPR_001 accepts only EU Sovereign Cloud regions
 
 **Decision (2026-09):** the project is based on the AWS European Sovereign
 Cloud, so the residency check's allowlist contains only EUSC region codes
 (`eusc-de-east-1` — verified against botocore's `aws-eusc` partition data).
-Commercial EU regions (`eu-central-1` Frankfurt et al.) fail the check even
-though GDPR Art. 44 would permit them: this is a sovereignty *policy gate*
-stricter than the legal baseline, and finding text says so rather than
-claiming a violation. This decision superseded an earlier fix that had
-widened the allowlist to all EU/EEA regions (after replacing the original
-`eu-` prefix match, which wrongly passed `eu-west-2` London and
-`eu-central-2` Zurich — GDPR third countries).
+Commercial EU regions (`eu-central-1` Frankfurt et al.) fail
+`EUGUARD_GDPR_001` even though GDPR's geographic baseline would permit them:
+this is a sovereignty *policy gate* stricter than the legal baseline, and the
+finding text says so rather than claiming a violation. They do not receive a
+GDPR Chapter V citation. A separate `EUGUARD_GDPR_002` check flags known
+regions outside the EU/EEA (for example `us-east-1`) with a hedged Art. 44
+review signal; it does not decide whether a transfer occurs or is lawful. This
+decision superseded an earlier fix that had widened the allowlist to all
+EU/EEA regions (after replacing the original `eu-` prefix match, which wrongly
+passed `eu-west-2` London and `eu-central-2` Zurich — GDPR third countries).
 
 **Consequence:** stacks pinned to commercial EU regions now fail the
 compliance gate; `examples/compliant-aws` pins its providers to

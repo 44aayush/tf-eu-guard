@@ -2,8 +2,8 @@
 
 **Reference stack**: the vulnerable Terraform under [`examples/vulnerable-aws/`](../examples/vulnerable-aws/)
 (`iam.tf`, `s3.tf`, `rds.tf`, `network.tf`, plus `outputs.tf`).
-**Mapped in `registry-aws.yaml`**: **180 check IDs** — 178 stock Checkov policies plus
-2 custom tf-eu-guard checks (**§**, added in Phase 3). The original 38-mapping core
+**Mapped in `registry-aws.yaml`**: **181 check IDs** — 178 stock Checkov policies plus
+3 custom tf-eu-guard checks (**§**, added in Phase 3). The original 38-mapping core
 covered the `vulnerable_tf/` reference stack; subsequent extensions (from
 2026-08-30 on) grew the registry so that *every* Checkov check firing across the
 in-repo stacks (`examples/vulnerable-aws/`, `examples/end2end/`) enriches.
@@ -11,7 +11,8 @@ Mapping counts in the docs are verified against the registries in CI
 (`tools/check_doc_counts.py`), so they cannot drift.
 
 Article letters are verified against **Directive (EU) 2022/2555 (NIS2) Art. 21(2)**
-and **Regulation (EU) 2016/679 (GDPR) Art. 32(1)**. Full legal text and reasoning
+and **Regulation (EU) 2016/679 (GDPR) Art. 32(1)**. The table also includes the
+project's non-regulatory EUSC policy reference. Full legal text and reasoning
 live in [`nis2-mapping.md`](nis2-mapping.md) and [`gdpr-mapping.md`](gdpr-mapping.md).
 
 > **Provenance / verification status.** The mappings were originally assembled from
@@ -19,10 +20,10 @@ live in [`nis2-mapping.md`](nis2-mapping.md) and [`gdpr-mapping.md`](gdpr-mappin
 > Checkov policy index, at a time when Checkov could not be executed in the
 > development environment. Checkov now runs in CI and locally, so every ID has been
 > re-verified against live scans of both in-repo stacks: `examples/vulnerable-aws/`
-> (50 failing checks, all mapped) and `examples/end2end/` (295 failing checks, all
-> mapped — zero unmapped). The registry is kept in sync with the fixture stacks, and
-> `tools/check_doc_counts.py` verifies the documented counts against the registries
-> on every commit.
+> (50 stock Checkov failing checks, all mapped) and `examples/end2end/` (295 stock
+> Checkov failing checks, all mapped — zero unmapped). The registry is kept in sync with
+> the fixture stacks, and `tools/check_doc_counts.py` verifies the documented counts
+> against the registries on every commit.
 
 ---
 
@@ -58,8 +59,8 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 
 ## Mapping Matrix (the original 38-check core)
 
-| Check ID | File | Resource | Issue | NIS2 | GDPR | Severity |
-|----------|------|----------|-------|------|------|----------|
+| Check ID | File | Resource | Issue | NIS2 | GDPR / Policy | Severity |
+|----------|------|----------|-------|------|---------------|----------|
 | CKV_AWS_287 | iam.tf | iam user policy | Allows credentials exposure | 21(2)(i) | 32(1)(b) | CRITICAL |
 | CKV_AWS_288 | iam.tf | iam user policy | Allows data exfiltration | 21(2)(i) | 32(1)(b) | CRITICAL |
 | CKV_AWS_286 | iam.tf | iam user policy | Allows privilege escalation | 21(2)(i) | 32(1)(b) | CRITICAL |
@@ -96,13 +97,14 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 | CKV2_AWS_12 | network.tf | aws_vpc | Default SG not restricted | 21(2)(i) | – | MEDIUM |
 | CKV2_AWS_11 | network.tf | aws_vpc | VPC flow logging disabled | 21(2)(b) | – | MEDIUM |
 | CKV_AWS_130 ‡ | network.tf | aws_subnet | Auto-assigns public IP | 21(2)(i) | 32(1)(b) | MEDIUM |
-| EUGUARD_GDPR_001 § | main.tf | aws provider | Provider region outside the EU Sovereign Cloud | – | 44 | HIGH |
+| EUGUARD_GDPR_001 § | main.tf | aws provider | Provider region outside the EU Sovereign Cloud | – | Policy EUSC-001 | HIGH |
+| EUGUARD_GDPR_002 § | main.tf | aws provider | Known provider region outside the EU/EEA requires Chapter V review | – | 44 | HIGH |
 | EUGUARD_NIS2_001 § | rds.tf | aws_db_instance | Hardcoded DB password (literal) | 21(2)(e) | 32(1)(b) | CRITICAL |
 
 ### Coverage summary
 
 - **By severity** (original 38): 9 CRITICAL · 15 HIGH · 14 MEDIUM — plus the
-  extension above (180 total: 23 CRITICAL · 66 HIGH · 66 MEDIUM · 25 LOW).
+  extension above (181 total: 23 CRITICAL · 67 HIGH · 66 MEDIUM · 25 LOW).
 - **By framework** (original 38): 21 map to **both** NIS2 and GDPR, 11 NIS2-only, 6 GDPR-only.
 - **By file**: iam.tf (12), s3.tf (9), rds.tf (9), network.tf (7), main.tf (1).
 - **By theme**: access control / least privilege (20), public exposure (7),
@@ -128,8 +130,8 @@ Measured results:
 
 | Stack | Failing checks | Mapped | Unmapped |
 |-------|---------------:|-------:|---------:|
-| `examples/vulnerable-aws/` | 50 | 50 | **0** |
-| `examples/end2end/` | 295 | 295 | **0** |
+| `examples/vulnerable-aws/` | 50 stock + 3 custom | 53 | **0** |
+| `examples/end2end/` | 295 stock + 2 custom | 297 | **0** |
 
 Every check that fires on either stack enriches, so a scan of either produces
 **zero unmapped findings**. The `‡` markers in the table above are the only
@@ -162,8 +164,8 @@ remediation text lives in the registry):
 | IAM / access control | 21(2)(i) | 32(1)(b) | CKV2_AWS_40, CKV_AWS_109, 111, 283, 356, 70, CKV2_AWS_41, 79, 162, 359, CKV2_AWS_52 |
 | Network segmentation | 21(2)(i) | 32(1)(b) | CKV_AWS_137, 248, 38, 39, 117, CKV2_AWS_5, 23 |
 
-Severity distribution after the extension: **23 CRITICAL · 66 HIGH · 66 MEDIUM ·
-25 LOW** (180 total; article refs: NIS2 129, GDPR 96).
+Severity distribution after the extension: **23 CRITICAL · 67 HIGH · 66 MEDIUM ·
+25 LOW** (181 total; article refs: NIS2 129, GDPR 96).
 
 ### Checks still intentionally unmapped
 

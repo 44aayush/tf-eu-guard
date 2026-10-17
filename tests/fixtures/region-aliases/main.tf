@@ -1,4 +1,4 @@
-# Fixture for the EUGUARD_GDPR_001 live integration test: aliased provider
+# Fixture for the provider-region live integration test: aliased provider
 # blocks covering the classification policy's edge cases — the two eu-prefixed
 # third countries, a commercial EU region (GDPR-permissible but outside the
 # Sovereign Cloud), the Sovereign Cloud region itself, and a bare variable
@@ -17,6 +17,11 @@ provider "aws" {
 provider "aws" {
   alias  = "frankfurt"
   region = "eu-central-1"
+}
+
+provider "aws" {
+  alias  = "virginia"
+  region = "us-east-1"
 }
 
 provider "aws" {

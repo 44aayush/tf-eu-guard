@@ -33,7 +33,7 @@ def test_runtime_version_comes_from_distribution_metadata():
     from tf_eu_guard import __version__
 
     assert __version__ == installed_version("tf-eu-guard")
-    assert __version__ == "0.5.0"
+    assert __version__ == "0.6.0"
 
 #: The registry data files that must ship inside the wheel, verbatim.
 REGISTRY_FILES = (
@@ -42,6 +42,30 @@ REGISTRY_FILES = (
     "registry-gcp.yaml",
     "registry-kubernetes.yaml",
 )
+
+
+def test_ci_smoke_tests_a_non_editable_wheel_from_outside_checkout():
+    """CI must exercise the installed wheel, not only editable source imports."""
+    workflow = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text())
+    job = workflow["jobs"]["wheel-install"]
+    commands = "\n".join(step.get("run", "") for step in job["steps"])
+
+    assert "python -m build --wheel --no-isolation --outdir dist" in commands
+    assert "python -m venv .wheel-venv" in commands
+    assert "pip install --require-hashes -r requirements.lock" in commands
+    assert "pip install --no-deps dist/*.whl" in commands
+    assert "tf-eu-guard version" in commands
+    assert "tf-eu-guard scan \"$GITHUB_WORKSPACE/examples/compliant-aws\" --output json" in commands
+    assert "cd \"$WHEEL_SMOKE_DIR\"" in commands
+    assert "tf_eu_guard.__file__" in commands
+    assert "secrets_in_code.__file__" in commands
+    assert "is_relative_to(checkout)" in commands
+    assert "pip install -e" not in commands
+
+    for step in job["steps"]:
+        if "uses" in step:
+            action, sha = step["uses"].rsplit("@", 1)
+            assert action and len(sha) == 40 and all(c in "0123456789abcdef" for c in sha)
 
 
 def _build_wheel(tmp_path: Path) -> Path:

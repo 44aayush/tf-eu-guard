@@ -50,9 +50,11 @@ def compute_counts() -> dict[str, int]:
     counts["tf_nis2"] = framework_count(TF_CLOUD_REGISTRIES, "NIS2")
     counts["tf_gdpr"] = framework_count(TF_CLOUD_REGISTRIES, "GDPR")
     # GDPR Art. 32(1) specifically: the tf GDPR total minus the Art. 44 custom
-    # check, which the docs list as its own scope-table row.
+    # check, which the docs list as its own scope-table row. The EUSC-only
+    # EUGUARD_GDPR_001 mapping is a project POLICY and is not part of this
+    # subtraction.
     counts["tf_gdpr_32"] = counts["tf_gdpr"] - int(
-        "EUGUARD_GDPR_001" in entries.get("registry-aws", {})
+        "EUGUARD_GDPR_002" in entries.get("registry-aws", {})
     )
     counts["k8s_nis2"] = framework_count(("registry-kubernetes",), "NIS2")
     counts["k8s_gdpr"] = framework_count(("registry-kubernetes",), "GDPR")
