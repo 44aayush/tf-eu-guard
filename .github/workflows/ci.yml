@@ -65,6 +65,10 @@ jobs:
   wheel-install:
     runs-on: ubuntu-latest
     needs: [supply-chain]
+    env:
+      # Keep the installed-wheel environment outside GITHUB_WORKSPACE. The
+      # smoke test rejects imports whose paths are under the checkout.
+      WHEEL_VENV_DIR: ${{ runner.temp }}/tf-eu-guard-wheel-venv
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -84,12 +88,12 @@ jobs:
         run: .ci-tools/bin/python -m build --wheel --no-isolation --outdir dist
 
       - name: Create fresh wheel installation environment
-        run: python -m venv .wheel-venv
+        run: python -m venv "$WHEEL_VENV_DIR"
 
       - name: Install the locked runtime and built wheel
         run: |
-          .wheel-venv/bin/python -m pip install --require-hashes -r requirements.lock
-          .wheel-venv/bin/python -m pip install --no-deps dist/*.whl
+          "$WHEEL_VENV_DIR/bin/python" -m pip install --require-hashes -r requirements.lock
+          "$WHEEL_VENV_DIR/bin/python" -m pip install --no-deps dist/*.whl
 
       - name: Smoke-test the installed wheel outside the checkout
         env:
@@ -98,7 +102,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$WHEEL_SMOKE_DIR"
           cd "$WHEEL_SMOKE_DIR"
-          export PATH="$GITHUB_WORKSPACE/.wheel-venv/bin:$PATH"
+          export PATH="$WHEEL_VENV_DIR/bin:$PATH"
           python - <<'PY'
           import os
           import sys

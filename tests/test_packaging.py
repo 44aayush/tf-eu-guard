@@ -50,8 +50,12 @@ def test_ci_smoke_tests_a_non_editable_wheel_from_outside_checkout():
     job = workflow["jobs"]["wheel-install"]
     commands = "\n".join(step.get("run", "") for step in job["steps"])
 
+    assert job["env"]["WHEEL_VENV_DIR"] == "${{ runner.temp }}/tf-eu-guard-wheel-venv"
     assert "python -m build --wheel --no-isolation --outdir dist" in commands
-    assert "python -m venv .wheel-venv" in commands
+    assert 'python -m venv "$WHEEL_VENV_DIR"' in commands
+    assert '"$WHEEL_VENV_DIR/bin/python" -m pip install --no-deps dist/*.whl' in commands
+    assert 'export PATH="$WHEEL_VENV_DIR/bin:$PATH"' in commands
+    assert "python -m venv .wheel-venv" not in commands
     assert "pip install --require-hashes -r requirements.lock" in commands
     assert "pip install --no-deps dist/*.whl" in commands
     assert "tf-eu-guard version" in commands
