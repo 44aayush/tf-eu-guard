@@ -49,6 +49,10 @@ inputs:
     description: 'Upload the SARIF output to GitHub Code Scanning (the workflow needs security-events: write permission); only applies when output is sarif and uses output-file or tf-eu-guard.sarif by default'
     required: false
     default: 'false'
+  category:
+    description: 'Optional unique GitHub Code Scanning category for this SARIF upload; set a distinct value when uploading multiple scans in one job'
+    required: false
+    default: ''
 
 outputs:
   exit-code:
@@ -147,3 +151,4 @@ runs:
       uses: github/codeql-action/upload-sarif@60168efe1c415ce0f5521ea06d5c2062adbeed1b
       with:
         sarif_file: ${{ inputs.output-file || 'tf-eu-guard.sarif' }}
+        category: ${{ inputs.category }}
