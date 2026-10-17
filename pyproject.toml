@@ -35,8 +35,8 @@ dev = [
     "ruff>=0.5.0",
     "mypy>=1.11.0",
     "types-PyYAML>=6.0.12.20240808",
-    "build==1.6.1",     # wheel-content test (tests/test_packaging.py)
-    "hatchling==1.32.4", # built with --no-isolation: no network needed in CI
+    # Build tooling is installed from requirements-ci.lock. Its newer
+    # packaging requirement conflicts with Checkov's packaging<24 constraint.
     "jsonschema>=4.18", # SARIF 2.1.0 schema validation (tests/test_sarif_report.py)
 ]
 

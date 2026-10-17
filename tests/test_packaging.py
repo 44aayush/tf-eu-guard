@@ -7,10 +7,11 @@ silently excluded them: the wheel would still install, the CLI would still
 run, and every scan would degrade to unmapped findings — only at the
 consumer. This test builds the actual wheel and inspects its contents.
 
-Hermetic-adjacent: uses ``--no-isolation`` with the locally installed
-hatchling (a ``dev`` extra), so the build needs no network. Skips when the
-build tooling isn't installed; a *failed* build still fails the test —
-that's the broken-packaging case it exists to catch.
+The wheel-content checks use ``--no-isolation`` with the locally installed
+Hatchling from the CI build-tooling environment. They skip when that dedicated
+tooling is not installed; a *failed* build still fails the test — that's the
+broken-packaging case it exists to catch. The workflow assertions in this
+module run in the normal development environment without the build tooling.
 """
 
 import subprocess
@@ -21,9 +22,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-
-pytest.importorskip("build")
-pytest.importorskip("hatchling")
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -114,6 +112,12 @@ def test_ci_lock_keeps_python312_conditional_dependency_hashed():
 
 def _build_wheel(tmp_path: Path) -> Path:
     """Build the project wheel (no isolation, no network) and return its path."""
+    pytest.importorskip(
+        "build", reason="wheel-content checks require the CI build tooling environment"
+    )
+    pytest.importorskip(
+        "hatchling", reason="wheel-content checks require the CI build tooling environment"
+    )
     if installed_version("hatchling") != "1.32.4":
         pytest.skip(
             "wheel-content checks require the pinned Hatchling 1.32.4 CI build "
