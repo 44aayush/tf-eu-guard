@@ -61,10 +61,10 @@ def _sample_findings():
             file_line_range=[1, 20],
         ),
         _finding(
-            "EUGUARD_GDPR_001",
+            "EUGUARD_GDPR_002",
             Severity.HIGH,
             [ArticleReference(Framework.GDPR, "Art. 44", "Transfers to third countries")],
-            resource="aws.non_eu",
+            resource="aws.third_country",
             file_path="/main.tf",
         ),
     ]
@@ -160,11 +160,26 @@ class TestSecurityReport:
 
     def test_renders_findings_severities_and_articles(self):
         doc = generate_security_report(_sample_findings())
-        for cid in ("CKV_AWS_20", "CKV_AWS_16", "EUGUARD_GDPR_001"):
+        for cid in ("CKV_AWS_20", "CKV_AWS_16", "EUGUARD_GDPR_002"):
             assert cid in doc
         assert "CRITICAL" in doc and "HIGH" in doc
         assert "Art. 32(1)(b)" in doc
         assert "NIS2" in doc and "GDPR" in doc
+
+    def test_counts_project_policy_findings(self):
+        finding = _finding(
+            "EUGUARD_GDPR_001",
+            Severity.HIGH,
+            [
+                ArticleReference(
+                    Framework.POLICY,
+                    "Policy EUSC-001",
+                    "AWS European Sovereign Cloud deployment policy",
+                )
+            ],
+        )
+        doc = generate_security_report([finding])
+        assert '<div class="label">Policy</div>' in doc
 
     def test_writes_file(self, tmp_path):
         out = tmp_path / "scan-report.html"
@@ -209,11 +224,27 @@ class TestAuditorReport:
         assert "Human resources security, access control policies and asset management" in doc
         assert "Executive summary" in doc
 
+    def test_renders_project_policy_framework(self):
+        finding = _finding(
+            "EUGUARD_GDPR_001",
+            Severity.HIGH,
+            [
+                ArticleReference(
+                    Framework.POLICY,
+                    "Policy EUSC-001",
+                    "AWS European Sovereign Cloud deployment policy",
+                )
+            ],
+        )
+        doc = generate_auditor_report([finding])
+        assert "POLICY controls" in doc
+        assert "Policy EUSC-001" in doc
+
     def test_mapping_links_use_report_version(self):
         doc = generate_auditor_report(_sample_findings(), version="9.8.7")
         assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v9.8.7/docs/nis2-mapping.md"' in doc
         assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v9.8.7/docs/gdpr-mapping.md"' in doc
-        assert "blob/v0.5.0/docs/" not in doc
+        assert "blob/v0.6.0/docs/" not in doc
 
     def test_toc_anchors_resolve(self):
         doc = generate_auditor_report(_sample_findings())
@@ -270,7 +301,7 @@ class TestDevHtmlReport:
 
     def test_renders_findings_severities_and_articles(self):
         doc = generate_dev_html_report(_sample_findings())
-        for cid in ("CKV_AWS_20", "CKV_AWS_16", "EUGUARD_GDPR_001"):
+        for cid in ("CKV_AWS_20", "CKV_AWS_16", "EUGUARD_GDPR_002"):
             assert cid in doc
         assert "CRITICAL" in doc and "HIGH" in doc
         assert "Art. 32(1)(b)" in doc
@@ -429,7 +460,7 @@ def test_html_reports_still_link_safe_guidelines():
     # not turn the untrusted Checkov guideline into an external link.
     auditor = generate_auditor_report(findings)
     assert 'href="https://docs.prismacloud.io' not in auditor
-    assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v0.5.0/docs/' in auditor
+    assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v0.6.0/docs/' in auditor
 
 
 def test_terminal_report_renders_no_link_for_javascript_guideline():

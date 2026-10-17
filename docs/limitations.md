@@ -54,12 +54,13 @@ Recurring structural blind spots (each also noted in the article docs):
   are, and what they do with their access, is outside IaC.
 - **MFA and identity-provider state** live at the account/IdP level,
   not per-resource — a resource linter has limited visibility there.
-- **Data residency is a signal, not a verdict.** A non-EU provider
-  region is flagged for review; adequacy decisions, SCCs and BCRs can
-  lawfully permit the transfer, and the tool cannot see transfers made
-  by application code or downstream services. Kubernetes is out of
-  scope for residency entirely — manifests don't declare where the
-  cluster runs (see [`DECISIONS.md`](DECISIONS.md) #9).
+- **Region checks are signals, not verdicts.** A commercial EU region can
+  fail the project's stricter EUSC sovereignty policy without being a GDPR
+  Chapter V transfer. A known non-EU/EEA region is flagged for Chapter V
+  review; adequacy decisions, SCCs and BCRs can lawfully permit a transfer,
+  and the tool cannot see transfers made by application code or downstream
+  services. Kubernetes is out of scope for residency entirely — manifests
+  don't declare where the cluster runs (see [`DECISIONS.md`](DECISIONS.md) #9).
 
 ## Unmapped findings
 
@@ -68,8 +69,8 @@ are deliberately unmapped (methodology in
 [`check-mapping-table.md`](check-mapping-table.md)). They are surfaced
 as a count in every report format and never gate a build — but their
 absence from the compliance view is a statement about *mapping
-coverage*, not about their security relevance. A scan that shows "52
-mapped, 9 unmapped" is reporting 61 real Checkov failures, not 52.
+coverage*, not about their security relevance. A scan that shows "53
+mapped, 9 unmapped" is reporting 62 real Checkov failures, not 53.
 
 ## Assumptions worth knowing about
 

@@ -1,5 +1,5 @@
 """
-Custom Checkov check: hardcoded secrets in Terraform resource configuration.
+Custom Checkov check: hardcoded secrets in selected Terraform resource fields.
 
 Literal credentials committed to IaC (database passwords, auth tokens, private
 keys) are readable by anyone with repository or state access, cannot be rotated
@@ -7,6 +7,14 @@ centrally, and routinely leak through CI logs. Storing secrets in code is an
 insecure development/maintenance practice under NIS2 Art. 21(2)(e); where the
 secret guards personal data it is also a confidentiality risk under GDPR
 Art. 32(1)(b).
+
+This custom check deliberately covers database/cache secret arguments and
+CodeBuild plaintext sensitive environment variables. Provider credentials,
+EC2 ``user_data``, and Lambda environment variables are outside this check's
+scope because Checkov already supplies dedicated checks for those shapes:
+``CKV_AWS_41``, ``CKV_AWS_46``, and ``CKV_AWS_45`` respectively. Keeping the
+scopes separate avoids claiming that one custom check covers a Terraform
+configuration shape it does not inspect.
 
 Checkov renders variable defaults before checks run, so a ``var.db_password``
 whose default is a literal is caught here too — which is the intent. References

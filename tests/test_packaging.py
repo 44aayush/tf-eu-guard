@@ -33,7 +33,7 @@ def test_runtime_version_comes_from_distribution_metadata():
     from tf_eu_guard import __version__
 
     assert __version__ == installed_version("tf-eu-guard")
-    assert __version__ == "0.5.0"
+    assert __version__ == "0.6.0"
 
 #: The registry data files that must ship inside the wheel, verbatim.
 REGISTRY_FILES = (
@@ -42,6 +42,42 @@ REGISTRY_FILES = (
     "registry-gcp.yaml",
     "registry-kubernetes.yaml",
 )
+
+
+def test_ci_smoke_tests_a_non_editable_wheel_from_outside_checkout():
+    """CI must exercise the installed wheel, not only editable source imports."""
+    workflow = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text())
+    job = workflow["jobs"]["wheel-install"]
+    commands = "\n".join(step.get("run", "") for step in job["steps"])
+
+    assert job["env"]["WHEEL_VENV_DIR"] == "${{ runner.temp }}/tf-eu-guard-wheel-venv"
+    assert "python -m build --wheel --no-isolation --outdir dist" in commands
+    assert 'python -m venv "$WHEEL_VENV_DIR"' in commands
+    assert '"$WHEEL_VENV_DIR/bin/python" -m pip install --no-deps dist/*.whl' in commands
+    assert 'export PATH="$WHEEL_VENV_DIR/bin:$PATH"' in commands
+    assert "python -m venv .wheel-venv" not in commands
+    assert "pip install --require-hashes -r requirements.lock" in commands
+    assert "pip install --no-deps dist/*.whl" in commands
+    assert "tf-eu-guard version" in commands
+    assert "tf-eu-guard scan \"$GITHUB_WORKSPACE/examples/compliant-aws\" --output json" in commands
+    assert "cd \"$WHEEL_SMOKE_DIR\"" in commands
+    assert "tf_eu_guard.__file__" in commands
+    assert "secrets_in_code.__file__" in commands
+    assert "is_relative_to(checkout)" in commands
+    assert "pip install -e" not in commands
+
+    for step in job["steps"]:
+        if "uses" in step:
+            action, sha = step["uses"].rsplit("@", 1)
+            assert action and len(sha) == 40 and all(c in "0123456789abcdef" for c in sha)
+
+
+def test_ci_lock_keeps_python312_conditional_dependency_hashed():
+    """The CI lock must work on Python 3.12 as well as the lock generator's Python."""
+    lock = (REPO_ROOT / "requirements-ci.lock").read_text(encoding="utf-8")
+    assert "typing-extensions==4.16.0" in lock
+    assert "--hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8" in lock
+    assert "--hash=sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5" in lock
 
 
 def _build_wheel(tmp_path: Path) -> Path:

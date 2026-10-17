@@ -4,7 +4,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![Checkov 3.3.13](https://img.shields.io/badge/checkov-3.3.13-8A2BE2)](https://www.checkov.io/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Mappings](https://img.shields.io/badge/NIS2%20%2B%20GDPR%20mappings-250-orange)](tf_eu_guard/mapping/registry-aws.yaml)
+[![Mappings](https://img.shields.io/badge/NIS2%20%2B%20GDPR%20mappings-251-orange)](tf_eu_guard/mapping/registry-aws.yaml)
 
 **EU compliance security linter for IaC** — scans **Terraform (source + plan JSON)** and **Kubernetes** manifests, mapping infrastructure misconfigurations to **NIS2** (Directive 2022/2555) and **GDPR** (Regulation 2016/679) requirements.
 
@@ -23,16 +23,17 @@ Most organizations scan infrastructure-as-code with tools like Checkov or tfsec,
 ## What It Does
 
 1. **Scans IaC using Checkov** — Terraform source, Terraform plan JSON (`terraform show -json`), and Kubernetes manifests (`--iac-type`)
-2. **Enriches findings** with NIS2 Article 21(2) and GDPR Article 32(1) / 44 mappings from a curated registry
-3. **Reports mapped and unmapped findings separately** — Checkov failures with no current EU mapping are surfaced as a count in every report format ("52 mapped findings, 9 unmapped"), never silently dropped; see [Unmapped findings](#unmapped-findings)
+2. **Enriches findings** with NIS2 Article 21(2), GDPR Article 32(1) / 44, and the project's EUSC sovereignty policy mappings from a curated registry
+3. **Reports mapped and unmapped findings separately** — Checkov failures with no current EU mapping are surfaced as a count in every report format ("53 mapped findings, 9 unmapped"), never silently dropped; see [Unmapped findings](#unmapped-findings)
 4. **Generates three report formats** from one scan:
    - **Dev report** (terminal/HTML): severity-sorted findings for engineers
    - **Security dashboard** (HTML): CRITICAL/HIGH/MEDIUM/LOW breakdown with stats
-   - **Auditor report** (HTML): article-by-article view showing which NIS2/GDPR clauses have open findings
-5. **Custom checks**: Adds EU-specific rules (regions outside the EU Sovereign Cloud, hardcoded secrets) not in upstream Checkov
+   - **Auditor report** (HTML): article-by-article view showing which NIS2/GDPR clauses and project-policy controls have open findings
+5. **Custom checks**: Adds EU-specific rules (EUSC sovereignty, third-country transfer review, and selected hardcoded secrets) not in upstream Checkov
 
 > **Note on flags:** `--iac-type` selects *what to scan* (terraform, terraform_plan, kubernetes);
-> `--framework` selects *which compliance regime to report* (nis2/gdpr). They are unrelated.
+> `--framework` selects *which regulatory regime to report* (nis2/gdpr). `all` also retains
+> project-policy findings such as the EUSC sovereignty control. They are unrelated.
 
 ---
 
@@ -71,7 +72,7 @@ tf-eu-guard scan ./terraform --output json --framework gdpr
 tf-eu-guard scan ./terraform --fail-on-severity HIGH
 ```
 
-> **Try it:** Run `tf-eu-guard scan examples/vulnerable-aws/ --output all` to see ~52 mapped findings,
+> **Try it:** Run `tf-eu-guard scan examples/vulnerable-aws/ --output all` to see ~53 mapped findings,
 > or `tf-eu-guard scan examples/compliant-aws/ --output dev` to see a clean scan.
 
 ### Scan Terraform Plan JSON
@@ -247,7 +248,7 @@ esac
 
 ### Unmapped findings
 
-With 180 of Checkov's ~700 AWS checks mapped across AWS, Azure, GCP and Kubernetes,
+With 181 of Checkov's ~700 AWS checks mapped across AWS, Azure, GCP and Kubernetes,
 a scan can produce Checkov failures that have no current EU regulatory mapping.
 These are **not** silently dropped: every report format surfaces them as
 "present-but-unmapped" — a count in the dev/security/auditor reports, a
@@ -265,7 +266,7 @@ family (`CKV_AWS_10`–`15`).
 ### GitHub Action
 
 ```yaml
-- uses: 44aayush/tf-eu-guard@v0.5.0
+- uses: 44aayush/tf-eu-guard@v0.6.0
   with:
     path: './infra'
     iac-type: 'terraform'        # terraform | terraform_plan | kubernetes
@@ -297,13 +298,18 @@ Action inputs mirror the scan options:
 
 Two optional extras:
 
-- `upload-reports: true` — uploads the generated HTML report(s) as a
+- `upload-reports: true` — uploads generated HTML report(s) as a
   `tf-eu-guard-reports` workflow artifact (useful when the severity gate
-  fails the scan and you need the actual report).
+  fails the scan and you need the actual report). Use it with
+  `output: security`, `output: auditor`, or `output: all`; it is ignored for
+  `dev`, `json`, and `sarif`. The artifact follows `output-dir` (default:
+  `reports/`) for `all` or for a single HTML report without `output-file`; when
+  `output-file` is set for `security` or `auditor`, that exact file is uploaded.
 - `upload-sarif: true` (with `output: sarif`) — uploads the SARIF to
   GitHub Code Scanning, so findings appear in the repo's *Security* tab
-  with their NIS2/GDPR article metadata. The calling workflow needs
-  `permissions: security-events: write`.
+  with their NIS2/GDPR article metadata. It follows `output-file` when set,
+  otherwise the Action writes and uploads `tf-eu-guard.sarif`. The calling
+  workflow needs `permissions: security-events: write`.
 
 ```yaml
 jobs:
@@ -313,12 +319,23 @@ jobs:
       security-events: write   # for upload-sarif
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: 44aayush/tf-eu-guard@v0.5.0
+      - uses: 44aayush/tf-eu-guard@v0.6.0
         with:
           path: './infra'
           output: sarif
           upload-sarif: true
-          upload-reports: true
+```
+
+For HTML artifacts, select an HTML-producing output and optionally choose a
+directory for the generated reports:
+
+```yaml
+- uses: 44aayush/tf-eu-guard@v0.6.0
+  with:
+    path: './infra'
+    output: all
+    output-dir: artifacts
+    upload-reports: true
 ```
 
 ### Pre-commit Hook
@@ -326,14 +343,16 @@ jobs:
 ```yaml
 repos:
   - repo: https://github.com/44aayush/tf-eu-guard
-    rev: v0.5.0
+    rev: v0.6.0
     hooks:
       - id: tf-eu-guard
 ```
 
 The hook runs with `pass_filenames: false` — it invokes
 `tf-eu-guard scan --output dev --fail-on-severity HIGH` once with no file
-arguments, and the CLI scans the repository root (its default target).
+arguments, and the CLI scans the repository root (its default target). The
+configured `HIGH` threshold fails on HIGH or CRITICAL mapped findings; MEDIUM,
+LOW, and INFO mapped findings, plus unmapped findings, do not trip the gate.
 Checkov needs directory-level context anyway (providers, variables, modules
 declared in sibling files), so per-file invocation was never going to work.
 
@@ -345,7 +364,7 @@ declared in sibling files), so per-file invocation was never going to work.
 |------------|-----------------|----------------|------------|
 | **NIS2 Article 21(2)** | ✅ 219 cloud check mappings | ✅ same checks apply | ✅ 25 `CKV_K8S_*` mappings |
 | **GDPR Article 32(1)** | ✅ 176 cloud check mappings | ✅ same checks apply | ✅ 15 `CKV_K8S_*` mappings |
-| **GDPR Art. 44 (data residency)** | ✅ Custom check `EUGUARD_GDPR_001` | ❌ Checkov plan scans do not run provider checks; also scan Terraform source | ❌ Out of scope — see note |
+| **GDPR Art. 44 (third-country transfer review)** | ✅ Custom check `EUGUARD_GDPR_002` | ❌ Checkov plan scans do not run provider checks; also scan Terraform source | ❌ Out of scope — see note |
 
 > Mapping counts above are generated from the registry files and verified in CI
 > (`tools/check_doc_counts.py`) — they cannot drift from the registries.
@@ -363,6 +382,12 @@ declared in sibling files), so per-file invocation was never going to work.
 > provider constraints) — tf-eu-guard does not claim GDPR Art. 44 coverage for Kubernetes.
 > See `docs/DECISIONS.md`.
 
+> **EUSC sovereignty is a separate policy:** `EUGUARD_GDPR_001` keeps the
+> project's intentionally stricter EU Sovereign Cloud allowlist. A commercial
+> EU region such as `eu-central-1` can fail that policy without receiving a
+> GDPR Chapter V citation; known third-country regions such as `us-east-1`
+> additionally receive the hedged `EUGUARD_GDPR_002` Art. 44 review signal.
+
 > **How to read the tool's claims:** [`docs/limitations.md`](docs/limitations.md)
 > consolidates what tf-eu-guard can and cannot see — technical evidence vs.
 > legal determination, per-article mapping confidence, structural blind spots
@@ -374,7 +399,7 @@ declared in sibling files), so per-file invocation was never going to work.
 
 ### Current Registry
 
-**250 Checkov checks mapped** — **AWS: 180 mappings | Azure: 23 | GCP: 22 | Kubernetes: 25** — covering
+**251 Checkov checks mapped** — **AWS: 181 mappings | Azure: 23 | GCP: 22 | Kubernetes: 25** — covering
 encryption at rest/in transit, logging & detection, backup & recovery,
 secure development/supply chain, secrets in code, IAM/access control, network
 segmentation, pod security context, RBAC, and resource limits:
@@ -385,7 +410,7 @@ segmentation, pod security context, RBAC, and resource limits:
 - **Backup / resilience**: CKV_AWS_21, 144, 326, 361, 139, 115, 116, 135, 318, 313, 362, CKV2_AWS_8, CKV2_AWS_58, CKV2_AWS_59, CKV2_AWS_60, CKV2_AWS_61
 - **Secure development / secrets**: CKV_AWS_226, 363, 272, 51, 163, 41, 45, 46
 - **S3 / RDS / network exposure**: CKV_AWS_20, 53–56, 16, 17, 133, 129, 161, 293, 118, 24, 25, 260, 382, 137, 248, 38, 39, 117, 23, CKV2_AWS_6, CKV2_AWS_12, CKV2_AWS_5
-- **Custom**: EUGUARD_GDPR_001 (regions outside the EU Sovereign Cloud), EUGUARD_NIS2_001 (Terraform/CodeBuild secrets), EUGUARD_NIS2_002 (Kubernetes secrets)
+- **Custom**: EUGUARD_GDPR_001 (EUSC sovereignty policy), EUGUARD_GDPR_002 (known third-country regions / Chapter V review), EUGUARD_NIS2_001 (selected Terraform database/cache and CodeBuild secrets), EUGUARD_NIS2_002 (Kubernetes secrets)
 - **Azure** (23): `tf_eu_guard/mapping/registry-azure.yaml` — storage account encryption/public access, SQL firewall & public network access, Key Vault network rules, App Service HTTPS/auth/logging, NSG SSH rules, and more
 - **GCP** (22): `tf_eu_guard/mapping/registry-gcp.yaml` — GCS bucket CMEK/public IAM, Cloud SQL public IP/SSL/CMEK, GKE private clusters/ABAC/authorized networks, VPC flow logs, and more
 - **Kubernetes** (25): `tf_eu_guard/mapping/registry-kubernetes.yaml` — pod security context (privileged/root/capabilities), RBAC privilege escalation, missing NetworkPolicy, secrets as literals, resource requests/limits, image hygiene, health probes

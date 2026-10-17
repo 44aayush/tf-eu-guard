@@ -16,11 +16,14 @@ from tf_eu_guard.models import Framework, Severity
 
 # "Art. 21(2)(i)", "Art. 32(1)(a)", the sub-point-less "Art. 21(2)", or a bare
 # top-level article like "Art. 44" (GDPR Chapter V transfers have no numbered
-# paragraph). The paragraph and sub-point groups are both optional.
-ARTICLE_RE = re.compile(r"^Art\. \d+(\(\d+\))?(\([a-z]\))?$")
+# paragraph). Project policy references use the same registry article field but
+# are explicitly outside the regulatory article inventory.
+ARTICLE_RE = re.compile(
+    r"^(?:Art\. \d+(\(\d+\))?(\([a-z]\))?|Policy [A-Za-z0-9_.-]+)$"
+)
 # Stock Checkov ids ("CKV_AWS_18", "CKV2_AWS_6", "CKV_K8S_16", "CKV2_K8S_6")
 # plus tf-eu-guard's custom EU-compliance checks ("EUGUARD_GDPR_001",
-# "EUGUARD_NIS2_001").
+# "EUGUARD_GDPR_002", "EUGUARD_NIS2_001").
 CHECK_ID_RE = re.compile(r"^(CKV2?_(AWS|AZURE|GCP|K8S)_\d+|EUGUARD_[A-Z0-9]+_\d+)$")
 
 
@@ -31,7 +34,7 @@ def test_registry_loads_nonempty(registry):
 def test_registry_has_expected_volume(registry):
     # Phase 2 target was 15-20; the shipped registry exceeds it. A floor guards
     # against accidental mass-deletion without being brittle to future growth.
-    assert 20 <= len(registry) <= 250, f"unexpected mapping count: {len(registry)}"
+    assert 20 <= len(registry) <= 300, f"unexpected mapping count: {len(registry)}"
 
 
 def test_check_ids_well_formed(registry):
@@ -71,9 +74,12 @@ def test_no_duplicate_article_refs_within_a_mapping(registry):
     assert not dupes, f"mappings with duplicate article refs: {dupes}"
 
 
-def test_frameworks_are_only_nis2_and_gdpr(registry):
+def test_frameworks_include_regulations_and_project_policy(registry):
     seen = {a.framework for m in registry.values() for a in m.articles}
-    assert seen <= {Framework.NIS2, Framework.GDPR}, f"unexpected frameworks: {seen}"
+    assert seen <= {Framework.NIS2, Framework.GDPR, Framework.POLICY}, (
+        f"unexpected frameworks: {seen}"
+    )
+    assert Framework.POLICY in seen, "the EUSC sovereignty mapping must stay policy-scoped"
 
 
 def test_registry_titles_match_canonical_article_table(repo_root):
@@ -151,7 +157,10 @@ def test_encryption_maps_to_nis2_h_and_gdpr_a(registry, cid):
 
 # --- Phase 3: custom EU-specific checks are mapped -----------------------------
 
-@pytest.mark.parametrize("cid", ["EUGUARD_GDPR_001", "EUGUARD_NIS2_001"])
+@pytest.mark.parametrize(
+    "cid",
+    ["EUGUARD_GDPR_001", "EUGUARD_GDPR_002", "EUGUARD_NIS2_001"],
+)
 def test_custom_checks_present_and_complete(registry, cid):
     """The Phase 3 custom checks must be mapped so their findings enrich."""
     assert cid in registry, f"{cid} missing from registry.yaml"
@@ -162,11 +171,14 @@ def test_custom_checks_present_and_complete(registry, cid):
     assert m.articles, f"{cid} has no article mappings"
 
 
-def test_eu_region_check_maps_to_gdpr_transfers(registry):
-    """EU data-residency maps to GDPR Chapter V (Art. 44), not Art. 32."""
-    if "EUGUARD_GDPR_001" not in registry:
-        pytest.skip("EUGUARD_GDPR_001 not in registry")
-    assert "Art. 44" in _gdpr(registry["EUGUARD_GDPR_001"])
+def test_region_checks_separate_sovereignty_policy_from_transfers(registry):
+    """Commercial EU policy failures must not be labelled as Chapter V transfers."""
+    assert _gdpr(registry["EUGUARD_GDPR_001"]) == set()
+    assert {
+        (article.framework, article.article)
+        for article in registry["EUGUARD_GDPR_001"].articles
+    } == {(Framework.POLICY, "Policy EUSC-001")}
+    assert _gdpr(registry["EUGUARD_GDPR_002"]) == {"Art. 44"}
 
 
 def test_canonical_titles_cover_corrected_articles(registry):
@@ -186,17 +198,17 @@ def test_canonical_titles_cover_corrected_articles(registry):
     }
 
 
-def test_eu_region_risk_matches_documented_legal_standard(registry):
-    """The registry's finding text must match docs/gdpr-mapping.md: a non-EU
-    region is a transfer *requiring justification* under Chapter V — a strong
-    signal for review, not an unqualified "violation" (the config alone cannot
-    adjudicate lawfulness). Guards the internal-consistency fix (TASKS.md P1 #5)."""
-    if "EUGUARD_GDPR_001" not in registry:
-        pytest.skip("EUGUARD_GDPR_001 not in registry")
-    risk = registry["EUGUARD_GDPR_001"].risk_explanation
-    assert "requiring justification" in risk
-    assert "not by itself a" in risk and "violation" in risk  # explicit caveat
-    assert "data-residency violation" not in risk  # the retired overclaim
+def test_transfer_review_risk_matches_documented_legal_standard(registry):
+    """The Art. 44 mapping remains a hedged review signal, not a legal verdict."""
+    policy_risk = registry["EUGUARD_GDPR_001"].risk_explanation
+    assert "project-policy deviation" in policy_risk
+    assert "GDPR legal conclusion" in policy_risk
+    assert "GDPR Art. 44" not in policy_risk
+
+    transfer_risk = registry["EUGUARD_GDPR_002"].risk_explanation
+    assert "may involve a third-country transfer" in transfer_risk
+    assert "not a definitive legal conclusion" in transfer_risk
+    assert "violation" not in transfer_risk
 
 
 def test_kubernetes_secret_mapping_is_kubernetes_specific(registry):
@@ -310,6 +322,29 @@ def test_registry_rejects_within_file_duplicate_check_id(tmp_path):
         load_registry_file(dup)
 
 
+@pytest.mark.parametrize(
+    "content",
+    [
+        "[foo, bar]: value\n",
+        "42: value\n",
+        "{foo: bar}: value\n",
+    ],
+    ids=["list", "integer", "mapping"],
+)
+def test_registry_rejects_non_string_mapping_keys_with_context(tmp_path, content):
+    """Invalid YAML mapping keys become contextual registry errors, not TypeError."""
+    from tf_eu_guard.mapping.loader import RegistryValidationError, load_registry_file
+
+    bad = tmp_path / "registry-bad.yaml"
+    bad.write_text(content)
+
+    with pytest.raises(
+        RegistryValidationError,
+        match=r"registry-bad\.yaml: .*non-string mapping key.*line 1",
+    ):
+        load_registry_file(bad)
+
+
 def test_registry_ids_exist_in_checkov(repo_root):
     """Every CKV ID in the registry must exist in the installed Checkov.
 
@@ -366,9 +401,9 @@ def test_registry_ids_exist_in_checkov(repo_root):
 # CI instead of silently degrading that scan to unmapped.
 
 END2END_FIXTURE = "tests/fixtures/checkov-end2end-tf.json"
-# Raw Checkov output for the stack. tf-eu-guard's own scan adds the two custom
-# EUGUARD_* checks on top (EUGUARD_GDPR_001 x2, EUGUARD_NIS2_001 x4), which is
-# why the CLI reports 295 while this capture holds 289 stock findings.
+# Raw Checkov output for the stack. tf-eu-guard's own scan adds its custom
+# EUGUARD_* checks on top of the stock findings; the exact custom count is
+# asserted by the live CLI fixture test rather than duplicated in this comment.
 
 
 def test_end2end_findings_are_all_mapped(repo_root, registry):

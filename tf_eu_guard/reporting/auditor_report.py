@@ -82,8 +82,9 @@ def _executive_summary(
         "<h2>Executive summary</h2>\n"
         f"<p>This scan surfaced <strong>{len(findings)}</strong> compliance "
         f"findings across <strong>{distinct_files(findings)}</strong> file(s). "
-        "Each finding is a Checkov control failure mapped to one or more NIS2 / "
-        "GDPR articles. The table below counts, per framework, the distinct "
+        "Each finding is a Checkov control failure mapped to one or more NIS2, "
+        "GDPR, or project-policy references. The table below counts, per "
+        "framework, the distinct "
         "articles with at least one open finding and the total findings citing "
         "that framework.</p>\n"
         "<table>\n<thead><tr><th>Framework</th>"
@@ -175,7 +176,8 @@ def _render(
         '<a id="top"></a>\n<header>\n'
         "  <h1>tf-eu-guard &mdash; Compliance Audit Report</h1>\n"
         "  <p style=\"margin:4px 0 8px;font-family:system-ui,sans-serif\">"
-        "NIS2 (Directive 2022/2555, Art. 21) &amp; GDPR (Reg. 2016/679, Art. 32 &amp; 44)</p>\n"
+        "NIS2 (Directive 2022/2555, Art. 21), GDPR (Reg. 2016/679, Art. 32 &amp; 44), "
+        "and project policy</p>\n"
         '  <div class="meta">'
         f'<span>Target: <code>{esc(target) or "&mdash;"}</code></span>'
         f"<span>Generated: {esc(timestamp) or '&mdash;'}</span>"
@@ -184,8 +186,8 @@ def _render(
 
     scope = (
         '<div class="scope"><strong>Scope &amp; limitations.</strong> '
-        "This report lists only Checkov control failures that map to a NIS2 or "
-        "GDPR article. It is an evidence aid for an auditor, not a certification. "
+        "This report lists only Checkov control failures that map to a NIS2, GDPR, "
+        "or project-policy reference. It is an evidence aid for an auditor, not a certification. "
         "An article not listed here was not exercised by a failing check &mdash; "
         "that is <em>not</em> evidence of compliance."
         + (
@@ -202,14 +204,14 @@ def _render(
         empty_body = (
             '<div class="empty"><h2 style="margin-top:0;border:none">'
             "No mapped findings</h2>"
-            "<p>No failed Checkov checks mapped to a NIS2 or GDPR control for this "
+            "<p>No failed Checkov checks mapped to a compliance control for this "
             "target. This does not by itself demonstrate compliance.</p></div>"
         )
         if unmapped_count:
             empty_body = (
                 '<div class="empty"><h2 style="margin-top:0;border:none">'
                 f"No mapped findings &mdash; {unmapped_count} unmapped</h2>"
-                "<p>No failed Checkov checks mapped to a NIS2 or GDPR control for "
+                "<p>No failed Checkov checks mapped to a compliance control for "
                 f"this target, but <strong>{unmapped_count}</strong> failed check(s) "
                 "have no current EU regulatory mapping and are not shown here. "
                 "This does not by itself demonstrate compliance.</p></div>"

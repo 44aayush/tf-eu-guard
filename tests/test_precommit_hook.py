@@ -15,7 +15,8 @@ Structure:
   exact ``.pre-commit-hooks.yaml`` from the working tree, then runs
   ``pre-commit run --all-files``:
 
-  - the vulnerable fixture must exit non-zero (findings gate the commit),
+  - the vulnerable fixture must exit non-zero (HIGH or CRITICAL mapped findings
+    meet the hook's HIGH threshold),
   - the compliant fixture must exit zero.
 
   The hook's ``language`` is overridden to ``system`` (with the running
@@ -56,10 +57,11 @@ integration_skip = pytest.mark.skipif(
 
 
 def test_hook_definition_wiring(repo_root: Path):
-    """Hermetic: the shipped hook must not receive filenames (TASKS.md P0 #1).
+    """Hermetic: the shipped hook must not receive filenames or lose its HIGH gate.
 
     Runs even when pre-commit isn't installed, so the pass_filenames fix can't
-    regress unnoticed.
+    regress unnoticed. The explicit HIGH threshold also ensures the hook's
+    description and integration contract do not drift toward gating all findings.
     """
     hook = yaml.safe_load((repo_root / HOOK_FILE).read_text())
     assert isinstance(hook, list) and len(hook) == 1
@@ -68,8 +70,10 @@ def test_hook_definition_wiring(repo_root: Path):
     # The linchpin: without this, pre-commit appends every matched .tf file as
     # a positional argument and the CLI errors out.
     assert entry["pass_filenames"] is False
+    assert "HIGH or CRITICAL mapped findings" in entry["description"]
     # The entry + args must be exactly what the CLI can parse with no path.
     assert entry["entry"] == "tf-eu-guard scan"
+    # Keep the hook's HIGH-or-worse mapped-finding threshold explicit.
     assert entry["args"] == ["--output", "dev", "--fail-on-severity", "HIGH"]
 
 
@@ -153,7 +157,7 @@ def hook_repo(tmp_path_factory) -> tuple[Path, str]:
 
 @integration_skip
 def test_precommit_hook_gates_vulnerable_fixture(tmp_path, hook_repo):
-    """pre-commit run --all-files must exit non-zero on known-vulnerable .tf."""
+    """HIGH or CRITICAL mapped findings must fail the pre-commit hook."""
     hook_path, hook_rev = hook_repo
     repo = _make_fixture_repo(tmp_path, "vulnerable", "vulnerable-aws", hook_path, hook_rev)
     result = _run_precommit(repo)

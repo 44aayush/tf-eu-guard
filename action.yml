@@ -10,7 +10,7 @@ inputs:
     required: true
     default: './terraform'
   output:
-    description: 'Report format (dev, security, auditor, json, sarif, all). sarif writes tf-eu-guard.sarif into the workspace for GitHub Code Scanning'
+    description: 'Report format (dev, security, auditor, json, sarif, all). upload-reports applies to HTML outputs (security, auditor, or all); sarif writes tf-eu-guard.sarif into the workspace by default for GitHub Code Scanning'
     required: false
     default: 'json'
   iac-type:
@@ -26,7 +26,7 @@ inputs:
     required: false
     default: 'HIGH'
   upload-reports:
-    description: 'Upload the generated HTML report(s) as a workflow artifact when output includes dev/security/auditor (or all)'
+    description: 'Upload generated HTML report(s) as a workflow artifact; applies only to output security, auditor, or all (ignored for dev, json, and sarif)'
     required: false
     default: 'false'
   fail-on-any:
@@ -38,15 +38,15 @@ inputs:
     required: false
     default: ''
   output-dir:
-    description: 'Directory for generated HTML reports (default: reports/)'
+    description: 'Directory for generated HTML reports (default: reports/); upload-reports uses this directory for output all or when a single HTML report has no output-file'
     required: false
     default: ''
   output-file:
-    description: 'Destination for one security, auditor, or SARIF report; SARIF defaults to /workspace/tf-eu-guard.sarif'
+    description: 'Destination for one security, auditor, or SARIF report; relative paths are under the workspace, upload-reports uses this exact path for security/auditor, and upload-sarif uses it for SARIF (default: /workspace/tf-eu-guard.sarif)'
     required: false
     default: ''
   upload-sarif:
-    description: 'Upload the SARIF output to GitHub Code Scanning (the workflow needs security-events: write permission). Only applies when output is sarif'
+    description: 'Upload the SARIF output to GitHub Code Scanning (the workflow needs security-events: write permission); only applies when output is sarif and uses output-file or tf-eu-guard.sarif by default'
     required: false
     default: 'false'
 
@@ -125,11 +125,20 @@ runs:
     - name: Upload HTML reports as artifact
       # always(): the reports are exactly what you want to inspect when
       # the severity gate failed the scan step.
-      if: ${{ always() && inputs.upload-reports == 'true' }}
+      if: ${{ always() && inputs.upload-reports == 'true' && (inputs.output == 'all' || ((inputs.output == 'security' || inputs.output == 'auditor') && inputs.output-file == '')) }}
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
       with:
         name: tf-eu-guard-reports
-        path: reports/
+        path: ${{ inputs.output-dir || 'reports' }}/*.html
+        if-no-files-found: error
+        retention-days: 30
+
+    - name: Upload single HTML report as artifact
+      if: ${{ always() && inputs.upload-reports == 'true' && (inputs.output == 'security' || inputs.output == 'auditor') && inputs.output-file != '' }}
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: tf-eu-guard-reports
+        path: ${{ inputs.output-file }}
         if-no-files-found: error
         retention-days: 30
 
@@ -137,4 +146,4 @@ runs:
       if: ${{ always() && inputs.upload-sarif == 'true' && inputs.output == 'sarif' }}
       uses: github/codeql-action/upload-sarif@0fa1882f994fbd81a47ab0804f93354f5ea40147
       with:
-        sarif_file: tf-eu-guard.sarif
+        sarif_file: ${{ inputs.output-file || 'tf-eu-guard.sarif' }}

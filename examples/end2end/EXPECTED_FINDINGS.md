@@ -208,7 +208,7 @@
 
 ## Additional Service Coverage
 
-The files below exercise registry coverage beyond the core resource set. Every check that fires across this directory is mapped, so a scan produces **zero unmapped findings** (measured: 295 mapped).
+The files below exercise registry coverage beyond the core resource set. Every check that fires across this directory is mapped, so a scan produces **zero unmapped findings** (measured: 297 mapped).
 
 ### DynamoDB
 
@@ -605,26 +605,40 @@ literal in `db-app.tf`, so this gap compounds the hardcoded-secret finding.
 **Expected instances**: `waf.tf` — no `aws_wafv2_web_acl_logging_configuration`, so blocked and allowed traffic alike leave no record
 
 
-**EUGUARD_NIS2_001** — Hardcoded secrets detected  
+**EUGUARD_NIS2_001** — Hardcoded secrets in supported Terraform fields
 **Mapped to**: NIS2 Art. 21(2)(e) — Secure handling of credentials; GDPR Art. 32(1)(b) — Confidentiality  
 **Expected instances**:
-- `providers.tf` — `provider "aws"` alias `plain_text_access_keys_provider` has literal `access_key` and `secret_key`
-- `ec2.tf` — `user_data` contains `export AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE` and `export AWS_SECRET_ACCESS_KEY=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`
-- `lambda.tf` — `environment.variables` contains plaintext `access_key` and `secret_key`
-- `db-app.tf` — `user_data` contains `DB_PASSWORD=${var.password}` (password interpolation into script)
-- `codebuild.tf` — `environment_variable` `DB_PASSWORD` is set to the `var.password` default, not SSM/Secrets Manager
+- `db-app.tf` — `aws_db_instance.default.password` resolves to the literal `var.password` default
+- `rds-cluster.tf` — `aws_rds_cluster.aurora.master_password` is literal
+- `redshift.tf` — `aws_redshift_cluster.analytics.master_password` is literal
+- `codebuild.tf` — `aws_codebuild_project.app.environment_variable` `DB_PASSWORD` is set to the `var.password` default, not SSM/Secrets Manager
+
+The other documented literal credential-bearing locations are intentionally
+outside `EUGUARD_NIS2_001` and are covered by mapped stock checks:
+
+- `providers.tf` — provider `access_key`/`secret_key`: `CKV_AWS_41`
+- `ec2.tf` — EC2 `user_data`: `CKV_AWS_46`
+- `lambda.tf` — Lambda `environment.variables`: `CKV_AWS_45`
+
+The committed secret-shape CLI fixture verifies these replacement findings and
+that none of these three resources receives a duplicate `EUGUARD_NIS2_001`
+finding.
 
 ### High Severity
 
-**EUGUARD_GDPR_001** — Provider region outside the EU Sovereign Cloud  
-**Mapped to**: GDPR Art. 44 — Transfers of personal data to third countries  
-**Expected instances**: `consts.tf` / `providers.tf` — the check only accepts the EU Sovereign Cloud region `eusc-de-east-1`, so every other configured region fails
+**EUGUARD_GDPR_001** — Provider region outside the EU Sovereign Cloud
+**Mapped to**: Policy EUSC-001 — AWS European Sovereign Cloud deployment policy
+**Expected instances**: `consts.tf` / `providers.tf` — the check only accepts the EU Sovereign Cloud region `eusc-de-east-1`, so every other configured region fails. A commercial EU region such as `eu-central-1` would be an out-of-policy finding without a GDPR Chapter V citation.
+
+**EUGUARD_GDPR_002** — Known provider region outside the EU/EEA
+**Mapped to**: GDPR Art. 44 — General principle for transfers of personal data to third countries
+**Expected instances**: `providers.tf` — the known `us-west-1` provider receives a hedged Chapter V review signal. This finding does not decide whether a transfer occurs or is lawful.
 
 ---
 
 ## Summary
 
-**Predicted total mapped findings**: 290–300 across this directory — roughly 50 from the core resource set (12 IAM, 19 S3, 9 RDS, 11 networking), 34 from the additional service coverage (DynamoDB, CloudFront, API Gateway, SNS, Secrets Manager, and Application Load Balancer), 16 from CloudTrail, CodeBuild, and ECS, and 26 from ElastiCache, Aurora, Redshift, and WAFv2. Every check that fires in this directory is mapped, so a scan produces **zero unmapped findings** (measured: 295 mapped).
+**Predicted total mapped findings**: 290–300 across this directory — roughly 50 from the core resource set (12 IAM, 19 S3, 9 RDS, 11 networking), 34 from the additional service coverage (DynamoDB, CloudFront, API Gateway, SNS, Secrets Manager, and Application Load Balancer), 16 from CloudTrail, CodeBuild, and ECS, and 26 from ElastiCache, Aurora, Redshift, and WAFv2. Every check that fires in this directory is mapped, so a scan produces **zero unmapped findings** (measured: 297 mapped).
 
 The actual scan will produce:
 1. **`--output dev`**: Terminal rich-table grouped by severity

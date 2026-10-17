@@ -148,9 +148,9 @@ Mapped checks (2): `CKV_AZURE_103`, `CKV_AZURE_84`.
 
 ◐ **Partial**
 
-The custom EUGUARD_GDPR_001 check enforces this project's EU Sovereign Cloud policy: any provider region outside the EUSC partition is flagged as requiring Chapter V justification. The adequacy/SCC analysis itself is legal, not technical — an out-of-policy region is a strong signal, not a violation.
+The custom EUGUARD_GDPR_002 check flags known AWS provider regions outside the EU/EEA for Chapter V review. The adequacy/SCC analysis itself is legal, not technical — a third-country signal is a prompt for review, not a violation or definitive legal conclusion.
 
-Mapped checks (1): `EUGUARD_GDPR_001`.
+Mapped checks (1): `EUGUARD_GDPR_002`.
 
 ---
 

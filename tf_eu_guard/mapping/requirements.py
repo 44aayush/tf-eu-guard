@@ -42,7 +42,7 @@ NIS2_TITLES: dict[str, str] = {
 
 #: GDPR requirement key -> canonical short title. Art. 32(1)(a)–(d) plus
 #: the breach-notification/definition references used by registry risk text and
-#: Art. 44 (transfers — covered by the custom EUGUARD_GDPR_001 check).
+#: Art. 44 (transfers — covered by the custom EUGUARD_GDPR_002 check).
 GDPR_TITLES: dict[str, str] = {
     "4(12)": "Personal data breach",
     "32(1)(a)": "Pseudonymisation and encryption of personal data",
@@ -65,6 +65,7 @@ ARTICLE_TITLES: dict[tuple[Framework, str], str] = {
         (Framework.GDPR, f"Art. {article}"): title
         for article, title in GDPR_TITLES.items()
     },
+    (Framework.POLICY, "Policy EUSC-001"): "AWS European Sovereign Cloud deployment policy",
 }
 
 
@@ -234,18 +235,19 @@ REQUIREMENTS: tuple[dict, ...] = (
         ),
     ),
     dict(
-        # Custom check EUGUARD_GDPR_001: provider region -> transfer signal.
+        # Custom check EUGUARD_GDPR_002: known third-country provider region ->
+        # transfer review signal. EUGUARD_GDPR_001 is a separate project-policy
+        # control and is intentionally not part of this regulatory inventory.
         # Deliberately the honest mid category: the config is evaluable, the
         # lawful-transfer analysis is not (docs/gdpr-mapping.md standard).
         framework=Framework.GDPR,
         letter="44",
         category=CoverageCategory.PARTIAL,
         rationale=(
-            "The custom EUGUARD_GDPR_001 check enforces this project's EU "
-            "Sovereign Cloud policy: any provider region outside the EUSC "
-            "partition is flagged as requiring Chapter V justification. The "
-            "adequacy/SCC analysis itself is legal, not technical — an "
-            "out-of-policy region is a strong signal, not a violation."
+            "The custom EUGUARD_GDPR_002 check flags known AWS provider regions "
+            "outside the EU/EEA for Chapter V review. The adequacy/SCC analysis "
+            "itself is legal, not technical — a third-country signal is a prompt "
+            "for review, not a violation or definitive legal conclusion."
         ),
     ),
 )

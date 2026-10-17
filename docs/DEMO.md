@@ -18,10 +18,10 @@ This document explains how to capture screenshots and terminal recordings for tf
 tf-eu-guard scan examples/vulnerable-aws/ --output dev
 ```
 
-**What to capture**: Terminal showing the rich table with severity colors (CRITICAL red, HIGH orange, MEDIUM yellow, LOW blue), compliance badges (NIS2/GDPR), and resource names.
+**What to capture**: Terminal showing the developer report with colored severity markers (CRITICAL red, HIGH orange, MEDIUM yellow, LOW blue), compliance article references (NIS2/GDPR), and resource names.
 
 **Key points to highlight**:
-- Multiple findings grouped by severity
+- Severity totals in the summary, with findings grouped by file
 - Each finding shows NIS2 and GDPR article mappings
 - File paths with line numbers
 - Brief remediation guidance
@@ -38,14 +38,16 @@ open "$(ls -t reports/scan_report_*.html | head -1)"  # macOS
 
 **What to capture**: Browser window showing:
 - Header with scan metadata (timestamp, scan path, finding count)
-- Severity breakdown (CRITICAL/HIGH/MEDIUM/LOW counts, possibly with pie chart)
+- Summary cards for findings, files, severities, and framework counts
+- CSS-only severity breakdown as horizontal rows/bars (CRITICAL/HIGH/MEDIUM/LOW)
 - Finding cards with:
   - Check ID and title
   - Severity badge
-  - Compliance framework badges (NIS2 / GDPR / both)
+  - Compliance article tags (NIS2 / GDPR / project policy, where applicable)
   - Resource name and file path
-  - Description
+  - Risk explanation
   - Remediation code snippet
+  - Optional Checkov documentation link
 
 **Recommended viewport**: 1280×800 or larger
 
@@ -58,14 +60,19 @@ open "$(ls -t reports/auditor_report_*.html | head -1)"
 ```
 
 **What to capture**: Browser window showing:
-- Article-by-article structure:
-  - **NIS2 Article 21(2)** with sub-sections (a)-(k)
-  - **GDPR Article 32(1)** with sub-sections (a)-(d)
-  - **GDPR Article 44** (transfers to third countries)
+- Article-by-article sections for articles with open mapped findings:
+  - **NIS2 Art. 21(2)(...)** sections with their canonical article titles
+  - **GDPR Art. 32(1)(...)** sections with their canonical article titles
+  - **GDPR Art. 44** (transfers to third countries), when present
+  - Project-policy sections, when a policy mapping is present
 - Each article section showing:
-  - Article text or summary
+  - The article reference followed by its human-readable title
   - OPEN finding count
-  - List of affected resources with links
+  - A resource table with Severity, Resource, Location, and Failed control columns
+  - A mapping-rationale link to the relevant mapping document
+
+Resources are rendered as text/code in the table; the auditor report does not add
+per-resource links.
 
 **Key points to highlight**:
 - Clean, professional layout suitable for compliance documentation
@@ -78,7 +85,7 @@ open "$(ls -t reports/auditor_report_*.html | head -1)"
 # Vulnerable (before)
 tf-eu-guard scan examples/vulnerable-aws/ --output json > vulnerable.json
 jq 'length' vulnerable.json
-# Expected: 52 (see tools/smoke_baselines.json)
+# --output json is the mapped-findings array; expected: 53 (see tools/smoke_baselines.json)
 
 # Compliant (after)
 tf-eu-guard scan examples/compliant-aws/ --output json > compliant.json
@@ -86,20 +93,21 @@ jq 'length' compliant.json
 # Expected: 0 (see tools/smoke_baselines.json)
 ```
 
-**What to capture**: Side-by-side terminal showing the finding count drop.
+**What to capture**: Side-by-side terminal showing the mapped-finding count drop.
 
 ### 5. Custom Check Demonstration
 
 ```bash
 # The end2end suite contains hardcoded AWS keys and non-EU regions
 tf-eu-guard scan examples/end2end/ --output json | \
-  jq '.[] | select(.check_id == "EUGUARD_NIS2_001" or .check_id == "EUGUARD_GDPR_001")'
+  jq '.[] | select(.check_id == "EUGUARD_NIS2_001" or .check_id == "EUGUARD_GDPR_001" or .check_id == "EUGUARD_GDPR_002")'
 ```
 
 **What to capture**: JSON output showing:
 - `EUGUARD_NIS2_001` detecting hardcoded secrets
-- `EUGUARD_GDPR_001` detecting us-west-2 region
-- Both with NIS2/GDPR article mappings
+- `EUGUARD_GDPR_001` reporting the out-of-policy EUSC sovereignty configuration
+- `EUGUARD_GDPR_002` reporting a known third-country region for hedged Chapter V review
+- The policy finding has a `Policy EUSC-001` reference; the transfer-review finding has GDPR Art. 44
 
 ## Terminal Recording (asciinema)
 
@@ -147,9 +155,23 @@ tf-eu-guard --help
 # 2. Scan vulnerable example
 tf-eu-guard scan examples/vulnerable-aws/ --output dev
 
-# 3. Show finding count by framework
+# 3. Aggregate mapped findings by their referenced framework
 tf-eu-guard scan examples/vulnerable-aws/ --output json | \
-  jq 'group_by(.check_id) | length'
+  jq '{
+    total_findings: length,
+    findings_by_framework: (
+      reduce .[] as $finding
+        ({};
+         reduce ($finding.articles | map(.framework) | unique[]) as $framework
+           (. ; .[$framework] += 1))
+    )
+  }'
+
+# This reads the current JSON shape (`articles[].framework`) and counts each
+# finding once per framework. A finding mapped to both NIS2 and GDPR contributes
+# to both totals; POLICY can also appear for project-policy mappings. The JSON
+# output contains mapped findings only, so unmapped Checkov findings are not in
+# this aggregation.
 
 # 4. Filter to GDPR only
 tf-eu-guard scan examples/vulnerable-aws/ --output dev --framework gdpr
@@ -165,10 +187,10 @@ ls -lh reports/*.html
 
 For README and documentation, capture:
 
-- [x] Terminal: `--output dev` showing colored severity table (`docs/screenshots/vulnerable-scan.png`)
-- [x] Browser: `reports/scan_report_<timestamp>.html` security dashboard (`docs/screenshots/security-dashboard.png`)
-- [x] Browser: `reports/auditor_report_<timestamp>.html` showing NIS2 Article 21(2) section (`docs/screenshots/auditor-report.png`)
-- [x] Terminal: Finding count comparison (`docs/screenshots/compliant-scan.png` vs `vulnerable-scan.png`)
+- [x] Terminal: `--output dev` showing colored severity markers and finding details (`docs/screenshots/vulnerable-scan.png`)
+- [x] Browser: `reports/scan_report_<timestamp>_<uuid>.html` security dashboard with CSS severity bars (`docs/screenshots/security-dashboard.png`)
+- [x] Browser: `reports/auditor_report_<timestamp>_<uuid>.html` showing an article title and resource table (`docs/screenshots/auditor-report.png`)
+- [x] Terminal: Mapped-finding count comparison (`docs/screenshots/compliant-scan.png` vs `vulnerable-scan.png`)
 - [x] Optional: asciinema recording of full workflow (`docs/demo/tf-eu-guard-demo.cast`)
 
 ## Tips
@@ -183,10 +205,12 @@ For README and documentation, capture:
 
 The README already embeds real captures from `docs/screenshots/`:
 
-- `vulnerable-scan.png` / `compliant-scan.png` — terminal dev output (rich SVG →
-  headless Chromium, via `tools/ansi_to_image.py`)
+- `vulnerable-scan.png` / `compliant-scan.png` — terminal dev output with colored
+  severity markers and per-finding details (rich SVG → headless Chromium, via
+  `tools/ansi_to_image.py`)
 - `security-dashboard.png` / `auditor-report.png` — Playwright captures of the HTML
-  reports, with the live HTML files committed alongside for GitHub-rendered viewing
+  reports, including the security severity bars and auditor article/resource tables,
+  with the live HTML files committed alongside for GitHub-rendered viewing
 
 Regenerate any of them with `tools/ansi_to_image.py` (terminal) or a Playwright
 screenshot script (HTML reports).
@@ -198,7 +222,7 @@ Before recording/capturing, verify:
 1. All three examples directories exist and have .tf files
 2. Scans complete without errors
 3. HTML reports render correctly in browser
-4. Finding counts match the smoke baseline (vulnerable: 52, compliant: 0)
+4. Mapped-finding counts match the smoke baseline (vulnerable: 53, compliant: 0)
 5. Custom checks fire in end2end suite
 
 ```bash
@@ -210,7 +234,7 @@ for dir in examples/vulnerable-aws examples/compliant-aws examples/end2end; do
 done
 ```
 
-The pinned smoke baseline (`tools/smoke_baselines.json`) expects 52 mapped findings
+The pinned smoke baseline (`tools/smoke_baselines.json`) expects 53 mapped findings
 for vulnerable AWS and 0 for compliant AWS. The end-to-end suite is not pinned
 to an exact count; verify its custom check IDs instead.
 

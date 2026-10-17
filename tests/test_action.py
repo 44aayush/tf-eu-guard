@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 
 ACTION = Path(__file__).parents[1] / "action.yml"
+ACTION_E2E = Path(__file__).parents[1] / ".github" / "workflows" / "action-e2e.yml"
 
 
 def test_action_inputs_are_passed_through_env_not_shell_code():
@@ -31,3 +32,39 @@ def test_action_argument_array_preserves_hostile_input_literally(tmp_path):
     )
     assert result.stdout.rstrip("\n") == hostile
     assert not sentinel.exists()
+
+
+def test_html_artifact_upload_is_limited_to_html_outputs_and_effective_directory():
+    text = ACTION.read_text(encoding="utf-8")
+    assert (
+        "inputs.upload-reports == 'true' && "
+        "(inputs.output == 'all' || ((inputs.output == 'security' || "
+        "inputs.output == 'auditor') && inputs.output-file == ''))"
+    ) in text
+    assert "path: ${{ inputs.output-dir || 'reports' }}/*.html" in text
+    assert "inputs.output-file != ''" in text
+    assert "path: ${{ inputs.output-file }}" in text
+    assert "if-no-files-found: error" in text
+
+
+def test_sarif_upload_uses_effective_output_file():
+    text = ACTION.read_text(encoding="utf-8")
+    assert "sarif_file: ${{ inputs.output-file || 'tf-eu-guard.sarif' }}" in text
+
+
+def test_action_e2e_covers_upload_report_regressions():
+    text = ACTION_E2E.read_text(encoding="utf-8")
+    sarif_case = text.split("- name: Scan vulnerable Terraform fixture", 1)[1].split(
+        "- name: Assert specific check IDs", 1
+    )[0]
+    assert "output: sarif" in sarif_case
+    assert "upload-reports: true" in sarif_case
+    assert "output-dir: action-artifacts" in text
+    assert "output-file: action-artifacts/custom-result.sarif" in text
+
+
+def test_action_e2e_covers_custom_single_html_destination():
+    text = ACTION_E2E.read_text(encoding="utf-8")
+    assert "output: security" in text
+    assert "output-file: action-artifacts/custom-security.html" in text
+    assert "test -f action-artifacts/custom-security.html" in text

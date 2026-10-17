@@ -3,7 +3,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
-*.lock
 
 # Distribution / packaging
 .Python
@@ -57,3 +56,4 @@ Thumbs.db
 # Local task tracking (not part of the shipped repo)
 TASKS.md
 PLAN.md
+Dependbot.md

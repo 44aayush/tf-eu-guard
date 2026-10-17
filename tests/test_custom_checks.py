@@ -17,7 +17,10 @@ pytest.importorskip("checkov")
 
 from checkov.common.models.enums import CheckResult  # noqa: E402
 
-from tf_eu_guard.checks.gdpr.data_residency import EURegionEnforcement  # noqa: E402
+from tf_eu_guard.checks.gdpr.data_residency import (  # noqa: E402
+    EURegionEnforcement,
+    ThirdCountryTransferReview,
+)
 from tf_eu_guard.checks.nis2.secrets_in_code import (
     HardcodedSecrets,
     _scan_codebuild_env,
@@ -123,6 +126,28 @@ def test_region_allowlist_is_exact():
 def test_region_check_identity():
     check = EURegionEnforcement()
     assert check.id == "EUGUARD_GDPR_001"
+    assert check.supported_provider == ["aws"]
+
+
+@pytest.mark.parametrize(
+    "region, expected",
+    [
+        ("eusc-de-east-1", CheckResult.PASSED),
+        ("eu-central-1", CheckResult.PASSED),
+        ("us-east-1", CheckResult.FAILED),
+        ("eu-west-2", CheckResult.FAILED),
+        ("eu-garbage-9", CheckResult.UNKNOWN),
+        ("var.region", CheckResult.UNKNOWN),
+    ],
+)
+def test_third_country_transfer_review_is_narrower_than_policy(region, expected):
+    result = ThirdCountryTransferReview().scan_provider_conf({"region": [region]})
+    assert result == expected
+
+
+def test_transfer_review_check_identity():
+    check = ThirdCountryTransferReview()
+    assert check.id == "EUGUARD_GDPR_002"
     assert check.supported_provider == ["aws"]
 
 
@@ -261,12 +286,19 @@ def test_secrets_check_identity():
     assert "aws_db_instance" in check.supported_resources
 
 
+def test_secret_check_scope_excludes_stock_check_shapes():
+    """Provider, EC2 user_data, and Lambda env are stock-check coverage."""
+    check = HardcodedSecrets()
+    assert not {"aws_instance", "aws_lambda_function"} & set(check.supported_resources)
+    assert "provider aws credentials" not in check.supported_resources
+
+
 # --- Cross-check: custom check IDs are mapped in the registry ------------------
 
 def test_custom_check_ids_are_registered(registry):
     """Every custom check's id must have a registry entry, or its findings
     would be silently dropped by enrich_findings."""
-    for check in (EURegionEnforcement(), HardcodedSecrets()):
+    for check in (EURegionEnforcement(), ThirdCountryTransferReview(), HardcodedSecrets()):
         assert check.id in registry, f"{check.id} has no registry.yaml mapping"
 
 

@@ -23,7 +23,7 @@ Run from the repo root. Install once (this also installs Checkov 3.3.13; require
 pip install -e .
 ```
 
-Verify with `tf-eu-guard version` (prints `tf-eu-guard version 0.5.0` for this release).
+Verify with `tf-eu-guard version` (prints `tf-eu-guard version 0.6.0` for this release).
 
 ## How to run
 
@@ -116,9 +116,11 @@ When reporting back to the user:
   and `examples/unmapped-aws/` (deliberately includes findings with no registry mapping, useful
   for demonstrating the unmapped-count behavior above) are intentionally-insecure stacks for
   demoing the tool. `examples/vulnerable-aws-plan/plan.json` is a committed plan-JSON fixture.
-- GDPR Art. 44 (data residency) only recognizes the AWS European Sovereign Cloud
-  (`eusc-*` regions) as compliant — commercial EU regions like `eu-central-1` are flagged
-  for review, not treated as automatically compliant. Kubernetes has no equivalent check;
+- The EUSC-only sovereignty policy accepts only AWS European Sovereign Cloud
+  (`eusc-*`) regions, so commercial EU regions like `eu-central-1` are reported as
+  out-of-policy without a GDPR Chapter V citation. Known third-country regions like
+  `us-east-1` additionally receive the hedged `EUGUARD_GDPR_002` GDPR Art. 44 review
+  signal; that signal is not a legal conclusion. Kubernetes has no equivalent check;
   manifests are cloud-agnostic and region is a cluster-level concern (see `docs/DECISIONS.md`).
 - A GitHub Action (`action.yml`) and a pre-commit hook (`.pre-commit-hooks.yaml`) both wrap
   this CLI for CI/CD use — point users there instead of hand-rolling a workflow step.

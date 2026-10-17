@@ -81,7 +81,8 @@ false authority (see [`limitations.md`](limitations.md)).
 
 Post-enrichment filter on the article's framework. Unrelated to
 `--iac-type` (what gets scanned); this selects which regulatory regime
-to *report*.
+to *report*. `all` also retains project-policy controls such as EUSC
+sovereignty findings; those controls are not included in a GDPR-only filter.
 
 ### 6. Report — `tf_eu_guard/reporting/`
 

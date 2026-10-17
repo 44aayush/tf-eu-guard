@@ -29,7 +29,7 @@ class RegistryValidationError(ValueError):
     """Raised when a registry file violates the mapping schema."""
 
 
-_ARTICLE_RE = re.compile(r"^Art\. \d+(\(\d+\))?(\([a-z]\))?$")
+_ARTICLE_RE = re.compile(r"^(Art\. \d+(\(\d+\))?(\([a-z]\))?|Policy [A-Za-z0-9_.-]+)$")
 
 
 class _UniqueKeyLoader(yaml.SafeLoader):
@@ -40,13 +40,20 @@ class _UniqueKeyLoader(yaml.SafeLoader):
     same registry file would silently overwrite its predecessor before any
     validation code runs (the cross-file duplicate guard can't see it).
     This loader surfaces the collision as a :class:`RegistryValidationError`
-    instead, with the offending key and line number.
+    instead, with the offending key and line number. It also rejects
+    non-string keys before checking the duplicate-key set, so unhashable YAML
+    keys cannot leak a ``TypeError``.
     """
 
     def construct_mapping(self, node, deep=False):
         seen: set = set()
         for key_node, _ in node.value:
             key = self.construct_object(key_node, deep=deep)
+            if not isinstance(key, str):
+                raise RegistryValidationError(
+                    f"non-string mapping key {key!r} "
+                    f"(line {key_node.start_mark.line + 1})"
+                )
             if key in seen:
                 raise RegistryValidationError(
                     f"duplicate key '{key}' "
