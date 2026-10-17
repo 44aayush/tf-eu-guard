@@ -50,6 +50,7 @@ def test_html_artifact_upload_is_limited_to_html_outputs_and_effective_directory
 def test_sarif_upload_uses_effective_output_file():
     text = ACTION.read_text(encoding="utf-8")
     assert "sarif_file: ${{ inputs.output-file || 'tf-eu-guard.sarif' }}" in text
+    assert "category: ${{ inputs.category }}" in text
 
 
 def test_action_e2e_covers_upload_report_regressions():
@@ -61,6 +62,8 @@ def test_action_e2e_covers_upload_report_regressions():
     assert "upload-reports: true" in sarif_case
     assert "output-dir: action-artifacts" in text
     assert "output-file: action-artifacts/custom-result.sarif" in text
+    assert "category: terraform-source" in text
+    assert "category: terraform-custom" in text
 
 
 def test_action_e2e_covers_custom_single_html_destination():

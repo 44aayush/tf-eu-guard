@@ -295,6 +295,7 @@ Action inputs mirror the scan options:
 | `output-file` | `--output-file` | empty |
 | `upload-reports` | artifact upload | `false` |
 | `upload-sarif` | SARIF upload | `false` |
+| `category` | Code Scanning category | empty |
 
 Two optional extras:
 
@@ -309,7 +310,9 @@ Two optional extras:
   GitHub Code Scanning, so findings appear in the repo's *Security* tab
   with their NIS2/GDPR article metadata. It follows `output-file` when set,
   otherwise the Action writes and uploads `tf-eu-guard.sarif`. The calling
-  workflow needs `permissions: security-events: write`.
+  workflow needs `permissions: security-events: write`. If a job invokes this
+  action more than once with SARIF uploads, provide a different `category` for
+  each invocation so GitHub Code Scanning can keep the results separate.
 
 ```yaml
 jobs:

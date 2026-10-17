@@ -42,6 +42,7 @@ jobs:
           # Code Scanning upload only on push — fork PRs can't write
           # security events.
           upload-sarif: ${{ github.event_name == 'push' && 'true' || 'false' }}
+          category: terraform-source
 
       - name: Assert specific check IDs in the Terraform SARIF
         run: |
@@ -70,6 +71,7 @@ jobs:
           output-file: action-artifacts/custom-result.sarif
           fail-on-severity: ''
           upload-sarif: ${{ github.event_name == 'push' && 'true' || 'false' }}
+          category: terraform-custom
 
       - name: Assert the custom SARIF destination
         run: |
