@@ -68,6 +68,14 @@ def test_ci_smoke_tests_a_non_editable_wheel_from_outside_checkout():
             assert action and len(sha) == 40 and all(c in "0123456789abcdef" for c in sha)
 
 
+def test_ci_lock_keeps_python312_conditional_dependency_hashed():
+    """The CI lock must work on Python 3.12 as well as the lock generator's Python."""
+    lock = (REPO_ROOT / "requirements-ci.lock").read_text(encoding="utf-8")
+    assert "typing-extensions==4.16.0" in lock
+    assert "--hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8" in lock
+    assert "--hash=sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5" in lock
+
+
 def _build_wheel(tmp_path: Path) -> Path:
     """Build the project wheel (no isolation, no network) and return its path."""
     result = subprocess.run(

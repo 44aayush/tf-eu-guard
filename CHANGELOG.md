@@ -51,6 +51,8 @@ release point.
 - Registry validation now converts non-string and unhashable YAML mapping keys
   into contextual `RegistryValidationError` failures instead of leaking
   `TypeError`.
+- The hashed CI tooling lock now explicitly includes `typing-extensions`, a
+  conditional dependency required by `cyclonedx-python-lib` on Python 3.12.
 
 ## [0.5.0] — Unreleased
 
