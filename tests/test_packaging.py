@@ -85,10 +85,11 @@ def test_publish_build_tools_live_outside_checkout():
     job = workflow["jobs"]["build"]
     commands = "\n".join(step.get("run", "") for step in job["steps"])
 
-    assert job["env"]["RELEASE_TOOLS_DIR"] == "${{ runner.temp }}/tf-eu-guard-release-tools"
-    assert 'python -m venv "$RELEASE_TOOLS_DIR"' in commands
-    assert '"$RELEASE_TOOLS_DIR/bin/python" -m build --no-isolation' in commands
-    assert '"$RELEASE_TOOLS_DIR/bin/cyclonedx-py"' in commands
+    assert "env" not in job
+    assert "${{ runner.temp }}" not in commands
+    assert 'python -m venv "$RUNNER_TEMP/tf-eu-guard-release-tools"' in commands
+    assert '"$RUNNER_TEMP/tf-eu-guard-release-tools/bin/python" -m build --no-isolation' in commands
+    assert '"$RUNNER_TEMP/tf-eu-guard-release-tools/bin/cyclonedx-py"' in commands
     assert ".ci-tools" not in commands
 
 
