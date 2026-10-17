@@ -160,9 +160,9 @@ attrs==26.1.0 \
     #   aiohttp
     #   jsonschema
     #   referencing
-bc-detect-secrets==1.5.50 \
-    --hash=sha256:016ce9e79f692adbabcbef4a7293db427352911c3f81404a136e6f5c3e54a7f2 \
-    --hash=sha256:99037375d9cb49ed07e5bb12722f4bbb76fb8acaff6f367eef9df7559e7642b3
+bc-detect-secrets==1.5.52 \
+    --hash=sha256:772353c949a131b7b5efd2b20473e0128af9c25ea27cdb15a3a6a6727ca73c4e \
+    --hash=sha256:bb437db4b4ad81b19d52feaf8e0ebaf6ca0421ee6fefbdd9d41210bd4983e16b
     # via checkov
 bc-jsonpath-ng==1.6.1 \
     --hash=sha256:2c85bb1d194376808fe1fc49558dd484e39024b15c719995e22de811e6ba4dc8 \
@@ -487,9 +487,9 @@ charset-normalizer==3.5.2 \
     # via
     #   checkov
     #   requests
-checkov==3.3.13 \
-    --hash=sha256:1fc226b50f59dc3ae3c9835c747bf986a5da4ecfd644948db92fcd12eebe84f6 \
-    --hash=sha256:c8e8429d78fbcc63294a0aece04c34e1b0c2c1f66c2f12b3de4f65508e39900d
+checkov==3.3.29 \
+    --hash=sha256:9a8b3918788faf8e18b181d826d284744b22b9d99c53cf1b67a2e84f0596796f \
+    --hash=sha256:ad9f8606a6de0756be93edd5588e3365486eb53a3f68247396a68b02929353ce
     # via tf-eu-guard (pyproject.toml)
 click==8.5.0 \
     --hash=sha256:255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360 \
