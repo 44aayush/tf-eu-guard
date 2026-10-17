@@ -79,6 +79,19 @@ def test_ci_smoke_tests_a_non_editable_wheel_from_outside_checkout():
             assert action and len(sha) == 40 and all(c in "0123456789abcdef" for c in sha)
 
 
+def test_publish_build_tools_live_outside_checkout():
+    """The release venv must not put absolute symlinks into the source sdist."""
+    workflow = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / "publish.yml").read_text())
+    job = workflow["jobs"]["build"]
+    commands = "\n".join(step.get("run", "") for step in job["steps"])
+
+    assert job["env"]["RELEASE_TOOLS_DIR"] == "${{ runner.temp }}/tf-eu-guard-release-tools"
+    assert 'python -m venv "$RELEASE_TOOLS_DIR"' in commands
+    assert '"$RELEASE_TOOLS_DIR/bin/python" -m build --no-isolation' in commands
+    assert '"$RELEASE_TOOLS_DIR/bin/cyclonedx-py"' in commands
+    assert ".ci-tools" not in commands
+
+
 def test_ci_lock_keeps_python312_conditional_dependency_hashed():
     """The CI lock must work on Python 3.12 as well as the lock generator's Python."""
     lock = (REPO_ROOT / "requirements-ci.lock").read_text(encoding="utf-8")
