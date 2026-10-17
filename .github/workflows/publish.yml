@@ -16,11 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      # Keep the virtualenv outside the checkout. build creates an sdist first,
-      # and a venv inside the checkout contains absolute-path symlinks that
-      # Python 3.12+ refuses to extract from that sdist.
-      RELEASE_TOOLS_DIR: ${{ runner.temp }}/tf-eu-guard-release-tools
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up Python
@@ -28,13 +23,16 @@ jobs:
         with:
           python-version: "3.12"
       - name: Create isolated release tooling environment
-        run: python -m venv "$RELEASE_TOOLS_DIR"
+        # Keep the virtualenv outside the checkout. build creates an sdist first,
+        # and a venv inside the checkout contains absolute-path symlinks that
+        # Python 3.12+ refuses to extract from that sdist.
+        run: python -m venv "$RUNNER_TEMP/tf-eu-guard-release-tools"
       - name: Install hashed release tooling lock
         run: |
-          "$RELEASE_TOOLS_DIR/bin/python" -m pip install --require-hashes -r requirements-ci.lock
+          "$RUNNER_TEMP/tf-eu-guard-release-tools/bin/python" -m pip install --require-hashes -r requirements-ci.lock
       - name: Build distribution
         run: |
-          "$RELEASE_TOOLS_DIR/bin/python" -m build --no-isolation
+          "$RUNNER_TEMP/tf-eu-guard-release-tools/bin/python" -m build --no-isolation
       - name: Verify the built version matches the tag
         run: |
           set -euo pipefail
@@ -47,7 +45,7 @@ jobs:
           echo "OK: tag $GITHUB_REF_NAME matches wheel metadata $built_version"
       - name: Generate release SBOM
         run: |
-          "$RELEASE_TOOLS_DIR/bin/cyclonedx-py" requirements requirements.lock --of JSON --output-reproducible -o tf-eu-guard-${GITHUB_REF_NAME#v}.cdx.json
+          "$RUNNER_TEMP/tf-eu-guard-release-tools/bin/cyclonedx-py" requirements requirements.lock --of JSON --output-reproducible -o tf-eu-guard-${GITHUB_REF_NAME#v}.cdx.json
       - name: Upload distribution and SBOM
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
