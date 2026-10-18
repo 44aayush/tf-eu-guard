@@ -22,8 +22,8 @@ from typing import Any, cast
 from urllib.parse import quote
 
 from tf_eu_guard.models import EnrichedFinding, Severity
-from tf_eu_guard.reporting._html_common import safe_guideline
-from tf_eu_guard.reporting._sorting import (
+from tf_eu_guard.reporting.html_common import safe_guideline
+from tf_eu_guard.reporting.sorting import (
     finding_sort_key,
     sort_findings,
     sort_unmapped_findings,

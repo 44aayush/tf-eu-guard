@@ -6,11 +6,27 @@ and that the Phase-1 -> Phase-2 legal-citation corrections have not regressed
 (access control = NIS2 21(2)(i), encryption = NIS2 21(2)(h) / GDPR 32(1)(a)).
 """
 
+import json
 import re
+from pathlib import Path
 
+import checkov
+import checkov.kubernetes.checks.resource.k8s  # noqa: F401
+import checkov.terraform.checks.resource  # noqa: F401
 import pytest
 import yaml
+from checkov.kubernetes.checks.resource.registry import registry as k8s_registry
+from checkov.terraform.checks.data.registry import data_registry
+from checkov.terraform.checks.provider.registry import provider_registry
+from checkov.terraform.checks.resource.registry import resource_registry
 
+from tf_eu_guard.checkov_runner import extract_failed_checks, load_checkov_json
+from tf_eu_guard.mapping.loader import (
+    RegistryValidationError,
+    load_registry,
+    load_registry_file,
+    validate_all,
+)
 from tf_eu_guard.mapping.requirements import ARTICLE_TITLES
 from tf_eu_guard.models import Framework, Severity
 
@@ -268,19 +284,12 @@ def test_hardcoded_secrets_check_maps_to_nis2_secure_dev(registry):
 
 def test_all_registry_files_schema_valid(repo_root):
     """Every registry-*.yaml must pass schema validation (CI regression)."""
-    from tf_eu_guard.mapping.loader import validate_all
-
     counts = validate_all(repo_root / "tf_eu_guard" / "mapping")
     assert counts, "no registry files found"
     assert sum(counts.values()) > 100  # AWS alone has 116
 
 
 def test_registry_schema_rejects_bad_entry(tmp_path):
-    from tf_eu_guard.mapping.loader import (
-        RegistryValidationError,
-        load_registry_file,
-    )
-
     bad = tmp_path / "registry-bad.yaml"
     bad.write_text(
         "CKV_AWS_999:\n"
@@ -301,8 +310,6 @@ def test_registry_schema_rejects_bad_entry(tmp_path):
 
 
 def test_runtime_registry_requires_all_expected_namespaces(tmp_path):
-    from tf_eu_guard.mapping.loader import RegistryValidationError, load_registry
-
     mapping_dir = tmp_path / "mapping"
     mapping_dir.mkdir()
     (mapping_dir / "registry-aws.yaml").write_text("{}\n")
@@ -312,15 +319,11 @@ def test_runtime_registry_requires_all_expected_namespaces(tmp_path):
 
 
 def test_runtime_registry_rejects_missing_path(tmp_path):
-    from tf_eu_guard.mapping.loader import RegistryValidationError, load_registry
-
     with pytest.raises(RegistryValidationError, match="does not exist"):
         load_registry(tmp_path / "missing-mapping")
 
 
 def test_runtime_registry_rejects_missing_namespace(tmp_path, repo_root):
-    from tf_eu_guard.mapping.loader import RegistryValidationError, load_registry
-
     mapping_dir = tmp_path / "mapping"
     mapping_dir.mkdir()
     source = repo_root / "tf_eu_guard" / "mapping"
@@ -346,8 +349,6 @@ def test_runtime_registry_rejects_missing_namespace(tmp_path, repo_root):
     ],
 )
 def test_registry_shape_errors_are_registry_validation_errors(tmp_path, content, where):
-    from tf_eu_guard.mapping.loader import RegistryValidationError, load_registry_file
-
     bad = tmp_path / "registry-bad.yaml"
     bad.write_text(content)
     with pytest.raises(RegistryValidationError, match=where):
@@ -361,11 +362,6 @@ def test_registry_rejects_within_file_duplicate_check_id(tmp_path):
     duplicate collapses before any validation code runs, so the cross-file
     duplicate guard can never see it. The custom loader must catch it.
     """
-    from tf_eu_guard.mapping.loader import (
-        RegistryValidationError,
-        load_registry_file,
-    )
-
     entry = (
         "  check_name: '{name}'\n"
         "  articles:\n"
@@ -396,8 +392,6 @@ def test_registry_rejects_within_file_duplicate_check_id(tmp_path):
 )
 def test_registry_rejects_non_string_mapping_keys_with_context(tmp_path, content):
     """Invalid YAML mapping keys become contextual registry errors, not TypeError."""
-    from tf_eu_guard.mapping.loader import RegistryValidationError, load_registry_file
-
     bad = tmp_path / "registry-bad.yaml"
     bad.write_text(content)
 
@@ -414,22 +408,11 @@ def test_registry_ids_exist_in_checkov(repo_root):
     Guards against silent misses: a renamed/removed Checkov check would leave a
     mapping that never enriches anything.
     """
-    import checkov.kubernetes.checks.resource.k8s  # noqa: F401
-    import checkov.terraform.checks.resource  # noqa: F401
-    import yaml
-    from checkov.kubernetes.checks.resource.registry import registry as k8s_registry
-    from checkov.terraform.checks.data.registry import data_registry
-    from checkov.terraform.checks.provider.registry import provider_registry
-    from checkov.terraform.checks.resource.registry import resource_registry
-
     checkov_ids = set()
     for registry in (resource_registry, data_registry, provider_registry, k8s_registry):
         for checks in registry.checks.values():
             for check in checks:
                 checkov_ids.add(check.id)
-
-    import json
-    from pathlib import Path
 
     for framework in ("terraform", "kubernetes"):
         graph_dir = Path(checkov.__file__).parent / framework / "checks" / "graph_checks"
@@ -476,8 +459,6 @@ def test_end2end_findings_are_all_mapped(repo_root, registry):
     (the capture is regenerated by ``tools/smoke_check.py`` / CI, which runs
     the real scan and checks the same property against the 295 baseline).
     """
-    from tf_eu_guard.checkov_runner import extract_failed_checks, load_checkov_json
-
     capture = repo_root / END2END_FIXTURE
     if not capture.exists():
         pytest.skip(f"{END2END_FIXTURE} not present — run tools/smoke_check.py")

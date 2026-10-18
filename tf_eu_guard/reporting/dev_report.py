@@ -7,25 +7,37 @@ from rich.markup import escape
 from rich.text import Text
 
 from tf_eu_guard.models import EnrichedFinding, ScanReport, Severity
-from tf_eu_guard.reporting._html_common import safe_guideline
-from tf_eu_guard.reporting._sorting import finding_sort_key, sort_findings, sorted_articles
 from tf_eu_guard.reporting.base import BaseReporter
+from tf_eu_guard.reporting.html_common import line_range, safe_guideline
+from tf_eu_guard.reporting.sorting import finding_sort_key, sort_findings, sorted_articles
 from tf_eu_guard.reporting.styles import SEVERITY_COLOR_TERMINAL, SEVERITY_ORDER
 
 
-def _line_ref(finding: EnrichedFinding) -> str | None:
-    """Line reference for a finding, or ``None`` when none is meaningful.
+def _group_findings_by_file(
+    findings: list[EnrichedFinding],
+) -> dict[str, list[EnrichedFinding]]:
+    """Group findings by file after applying the shared stable ordering."""
+    findings_by_file: dict[str, list[EnrichedFinding]] = {}
+    for finding in sort_findings(findings):
+        findings_by_file.setdefault(finding.file_path, []).append(finding)
+    return findings_by_file
 
-    Checkov reports ``[0, 0]`` for frameworks with no real line anchor — e.g.
-    terraform_plan JSON or some Kubernetes findings — in which case printing
-    ``Lines: 0-0`` would be misleading.
-    """
-    lr = finding.file_line_range or []
-    if len(lr) >= 2 and (lr[0] or lr[1]):
-        return f"{lr[0]}-{lr[1]}"
-    if len(lr) == 1 and lr[0]:
-        return str(lr[0])
-    return None
+
+def _finding_severity_sort_key(finding: EnrichedFinding) -> tuple[int, tuple]:
+    """Return the presentation order for findings within one file."""
+    severity_rank = (
+        SEVERITY_ORDER.index(finding.severity)
+        if finding.severity in SEVERITY_ORDER
+        else len(SEVERITY_ORDER)
+    )
+    return severity_rank, finding_sort_key(finding)
+
+
+def _sort_findings_within_file(
+    findings: list[EnrichedFinding],
+) -> list[EnrichedFinding]:
+    """Sort file-local findings by severity, then by their stable identity."""
+    return sorted(findings, key=_finding_severity_sort_key)
 
 
 class DevReporter(BaseReporter):
@@ -36,45 +48,33 @@ class DevReporter(BaseReporter):
 
     def generate(self, report: ScanReport, output_path: Path | None = None) -> str:
         """Generate developer-focused terminal report."""
-        # Group findings by file for easier navigation
-        by_file: dict[str, list] = {}
-        for finding in sort_findings(report.findings):
-            if finding.file_path not in by_file:
-                by_file[finding.file_path] = []
-            by_file[finding.file_path].append(finding)
+        findings_by_file = _group_findings_by_file(report.findings)
 
-        output = []
-        output.append("\n[bold]tf-eu-guard scan results[/bold]")
-        output.append(f"Target: {escape(str(report.target_path))}")
-        output.append(f"Timestamp: {escape(str(report.scan_timestamp))}")
-        output.append(f"\nFindings: {report.total_failed} failed / {report.total_checks_run} total\n")
+        report_lines = []
+        report_lines.append("\n[bold]tf-eu-guard scan results[/bold]")
+        report_lines.append(f"Target: {escape(str(report.target_path))}")
+        report_lines.append(f"Timestamp: {escape(str(report.scan_timestamp))}")
+        report_lines.append(
+            f"\nFindings: {report.total_failed} failed / {report.total_checks_run} total\n"
+        )
 
-        for file_path, findings in sorted(by_file.items()):
-            output.append(f"\n[bold cyan]{escape(str(file_path))}[/bold cyan]")
+        for file_path, findings in sorted(findings_by_file.items()):
+            report_lines.append(f"\n[bold cyan]{escape(str(file_path))}[/bold cyan]")
 
-            # Sort findings by severity within each file (unknown severities last)
-            sorted_findings = sorted(
-                findings,
-                key=lambda f: (
-                    SEVERITY_ORDER.index(f.severity)
-                    if f.severity in SEVERITY_ORDER
-                    else len(SEVERITY_ORDER),
-                    finding_sort_key(f),
-                ),
-            )
+            sorted_findings = _sort_findings_within_file(findings)
 
             for finding in sorted_findings:
                 severity_color = SEVERITY_COLOR_TERMINAL[finding.severity]
 
-                output.append(
+                report_lines.append(
                     f"\n  [{severity_color}]●[/{severity_color}] "
                     f"{escape(str(finding.check_id))}: {escape(str(finding.check_name))}"
                 )
-                output.append(f"    Resource: {escape(str(finding.resource))}")
-                line_ref = _line_ref(finding)
+                report_lines.append(f"    Resource: {escape(str(finding.resource))}")
+                line_ref = line_range(finding)
                 if line_ref:
-                    output.append(f"    Lines: {escape(str(line_ref))}")
-                output.append(
+                    report_lines.append(f"    Lines: {escape(str(line_ref))}")
+                report_lines.append(
                     f"    Severity: [{severity_color}]{escape(finding.severity.value)}"
                     f"[/{severity_color}]"
                 )
@@ -84,15 +84,17 @@ class DevReporter(BaseReporter):
                         f"{escape(str(a.framework.value))} {escape(str(a.article))}"
                         for a in sorted_articles(finding)
                     )
-                    output.append(f"    Compliance: {articles_str}")
+                    report_lines.append(f"    Compliance: {articles_str}")
 
-                output.append(f"\n    [dim]{escape(str(finding.risk_explanation))}[/dim]")
+                report_lines.append(
+                    f"\n    [dim]{escape(str(finding.risk_explanation))}[/dim]"
+                )
 
                 if finding.remediation:
-                    output.append("\n    [bold]Fix:[/bold]")
-                    output.append(f"    {escape(str(finding.remediation))}")
+                    report_lines.append("\n    [bold]Fix:[/bold]")
+                    report_lines.append(f"    {escape(str(finding.remediation))}")
 
-        report_text = "\n".join(output)
+        report_text = "\n".join(report_lines)
 
         if output_path:
             with open(output_path, "w") as f:
@@ -155,27 +157,13 @@ def generate_dev_report(
         )
     console.print()
 
-    # Group by file
-    by_file: dict[str, list[EnrichedFinding]] = {}
-    for finding in sort_findings(findings):
-        if finding.file_path not in by_file:
-            by_file[finding.file_path] = []
-        by_file[finding.file_path].append(finding)
+    findings_by_file = _group_findings_by_file(findings)
 
     # Display findings
-    for file_path, file_findings in sorted(by_file.items()):
+    for file_path, file_findings in sorted(findings_by_file.items()):
         console.print(f"\n[bold cyan]File: {escape(str(file_path))}[/bold cyan]")
 
-        # Sort by severity (unknown severities last)
-        sorted_findings = sorted(
-            file_findings,
-            key=lambda f: (
-                SEVERITY_ORDER.index(f.severity)
-                if f.severity in SEVERITY_ORDER
-                else len(SEVERITY_ORDER),
-                finding_sort_key(f),
-            ),
-        )
+        sorted_findings = _sort_findings_within_file(file_findings)
 
         for finding in sorted_findings:
             # Severity badge
@@ -187,7 +175,7 @@ def generate_dev_report(
                 f"{escape(str(finding.check_name))}"
             )
             console.print(f"    [dim]Resource:[/dim] {escape(str(finding.resource))}")
-            line_ref = _line_ref(finding)
+            line_ref = line_range(finding)
             if line_ref:
                 console.print(f"    [dim]Lines:[/dim] {escape(str(line_ref))}")
             console.print(

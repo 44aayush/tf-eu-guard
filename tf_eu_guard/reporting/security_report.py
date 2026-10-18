@@ -12,13 +12,13 @@ generator has no packaging/template-loading surface. See ``PROJECT_PLAN.md`` §4
 from pathlib import Path
 
 from tf_eu_guard.models import EnrichedFinding, Framework
-from tf_eu_guard.reporting._html_common import (
+from tf_eu_guard.reporting.html_common import (
     distinct_files,
     esc,
     finding_card,
     severity_counts,
 )
-from tf_eu_guard.reporting._sorting import finding_sort_key, sort_findings
+from tf_eu_guard.reporting.sorting import finding_sort_key, sort_findings
 from tf_eu_guard.reporting.styles import SECURITY_CSS, SEVERITY_COLOR, SEVERITY_ORDER
 
 

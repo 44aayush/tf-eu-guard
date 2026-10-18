@@ -11,9 +11,10 @@ passed, 1 = unexpected error, 2 = a smoke check failed (Claude Code shows
 stderr to the user even though the edit already completed).
 
 Path mapping:
-- ``tf_eu_guard/checkov_runner.py`` / ``tf_eu_guard/cli.py`` — all types.
-  These are exactly the class of file that broke terraform_plan in c7e68f6
-  while leaving Kubernetes untouched.
+- ``tf_eu_guard/checkov_runner.py`` and ``tf_eu_guard/checkov/*.py`` /
+  ``tf_eu_guard/cli.py`` and ``tf_eu_guard/cli/*`` — all types. These are
+  exactly the class of file that broke terraform_plan in c7e68f6 while leaving
+  Kubernetes untouched.
 - ``tf_eu_guard/mapping/registry-aws.yaml`` (and azure/gcp) — terraform +
   terraform_plan (the AWS registry covers both; plan mode fires the same
   CKV_AWS_* IDs).
@@ -54,7 +55,12 @@ def types_for_path(path: str) -> list[str] | None:
     p = Path(path)
 
     # Runner/CLI changes can affect every scan path.
-    if p.match("tf_eu_guard/checkov_runner.py") or p.match("tf_eu_guard/cli.py"):
+    if (
+        p.match("tf_eu_guard/checkov_runner.py")
+        or p.match("tf_eu_guard/checkov/*")
+        or p.match("tf_eu_guard/cli.py")
+        or p.match("tf_eu_guard/cli/*")
+    ):
         return ALL_TYPES
 
     # Registry files: kubernetes.yaml only affects the k8s namespace; every

@@ -6,11 +6,15 @@ Checkov nor the registry — they exercise the ``dev`` (HTML), ``security`` and
 file output, the empty-findings edge case, and HTML-escaping of untrusted fields.
 """
 
+import sys
+from io import StringIO
 from pathlib import Path
 
 from tf_eu_guard.models import ArticleReference, EnrichedFinding, Framework, Severity
 from tf_eu_guard.reporting.auditor_report import generate_auditor_report
 from tf_eu_guard.reporting.dev_html_report import generate_dev_html_report
+from tf_eu_guard.reporting.dev_report import generate_dev_report
+from tf_eu_guard.reporting.html_common import safe_guideline
 from tf_eu_guard.reporting.security_report import generate_security_report
 
 
@@ -133,8 +137,6 @@ class TestNonTerraformFormats:
         assert self._no_zero_line_ref(doc)
 
     def test_dev_terminal_report_omits_zero_lines(self, capsys):
-        from tf_eu_guard.reporting.dev_report import generate_dev_report
-
         generate_dev_report(_zero_line_findings())
         out = capsys.readouterr().out
         assert "Lines: 0-0" not in out
@@ -374,16 +376,12 @@ class TestUnmappedCount:
         assert "9</b> unmapped" in doc  # summary chip
 
     def test_dev_terminal_report_shows_unmapped_count(self, capsys):
-        from tf_eu_guard.reporting.dev_report import generate_dev_report
-
         generate_dev_report(_sample_findings(), unmapped_count=9)
         out = capsys.readouterr().out
         assert "Unmapped Checkov findings: 9" in out
         assert "no current EU regulatory mapping" in out
 
     def test_dev_terminal_report_unmapped_only_is_not_clean(self, capsys):
-        from tf_eu_guard.reporting.dev_report import generate_dev_report
-
         generate_dev_report([], unmapped_count=4)
         out = capsys.readouterr().out
         assert "No compliance findings" not in out
@@ -396,8 +394,6 @@ def test_safe_guideline_unit_gate():
     """Only http/https URLs without markup-breaking characters pass; a
     scheme-validated gate, because HTML-escaping neutralizes markup
     characters, not URL schemes."""
-    from tf_eu_guard.reporting._html_common import safe_guideline
-
     ok = [
         "https://docs.prismacloud.io/en/enterprise-edition/policy-reference",
         "http://example.com/CKV_AWS_18",
@@ -480,11 +476,6 @@ def test_committed_html_reports_use_hedged_language_and_keep_disclaimers():
 def test_terminal_report_renders_no_link_for_javascript_guideline():
     """The Rich [link=...] path is scheme-gated too — Rich interpolates the
     value raw, so a javascript: guideline must not render a link there."""
-    import sys
-    from io import StringIO
-
-    from tf_eu_guard.reporting.dev_report import generate_dev_report
-
     buf = StringIO()
     real_stdout = sys.stdout
     sys.stdout = buf
@@ -500,11 +491,6 @@ def test_terminal_report_renders_no_link_for_javascript_guideline():
 def test_terminal_report_still_links_safe_guidelines():
     """Rich only emits hyperlink escapes on a link-capable terminal; on plain
     streams the visible anchor text is what proves the link line rendered."""
-    import sys
-    from io import StringIO
-
-    from tf_eu_guard.reporting.dev_report import generate_dev_report
-
     buf = StringIO()
     real_stdout = sys.stdout
     sys.stdout = buf

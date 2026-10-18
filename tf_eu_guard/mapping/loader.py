@@ -10,6 +10,7 @@ from typing import Any
 
 import yaml
 
+from tf_eu_guard.mapping.enrichment import split_findings
 from tf_eu_guard.mapping.requirements import canonical_article_title
 from tf_eu_guard.mapping.schema import (
     REQUIRED_FIELDS,
@@ -36,6 +37,21 @@ EXPECTED_REGISTRY_NAMESPACES = ("aws", "azure", "gcp", "kubernetes")
 
 
 _ARTICLE_RE = re.compile(r"^(Art\. \d+(\(\d+\))?(\([a-z]\))?|Policy [A-Za-z0-9_.-]+)$")
+
+
+def _require_expected_registry_namespaces(paths: list[Path]) -> None:
+    """Raise when a registry directory does not contain every required namespace."""
+    found_namespaces = {
+        path.stem.removeprefix("registry-") for path in paths
+    }
+    missing_namespaces = sorted(
+        set(EXPECTED_REGISTRY_NAMESPACES) - found_namespaces
+    )
+    if missing_namespaces:
+        raise RegistryValidationError(
+            "missing expected registry namespace(s): "
+            f"{', '.join(missing_namespaces)}"
+        )
 
 
 class _UniqueKeyLoader(yaml.SafeLoader):
@@ -200,10 +216,7 @@ def load_registry(registry_path: Path) -> dict[str, ComplianceMapping]:
             )
 
         merged: dict[str, ComplianceMapping] = {}
-        found_namespaces = set()
         for path in paths:
-            namespace = path.stem.removeprefix("registry-")
-            found_namespaces.add(namespace)
             file_mappings = load_registry_file(path)
             if not file_mappings:
                 raise RegistryValidationError(f"{path.name}: no entries found")
@@ -214,11 +227,7 @@ def load_registry(registry_path: Path) -> dict[str, ComplianceMapping]:
                     )
                 merged[check_id] = mapping
 
-        missing = sorted(set(EXPECTED_REGISTRY_NAMESPACES) - found_namespaces)
-        if missing:
-            raise RegistryValidationError(
-                f"missing expected registry namespace(s): {', '.join(missing)}"
-            )
+        _require_expected_registry_namespaces(paths)
         return merged
 
     return load_registry_file(registry_path)
@@ -240,66 +249,8 @@ def validate_all(mapping_dir: Path | None = None) -> dict[str, int]:
         counts[path.name] = len(mappings)
     if not counts:
         raise RegistryValidationError(f"no registry-*.yaml files found in {mapping_dir}")
-    found_namespaces = {
-        path.stem.removeprefix("registry-") for path in paths
-    }
-    missing = sorted(set(EXPECTED_REGISTRY_NAMESPACES) - found_namespaces)
-    if missing:
-        raise RegistryValidationError(
-            f"missing expected registry namespace(s): {', '.join(missing)}"
-        )
+    _require_expected_registry_namespaces(paths)
     return counts
-
-
-def split_findings(
-    checkov_findings: list[dict[str, Any]],
-    registry: dict[str, ComplianceMapping],
-) -> tuple[list[EnrichedFinding], list[dict[str, Any]]]:
-    """
-    Partition Checkov findings into (enriched, unmapped).
-
-    Args:
-        checkov_findings: List of failed checks from Checkov
-        registry: Loaded compliance mapping registry
-
-    Returns:
-        A tuple of:
-
-        - the findings whose check ID has a registry entry, enriched with EU
-          compliance context
-        - the raw Checkov finding dicts with **no** registry entry, preserved
-          so callers can surface them instead of silently dropping them
-          (e.g. "52 mapped findings, 9 unmapped").
-    """
-    enriched: list[EnrichedFinding] = []
-    unmapped: list[dict[str, Any]] = []
-
-    for check in checkov_findings:
-        check_id = check["check_id"]
-        mapping = registry.get(check_id)
-
-        if not mapping:
-            # No EU compliance mapping — keep the raw finding so reports can
-            # show it as present-but-unmapped rather than absent.
-            unmapped.append(check)
-            continue
-
-        enriched.append(
-            EnrichedFinding(
-                check_id=check_id,
-                check_name=check["check_name"],
-                resource=check["resource"],
-                file_path=check["file_path"],
-                file_line_range=check["file_line_range"],
-                guideline=check.get("guideline"),
-                articles=mapping.articles,
-                risk_explanation=mapping.risk_explanation,
-                remediation=mapping.remediation,
-                severity=mapping.severity,
-            )
-        )
-
-    return enriched, unmapped
 
 
 def enrich_findings(

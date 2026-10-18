@@ -31,6 +31,7 @@ from tf_eu_guard.checks.nis2.secret_names import (
     is_literal_secret_value,
     is_sensitive_env_name,
 )
+from tf_eu_guard.checks.values import unwrap_checkov_scalar
 
 # Resource types that carry a plaintext-secret argument, mapped to the
 # argument name(s) that must never hold a literal value.
@@ -72,7 +73,7 @@ class HardcodedSecrets(BaseResourceCheck):
             return CheckResult.PASSED
 
         for field in _SECRET_FIELDS_BY_RESOURCE.get(self.entity_type, ()):
-            value = _first_scalar(conf.get(field))
+            value = unwrap_checkov_scalar(conf.get(field))
             if is_literal_secret_value(value):
                 self.evaluated_keys = [field]
                 return CheckResult.FAILED
@@ -86,40 +87,35 @@ def _scan_codebuild_env(conf: dict) -> bool:
     traversal accepts either the raw mapping shape or those wrappers.  AWS
     secret/parameter-store references are safe references, not secret values.
     """
-    environment = _first_scalar(conf.get("environment"))
+    environment = unwrap_checkov_scalar(conf.get("environment"))
     if not isinstance(environment, dict):
         return False
     variables = environment.get("environment_variable", [])
-    for variable in _mapping_values(variables):
-        variable_type = str(_first_scalar(variable.get("type")) or "PLAINTEXT").upper()
+    for variable in _iter_mapping_values(variables):
+        variable_type = str(
+            unwrap_checkov_scalar(variable.get("type")) or "PLAINTEXT"
+        ).upper()
         if variable_type in _SECRET_REFERENCE_TYPES:
             continue
-        name = _first_scalar(variable.get("name"))
-        value = _first_scalar(variable.get("value"))
+        name = unwrap_checkov_scalar(variable.get("name"))
+        value = unwrap_checkov_scalar(variable.get("value"))
         if is_sensitive_env_name(name) and is_literal_env_value(value):
             return True
     return False
 
 
-def _mapping_values(value):
+def _iter_mapping_values(value):
     """Yield mappings from Checkov's nested list/mapping representation."""
     if isinstance(value, dict):
         yield value
     elif isinstance(value, list):
         for item in value:
-            yield from _mapping_values(item)
+            yield from _iter_mapping_values(item)
 
 
 def _is_hardcoded_secret(value) -> bool:
     """Backward-compatible alias for the shared secret-value predicate."""
     return is_literal_secret_value(value)
-
-
-def _first_scalar(value):
-    """Unwrap Checkov's single-element list wrapping around attribute values."""
-    if isinstance(value, list):
-        return value[0] if value else None
-    return value
 
 
 check = HardcodedSecrets()

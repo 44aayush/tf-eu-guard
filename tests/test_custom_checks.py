@@ -17,9 +17,15 @@ pytest.importorskip("checkov")
 
 from checkov.common.models.enums import CheckResult  # noqa: E402
 
+import tf_eu_guard.checks.k8s as k8s_pkg
+from tf_eu_guard.checkov_runner import extract_failed_checks, run_checkov
 from tf_eu_guard.checks.gdpr.data_residency import (  # noqa: E402
     EURegionEnforcement,
     ThirdCountryTransferReview,
+)
+from tf_eu_guard.checks.k8s.secrets_in_code import (  # noqa: E402
+    K8sContainerEnvHardcodedSecrets,
+    K8sSecretManifestHardcodedSecrets,
 )
 from tf_eu_guard.checks.nis2.secret_names import (  # noqa: E402
     is_literal_secret_value,
@@ -29,6 +35,7 @@ from tf_eu_guard.checks.nis2.secrets_in_code import (
     HardcodedSecrets,
     _scan_codebuild_env,
 )  # noqa: E402
+from tf_eu_guard.regions import EUSC_REGIONS
 
 # --- EUGUARD_GDPR_001: EU Sovereign Cloud region enforcement (provider check) --
 
@@ -122,8 +129,6 @@ def test_region_allowlist_is_exact():
     """The allowlist — not a prefix — is the source of truth. Pin its contents
     so an accidental widening (e.g. reintroducing prefix logic or readmitting
     commercial EU regions) can't pass."""
-    from tf_eu_guard.regions import EUSC_REGIONS
-
     assert EUSC_REGIONS == frozenset({"eusc-de-east-1"})
 
 
@@ -169,8 +174,6 @@ def test_region_aliased_providers_live(repo_root):
     no default arrives as the raw string ``var.region_no_default`` — which the
     check must fail closed rather than wave through.
     """
-    from tf_eu_guard.checkov_runner import extract_failed_checks, run_checkov
-
     fixture = repo_root / "tests" / "fixtures" / "region-aliases"
     if not fixture.exists():
         pytest.skip("tests/fixtures/region-aliases/ not present")
@@ -325,8 +328,6 @@ def test_codebuild_plaintext_reference_value_passes(value):
 )
 def test_codebuild_reference_and_literal_fixtures_live(repo_root):
     """Checkov's parsed Terraform shape preserves references and literals."""
-    from tf_eu_guard.checkov_runner import extract_failed_checks, run_checkov
-
     reference = repo_root / "tests" / "fixtures" / "codebuild-secret-reference"
     literal = repo_root / "tests" / "fixtures" / "codebuild-secret-literal"
 
@@ -385,11 +386,6 @@ def test_custom_check_ids_are_registered(registry):
 
 
 # --- EUGUARD_NIS2_002 (Kubernetes variant) -------------------------------------
-
-from tf_eu_guard.checks.k8s.secrets_in_code import (  # noqa: E402
-    K8sContainerEnvHardcodedSecrets,
-    K8sSecretManifestHardcodedSecrets,
-)
 
 
 def _run_k8s_secret_check(conf: dict) -> CheckResult:
@@ -492,6 +488,4 @@ def test_k8s_data_residency_is_scoped_out():
     manifests are cloud-agnostic, region lives at the cluster boundary, not in
     the manifest. Guard against an accidental future import, which would
     silently do nothing."""
-    import tf_eu_guard.checks.k8s as k8s_pkg
-
     assert not hasattr(k8s_pkg, "data_residency")

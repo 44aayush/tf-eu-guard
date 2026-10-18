@@ -18,13 +18,13 @@ from urllib.parse import quote
 from tf_eu_guard import __version__
 from tf_eu_guard.mapping.requirements import canonical_article_title
 from tf_eu_guard.models import EnrichedFinding, Framework
-from tf_eu_guard.reporting._html_common import (
+from tf_eu_guard.reporting.html_common import (
     distinct_files,
     esc,
     file_location,
     severity_class,
 )
-from tf_eu_guard.reporting._sorting import finding_sort_key, sort_findings
+from tf_eu_guard.reporting.sorting import finding_sort_key, sort_findings
 from tf_eu_guard.reporting.styles import (
     AUDITOR_CSS,
     FRAMEWORK_DOC,

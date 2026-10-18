@@ -35,7 +35,7 @@ target ─▶ 1. run_checkov() ─▶ 2. extract_failed_checks() ─▶ 3. load_
                                                      → exit code 0/1
 ```
 
-### 1. Obtain Checkov results — `tf_eu_guard/checkov_runner.py`
+### 1. Obtain Checkov results — `tf_eu_guard/checkov_runner.py` and `_checkov_*.py`
 
 Two entry paths, same output shape:
 
@@ -99,7 +99,7 @@ article-by-article for audit preparation). All formats use the same mapped
 findings list, with the unmapped list surfaced according to each format's
 contract.
 
-### 7. Gate — `tf_eu_guard/cli.py`
+### 7. Gate — `tf_eu_guard/cli/`
 
 `--fail-on-severity` / `--fail-on-any` set exit code 1 when mapped
 findings meet the threshold. The other exit codes are documented in the

@@ -40,6 +40,7 @@ table and leaves unknown values undecided.
 from checkov.common.models.enums import CheckCategories, CheckResult
 from checkov.terraform.checks.provider.base_check import BaseProviderCheck
 
+from tf_eu_guard.checks.values import unwrap_checkov_scalar
 from tf_eu_guard.regions import EU_EEA_REGIONS, EUSC_REGIONS, KNOWN_AWS_REGIONS
 
 
@@ -73,7 +74,7 @@ class EURegionEnforcement(BaseProviderCheck):
         deployment target that cannot be proven to be the Sovereign Cloud
         statically must be reviewed rather than waved through.
         """
-        region = _first_scalar(conf.get("region"))
+        region = unwrap_checkov_scalar(conf.get("region"))
 
         # Region not set on this provider block → inherited at apply time.
         if region is None:
@@ -114,7 +115,7 @@ class ThirdCountryTransferReview(BaseProviderCheck):
         this check must not turn a lack of static information into a legal
         conclusion.
         """
-        region = _first_scalar(conf.get("region"))
+        region = unwrap_checkov_scalar(conf.get("region"))
         if not isinstance(region, str) or not region.strip():
             return CheckResult.UNKNOWN
 
@@ -124,14 +125,6 @@ class ThirdCountryTransferReview(BaseProviderCheck):
         if normalized in KNOWN_AWS_REGIONS and normalized not in EU_EEA_REGIONS:
             return CheckResult.FAILED
         return CheckResult.UNKNOWN
-
-
-def _first_scalar(value):
-    """Unwrap Checkov's single-element list wrapping around attribute values."""
-    if isinstance(value, list):
-        return value[0] if value else None
-    return value
-
 
 check = EURegionEnforcement()
 transfer_review_check = ThirdCountryTransferReview()

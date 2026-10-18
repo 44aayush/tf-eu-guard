@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 
+from tf_eu_guard.mapping.loader import load_registry
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
@@ -28,8 +30,6 @@ def registry_path(repo_root: Path) -> Path:
 @pytest.fixture(scope="session")
 def registry(registry_path: Path):
     """The parsed compliance registry (check_id -> ComplianceMapping)."""
-    from tf_eu_guard.mapping.loader import load_registry
-
     return load_registry(registry_path)
 
 

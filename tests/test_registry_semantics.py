@@ -2,9 +2,11 @@
 
 from pathlib import Path
 
+import checkov.terraform.checks.resource  # noqa: F401
 import pytest
 import yaml
 from checkov.common.models.enums import CheckResult
+from checkov.terraform.checks.resource.registry import resource_registry
 
 from tf_eu_guard.models import Severity
 
@@ -15,9 +17,6 @@ REGISTRY_DIR = FIXTURE.parents[2] / "tf_eu_guard" / "mapping"
 
 def _checkov_checks_by_id():
     """Load the installed Terraform Checkov registry, including Azure/GCP checks."""
-    import checkov.terraform.checks.resource  # noqa: F401
-    from checkov.terraform.checks.resource.registry import resource_registry
-
     checks = {}
     for group in resource_registry.checks.values():
         for check in group:

@@ -12,6 +12,7 @@ from urllib.parse import unquote
 
 import pytest
 
+from tf_eu_guard.cli import main
 from tf_eu_guard.models import (
     ArticleReference,
     EnrichedFinding,
@@ -324,8 +325,6 @@ def test_cli_sarif_output_validates(monkeypatch, tmp_path, repo_root, capsys, va
             "--output", "sarif",
         ],
     )
-    from tf_eu_guard.cli import main
-
     assert main() == 0
     document = json.loads(capsys.readouterr().out)
     validator.validate(document)
@@ -351,8 +350,6 @@ def test_cli_source_scan_uses_repository_relative_locations(
             "--output", "sarif",
         ],
     )
-    from tf_eu_guard.cli import main
-
     assert main() == 0
     document = json.loads(capsys.readouterr().out)
     validator.validate(document)
@@ -377,8 +374,6 @@ def test_cli_sarif_output_file(monkeypatch, tmp_path, repo_root, capsys, validat
             "--output", "sarif", "--output-file", str(out_file),
         ],
     )
-    from tf_eu_guard.cli import main
-
     assert main() == 0
     document = json.loads(out_file.read_text(encoding="utf-8"))
     validator.validate(document)

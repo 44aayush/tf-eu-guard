@@ -2,7 +2,7 @@
 
 Pure presentation data shared by the report generators, so a finding looks
 the same wherever it appears. The rendering *functions* stay in
-:mod:`tf_eu_guard.reporting._html_common` and the per-report generators;
+:mod:`tf_eu_guard.reporting.html_common` and the per-report generators;
 this module holds only the values they render with.
 
 Two severity palettes exist on purpose: :data:`SEVERITY_COLOR` holds the

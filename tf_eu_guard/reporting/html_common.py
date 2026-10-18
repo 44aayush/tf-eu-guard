@@ -11,7 +11,7 @@ import html
 from urllib.parse import urlparse
 
 from tf_eu_guard.models import EnrichedFinding, Severity
-from tf_eu_guard.reporting._sorting import sorted_articles
+from tf_eu_guard.reporting.sorting import sorted_articles
 from tf_eu_guard.reporting.styles import SEVERITY_COLOR, SEVERITY_ORDER
 
 
@@ -75,11 +75,11 @@ def line_range(finding: EnrichedFinding) -> str | None:
     e.g. terraform_plan JSON (the whole plan is one line). Returning ``None``
     lets callers omit the reference instead of printing a meaningless range.
     """
-    lr = finding.file_line_range or []
-    if len(lr) >= 2 and (lr[0] or lr[1]):  # non-degenerate range
-        return f"{lr[0]}-{lr[1]}"
-    if len(lr) == 1 and lr[0]:
-        return str(lr[0])
+    line_numbers = finding.file_line_range or []
+    if len(line_numbers) >= 2 and (line_numbers[0] or line_numbers[1]):
+        return f"{line_numbers[0]}-{line_numbers[1]}"
+    if len(line_numbers) == 1 and line_numbers[0]:
+        return str(line_numbers[0])
     return None
 
 

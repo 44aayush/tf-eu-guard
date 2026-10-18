@@ -142,7 +142,8 @@ silent-0 the guard exists to catch.
 The repo ships a `PostToolUse` hook (`.claude/settings.json`) that runs
 `tools/hook_smoke_dispatch.py` after every `Edit`/`Write`/`MultiEdit`. The
 dispatcher maps the edited file path to the IaC types it can affect
-(`cli.py`/`checkov_runner.py` → all types; `registry-kubernetes.yaml` →
+(`cli.py`/`checkov_runner.py` → all types; the package implementations in
+`cli/` and `_checkov_*.py` follow the same rule; `registry-kubernetes.yaml` →
 kubernetes only; `examples/vulnerable-aws-plan/**` → terraform_plan; etc.)
 and runs only those smoke checks. A failing check exits `2`, which surfaces
 the failure message in the Claude Code session even though the edit already

@@ -7,7 +7,7 @@ from tf_eu_guard.models import ScanReport
 
 
 class BaseReporter(ABC):
-    """Abstract base class for all report formats."""
+    """Interface for reporters that consume a complete :class:`ScanReport`."""
 
     @abstractmethod
     def generate(self, report: ScanReport, output_path: Path | None = None) -> str:

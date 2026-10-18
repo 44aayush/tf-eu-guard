@@ -4,11 +4,13 @@ Exercises ``generate_dev_report`` with mock findings: rendering, severity
 sorting, empty-findings handling, and the ``DevReporter`` class output.
 """
 
+import contextlib
 from io import StringIO
 
 from rich.console import Console
 
-from tf_eu_guard.models import ArticleReference, EnrichedFinding, Framework, Severity
+import tf_eu_guard.reporting.dev_report as mod
+from tf_eu_guard.models import ArticleReference, EnrichedFinding, Framework, ScanReport, Severity
 from tf_eu_guard.reporting.dev_report import DevReporter, generate_dev_report
 
 
@@ -31,11 +33,8 @@ def _finding(severity=Severity.HIGH, **overrides):
 
 def _capture(findings):
     """Run generate_dev_report with stdout captured; return printed text."""
-    import contextlib
-
     buf = StringIO()
     console = Console(file=buf, force_terminal=False, width=200)
-    import tf_eu_guard.reporting.dev_report as mod
     original = mod.Console
     mod.Console = lambda: console
     try:
@@ -94,8 +93,6 @@ def test_grouping_by_file():
 
 
 def test_dev_reporter_class_generates_text():
-    from tf_eu_guard.models import ScanReport
-
     report = ScanReport(
         target_path="./terraform",
         scan_timestamp="2026-08-30",
@@ -126,8 +123,6 @@ def test_rich_markup_in_user_fields_is_rendered_literally():
 
 
 def test_dev_reporter_writes_plain_text_file(tmp_path):
-    from tf_eu_guard.models import ScanReport
-
     report = ScanReport(
         target_path="./terraform",
         scan_timestamp="2026-08-30",
