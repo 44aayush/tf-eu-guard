@@ -35,11 +35,11 @@ target ─▶ 1. run_checkov() ─▶ 2. extract_failed_checks() ─▶ 3. load_
                                                      → exit code 0/1
 ```
 
-### 1. Obtain Checkov results — `tf_eu_guard/checkov_runner.py`
+### 1. Obtain Checkov results — `tf_eu_guard/checkov_runner.py` and `_checkov_*.py`
 
 Two entry paths, same output shape:
 
-- `run_checkov(path, iac_type)` shells out to Checkov 3.3.13 (pinned in
+- `run_checkov(path, iac_type)` shells out to Checkov 3.3.29 (pinned in
   `pyproject.toml` for reproducible scans). `iac_type` maps to
   Checkov's `--framework`: `terraform` (directory of source),
   `terraform_plan` (a `terraform show -json` file, via `checkov -f`), or
@@ -62,20 +62,25 @@ detect this and omit the line reference rather than printing a bogus
 
 All `registry-*.yaml` files in `tf_eu_guard/mapping/` (AWS, Azure, GCP,
 Kubernetes — split by check-ID namespace, merged at runtime) are
-glob-loaded. Every entry is schema-validated on load (required fields,
-severity/framework enums, duplicate-key guard); a malformed file raises
-`RegistryValidationError` and the CLI exits 3 — the registry ships with
-the tool, so it's a runtime failure, not your invocation's fault.
+glob-loaded. The four expected namespace files must all be present and
+non-empty; missing or empty registry data raises `RegistryValidationError`.
+Every entry is schema-validated on load (required fields,
+severity/framework enums, duplicate-key guard); the CLI exits 3 — the
+registry ships with the tool, so this is a runtime failure, not your
+invocation's fault.
 
 ### 4. Enrich and split — `split_findings()`
 
 The join step, and the one that decides what the tool is: findings with
 a registry mapping get severity (authored in the registry — Checkov
-3.3.13 emits `severity: null` for most checks), the NIS2/GDPR article
+3.3.29 emits `severity: null` for most checks), the NIS2/GDPR article
 citations, a risk explanation, and copy-paste remediation. Findings
-with no mapping go to a separate *unmapped* list that every report
-surfaces as a count and that never gates a build — visibility without
-false authority (see [`limitations.md`](limitations.md)).
+with no mapping go to a separate *unmapped* list. HTML and terminal reports
+surface its count, JSON writes the count to stderr, and SARIF retains the
+Checkov identity/resource/location with `properties.mapped: false` but no
+registry-authored severity, articles, or remediation. Unmapped findings never
+gate a build — visibility without false authority (see
+[`limitations.md`](limitations.md)).
 
 ### 5. Filter — `--framework nis2|gdpr`
 
@@ -87,13 +92,14 @@ sovereignty findings; those controls are not included in a GDPR-only filter.
 ### 6. Report — `tf_eu_guard/reporting/`
 
 One scan, five formats (plus `all`): `dev` (terminal table, severity
-sorted), `json` (pure findings array on stdout, unmapped count on
-stderr), `sarif` (SARIF 2.1.0 for GitHub Code Scanning), `security` and
-`auditor` (HTML; the auditor report is article-by-article for audit
-preparation). All formats consume the same enriched list, so counts can't
-disagree between them.
+sorted), `json` (pure mapped-findings array on stdout, unmapped count on
+stderr), `sarif` (SARIF 2.1.0 for GitHub Code Scanning, including mapped and
+unmapped results), `security` and `auditor` (HTML; the auditor report is
+article-by-article for audit preparation). All formats use the same mapped
+findings list, with the unmapped list surfaced according to each format's
+contract.
 
-### 7. Gate — `tf_eu_guard/cli.py`
+### 7. Gate — `tf_eu_guard/cli/`
 
 `--fail-on-severity` / `--fail-on-any` set exit code 1 when mapped
 findings meet the threshold. The other exit codes are documented in the
@@ -117,9 +123,19 @@ its JSON. That boundary is what makes the backend swappable:
   mechanism rather than a parallel scanner, so even tool-specific
   detection keeps a single result shape.
 
-The cost of the pin: Checkov 3.3.13 is held fixed so registry IDs
+The cost of the pin: Checkov 3.3.29 is held fixed so registry IDs
 reproduce scan-to-scan. A backend upgrade is therefore a deliberate,
 registry-reviewed event, not a floating dependency.
+
+### Source-root symlink boundary
+
+Before a source-directory scan, the runner resolves all symlinked files and
+directories under the requested root. Links that resolve outside that root, or
+broken links, are rejected with exit code `2`; links that resolve inside the
+root are allowed and their targets are scanned. Resolved directories are
+visited once, so in-root directory cycles do not recurse indefinitely. This
+boundary applies to Terraform and Kubernetes directory scans, not to a single
+Terraform plan file.
 
 ## Where the numbers come from
 

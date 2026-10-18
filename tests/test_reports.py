@@ -6,9 +6,15 @@ Checkov nor the registry — they exercise the ``dev`` (HTML), ``security`` and
 file output, the empty-findings edge case, and HTML-escaping of untrusted fields.
 """
 
+import sys
+from io import StringIO
+from pathlib import Path
+
 from tf_eu_guard.models import ArticleReference, EnrichedFinding, Framework, Severity
 from tf_eu_guard.reporting.auditor_report import generate_auditor_report
 from tf_eu_guard.reporting.dev_html_report import generate_dev_html_report
+from tf_eu_guard.reporting.dev_report import generate_dev_report
+from tf_eu_guard.reporting.html_common import safe_guideline
 from tf_eu_guard.reporting.security_report import generate_security_report
 
 
@@ -131,8 +137,6 @@ class TestNonTerraformFormats:
         assert self._no_zero_line_ref(doc)
 
     def test_dev_terminal_report_omits_zero_lines(self, capsys):
-        from tf_eu_guard.reporting.dev_report import generate_dev_report
-
         generate_dev_report(_zero_line_findings())
         out = capsys.readouterr().out
         assert "Lines: 0-0" not in out
@@ -244,7 +248,7 @@ class TestAuditorReport:
         doc = generate_auditor_report(_sample_findings(), version="9.8.7")
         assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v9.8.7/docs/nis2-mapping.md"' in doc
         assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v9.8.7/docs/gdpr-mapping.md"' in doc
-        assert "blob/v0.6.0/docs/" not in doc
+        assert "blob/v0.7.0/docs/" not in doc
 
     def test_toc_anchors_resolve(self):
         doc = generate_auditor_report(_sample_findings())
@@ -372,16 +376,12 @@ class TestUnmappedCount:
         assert "9</b> unmapped" in doc  # summary chip
 
     def test_dev_terminal_report_shows_unmapped_count(self, capsys):
-        from tf_eu_guard.reporting.dev_report import generate_dev_report
-
         generate_dev_report(_sample_findings(), unmapped_count=9)
         out = capsys.readouterr().out
         assert "Unmapped Checkov findings: 9" in out
         assert "no current EU regulatory mapping" in out
 
     def test_dev_terminal_report_unmapped_only_is_not_clean(self, capsys):
-        from tf_eu_guard.reporting.dev_report import generate_dev_report
-
         generate_dev_report([], unmapped_count=4)
         out = capsys.readouterr().out
         assert "No compliance findings" not in out
@@ -394,8 +394,6 @@ def test_safe_guideline_unit_gate():
     """Only http/https URLs without markup-breaking characters pass; a
     scheme-validated gate, because HTML-escaping neutralizes markup
     characters, not URL schemes."""
-    from tf_eu_guard.reporting._html_common import safe_guideline
-
     ok = [
         "https://docs.prismacloud.io/en/enterprise-edition/policy-reference",
         "http://example.com/CKV_AWS_18",
@@ -460,17 +458,24 @@ def test_html_reports_still_link_safe_guidelines():
     # not turn the untrusted Checkov guideline into an external link.
     auditor = generate_auditor_report(findings)
     assert 'href="https://docs.prismacloud.io' not in auditor
-    assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v0.6.0/docs/' in auditor
+    assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v0.7.0/docs/' in auditor
+
+
+def test_committed_html_reports_use_hedged_language_and_keep_disclaimers():
+    """Committed report examples must not turn technical signals into verdicts."""
+    screenshot_dir = Path(__file__).resolve().parents[1] / "docs" / "screenshots"
+    for report_path in screenshot_dir.glob("*.html"):
+        text = report_path.read_text(encoding="utf-8").lower()
+        assert "reportable breach under gdpr" not in text
+        assert "data-residency violation" not in text
+        assert "not legal advice" in text
+        assert "not a certification" in text
+        assert "absence of a finding is not evidence of compliance" in text
 
 
 def test_terminal_report_renders_no_link_for_javascript_guideline():
     """The Rich [link=...] path is scheme-gated too — Rich interpolates the
     value raw, so a javascript: guideline must not render a link there."""
-    import sys
-    from io import StringIO
-
-    from tf_eu_guard.reporting.dev_report import generate_dev_report
-
     buf = StringIO()
     real_stdout = sys.stdout
     sys.stdout = buf
@@ -486,11 +491,6 @@ def test_terminal_report_renders_no_link_for_javascript_guideline():
 def test_terminal_report_still_links_safe_guidelines():
     """Rich only emits hyperlink escapes on a link-capable terminal; on plain
     streams the visible anchor text is what proves the link line rendered."""
-    import sys
-    from io import StringIO
-
-    from tf_eu_guard.reporting.dev_report import generate_dev_report
-
     buf = StringIO()
     real_stdout = sys.stdout
     sys.stdout = buf
@@ -500,3 +500,19 @@ def test_terminal_report_still_links_safe_guidelines():
         sys.stdout = real_stdout
     out = buf.getvalue()
     assert "→ Documentation" in out  # link line rendered
+
+
+def test_html_report_order_is_stable_for_permuted_findings():
+    """HTML body ordering must not depend on Checkov's input collection order."""
+    findings = _sample_findings()
+    kwargs = {
+        "target": "examples/vulnerable-aws",
+        "timestamp": "2026-01-01 00:00 UTC",
+        "version": "0.7.0",
+    }
+    for generator in (
+        generate_security_report,
+        generate_auditor_report,
+        generate_dev_html_report,
+    ):
+        assert generator(findings, **kwargs) == generator(list(reversed(findings)), **kwargs)

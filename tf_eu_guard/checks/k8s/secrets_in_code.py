@@ -111,5 +111,10 @@ def _values_look_committed(values: dict) -> bool:
     return False
 
 
-check = K8sSecretManifestHardcodedSecrets()
+# Both checks intentionally share the EUGUARD_NIS2_002 identity.  Keep the
+# historical ``check`` export for Checkov's external-check loader while making
+# the reassignment explicit to the type checker.
+check: K8sSecretManifestHardcodedSecrets | K8sContainerEnvHardcodedSecrets = (
+    K8sSecretManifestHardcodedSecrets()
+)
 check = K8sContainerEnvHardcodedSecrets()

@@ -4,7 +4,7 @@
 (`iam.tf`, `s3.tf`, `rds.tf`, `network.tf`, plus `outputs.tf`).
 **Mapped in `registry-aws.yaml`**: **181 check IDs** — 178 stock Checkov policies plus
 3 custom tf-eu-guard checks (**§**, added in Phase 3). The original 38-mapping core
-covered the `vulnerable_tf/` reference stack; subsequent extensions (from
+covered the original vulnerable Terraform reference stack; subsequent extensions (from
 2026-08-30 on) grew the registry so that *every* Checkov check firing across the
 in-repo stacks (`examples/vulnerable-aws/`, `examples/end2end/`) enriches.
 Mapping counts in the docs are verified against the registries in CI
@@ -16,10 +16,12 @@ project's non-regulatory EUSC policy reference. Full legal text and reasoning
 live in [`nis2-mapping.md`](nis2-mapping.md) and [`gdpr-mapping.md`](gdpr-mapping.md).
 
 > **Provenance / verification status.** The mappings were originally assembled from
-> a captured Checkov 3.3.13 scan (`tests/fixtures/checkov-raw-output.json`) plus the
-> Checkov policy index, at a time when Checkov could not be executed in the
-> development environment. Checkov now runs in CI and locally, so every ID has been
-> re-verified against live scans of both in-repo stacks: `examples/vulnerable-aws/`
+> a **historical Checkov 3.3.13 capture** (`tests/fixtures/checkov-raw-output.json`)
+> plus the Checkov policy index, at a time when Checkov could not be executed in
+> the development environment. That capture remains a parser/enrichment fixture;
+> current runtime scans use pinned Checkov 3.3.29. Checkov now runs in CI and
+> locally, so every ID has been re-verified against live scans of both in-repo stacks:
+> `examples/vulnerable-aws/`
 > (50 stock Checkov failing checks, all mapped) and `examples/end2end/` (295 stock
 > Checkov failing checks, all mapped — zero unmapped). The registry is kept in sync with
 > the fixture stacks, and `tools/check_doc_counts.py` verifies the documented counts
@@ -118,7 +120,7 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 
 The mappings were originally authored from a captured scan plus the Checkov policy
 index because Checkov could not run in the development environment at the time.
-That is no longer the case: Checkov 3.3.13 now executes in CI and locally, and every
+That is no longer the case: Checkov 3.3.29 now executes in CI and locally, and every
 ID above has been re-verified against live scans of both in-repo stacks:
 
 ```bash
@@ -185,11 +187,11 @@ conceivable check with an article reference the code doesn't justify.
 ## Methodology notes
 
 1. **Scan-backed.** Every non-‡ ID above has been observed failing in a live
-   Checkov 3.3.13 scan of the in-repo stacks (`examples/vulnerable-aws/`,
+   Checkov 3.3.29 scan of the in-repo stacks (`examples/vulnerable-aws/`,
    `examples/end2end/`); the remaining ‡ IDs are authored from the Checkov policy
    index and are dormant only because no fixture yet holds a triggering resource.
    The registry stays honest about what has actually been reproduced.
-2. **Severity is authored here.** Checkov 3.3.13 returns `severity: null`, so the
+2. **Severity is authored here.** Checkov 3.3.29 returns `severity: null`, so the
    registry is the source of truth for severity (see `docs/checkov-schema.md`).
 3. **Conservative dual-mapping.** A check maps to *both* frameworks only where both
    articles genuinely apply (e.g. encryption → GDPR 32(1)(a) *and* NIS2 21(2)(h)).

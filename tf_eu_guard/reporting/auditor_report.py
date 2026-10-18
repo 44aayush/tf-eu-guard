@@ -18,12 +18,13 @@ from urllib.parse import quote
 from tf_eu_guard import __version__
 from tf_eu_guard.mapping.requirements import canonical_article_title
 from tf_eu_guard.models import EnrichedFinding, Framework
-from tf_eu_guard.reporting._html_common import (
+from tf_eu_guard.reporting.html_common import (
     distinct_files,
     esc,
     file_location,
     severity_class,
 )
+from tf_eu_guard.reporting.sorting import finding_sort_key, sort_findings
 from tf_eu_guard.reporting.styles import (
     AUDITOR_CSS,
     FRAMEWORK_DOC,
@@ -47,7 +48,7 @@ def _build_index(
     preserving each article's title from its :class:`ArticleReference`.
     """
     index: dict[Framework, dict[str, dict]] = {fw: {} for fw in FRAMEWORK_ORDER}
-    for finding in findings:
+    for finding in sort_findings(findings):
         for art in finding.articles:
             bucket = index.setdefault(art.framework, {})
             title = canonical_article_title(art.framework, art.article) or art.title
@@ -120,7 +121,7 @@ def _article_section(
 ) -> str:
     """Render one article: heading, status, failing-resource table, doc link."""
     anchor = _anchor(framework, article)
-    group = sorted(entry["findings"], key=lambda f: (f.file_path, f.check_id))
+    group = sorted(entry["findings"], key=finding_sort_key)
     title = entry["title"]
 
     rows = []
@@ -172,6 +173,7 @@ def _render(
     unmapped_count: int = 0,
 ) -> str:
     """Assemble the complete auditor HTML document."""
+    findings = sort_findings(findings)
     header = (
         '<a id="top"></a>\n<header>\n'
         "  <h1>tf-eu-guard &mdash; Compliance Audit Report</h1>\n"
@@ -187,9 +189,11 @@ def _render(
     scope = (
         '<div class="scope"><strong>Scope &amp; limitations.</strong> '
         "This report lists only Checkov control failures that map to a NIS2, GDPR, "
-        "or project-policy reference. It is an evidence aid for an auditor, not a certification. "
+        "or project-policy reference. It is an evidence aid for an auditor, not legal advice "
+        "and is not a certification. "
         "An article not listed here was not exercised by a failing check &mdash; "
-        "that is <em>not</em> evidence of compliance."
+        "that is <em>not</em> evidence of compliance. Absence of a finding is not "
+        "evidence of compliance."
         + (
             f" Checkov additionally reported <strong>{unmapped_count}</strong> "
             "failed check(s) with no current EU regulatory mapping; they are not "

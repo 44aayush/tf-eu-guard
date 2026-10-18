@@ -6,6 +6,7 @@ import io
 import sys
 from pathlib import Path
 
+from playwright.sync_api import sync_playwright
 from rich.console import Console
 from rich.text import Text
 
@@ -23,8 +24,6 @@ def main() -> None:
     console.print(Text.from_ansi(ansi))
     svg_path = dst.with_suffix(".svg")
     svg_path.write_text(console.export_svg(title=title))
-
-    from playwright.sync_api import sync_playwright
 
     html_path = dst.with_suffix(".html")
     html_path.write_text(

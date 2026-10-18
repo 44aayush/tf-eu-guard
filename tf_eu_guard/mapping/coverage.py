@@ -86,18 +86,20 @@ def compute_coverage(
     """
     by_key: dict[tuple[str, str], list[str]] = {}
     for check_id, mapping in registry.items():
-        for article in mapping.articles:
-            key = _article_key(article.framework, article.article)
+        for article_reference in mapping.articles:
+            key = _article_key(
+                article_reference.framework, article_reference.article
+            )
             by_key.setdefault(key, []).append(check_id)
 
     coverage: list[RequirementCoverage] = []
     for entry in REQUIREMENTS:
-        letter = entry["letter"]
+        letter: str = entry["letter"]
         if entry["framework"] == Framework.NIS2:
-            article = f"21(2)({letter})"
+            article_label = f"21(2)({letter})"
             title = NIS2_TITLES[letter]
         else:
-            article = letter
+            article_label = letter
             title = GDPR_TITLES[letter]
         checks = tuple(
             sorted(
@@ -111,7 +113,7 @@ def compute_coverage(
         coverage.append(
             RequirementCoverage(
                 framework=entry["framework"],
-                article=article,
+                article=article_label,
                 letter=letter,
                 title=title,
                 category=entry["category"],

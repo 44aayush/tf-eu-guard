@@ -7,10 +7,11 @@ silently excluded them: the wheel would still install, the CLI would still
 run, and every scan would degrade to unmapped findings — only at the
 consumer. This test builds the actual wheel and inspects its contents.
 
-Hermetic-adjacent: uses ``--no-isolation`` with the locally installed
-hatchling (a ``dev`` extra), so the build needs no network. Skips when the
-build tooling isn't installed; a *failed* build still fails the test —
-that's the broken-packaging case it exists to catch.
+The wheel-content checks use ``--no-isolation`` with the locally installed
+Hatchling from the CI build-tooling environment. They skip when that dedicated
+tooling is not installed; a *failed* build still fails the test — that's the
+broken-packaging case it exists to catch. The workflow assertions in this
+module run in the normal development environment without the build tooling.
 """
 
 import subprocess
@@ -22,18 +23,15 @@ from pathlib import Path
 import pytest
 import yaml
 
-pytest.importorskip("build")
-pytest.importorskip("hatchling")
+from tf_eu_guard import __version__
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_runtime_version_comes_from_distribution_metadata():
     """The import-time version must not be a second hand-maintained constant."""
-    from tf_eu_guard import __version__
-
     assert __version__ == installed_version("tf-eu-guard")
-    assert __version__ == "0.6.0"
+    assert __version__ == "0.7.0"
 
 #: The registry data files that must ship inside the wheel, verbatim.
 REGISTRY_FILES = (
@@ -93,6 +91,17 @@ def test_publish_build_tools_live_outside_checkout():
     assert ".ci-tools" not in commands
 
 
+def test_docker_build_uses_locked_no_isolation_wheel_builder():
+    """The image must install a wheel built by the locked CI toolchain."""
+    dockerfile = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
+    assert "COPY requirements-ci.lock /tmp/requirements-ci.lock" in dockerfile
+    assert "--require-hashes -r /tmp/requirements-ci.lock" in dockerfile
+    assert "python -m build --wheel --no-isolation --outdir /dist" in dockerfile
+    assert "COPY --from=build /dist/tf_eu_guard-*.whl /tmp/" in dockerfile
+    assert "pip install --no-cache-dir --no-deps /tmp/tf_eu_guard-*.whl" in dockerfile
+    assert "pip install --no-cache-dir --no-deps /src" not in dockerfile
+
+
 def test_ci_lock_keeps_python312_conditional_dependency_hashed():
     """The CI lock must work on Python 3.12 as well as the lock generator's Python."""
     lock = (REPO_ROOT / "requirements-ci.lock").read_text(encoding="utf-8")
@@ -103,6 +112,17 @@ def test_ci_lock_keeps_python312_conditional_dependency_hashed():
 
 def _build_wheel(tmp_path: Path) -> Path:
     """Build the project wheel (no isolation, no network) and return its path."""
+    pytest.importorskip(
+        "build", reason="wheel-content checks require the CI build tooling environment"
+    )
+    pytest.importorskip(
+        "hatchling", reason="wheel-content checks require the CI build tooling environment"
+    )
+    if installed_version("hatchling") != "1.32.4":
+        pytest.skip(
+            "wheel-content checks require the pinned Hatchling 1.32.4 CI build "
+            "environment; use requirements-ci.lock"
+        )
     result = subprocess.run(
         [
             sys.executable, "-m", "build", "--wheel", "--no-isolation",

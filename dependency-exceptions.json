@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "owner": "tf-eu-guard maintainers",
+  "exceptions": [
+    {
+      "advisory": "PYSEC-2026-3807",
+      "owner": "tf-eu-guard maintainers",
+      "package": "asteval",
+      "locked_version": "1.0.6",
+      "introduced_by": "checkov==3.3.29",
+      "fix_version": "1.0.9",
+      "rationale": "Checkov 3.3.29 hard-pins asteval==1.0.6. The latest Checkov release tested on 2026-10-17 still has that pin, so overriding it would violate Checkov's declared dependency contract and could change scanner behavior.",
+      "mitigation": "asteval is used only through the isolated Checkov scanner dependency tree; tf-eu-guard does not import it. Keep Checkov and the runtime lock hash-pinned, run pip-audit on every CI build, and reassess this exception at the review date or when Checkov publishes a compatible release.",
+      "review_date": "2026-11-17",
+      "expiry_date": "2027-01-17"
+    },
+    {
+      "advisory": "GHSA-9w56-46f6-3qhx",
+      "owner": "tf-eu-guard maintainers",
+      "package": "asteval",
+      "locked_version": "1.0.6",
+      "introduced_by": "checkov==3.3.29",
+      "fix_version": "1.0.9",
+      "rationale": "This GHSA is the same locked asteval 1.0.6 exposure reported by pip-audit. Checkov 3.3.29 is the newest available Checkov release tested on 2026-10-17 and requires asteval==1.0.6; an uncoordinated override is not reproducible or dependency-consistent.",
+      "mitigation": "Run the scanner in the pinned Docker/runtime environment, do not use asteval as an application API, and keep the strict pip-audit check active with this exception explicitly named. Re-test Checkov before the review date.",
+      "review_date": "2026-11-17",
+      "expiry_date": "2027-01-17"
+    },
+    {
+      "advisory": "PYSEC-2026-1325",
+      "owner": "tf-eu-guard maintainers",
+      "package": "ecdsa",
+      "locked_version": "0.19.2",
+      "introduced_by": "checkov==3.3.29",
+      "fix_version": null,
+      "rationale": "ecdsa==0.19.2 is a Checkov transitive dependency and is already the latest PyPI release tested on 2026-10-17. pip-audit reports no upstream fix version, and Checkov 3.3.29 does not offer a newer compatible dependency constraint.",
+      "mitigation": "tf-eu-guard does not import ecdsa directly. Keep it confined to the hash-locked Checkov environment, do not use it for application signing, run pip-audit on every CI build, and reassess when the advisory or Checkov dependency constraint changes.",
+      "review_date": "2026-11-17",
+      "expiry_date": "2027-01-17"
+    }
+  ]
+}

@@ -17,7 +17,7 @@
 #     reused by the enrichment test (and left there for review).
 #
 # Usage:
-#   bash tests/run_all_tests.sh                    # scans ./vulnerable_tf
+#   bash tests/run_all_tests.sh                    # scans ./examples
 #   TF_TARGET=path/to/tf bash tests/run_all_tests.sh
 #
 # Exit code: 0 when nothing FAILED; 1 otherwise (SKIP/WARN do not fail the run).
@@ -104,8 +104,12 @@ t_env(){
     echo "checkov   : NOT INSTALLED in this Python environment (checkov-dependent tests will SKIP)"
   fi
   $PY -c "import tf_eu_guard; print('tf_eu_guard :', tf_eu_guard.__version__)" || return 1
-  $PY -c "import yaml" 2>/dev/null && echo "pyyaml    : OK" \
-    || { echo "pyyaml    : MISSING — run: pip install -e .[dev]"; return 1; }
+  if $PY -c "import yaml" 2>/dev/null; then
+    echo "pyyaml    : OK"
+  else
+    echo "pyyaml    : MISSING — run: pip install -e .[dev]"
+    return 1
+  fi
   return 0
 }
 
@@ -319,7 +323,13 @@ t_report_all(){
   $PY -m tf_eu_guard.cli scan "$TF_TARGET" --output all --output-dir "$d" || return 1
   local prefix f
   for prefix in dev_report scan_report auditor_report; do
-    f=$(ls -t "$d/${prefix}"_*.html 2>/dev/null | head -1)
+    f=""
+    for candidate in "$d/${prefix}"_*.html; do
+      [ -f "$candidate" ] || continue
+      if [ -z "$f" ] || [ "$candidate" -nt "$f" ]; then
+        f="$candidate"
+      fi
+    done
     { [ -n "$f" ] && [ -s "$f" ]; } || { echo "expected report was not written: $d/${prefix}_<ts>.html"; return 1; }
     head -1 "$f" | grep -qi '<!DOCTYPE html>' || { echo "$f does not start with <!DOCTYPE html>"; return 1; }
     grep -qi '</html>' "$f" || { echo "$f HTML is not closed"; return 1; }
@@ -370,7 +380,7 @@ fi
 
 # ---- summary ---------------------------------------------------------------
 section "SUMMARY"
-echo "PASS: $PASS   FAIL: $FAIL   SKIP: $SKIP   WARN(known-stub): $WARN"
+echo "PASS: $PASS   FAIL: $FAIL   SKIP: $SKIP   WARN(known limitation): $WARN"
 if [ "$FAIL" -gt 0 ]; then
   echo "failed:"; printf '   - %s\n' "${FAILED_NAMES[@]}"
 fi

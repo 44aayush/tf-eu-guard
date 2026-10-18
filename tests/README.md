@@ -4,8 +4,8 @@ All testing is consolidated here. There are two layers:
 
 | Layer | File(s) | Runs Checkov? | Purpose |
 |-------|---------|:-------------:|---------|
-| **Unit** (hermetic) | `test_registry.py`, `test_mapping.py`, `test_checkov_runner.py` | no | Fast pytest checks: registry integrity, enrichment logic, Checkov-output parsing. |
-| **Integration** (single runner) | `run_all_tests.sh` | yes | End-to-end: real CLI, a live Checkov scan of `vulnerable_tf/`, enrichment, all report formats, framework filters, then the unit suite. |
+| **Unit** (hermetic) | `test_*.py` | no | Fast pytest checks: registry integrity, enrichment and parsing, CLI contracts, SARIF schema, HTML reporters, documentation counts, and coverage generation. |
+| **Integration** (single runner) | `run_all_tests.sh` | yes | End-to-end: real CLI, a live Checkov scan of `examples/` by default, enrichment, all report formats, framework filters, then the unit suite. |
 
 `conftest.py` holds shared fixtures (`registry`, `sample_finding`, paths) and puts
 the repo root on `sys.path` so tests import `tf_eu_guard` without an install.
@@ -58,9 +58,10 @@ The runner never uses `set -e`; each test reports independently:
 - **SKIP** — a prerequisite is missing (e.g. the `checkov` CLI isn't installed).
   When Checkov is absent, the runner falls back to `tests/fixtures/checkov-vulnerable-tf.json`
   so enrichment can still be exercised.
-- **WARN** — a known limitation. The `security` and `auditor` output formats are
-  still stubs in `cli.py` (they print `[Not implemented]`), so they are reported
-  as WARN rather than FAIL until they are wired up.
+- **WARN** — a known optional limitation or prerequisite. The `security` and
+  `auditor` output formats are real self-contained HTML reports, and the runner
+  checks their document structure and rendered findings rather than treating
+  them as stubs.
 
 ## Phase 2 coverage
 
@@ -84,9 +85,25 @@ The runner never uses `set -e`; each test reports independently:
 - `test_hook_smoke_dispatch.py` / `test_smoke_check.py` — the tools/ regression
   guard itself: routing table, baseline comparisons, exit codes.
 - `test_doc_counts.py` — documented mapping counts match the registries.
+- `test_coverage_model.py` — generated requirement-level coverage matches the
+  live registries and the committed `docs/regulatory-coverage.md`.
 - `test_python_support.py` — the supported-Python-version floor stays in sync
   across pyproject (`requires-python` + classifiers), the CI matrix, the README
   badge, and `install_and_test.sh`.
+- `test_reports.py` — hermetic dev/security/auditor HTML structure, rendered
+  findings, escaping, stable ordering, and unmapped-count caveats.
+- `test_cli.py` — end-to-end HTML output, timestamped report files, custom
+  destinations, and unmapped findings across report formats.
+- `test_action.py` — Action HTML artifact selection and SARIF destination
+  wiring.
+
+## Checkov capture fixtures
+
+The committed `tests/fixtures/checkov-*.json` files retain their
+`summary.checkov_version` value of **3.3.13** as historical parser and
+enrichment captures. They are deliberately not current-runtime claims. Live
+source scans and the package dependency use pinned Checkov **3.3.29**; the
+capture version is preserved so parser regressions remain reproducible.
 
 ## Legacy cleanup
 

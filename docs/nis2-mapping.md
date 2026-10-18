@@ -87,7 +87,7 @@ practice in the Terraform itself, plus timely patching of managed components:
 | Check | Control |
 |-------|---------|
 | EUGUARD_NIS2_001 | No hardcoded secrets in selected Terraform fields (**custom** Phase 3 check) |
-| CKV_AWS_226 (candidate) | RDS auto minor version upgrades — timely patching |
+| CKV_AWS_226 | RDS auto minor version upgrades — timely patching |
 
 `EUGUARD_NIS2_001` is a **custom tf-eu-guard check** (added in Phase 3, implemented
 in [`tf_eu_guard/checks/nis2/secrets_in_code.py`](../tf_eu_guard/checks/nis2/secrets_in_code.py)).
@@ -113,11 +113,14 @@ scope separation avoids claiming that the custom check inspects a Terraform
 configuration shape it does not inspect.
 
 For supported fields, a literal credential is rejected instead of being sourced
-from a secrets manager or a `sensitive` variable resolved at apply time.
+from a secrets manager or a `sensitive` variable resolved at apply time. The
+shared predicate recognises both Terraform's `${...}` interpolation form and
+normalised traversals such as `data.*`, `var.*`, and managed resource references.
 Committing secrets to code is a canonical insecure-development failure; keeping
 them out of the IaC is precisely the "security in ... development" that (e)
-requires. `CKV_AWS_226` (patching) remains a documented **expansion candidate**
-(not yet in the registry).
+requires. The live CodeBuild reference and literal fixtures exercise both sides
+of this boundary. `CKV_AWS_226` is also mapped for RDS patch maintenance; its
+registry remediation enables `auto_minor_version_upgrade` on the DB instance.
 
 **Evidence / limitations**: Running tf-eu-guard *is itself* part of secure
 development — it is a security gate in the IaC pipeline. But (e) also covers SDLC
@@ -221,7 +224,7 @@ a per-resource attribute, so a resource-config linter has limited visibility int
 | (b) incident handling | ✓ partial | 3 |
 | (c) business continuity / backup | ✓ | 3 |
 | (d) supply-chain security | ✗ organisational | — |
-| (e) secure acquisition/dev/maintenance | ✓ (secrets) | EUGUARD_NIS2_001 (+CKV_AWS_226 candidate) |
+| (e) secure acquisition/dev/maintenance | ✓ (secrets + patching) | EUGUARD_NIS2_001 + CKV_AWS_226 |
 | (f) assessing effectiveness | ✓ via CI usage | tool itself |
 | (g) cyber hygiene / training | ✗ organisational | — |
 | (h) cryptography / encryption | ✓ | 2 |

@@ -10,6 +10,7 @@ from typing import Any
 
 import yaml
 
+from tf_eu_guard.mapping.enrichment import split_findings
 from tf_eu_guard.mapping.requirements import canonical_article_title
 from tf_eu_guard.mapping.schema import (
     REQUIRED_FIELDS,
@@ -29,7 +30,28 @@ class RegistryValidationError(ValueError):
     """Raised when a registry file violates the mapping schema."""
 
 
+# These namespaces are part of the runtime contract: a package with one of
+# them missing cannot produce a complete compliance report, even if the YAML
+# files that remain are individually valid.
+EXPECTED_REGISTRY_NAMESPACES = ("aws", "azure", "gcp", "kubernetes")
+
+
 _ARTICLE_RE = re.compile(r"^(Art\. \d+(\(\d+\))?(\([a-z]\))?|Policy [A-Za-z0-9_.-]+)$")
+
+
+def _require_expected_registry_namespaces(paths: list[Path]) -> None:
+    """Raise when a registry directory does not contain every required namespace."""
+    found_namespaces = {
+        path.stem.removeprefix("registry-") for path in paths
+    }
+    missing_namespaces = sorted(
+        set(EXPECTED_REGISTRY_NAMESPACES) - found_namespaces
+    )
+    if missing_namespaces:
+        raise RegistryValidationError(
+            "missing expected registry namespace(s): "
+            f"{', '.join(missing_namespaces)}"
+        )
 
 
 class _UniqueKeyLoader(yaml.SafeLoader):
@@ -182,15 +204,30 @@ def load_registry(registry_path: Path) -> dict[str, ComplianceMapping]:
     Accepts either a single registry file (``registry-*.yaml``) or — when given
     the mapping directory — merges every ``registry-*.yaml`` file found there.
     """
+    if not registry_path.exists():
+        raise RegistryValidationError(f"registry path does not exist: {registry_path}")
+
     if registry_path.is_dir():
+        paths = sorted(registry_path.glob("registry-*.yaml"))
+        if not paths:
+            raise RegistryValidationError(
+                f"no registry-*.yaml files found in {registry_path}; expected "
+                f"namespaces: {', '.join(EXPECTED_REGISTRY_NAMESPACES)}"
+            )
+
         merged: dict[str, ComplianceMapping] = {}
-        for path in sorted(registry_path.glob("registry-*.yaml")):
-            for check_id, mapping in load_registry_file(path).items():
+        for path in paths:
+            file_mappings = load_registry_file(path)
+            if not file_mappings:
+                raise RegistryValidationError(f"{path.name}: no entries found")
+            for check_id, mapping in file_mappings.items():
                 if check_id in merged:
                     raise RegistryValidationError(
                         f"duplicate check_id '{check_id}' in {path.name}"
                     )
                 merged[check_id] = mapping
+
+        _require_expected_registry_namespaces(paths)
         return merged
 
     return load_registry_file(registry_path)
@@ -204,65 +241,16 @@ def validate_all(mapping_dir: Path | None = None) -> dict[str, int]:
     """
     mapping_dir = mapping_dir or Path(__file__).parent
     counts = {}
-    for path in sorted(mapping_dir.glob("registry-*.yaml")):
+    paths = sorted(mapping_dir.glob("registry-*.yaml"))
+    for path in paths:
         mappings = load_registry_file(path)
         if not mappings:
             raise RegistryValidationError(f"{path.name}: no entries found")
         counts[path.name] = len(mappings)
     if not counts:
         raise RegistryValidationError(f"no registry-*.yaml files found in {mapping_dir}")
+    _require_expected_registry_namespaces(paths)
     return counts
-
-
-def split_findings(
-    checkov_findings: list[dict[str, Any]],
-    registry: dict[str, ComplianceMapping],
-) -> tuple[list[EnrichedFinding], list[dict[str, Any]]]:
-    """
-    Partition Checkov findings into (enriched, unmapped).
-
-    Args:
-        checkov_findings: List of failed checks from Checkov
-        registry: Loaded compliance mapping registry
-
-    Returns:
-        A tuple of:
-
-        - the findings whose check ID has a registry entry, enriched with EU
-          compliance context
-        - the raw Checkov finding dicts with **no** registry entry, preserved
-          so callers can surface them instead of silently dropping them
-          (e.g. "52 mapped findings, 9 unmapped").
-    """
-    enriched: list[EnrichedFinding] = []
-    unmapped: list[dict[str, Any]] = []
-
-    for check in checkov_findings:
-        check_id = check["check_id"]
-        mapping = registry.get(check_id)
-
-        if not mapping:
-            # No EU compliance mapping — keep the raw finding so reports can
-            # show it as present-but-unmapped rather than absent.
-            unmapped.append(check)
-            continue
-
-        enriched.append(
-            EnrichedFinding(
-                check_id=check_id,
-                check_name=check["check_name"],
-                resource=check["resource"],
-                file_path=check["file_path"],
-                file_line_range=check["file_line_range"],
-                guideline=check.get("guideline"),
-                articles=mapping.articles,
-                risk_explanation=mapping.risk_explanation,
-                remediation=mapping.remediation,
-                severity=mapping.severity,
-            )
-        )
-
-    return enriched, unmapped
 
 
 def enrich_findings(

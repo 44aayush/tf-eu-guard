@@ -15,11 +15,12 @@ from pathlib import Path
 
 from tf_eu_guard.mapping.coverage import (
     CoverageCategory,
+    _article_key,
     compute_coverage,
     coverage_summary,
 )
 from tf_eu_guard.mapping.requirements import NIS2_TITLES, REQUIREMENTS
-from tf_eu_guard.models import Framework
+from tf_eu_guard.models import ArticleReference, ComplianceMapping, Framework, Severity
 
 TOOLS_DIR = Path(__file__).resolve().parents[1] / "tools"
 if str(TOOLS_DIR) not in sys.path:
@@ -87,8 +88,6 @@ def test_not_covered_category_is_unused_but_supported(registry):
 def test_check_counts_computed_from_live_registry(registry):
     """The counts are registry-derived, not hand-typed: adding a temporary
     mapping changes the attributed check set."""
-    from tf_eu_guard.models import ArticleReference, ComplianceMapping, Severity
-
     coverage = compute_coverage(registry)
     by_article = {r.article: r for r in coverage}
     h = by_article["21(2)(h)"]
@@ -119,8 +118,6 @@ def test_every_registry_article_is_attributed(registry):
     """Every article cited in the registries must be attributed to some
     requirement — an unmapped article string would silently vanish,
     recreating the problem this model fixes."""
-    from tf_eu_guard.mapping.coverage import _article_key
-
     inventory_keys = {(e["framework"].value, e["letter"]) for e in REQUIREMENTS}
     # Supporting legal references such as GDPR's breach definition are
     # intentionally outside the Art. 32/44 coverage inventory.

@@ -1,0 +1,14 @@
+{
+  "check_type": "terraform",
+  "results": {
+    "failed_checks": [
+      {
+        "check_id": null,
+        "check_name": "Malformed check",
+        "resource": "aws_s3_bucket.example",
+        "file_path": "/main.tf",
+        "file_line_range": [1, 2]
+      }
+    ]
+  }
+}

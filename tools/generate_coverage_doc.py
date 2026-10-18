@@ -197,8 +197,9 @@ def main(check_only: bool = False) -> int:
     return 0
 
 
-#: Alias used by the tests — the CI drift check as a callable.
-main_check = lambda: main(check_only=True)  # noqa: E731
+def main_check() -> int:
+    """Run the CI drift check as a callable entry point."""
+    return main(check_only=True)
 
 
 if __name__ == "__main__":

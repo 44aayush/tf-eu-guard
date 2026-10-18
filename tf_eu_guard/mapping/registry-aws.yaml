@@ -5,7 +5,7 @@
 # Article letters verified against Directive (EU) 2022/2555 and Regulation
 # (EU) 2016/679 — see docs/nis2-mapping.md, docs/gdpr-mapping.md and
 # docs/check-mapping-table.md for the reasoning and verification status.
-# Severity is authored here (Checkov 3.3.13 leaves `severity` null).
+# Severity is authored here (Checkov 3.3.29 leaves `severity` null).
 # =============================================================================
 
 
@@ -703,10 +703,9 @@ CKV2_AWS_11:
       }
   severity: MEDIUM
 
-# NOTE: CKV_AWS_24 / CKV_AWS_25 / CKV_AWS_260 are authored from the Checkov 3.3.13
-# policy index and were NOT present in the source scan (the earlier fixture set had
-# no open-ingress security groups). Confirm the exact IDs against a scan of
-# vulnerable_tf/ before treating these as verified — see docs/check-mapping-table.md.
+# CKV_AWS_24 / CKV_AWS_25 / CKV_AWS_260 were originally identified from the
+# historical 3.3.13 policy index. Their IDs, semantics, and remediations are now
+# verified against live Checkov 3.3.29 scans; see docs/check-mapping-table.md.
 CKV_AWS_24:
   check_name: "Ensure no security groups allow ingress from 0.0.0.0:0 to port 22"
   articles:
@@ -722,11 +721,20 @@ CKV_AWS_24:
     personal data. This may weaken the network access-control measures relevant to
     NIS2 Art. 21(2)(i) and the confidentiality safeguards expected by GDPR Art. 32(1)(b).
   remediation: |
-    Restrict SSH to a bastion or corporate CIDR, never the internet:
-      # Before:
-      cidr_blocks = ["0.0.0.0/0"]
-      # After:
-      cidr_blocks = ["10.0.0.0/8"]   # or a specific admin range / use SSM Session Manager
+    Restrict SSH to a bastion or corporate CIDR, never the internet. Remove the
+    wildcard in both address families when both attributes are present:
+      resource "aws_security_group" "admin" {
+        ingress {
+          from_port        = 22
+          to_port          = 22
+          protocol         = "tcp"
+          # Before: cidr_blocks = ["0.0.0.0/0"]
+          cidr_blocks      = ["10.0.0.0/8"]       # or a specific admin IPv4 range
+          # Before: ipv6_cidr_blocks = ["::/0"]
+          ipv6_cidr_blocks = ["2001:db8:1234::/48"] # or remove IPv6 ingress
+        }
+      }
+    Use SSM Session Manager instead of exposing an administrative port where possible.
   severity: HIGH
 
 CKV_AWS_25:
@@ -744,11 +752,20 @@ CKV_AWS_25:
     network access control of NIS2 Art. 21(2)(i) and the confidentiality control of
     GDPR Art. 32(1)(b).
   remediation: |
-    Restrict RDP to a bastion or corporate CIDR, or remove it entirely:
-      # Before:
-      cidr_blocks = ["0.0.0.0/0"]
-      # After:
-      cidr_blocks = ["10.0.0.0/8"]   # or use SSM Session Manager / a VPN
+    Restrict RDP to a bastion or corporate CIDR, or remove it entirely. Apply
+    the restriction to both IPv4 and IPv6 ingress attributes when present:
+      resource "aws_security_group" "admin" {
+        ingress {
+          from_port        = 3389
+          to_port          = 3389
+          protocol         = "tcp"
+          # Before: cidr_blocks = ["0.0.0.0/0"]
+          cidr_blocks      = ["10.0.0.0/8"]       # or a specific admin IPv4 range
+          # Before: ipv6_cidr_blocks = ["::/0"]
+          ipv6_cidr_blocks = ["2001:db8:1234::/48"] # or remove IPv6 ingress
+        }
+      }
+    Use SSM Session Manager or a VPN instead of exposing RDP where possible.
   severity: HIGH
 
 CKV_AWS_260:
@@ -763,9 +780,20 @@ CKV_AWS_260:
     network access control expected by NIS2 Art. 21(2)(i); traffic should terminate
     TLS at a load balancer instead.
   remediation: |
-    Front the service with HTTPS and restrict or redirect port 80:
-      # Terminate TLS (443) at an ALB and redirect 80 -> 443, or scope the CIDR:
-      cidr_blocks = ["10.0.0.0/8"]
+    Front the service with HTTPS and restrict or redirect port 80. If the rule
+    has both address families, scope both and do not leave either wildcard:
+      resource "aws_security_group" "web" {
+        ingress {
+          from_port        = 80
+          to_port          = 80
+          protocol         = "tcp"
+          # Terminate TLS (443) at an ALB and redirect 80 -> 443, or scope both CIDRs:
+          # Before: cidr_blocks = ["0.0.0.0/0"]
+          cidr_blocks      = ["10.0.0.0/8"]
+          # Before: ipv6_cidr_blocks = ["::/0"]
+          ipv6_cidr_blocks = ["2001:db8:1234::/48"]
+        }
+      }
   severity: MEDIUM
 
 CKV_AWS_382:
@@ -780,12 +808,18 @@ CKV_AWS_382:
     filtering is part of the network segmentation and access control under NIS2
     Art. 21(2)(i).
   remediation: |
-    Scope egress to the destinations and ports the workload actually needs:
-      egress {
-        from_port   = 443
-        to_port     = 443
-        protocol    = "tcp"
-        cidr_blocks = ["10.0.0.0/8"]
+    Scope egress to the destinations and ports the workload actually needs in
+    both address families:
+      resource "aws_security_group" "app" {
+        egress {
+          from_port        = 443
+          to_port          = 443
+          protocol         = "tcp"
+          # Before: cidr_blocks = ["0.0.0.0/0"]
+          cidr_blocks      = ["10.0.0.0/8"]
+          # Before: ipv6_cidr_blocks = ["::/0"]
+          ipv6_cidr_blocks = ["2001:db8:1234::/48"]
+        }
       }
   severity: MEDIUM
 
@@ -910,8 +944,8 @@ EUGUARD_NIS2_001:
 
 # =============================================================================
 # Registry extension (2026-08-30): every remaining Checkov AWS check that fires
-# against the in-repo stacks (vulnerable_tf/, vulnerable_tf/end2end/,
-# examples/vulnerable-aws/) is now mapped. 76 additional mappings, grouped by
+# against the in-repo stacks (examples/vulnerable-aws/, examples/end2end/) is now
+# mapped. 76 additional mappings, grouped by
 # theme. Same citation rules as above: NIS2 Art. 21(2) letters (b) incident
 # handling, (c) backup/DR, (e) secure development and maintenance,
 # (h) cryptography, (i) access control; GDPR Art. 32(1)(a)-(c).
@@ -2976,15 +3010,31 @@ CKV2_AWS_51:
       article: "Art. 32(1)(b)"
       title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: >
-    A stage with no client certificate trusts the caller's identity claim alone — any
-    system that can reach the endpoint can impersonate a legitimate client. Mutual TLS
-    at the API boundary is the authentication control NIS2 Art. 21(2)(j) expects for
-    secured communications, and its absence weakens the confidentiality and integrity
-    of the processing systems GDPR Art. 32(1)(b) describes.
+    For a REST API stage, ``client_certificate_id`` is the certificate API Gateway
+    presents when it connects to the integration backend. Omitting it leaves that
+    backend without certificate-based trust of API Gateway; it does not configure
+    mutual TLS for incoming callers and should not be described as caller
+    authentication. Incoming caller mTLS is a separate custom-domain truststore
+    control relevant to the authentication and secured-communications measure in
+    NIS2 Art. 21(2)(j) and the confidentiality safeguards in GDPR Art. 32(1)(b).
   remediation: |
-    Require a client certificate on the stage:
+    Configure the certificate in the direction the check evaluates: API Gateway's
+    client certificate for trust from the integration backend:
+      resource "aws_api_gateway_client_certificate" "backend" {
+        description = "Certificate API Gateway presents to the backend"
+      }
       resource "aws_api_gateway_stage" "prod" {
-        client_certificate_id = aws_api_gateway_client_certificate.this.id
+        client_certificate_id = aws_api_gateway_client_certificate.backend.id
+      }
+
+    This stage setting is not incoming caller mTLS. If callers must present a
+    certificate to API Gateway, configure the custom domain's truststore instead:
+      resource "aws_api_gateway_domain_name" "api" {
+        domain_name = "api.example.com"
+        mutual_tls_authentication {
+          truststore_uri     = "s3://example-truststore/ca.pem"
+          truststore_version = "1"
+        }
       }
   severity: MEDIUM
 
@@ -3830,7 +3880,7 @@ CKV_AWS_336:
         container_definitions = jsonencode([{
           name                    = "app"
           image                   = "app:latest"
-          readonly_root_filesystem = true
+          readonlyRootFilesystem = true
           mount_points            = [{ containerPath = "/tmp", sourceVolume = "tmp" }]
         }])
         volume {

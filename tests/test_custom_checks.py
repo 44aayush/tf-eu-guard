@@ -17,14 +17,25 @@ pytest.importorskip("checkov")
 
 from checkov.common.models.enums import CheckResult  # noqa: E402
 
+import tf_eu_guard.checks.k8s as k8s_pkg
+from tf_eu_guard.checkov_runner import extract_failed_checks, run_checkov
 from tf_eu_guard.checks.gdpr.data_residency import (  # noqa: E402
     EURegionEnforcement,
     ThirdCountryTransferReview,
+)
+from tf_eu_guard.checks.k8s.secrets_in_code import (  # noqa: E402
+    K8sContainerEnvHardcodedSecrets,
+    K8sSecretManifestHardcodedSecrets,
+)
+from tf_eu_guard.checks.nis2.secret_names import (  # noqa: E402
+    is_literal_secret_value,
+    is_reference_value,
 )
 from tf_eu_guard.checks.nis2.secrets_in_code import (
     HardcodedSecrets,
     _scan_codebuild_env,
 )  # noqa: E402
+from tf_eu_guard.regions import EUSC_REGIONS
 
 # --- EUGUARD_GDPR_001: EU Sovereign Cloud region enforcement (provider check) --
 
@@ -118,8 +129,6 @@ def test_region_allowlist_is_exact():
     """The allowlist — not a prefix — is the source of truth. Pin its contents
     so an accidental widening (e.g. reintroducing prefix logic or readmitting
     commercial EU regions) can't pass."""
-    from tf_eu_guard.regions import EUSC_REGIONS
-
     assert EUSC_REGIONS == frozenset({"eusc-de-east-1"})
 
 
@@ -165,8 +174,6 @@ def test_region_aliased_providers_live(repo_root):
     no default arrives as the raw string ``var.region_no_default`` — which the
     check must fail closed rather than wave through.
     """
-    from tf_eu_guard.checkov_runner import extract_failed_checks, run_checkov
-
     fixture = repo_root / "tests" / "fixtures" / "region-aliases"
     if not fixture.exists():
         pytest.skip("tests/fixtures/region-aliases/ not present")
@@ -212,6 +219,28 @@ def test_literal_secret_fails(entity_type, field):
 @pytest.mark.parametrize(
     "value",
     [
+        "data.aws_secretsmanager_secret_version.db.secret_string",
+        "var.db_password",
+        "aws_ssm_parameter.pw.value",
+        "${data.aws_secretsmanager_secret_version.db.secret_string}",
+        "${ var.db_password }",
+        "  aws_ssm_parameter.pw.value  ",
+    ],
+)
+def test_shared_secret_predicate_recognizes_terraform_references(value):
+    assert is_reference_value(value) is True
+    assert is_literal_secret_value(value) is False
+
+
+@pytest.mark.parametrize("value", ["ChangeMe123!", "db-password", "literal.with.dots"])
+def test_shared_secret_predicate_keeps_literals_as_literals(value):
+    assert is_reference_value(value) is False
+    assert is_literal_secret_value(value) is True
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
         "${data.aws_secretsmanager_secret_version.db.secret_string}",
         "${var.db_password}",
         "${aws_ssm_parameter.pw.value}",
@@ -219,6 +248,20 @@ def test_literal_secret_fails(entity_type, field):
 )
 def test_interpolated_reference_passes(value):
     assert _run_secret_check("aws_db_instance", {"password": [value]}) == CheckResult.PASSED
+
+
+@pytest.mark.parametrize(
+    "entity_type, field",
+    [
+        ("aws_db_instance", "password"),
+        ("aws_rds_cluster", "master_password"),
+        ("aws_redshift_cluster", "master_password"),
+        ("aws_docdb_cluster", "master_password"),
+        ("aws_elasticache_replication_group", "auth_token"),
+    ],
+)
+def test_normalized_reference_passes_for_every_database_and_cache_shape(entity_type, field):
+    assert _run_secret_check(entity_type, {field: ["var.secret_value"]}) == CheckResult.PASSED
 
 
 @pytest.mark.parametrize(
@@ -259,6 +302,46 @@ def test_codebuild_plaintext_secret_fails(secret_type):
     conf = {"environment": [{"environment_variable": [variable]}]}
     assert _scan_codebuild_env(conf) is True
     assert _run_secret_check("aws_codebuild_project", conf) == CheckResult.FAILED
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "data.aws_secretsmanager_secret_version.db.secret_string",
+        "var.db_password",
+        "aws_ssm_parameter.pw.value",
+        "${var.db_password}",
+    ],
+)
+def test_codebuild_plaintext_reference_value_passes(value):
+    conf = {"environment": [{"environment_variable": [{
+        "name": ["DB_PASSWORD"], "value": [value], "type": ["PLAINTEXT"],
+    }]}]}
+    assert _scan_codebuild_env(conf) is False
+    assert _run_secret_check("aws_codebuild_project", conf) == CheckResult.PASSED
+
+
+@pytest.mark.skipif(
+    not os.environ.get("TFEG_RUN_CHECKOV")
+    or importlib.util.find_spec("checkov") is None,
+    reason="live Checkov test: set TFEG_RUN_CHECKOV=1 with Checkov installed in this Python environment",
+)
+def test_codebuild_reference_and_literal_fixtures_live(repo_root):
+    """Checkov's parsed Terraform shape preserves references and literals."""
+    reference = repo_root / "tests" / "fixtures" / "codebuild-secret-reference"
+    literal = repo_root / "tests" / "fixtures" / "codebuild-secret-literal"
+
+    reference_ids = {
+        finding["check_id"]
+        for finding in extract_failed_checks(run_checkov(reference))
+    }
+    literal_ids = {
+        finding["check_id"]
+        for finding in extract_failed_checks(run_checkov(literal))
+    }
+
+    assert "EUGUARD_NIS2_001" not in reference_ids
+    assert "EUGUARD_NIS2_001" in literal_ids
 
 
 @pytest.mark.parametrize(
@@ -303,11 +386,6 @@ def test_custom_check_ids_are_registered(registry):
 
 
 # --- EUGUARD_NIS2_002 (Kubernetes variant) -------------------------------------
-
-from tf_eu_guard.checks.k8s.secrets_in_code import (  # noqa: E402
-    K8sContainerEnvHardcodedSecrets,
-    K8sSecretManifestHardcodedSecrets,
-)
 
 
 def _run_k8s_secret_check(conf: dict) -> CheckResult:
@@ -410,6 +488,4 @@ def test_k8s_data_residency_is_scoped_out():
     manifests are cloud-agnostic, region lives at the cluster boundary, not in
     the manifest. Guard against an accidental future import, which would
     silently do nothing."""
-    import tf_eu_guard.checks.k8s as k8s_pkg
-
     assert not hasattr(k8s_pkg, "data_residency")
