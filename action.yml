@@ -152,7 +152,7 @@ runs:
 
     - name: Upload SARIF to GitHub Code Scanning
       if: ${{ always() && inputs.upload-sarif == 'true' && inputs.output == 'sarif' }}
-      uses: github/codeql-action/upload-sarif@60168efe1c415ce0f5521ea06d5c2062adbeed1b
+      uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
       with:
         sarif_file: ${{ inputs.output-file || 'tf-eu-guard.sarif' }}
         category: ${{ inputs.category }}
