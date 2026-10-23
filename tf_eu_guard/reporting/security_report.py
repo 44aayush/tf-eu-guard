@@ -22,9 +22,7 @@ from tf_eu_guard.reporting.sorting import finding_sort_key, sort_findings
 from tf_eu_guard.reporting.styles import SECURITY_CSS, SEVERITY_COLOR, SEVERITY_ORDER
 
 
-def _summary_stats(
-    findings: list[EnrichedFinding], unmapped_count: int = 0
-) -> str:
+def _summary_stats(findings: list[EnrichedFinding], unmapped_count: int = 0) -> str:
     """Render the top-of-page summary stat cards."""
     counts = severity_counts(findings)
     nis2 = sum(1 for f in findings if Framework.NIS2 in f.frameworks)
@@ -98,15 +96,13 @@ def _render(
     """Assemble the complete HTML document."""
     findings = sort_findings(findings)
     unmapped_span = (
-        f"<span>Unmapped Checkov findings: {unmapped_count}</span>"
-        if unmapped_count
-        else ""
+        f"<span>Unmapped Checkov findings: {unmapped_count}</span>" if unmapped_count else ""
     )
     header = (
         "<header>\n"
         "  <h1>tf-eu-guard &mdash; Security Report</h1>\n"
         '  <div class="meta">'
-        f'<span>Target: <code>{esc(target) or "&mdash;"}</code></span>'
+        f"<span>Target: <code>{esc(target) or '&mdash;'}</code></span>"
         f"<span>Generated: {esc(timestamp) or '&mdash;'}</span>"
         f"<span>Findings: {len(findings)}</span>"
         f"{unmapped_span}"
@@ -148,8 +144,7 @@ def _render(
                 continue
             group.sort(key=finding_sort_key)
             detail.append(
-                f'<h3 style="color:{SEVERITY_COLOR[sev]}">{esc(sev.value)} '
-                f"({len(group)})</h3>"
+                f'<h3 style="color:{SEVERITY_COLOR[sev]}">{esc(sev.value)} ({len(group)})</h3>'
             )
             detail.extend(finding_card(f) for f in group)
         body = "\n".join(sections + detail)

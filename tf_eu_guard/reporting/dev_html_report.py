@@ -29,9 +29,7 @@ def _severity_rank(finding: EnrichedFinding) -> int:
     return order.get(finding.severity, len(SEVERITY_ORDER))
 
 
-def _summary_chips(
-    findings: list[EnrichedFinding], unmapped_count: int = 0
-) -> str:
+def _summary_chips(findings: list[EnrichedFinding], unmapped_count: int = 0) -> str:
     """Render a compact one-line summary (totals + per-severity counts)."""
     counts = severity_counts(findings)
     chips: list[str] = [
@@ -76,15 +74,13 @@ def _render(
     """Assemble the complete HTML document."""
     findings = sort_findings(findings)
     unmapped_span = (
-        f"<span>Unmapped Checkov findings: {unmapped_count}</span>"
-        if unmapped_count
-        else ""
+        f"<span>Unmapped Checkov findings: {unmapped_count}</span>" if unmapped_count else ""
     )
     header = (
         "<header>\n"
         "  <h1>tf-eu-guard &mdash; Developer Report</h1>\n"
         '  <div class="meta">'
-        f'<span>Target: <code>{esc(target) or "&mdash;"}</code></span>'
+        f"<span>Target: <code>{esc(target) or '&mdash;'}</code></span>"
         f"<span>Generated: {esc(timestamp) or '&mdash;'}</span>"
         f"<span>Findings: {len(findings)}</span>"
         f"{unmapped_span}"
@@ -122,9 +118,7 @@ def _render(
                 "Checkov finding(s) have no current EU regulatory mapping and are not "
                 "shown in this report.</p>"
             )
-        sections.extend(
-            _file_section(path, by_file[path]) for path in sorted(by_file)
-        )
+        sections.extend(_file_section(path, by_file[path]) for path in sorted(by_file))
         body = "\n".join(sections)
 
     footer = (

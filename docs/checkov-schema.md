@@ -45,12 +45,12 @@ Each entry in `results.failed_checks[]` contains:
 Our `checkov_runner.extract_failed_checks()` function expects:
 ```python
 {
-    "check_id": str,       # ✓ required, non-empty
-    "check_name": str,     # ✓ required, non-empty
-    "resource": str,       # ✓ required
-    "file_path": str,      # ✓ required
+    "check_id": str,  # ✓ required, non-empty
+    "check_name": str,  # ✓ required, non-empty
+    "resource": str,  # ✓ required
+    "file_path": str,  # ✓ required
     "file_line_range": [int, int],  # ✓ required, ordered, non-negative
-    "guideline": str       # ✓ Present (can be null)
+    "guideline": str,  # ✓ Present (can be null)
 }
 ```
 

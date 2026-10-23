@@ -36,7 +36,9 @@ def checkov_checks():
 
 
 @pytest.mark.parametrize("check_id", TARGET_IDS)
-def test_registry_entry_matches_checkov_semantics(registry, semantic_cases, checkov_checks, check_id):
+def test_registry_entry_matches_checkov_semantics(
+    registry, semantic_cases, checkov_checks, check_id
+):
     case = semantic_cases[check_id]
     mapping = registry[check_id]
     checks = checkov_checks[check_id]
@@ -48,9 +50,9 @@ def test_registry_entry_matches_checkov_semantics(registry, semantic_cases, chec
         case["supported_resource"]
     }
     assert mapping.severity is Severity[case["severity"]]
-    assert {
-        (article.framework.value, article.article) for article in mapping.articles
-    } == {tuple(article) for article in case["articles"]}
+    assert {(article.framework.value, article.article) for article in mapping.articles} == {
+        tuple(article) for article in case["articles"]
+    }
     assert all(text in mapping.remediation for text in case["remediation_contains"])
 
     for check in checks:

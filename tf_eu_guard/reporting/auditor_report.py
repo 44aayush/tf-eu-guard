@@ -107,18 +107,13 @@ def _toc(index: dict[Framework, dict[str, dict]]) -> str:
             n = len(entry["findings"])
             title_suffix = f" &mdash; {esc(entry['title'])}" if entry["title"] else ""
             items.append(
-                f'<li><a href="#{_anchor(fw, article)}">{esc(article)}'
-                f"{title_suffix}</a> ({n})</li>"
+                f'<li><a href="#{_anchor(fw, article)}">{esc(article)}{title_suffix}</a> ({n})</li>'
             )
-        blocks.append(
-            f"<strong>{esc(fw.value)}</strong>\n<ul>\n" + "\n".join(items) + "\n</ul>"
-        )
+        blocks.append(f"<strong>{esc(fw.value)}</strong>\n<ul>\n" + "\n".join(items) + "\n</ul>")
     return '<nav class="toc"><strong>Contents</strong>\n' + "\n".join(blocks) + "\n</nav>"
 
 
-def _article_section(
-    framework: Framework, article: str, entry: dict, version: str
-) -> str:
+def _article_section(framework: Framework, article: str, entry: dict, version: str) -> str:
     """Render one article: heading, status, failing-resource table, doc link."""
     anchor = _anchor(framework, article)
     group = sorted(entry["findings"], key=finding_sort_key)
@@ -140,14 +135,13 @@ def _article_section(
     doc_name = FRAMEWORK_DOC.get(framework, "")
     doc = (
         f"https://github.com/44aayush/tf-eu-guard/blob/v{quote(version or __version__, safe='')}/docs/{doc_name}"
-        if doc_name else ""
+        if doc_name
+        else ""
     )
-    title_html = (
-        f" <span class=\"title-note\">&mdash; {esc(title)}</span>" if title else ""
-    )
+    title_html = f' <span class="title-note">&mdash; {esc(title)}</span>' if title else ""
     doc_html = (
         f'<p class="doclink">Mapping rationale: <a href="{esc(doc)}">'
-        f'<code>{esc(doc)}</code></a></p>\n'
+        f"<code>{esc(doc)}</code></a></p>\n"
         if doc
         else ""
     )
@@ -158,9 +152,7 @@ def _article_section(
         f'<p><span class="status">OPEN &mdash; {len(group)} finding(s)</span></p>\n'
         "<table>\n<thead><tr><th>Severity</th><th>Resource</th>"
         "<th>Location</th><th>Failed control</th></tr></thead>\n"
-        "<tbody>\n" + "\n".join(rows) + "\n</tbody>\n</table>\n"
-        + doc_html
-        + "</div>"
+        "<tbody>\n" + "\n".join(rows) + "\n</tbody>\n</table>\n" + doc_html + "</div>"
     )
 
 
@@ -177,11 +169,11 @@ def _render(
     header = (
         '<a id="top"></a>\n<header>\n'
         "  <h1>tf-eu-guard &mdash; Compliance Audit Report</h1>\n"
-        "  <p style=\"margin:4px 0 8px;font-family:system-ui,sans-serif\">"
+        '  <p style="margin:4px 0 8px;font-family:system-ui,sans-serif">'
         "NIS2 (Directive 2022/2555, Art. 21), GDPR (Reg. 2016/679, Art. 32 &amp; 44), "
         "and project policy</p>\n"
         '  <div class="meta">'
-        f'<span>Target: <code>{esc(target) or "&mdash;"}</code></span>'
+        f"<span>Target: <code>{esc(target) or '&mdash;'}</code></span>"
         f"<span>Generated: {esc(timestamp) or '&mdash;'}</span>"
         "</div>\n</header>"
     )

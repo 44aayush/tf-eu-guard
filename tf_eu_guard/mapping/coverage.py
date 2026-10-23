@@ -87,9 +87,7 @@ def compute_coverage(
     by_key: dict[tuple[str, str], list[str]] = {}
     for check_id, mapping in registry.items():
         for article_reference in mapping.articles:
-            key = _article_key(
-                article_reference.framework, article_reference.article
-            )
+            key = _article_key(article_reference.framework, article_reference.article)
             by_key.setdefault(key, []).append(check_id)
 
     coverage: list[RequirementCoverage] = []
@@ -101,15 +99,7 @@ def compute_coverage(
         else:
             article_label = letter
             title = GDPR_TITLES[letter]
-        checks = tuple(
-            sorted(
-                set(
-                    by_key.get(
-                        (entry["framework"].value, letter), []
-                    )
-                )
-            )
-        )
+        checks = tuple(sorted(set(by_key.get((entry["framework"].value, letter), []))))
         coverage.append(
             RequirementCoverage(
                 framework=entry["framework"],

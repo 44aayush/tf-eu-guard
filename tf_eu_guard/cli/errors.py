@@ -23,9 +23,7 @@ def handle_scan_error(error: Exception) -> int:
     """Print a scan error and map it to the documented exit code."""
     code = exit_code_for(error)
     label = (
-        "invalid input/configuration"
-        if code == EXIT_INVALID_INPUT
-        else "scanner/runtime failure"
+        "invalid input/configuration" if code == EXIT_INVALID_INPUT else "scanner/runtime failure"
     )
     detail = str(error)
     stderr = getattr(error, "stderr", None)

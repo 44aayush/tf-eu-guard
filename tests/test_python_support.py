@@ -25,9 +25,9 @@ def _pyproject() -> dict:
 def _classifier_versions(project: dict) -> list[str]:
     prefix = "Programming Language :: Python :: "
     return sorted(
-        line[len(prefix):]
+        line[len(prefix) :]
         for line in project["classifiers"]
-        if line.startswith(prefix) and line[len(prefix):].count(".") == 1
+        if line.startswith(prefix) and line[len(prefix) :].count(".") == 1
     )
 
 
@@ -66,4 +66,6 @@ def test_readme_badge_matches_requires_python_floor():
 def test_install_script_floor_matches_requires_python():
     floor = _pyproject()["project"]["requires-python"].lstrip(">=")
     script = (REPO_ROOT / "install_and_test.sh").read_text()
-    assert f'MIN_PY="{floor}"' in script, "install_and_test.sh MIN_PY disagrees with requires-python"
+    assert f'MIN_PY="{floor}"' in script, (
+        "install_and_test.sh MIN_PY disagrees with requires-python"
+    )

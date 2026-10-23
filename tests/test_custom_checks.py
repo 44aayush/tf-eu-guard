@@ -46,8 +46,14 @@ from tf_eu_guard.regions import EUSC_REGIONS
 # London/Zurich are GDPR third countries on top of that. When AWS launches
 # a new eu- region, add it here to force the classification decision.
 _COMMERCIAL_EU_PREFIXED_REGIONS = {
-    "eu-central-1", "eu-central-2", "eu-north-1", "eu-south-1",
-    "eu-south-2", "eu-west-1", "eu-west-2", "eu-west-3",
+    "eu-central-1",
+    "eu-central-2",
+    "eu-north-1",
+    "eu-south-1",
+    "eu-south-2",
+    "eu-west-1",
+    "eu-west-2",
+    "eu-west-3",
 }
 
 # The only acceptable deployment targets: regions of the AWS European
@@ -59,21 +65,21 @@ _EUSC_REGIONS = {"eusc-de-east-1"}
     "region, expected",
     [
         # EU Sovereign Cloud regions — the allowlist
-        ("eusc-de-east-1", CheckResult.PASSED),   # Brandenburg, Germany
-        ("EUSC-DE-EAST-1", CheckResult.PASSED),   # case-insensitive
+        ("eusc-de-east-1", CheckResult.PASSED),  # Brandenburg, Germany
+        ("EUSC-DE-EAST-1", CheckResult.PASSED),  # case-insensitive
         ("  eusc-de-east-1  ", CheckResult.PASSED),  # surrounding whitespace
         # Commercial EU regions: GDPR-permissible, but outside the Sovereign
         # Cloud — this project's policy fails them.
-        ("eu-central-1", CheckResult.FAILED),     # Frankfurt
-        ("eu-west-1", CheckResult.FAILED),        # Ireland
-        ("eu-west-3", CheckResult.FAILED),        # Paris
-        ("eu-north-1", CheckResult.FAILED),       # Stockholm
-        ("eu-south-1", CheckResult.FAILED),       # Milan
-        ("eu-south-2", CheckResult.FAILED),       # Spain
-        ("EU-WEST-1", CheckResult.FAILED),        # case-insensitive failure too
+        ("eu-central-1", CheckResult.FAILED),  # Frankfurt
+        ("eu-west-1", CheckResult.FAILED),  # Ireland
+        ("eu-west-3", CheckResult.FAILED),  # Paris
+        ("eu-north-1", CheckResult.FAILED),  # Stockholm
+        ("eu-south-1", CheckResult.FAILED),  # Milan
+        ("eu-south-2", CheckResult.FAILED),  # Spain
+        ("EU-WEST-1", CheckResult.FAILED),  # case-insensitive failure too
         # "eu-" is a geographic label, not EU membership
-        ("eu-west-2", CheckResult.FAILED),        # London, UK (Brexit)
-        ("eu-central-2", CheckResult.FAILED),     # Zurich, Switzerland
+        ("eu-west-2", CheckResult.FAILED),  # London, UK (Brexit)
+        ("eu-central-2", CheckResult.FAILED),  # Zurich, Switzerland
         # Non-EU regions
         ("us-east-1", CheckResult.FAILED),
         ("ap-southeast-2", CheckResult.FAILED),
@@ -82,7 +88,7 @@ _EUSC_REGIONS = {"eusc-de-east-1"}
         ("eu-isoe-west-1", CheckResult.FAILED),
         # Invalid / non-existent region strings fail closed
         ("eu-garbage-9", CheckResult.FAILED),
-        ("eusc-de-1", CheckResult.FAILED),        # wrong EUSC code — pinned exactly
+        ("eusc-de-1", CheckResult.FAILED),  # wrong EUSC code — pinned exactly
         # Unresolved variable references fail closed: a deployment target
         # that can't be proven statically is flagged, not waved through.
         # Checkov renders a bare reference as raw text ("var.region") —
@@ -100,10 +106,10 @@ def test_region_literal_pass_fail(region, expected):
 @pytest.mark.parametrize(
     "conf",
     [
-        {},                              # no region → inherited at apply time
-        {"region": []},                  # empty
-        {"region": ["   "]},             # blank
-        {"region": [None]},              # non-string
+        {},  # no region → inherited at apply time
+        {"region": []},  # empty
+        {"region": ["   "]},  # blank
+        {"region": [None]},  # non-string
     ],
 )
 def test_region_undecidable_is_unknown(conf):
@@ -117,8 +123,7 @@ def test_every_commercial_eu_prefixed_region_is_classified():
     matching waved through as "EU-compliant." """
     check = EURegionEnforcement()
     results = {
-        r: check.scan_provider_conf({"region": [r]})
-        for r in _COMMERCIAL_EU_PREFIXED_REGIONS
+        r: check.scan_provider_conf({"region": [r]}) for r in _COMMERCIAL_EU_PREFIXED_REGIONS
     }
     assert all(v == CheckResult.FAILED for v in results.values()), {
         r: v for r, v in results.items() if v != CheckResult.FAILED
@@ -161,8 +166,7 @@ def test_transfer_review_check_identity():
 
 
 @pytest.mark.skipif(
-    not os.environ.get("TFEG_RUN_CHECKOV")
-    or importlib.util.find_spec("checkov") is None,
+    not os.environ.get("TFEG_RUN_CHECKOV") or importlib.util.find_spec("checkov") is None,
     reason="live Checkov test: set TFEG_RUN_CHECKOV=1 with Checkov installed in this Python environment",
 )
 def test_region_aliased_providers_live(repo_root):
@@ -179,9 +183,7 @@ def test_region_aliased_providers_live(repo_root):
         pytest.skip("tests/fixtures/region-aliases/ not present")
 
     findings = extract_failed_checks(run_checkov(fixture))
-    flagged = {
-        c["resource"] for c in findings if c["check_id"] == "EUGUARD_GDPR_001"
-    }
+    flagged = {c["resource"] for c in findings if c["check_id"] == "EUGUARD_GDPR_001"}
 
     # eu-prefixed third countries must produce findings on their own alias.
     assert "aws.london" in flagged
@@ -195,6 +197,7 @@ def test_region_aliased_providers_live(repo_root):
 
 
 # --- EUGUARD_NIS2_001: hardcoded secrets (resource check) ----------------------
+
 
 def _run_secret_check(entity_type: str, conf: dict) -> CheckResult:
     check = HardcodedSecrets()
@@ -267,9 +270,9 @@ def test_normalized_reference_passes_for_every_database_and_cache_shape(entity_t
 @pytest.mark.parametrize(
     "conf",
     [
-        {"storage_encrypted": [False]},   # no secret field present
-        {"password": [""]},               # empty literal
-        {"password": ["   "]},            # blank literal
+        {"storage_encrypted": [False]},  # no secret field present
+        {"password": [""]},  # empty literal
+        {"password": ["   "]},  # blank literal
     ],
 )
 def test_no_hardcoded_secret_passes(conf):
@@ -284,11 +287,17 @@ def test_unsupported_field_name_ignored():
 @pytest.mark.parametrize("secret_type", ["SECRETS_MANAGER", "PARAMETER_STORE"])
 def test_codebuild_secret_reference_types_pass(secret_type):
     conf = {
-        "environment": [{"environment_variable": [{
-            "name": ["DB_PASSWORD"],
-            "value": ["prod/db:password"],
-            "type": [secret_type],
-        }]}],
+        "environment": [
+            {
+                "environment_variable": [
+                    {
+                        "name": ["DB_PASSWORD"],
+                        "value": ["prod/db:password"],
+                        "type": [secret_type],
+                    }
+                ]
+            }
+        ],
     }
     assert _scan_codebuild_env(conf) is False
     assert _run_secret_check("aws_codebuild_project", conf) == CheckResult.PASSED
@@ -314,16 +323,25 @@ def test_codebuild_plaintext_secret_fails(secret_type):
     ],
 )
 def test_codebuild_plaintext_reference_value_passes(value):
-    conf = {"environment": [{"environment_variable": [{
-        "name": ["DB_PASSWORD"], "value": [value], "type": ["PLAINTEXT"],
-    }]}]}
+    conf = {
+        "environment": [
+            {
+                "environment_variable": [
+                    {
+                        "name": ["DB_PASSWORD"],
+                        "value": [value],
+                        "type": ["PLAINTEXT"],
+                    }
+                ]
+            }
+        ]
+    }
     assert _scan_codebuild_env(conf) is False
     assert _run_secret_check("aws_codebuild_project", conf) == CheckResult.PASSED
 
 
 @pytest.mark.skipif(
-    not os.environ.get("TFEG_RUN_CHECKOV")
-    or importlib.util.find_spec("checkov") is None,
+    not os.environ.get("TFEG_RUN_CHECKOV") or importlib.util.find_spec("checkov") is None,
     reason="live Checkov test: set TFEG_RUN_CHECKOV=1 with Checkov installed in this Python environment",
 )
 def test_codebuild_reference_and_literal_fixtures_live(repo_root):
@@ -332,13 +350,9 @@ def test_codebuild_reference_and_literal_fixtures_live(repo_root):
     literal = repo_root / "tests" / "fixtures" / "codebuild-secret-literal"
 
     reference_ids = {
-        finding["check_id"]
-        for finding in extract_failed_checks(run_checkov(reference))
+        finding["check_id"] for finding in extract_failed_checks(run_checkov(reference))
     }
-    literal_ids = {
-        finding["check_id"]
-        for finding in extract_failed_checks(run_checkov(literal))
-    }
+    literal_ids = {finding["check_id"] for finding in extract_failed_checks(run_checkov(literal))}
 
     assert "EUGUARD_NIS2_001" not in reference_ids
     assert "EUGUARD_NIS2_001" in literal_ids
@@ -356,9 +370,19 @@ def test_codebuild_reference_and_literal_fixtures_live(repo_root):
     ],
 )
 def test_codebuild_non_secret_name_or_value_passes(name, value):
-    conf = {"environment": [{"environment_variable": [{
-        "name": [name], "value": [value], "type": ["PLAINTEXT"],
-    }]}]}
+    conf = {
+        "environment": [
+            {
+                "environment_variable": [
+                    {
+                        "name": [name],
+                        "value": [value],
+                        "type": ["PLAINTEXT"],
+                    }
+                ]
+            }
+        ]
+    }
     assert _scan_codebuild_env(conf) is False
     assert _run_secret_check("aws_codebuild_project", conf) == CheckResult.PASSED
 
@@ -377,6 +401,7 @@ def test_secret_check_scope_excludes_stock_check_shapes():
 
 
 # --- Cross-check: custom check IDs are mapped in the registry ------------------
+
 
 def test_custom_check_ids_are_registered(registry):
     """Every custom check's id must have a registry entry, or its findings
@@ -402,6 +427,7 @@ def _run_k8s_env_check(conf: dict) -> CheckResult:
 
 # Secret-manifest variant
 
+
 @pytest.mark.parametrize(
     "field",
     ["stringData", "data"],
@@ -414,8 +440,8 @@ def test_k8s_secret_manifest_literal_fails(field):
     "conf",
     [
         {"metadata": {"name": "app-credentials"}},  # no data at all (operator-managed)
-        {"data": {}, "stringData": {}},             # empty data
-        {"data": {"password": ""}},                 # blank value
+        {"data": {}, "stringData": {}},  # empty data
+        {"data": {"password": ""}},  # blank value
     ],
 )
 def test_k8s_secret_manifest_clean_passes(conf):
@@ -423,6 +449,7 @@ def test_k8s_secret_manifest_clean_passes(conf):
 
 
 # Container-env variant
+
 
 @pytest.mark.parametrize(
     "name",
@@ -434,16 +461,28 @@ def test_k8s_env_literal_sensitive_name_fails(name):
 
 
 def test_k8s_env_secret_key_ref_passes():
-    conf = {"spec": {"containers": [{"name": "app", "env": [
-        {"name": "DB_PASSWORD", "valueFrom": {"secretKeyRef": {"name": "db", "key": "pw"}}}
-    ]}]}}
+    conf = {
+        "spec": {
+            "containers": [
+                {
+                    "name": "app",
+                    "env": [
+                        {
+                            "name": "DB_PASSWORD",
+                            "valueFrom": {"secretKeyRef": {"name": "db", "key": "pw"}},
+                        }
+                    ],
+                }
+            ]
+        }
+    }
     assert _run_k8s_env_check(conf) == CheckResult.PASSED
 
 
 def test_k8s_env_nonsensitive_literal_passes():
-    conf = {"spec": {"containers": [{"name": "app", "env": [
-        {"name": "LOG_LEVEL", "value": "debug"}
-    ]}]}}
+    conf = {
+        "spec": {"containers": [{"name": "app", "env": [{"name": "LOG_LEVEL", "value": "debug"}]}]}
+    }
     assert _run_k8s_env_check(conf) == CheckResult.PASSED
 
 
@@ -461,14 +500,14 @@ def test_k8s_env_nonsensitive_literal_passes():
 )
 def test_k8s_env_non_secret_name_or_value_passes(name, value):
     """The _FILE / _PATH suffix points at a mounted secret file, not a literal."""
-    conf = {"spec": {"containers": [{"name": "app", "env": [
-        {"name": name, "value": value}
-    ]}]}}
+    conf = {"spec": {"containers": [{"name": "app", "env": [{"name": name, "value": value}]}]}}
     assert _run_k8s_env_check(conf) == CheckResult.PASSED
 
 
 def test_k8s_env_empty_value_passes():
-    conf = {"spec": {"containers": [{"name": "app", "env": [{"name": "DB_PASSWORD", "value": ""}]}]}}
+    conf = {
+        "spec": {"containers": [{"name": "app", "env": [{"name": "DB_PASSWORD", "value": ""}]}]}
+    }
     assert _run_k8s_env_check(conf) == CheckResult.PASSED
 
 
@@ -482,6 +521,7 @@ def test_k8s_checks_identity():
 
 
 # --- K8s data-residency scope decision -----------------------------------------
+
 
 def test_k8s_data_residency_is_scoped_out():
     """EUGUARD_GDPR_001 has no Kubernetes variant by design (DECISIONS.md #9):

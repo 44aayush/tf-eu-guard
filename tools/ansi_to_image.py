@@ -2,6 +2,7 @@
 
 Usage: venv/bin/python tools/ansi_to_image.py <input.ansi> <output.png> [title]
 """
+
 import io
 import sys
 from pathlib import Path

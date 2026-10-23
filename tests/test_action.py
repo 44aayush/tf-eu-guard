@@ -12,9 +12,15 @@ def test_action_inputs_are_passed_through_env_not_shell_code():
     run = text.split("      run: |", 1)[1].split("\n\n    - name:", 1)[0]
     assert "${{ inputs." not in run
     for variable in (
-        "INPUT_PATH", "INPUT_IAC_TYPE", "INPUT_OUTPUT", "INPUT_FRAMEWORK",
-        "INPUT_FAIL_ON_SEVERITY", "INPUT_FAIL_ON_ANY", "INPUT_CHECKOV_JSON",
-        "INPUT_OUTPUT_DIR", "INPUT_OUTPUT_FILE",
+        "INPUT_PATH",
+        "INPUT_IAC_TYPE",
+        "INPUT_OUTPUT",
+        "INPUT_FRAMEWORK",
+        "INPUT_FAIL_ON_SEVERITY",
+        "INPUT_FAIL_ON_ANY",
+        "INPUT_CHECKOV_JSON",
+        "INPUT_OUTPUT_DIR",
+        "INPUT_OUTPUT_FILE",
     ):
         assert f'"${variable}"' in run
 

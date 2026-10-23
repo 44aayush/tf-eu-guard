@@ -6,6 +6,7 @@ sorting, empty-findings handling, and the ``DevReporter`` class output.
 
 import contextlib
 from io import StringIO
+from unittest.mock import patch
 
 from rich.console import Console
 
@@ -35,13 +36,9 @@ def _capture(findings):
     """Run generate_dev_report with stdout captured; return printed text."""
     buf = StringIO()
     console = Console(file=buf, force_terminal=False, width=200)
-    original = mod.Console
-    mod.Console = lambda: console
-    try:
+    with patch.object(mod, "Console", return_value=console):
         with contextlib.redirect_stdout(StringIO()):
             generate_dev_report(findings)
-    finally:
-        mod.Console = original
     return buf.getvalue()
 
 
@@ -60,12 +57,14 @@ def test_renders_finding_and_articles():
 
 
 def test_severity_summary_counts():
-    out = _capture([
-        _finding(severity=Severity.CRITICAL),
-        _finding(severity=Severity.HIGH),
-        _finding(severity=Severity.HIGH),
-        _finding(severity=Severity.LOW),
-    ])
+    out = _capture(
+        [
+            _finding(severity=Severity.CRITICAL),
+            _finding(severity=Severity.HIGH),
+            _finding(severity=Severity.HIGH),
+            _finding(severity=Severity.LOW),
+        ]
+    )
     assert "Total Findings: 4" in out
     assert "CRITICAL: 1" in out
     assert "HIGH: 2" in out
@@ -75,20 +74,24 @@ def test_severity_summary_counts():
 
 def test_severity_sorting_within_file():
     # Insert LOW first; report must sort CRITICAL before it.
-    out = _capture([
-        _finding(severity=Severity.LOW),
-        _finding(severity=Severity.CRITICAL, check_id="CKV_AWS_145"),
-    ])
+    out = _capture(
+        [
+            _finding(severity=Severity.LOW),
+            _finding(severity=Severity.CRITICAL, check_id="CKV_AWS_145"),
+        ]
+    )
     crit_pos = out.index("CKV_AWS_145")
     low_pos = out.index("CKV_AWS_18")
     assert crit_pos < low_pos
 
 
 def test_grouping_by_file():
-    out = _capture([
-        _finding(file_path="/a.tf"),
-        _finding(file_path="/b.tf"),
-    ])
+    out = _capture(
+        [
+            _finding(file_path="/a.tf"),
+            _finding(file_path="/b.tf"),
+        ]
+    )
     assert "/a.tf" in out and "/b.tf" in out
 
 

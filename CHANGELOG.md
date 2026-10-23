@@ -8,6 +8,16 @@ terraform_plan fix), so this starts now rather than reconstructing
 history later. Versions follow the git tags/`__version__` at each
 release point.
 
+## [0.7.1] — 2026-10-23
+
+### Changed
+
+- The development pre-commit hook now runs Ruff formatting, Ruff checks, and
+  mypy; pytest remains part of the GitHub Actions test job rather than the
+  local commit hook.
+- Mypy typing issues in the documentation-count and dependency-exception
+  tools, plus the terminal and SARIF report tests, were corrected.
+
 ## [0.7.0] — 2026-10-18
 
 ### Changed
@@ -342,6 +352,7 @@ registries.**
 - `--checkov-json` for pre-generated Checkov output, `--framework`
   filter, `--fail-on-severity` / `--fail-on-any` CI gating.
 
+[0.7.1]: https://github.com/44aayush/tf-eu-guard/compare/0.7.0...0.7.1
 [0.7.0]: https://github.com/44aayush/tf-eu-guard/compare/0.6.0...0.7.0
 [0.6.0]: https://github.com/44aayush/tf-eu-guard/compare/0.5.0...0.6.0
 [0.5.0]: https://github.com/44aayush/tf-eu-guard/compare/0.4.2...0.5.0
