@@ -94,8 +94,7 @@ class ThirdCountryTransferReview(BaseProviderCheck):
 
     def __init__(self):
         name = (
-            "Review AWS provider regions outside the EU/EEA for GDPR Chapter V "
-            "transfer safeguards"
+            "Review AWS provider regions outside the EU/EEA for GDPR Chapter V transfer safeguards"
         )
         check_id = "EUGUARD_GDPR_002"
         supported_provider = ["aws"]
@@ -125,6 +124,7 @@ class ThirdCountryTransferReview(BaseProviderCheck):
         if normalized in KNOWN_AWS_REGIONS and normalized not in EU_EEA_REGIONS:
             return CheckResult.FAILED
         return CheckResult.UNKNOWN
+
 
 check = EURegionEnforcement()
 transfer_review_check = ThirdCountryTransferReview()

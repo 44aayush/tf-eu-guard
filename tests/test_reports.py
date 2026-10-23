@@ -198,9 +198,7 @@ class TestSecurityReport:
         assert "No compliance findings" in doc
 
     def test_escapes_untrusted_fields(self):
-        doc = generate_security_report(
-            [_finding(resource="<script>alert(1)</script>")]
-        )
+        doc = generate_security_report([_finding(resource="<script>alert(1)</script>")])
         assert "<script>alert(1)</script>" not in doc
         assert "&lt;script&gt;" in doc
 
@@ -246,9 +244,13 @@ class TestAuditorReport:
 
     def test_mapping_links_use_report_version(self):
         doc = generate_auditor_report(_sample_findings(), version="9.8.7")
-        assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v9.8.7/docs/nis2-mapping.md"' in doc
-        assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v9.8.7/docs/gdpr-mapping.md"' in doc
-        assert "blob/v0.7.0/docs/" not in doc
+        assert (
+            'href="https://github.com/44aayush/tf-eu-guard/blob/v9.8.7/docs/nis2-mapping.md"' in doc
+        )
+        assert (
+            'href="https://github.com/44aayush/tf-eu-guard/blob/v9.8.7/docs/gdpr-mapping.md"' in doc
+        )
+        assert "blob/v0.7.1/docs/" not in doc
 
     def test_toc_anchors_resolve(self):
         doc = generate_auditor_report(_sample_findings())
@@ -279,9 +281,7 @@ class TestAuditorReport:
             [
                 _finding(
                     resource="<img src=x onerror=alert(1)>",
-                    articles=[
-                        ArticleReference(Framework.NIS2, "Art. 21(2)(i)", "Access control")
-                    ],
+                    articles=[ArticleReference(Framework.NIS2, "Art. 21(2)(i)", "Access control")],
                 )
             ]
         )
@@ -329,9 +329,7 @@ class TestDevHtmlReport:
         assert "No compliance findings" in doc
 
     def test_escapes_untrusted_fields(self):
-        doc = generate_dev_html_report(
-            [_finding(resource="<script>alert(1)</script>")]
-        )
+        doc = generate_dev_html_report([_finding(resource="<script>alert(1)</script>")])
         assert "<script>alert(1)</script>" not in doc
         assert "&lt;script&gt;" in doc
 
@@ -390,6 +388,7 @@ class TestUnmappedCount:
 
 # --- Guideline URL scheme validation (TASKS.md P0 #3) --------------------------
 
+
 def test_safe_guideline_unit_gate():
     """Only http/https URLs without markup-breaking characters pass; a
     scheme-validated gate, because HTML-escaping neutralizes markup
@@ -405,11 +404,11 @@ def test_safe_guideline_unit_gate():
         "JAVASCRIPT:alert(1)",
         "data:text/html;base64,PHNjcmlwdD4=",
         "vbscript:msgbox(1)",
-        "//protocol-relative.example/x",   # no explicit scheme
-        "/relative/path",                  # no scheme
+        "//protocol-relative.example/x",  # no explicit scheme
+        "/relative/path",  # no scheme
         "file:///etc/passwd",
-        "https://ok.example/a]b",          # bracket — Rich markup breakout
-        "https://ok.example/a b",          # whitespace
+        "https://ok.example/a]b",  # bracket — Rich markup breakout
+        "https://ok.example/a b",  # whitespace
     ]
     for url in ok:
         assert safe_guideline(url) == url, url
@@ -458,7 +457,7 @@ def test_html_reports_still_link_safe_guidelines():
     # not turn the untrusted Checkov guideline into an external link.
     auditor = generate_auditor_report(findings)
     assert 'href="https://docs.prismacloud.io' not in auditor
-    assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v0.7.0/docs/' in auditor
+    assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v0.7.1/docs/' in auditor
 
 
 def test_committed_html_reports_use_hedged_language_and_keep_disclaimers():

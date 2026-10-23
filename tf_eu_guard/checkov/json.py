@@ -13,8 +13,7 @@ def parsing_error_message(checkov_output: dict[str, Any]) -> str | None:
     summary = checkov_output.get("summary")
     if not isinstance(summary, dict):
         raise CheckovRuntimeError(
-            "Checkov output did not include a summary; the scan cannot be "
-            "trusted as complete"
+            "Checkov output did not include a summary; the scan cannot be trusted as complete"
         )
 
     parsing_errors = summary.get("parsing_errors")
@@ -72,9 +71,7 @@ def validate_scan_output(checkov_output: Any, iac_type: str) -> dict[str, Any]:
     try:
         validate_checkov_output(checkov_output)
     except ValueError as exc:
-        raise CheckovRuntimeError(
-            f"Checkov returned a malformed failed finding: {exc}"
-        ) from exc
+        raise CheckovRuntimeError(f"Checkov returned a malformed failed finding: {exc}") from exc
     return checkov_output
 
 
@@ -85,9 +82,7 @@ def load_checkov_json(json_source: Path, iac_type: str = "terraform") -> dict[st
     else:
         path = Path(json_source)
         if path.is_dir():
-            raise CheckovInputError(
-                f"Checkov JSON input must be a file, not a directory: {path}"
-            )
+            raise CheckovInputError(f"Checkov JSON input must be a file, not a directory: {path}")
         try:
             text = path.read_text(encoding="utf-8")
         except (IsADirectoryError, NotADirectoryError, PermissionError) as exc:
@@ -98,9 +93,7 @@ def load_checkov_json(json_source: Path, iac_type: str = "terraform") -> dict[st
     return normalize_checkov_output(json.loads(text), iac_type)
 
 
-def normalize_checkov_output(
-    data: Any, iac_type: str = "terraform"
-) -> dict[str, Any]:
+def normalize_checkov_output(data: Any, iac_type: str = "terraform") -> dict[str, Any]:
     """Normalize Checkov JSON into the single-object form used by extraction."""
     if isinstance(data, dict):
         if "check_type" in data and data["check_type"] != iac_type:
@@ -121,8 +114,7 @@ def normalize_checkov_output(
         )
 
     raise ValueError(
-        f"Unexpected Checkov JSON shape: expected an object or array, "
-        f"got {type(data).__name__}."
+        f"Unexpected Checkov JSON shape: expected an object or array, got {type(data).__name__}."
     )
 
 
@@ -194,9 +186,7 @@ def validate_failed_check(check: dict[str, Any], index: int) -> None:
         or line_range[0] < 0
         or line_range[1] < line_range[0]
     ):
-        raise ValueError(
-            f"{prefix}.file_line_range must contain two ordered non-negative integers"
-        )
+        raise ValueError(f"{prefix}.file_line_range must contain two ordered non-negative integers")
 
 
 def describe_json_shape(data: Any) -> str:
@@ -216,13 +206,15 @@ def extract_failed_checks(checkov_output: dict[str, Any]) -> list[dict[str, Any]
 
     # Checkov JSON structure: results -> failed_checks (list)
     for check in checkov_output.get("results", {}).get("failed_checks", []):
-        failed.append({
-            "check_id": check.get("check_id"),
-            "check_name": check.get("check_name"),
-            "resource": check.get("resource"),
-            "file_path": check.get("file_path"),
-            "file_line_range": check.get("file_line_range", [0, 0]),
-            "guideline": check.get("guideline"),
-        })
+        failed.append(
+            {
+                "check_id": check.get("check_id"),
+                "check_name": check.get("check_name"),
+                "resource": check.get("resource"),
+                "file_path": check.get("file_path"),
+                "file_line_range": check.get("file_line_range", [0, 0]),
+                "guideline": check.get("guideline"),
+            }
+        )
 
     return failed

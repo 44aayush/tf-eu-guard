@@ -40,14 +40,16 @@ def finding_sort_key(finding: EnrichedFinding) -> tuple[Any, ...]:
     tied records deterministic as well.
     """
     start, end = _line_numbers(finding.file_line_range)
-    articles = tuple(sorted(
-        (
-            str(article.framework.value),
-            str(article.article),
-            str(article.title),
+    articles = tuple(
+        sorted(
+            (
+                str(article.framework.value),
+                str(article.article),
+                str(article.title),
+            )
+            for article in finding.articles
         )
-        for article in finding.articles
-    ))
+    )
     return (
         str(finding.file_path or "").replace("\\", "/"),
         start,

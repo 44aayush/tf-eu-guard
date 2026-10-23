@@ -85,14 +85,16 @@ def test_source_scan_fails_closed_on_incomplete_checkov_output(
 
 
 def test_scan_dev_output(monkeypatch, tmp_path, repo_root):
-    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / FIXTURE),
-                 "--output", "dev")
+    rc = run_cli(
+        monkeypatch, tmp_path, "--checkov-json", str(repo_root / FIXTURE), "--output", "dev"
+    )
     assert rc == 0
 
 
 def test_scan_json_output(monkeypatch, tmp_path, repo_root, capsys):
-    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / FIXTURE),
-                 "--output", "json")
+    rc = run_cli(
+        monkeypatch, tmp_path, "--checkov-json", str(repo_root / FIXTURE), "--output", "json"
+    )
     assert rc == 0
     data = json.loads(capsys.readouterr().out)
     assert isinstance(data, list) and len(data) > 0
@@ -103,14 +105,17 @@ def test_scan_json_output_is_byte_stable(monkeypatch, tmp_path, repo_root, capsy
     """The machine-readable JSON contract is stable across repeated scans."""
     outputs = []
     for _ in range(2):
-        assert run_cli(
-            monkeypatch,
-            tmp_path,
-            "--checkov-json",
-            str(repo_root / FIXTURE),
-            "--output",
-            "json",
-        ) == 0
+        assert (
+            run_cli(
+                monkeypatch,
+                tmp_path,
+                "--checkov-json",
+                str(repo_root / FIXTURE),
+                "--output",
+                "json",
+            )
+            == 0
+        )
         outputs.append(capsys.readouterr().out.encode())
     assert outputs[0] == outputs[1]
 
@@ -129,13 +134,12 @@ def test_region_policy_and_transfer_review_are_distinct_live_cli_findings(
 
     frankfurt = rows("aws.frankfurt")
     assert {f["check_id"] for f in frankfurt} == {"EUGUARD_GDPR_001"}
-    assert frankfurt[0]["articles"] == [
-        {"framework": "POLICY", "article": "Policy EUSC-001"}
-    ]
+    assert frankfurt[0]["articles"] == [{"framework": "POLICY", "article": "Policy EUSC-001"}]
 
     virginia = rows("aws.virginia")
     assert {f["check_id"] for f in virginia} == {
-        "EUGUARD_GDPR_001", "EUGUARD_GDPR_002",
+        "EUGUARD_GDPR_001",
+        "EUGUARD_GDPR_002",
     }
     assert next(f for f in virginia if f["check_id"] == "EUGUARD_GDPR_001")["articles"] == [
         {"framework": "POLICY", "article": "Policy EUSC-001"}
@@ -162,9 +166,7 @@ def test_secret_shape_fixture_covers_custom_and_stock_checks_live_cli(
     assert rc == 0
     findings = json.loads(capsys.readouterr().out)
 
-    custom_resources = {
-        f["resource"] for f in findings if f["check_id"] == "EUGUARD_NIS2_001"
-    }
+    custom_resources = {f["resource"] for f in findings if f["check_id"] == "EUGUARD_NIS2_001"}
     assert custom_resources == {
         "aws_db_instance.database",
         "aws_rds_cluster.rds",
@@ -180,27 +182,39 @@ def test_secret_shape_fixture_covers_custom_and_stock_checks_live_cli(
         "CKV_AWS_45": "aws_lambda_function.environment_shape",
     }
     for check_id, resource in stock_replacements.items():
-        assert any(
-            f["check_id"] == check_id and f["resource"] == resource
-            for f in findings
-        )
+        assert any(f["check_id"] == check_id and f["resource"] == resource for f in findings)
         assert not any(
-            f["check_id"] == "EUGUARD_NIS2_001" and f["resource"] == resource
-            for f in findings
+            f["check_id"] == "EUGUARD_NIS2_001" and f["resource"] == resource for f in findings
         )
 
 
 def test_scan_framework_filter_nis2(monkeypatch, tmp_path, repo_root, capsys):
-    run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / FIXTURE),
-            "--output", "json", "--framework", "nis2")
+    run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(repo_root / FIXTURE),
+        "--output",
+        "json",
+        "--framework",
+        "nis2",
+    )
     data = json.loads(capsys.readouterr().out)
     assert data
     assert all({a["framework"] for a in f["articles"]} == {"NIS2"} for f in data)
 
 
 def test_scan_framework_filter_gdpr(monkeypatch, tmp_path, repo_root, capsys):
-    run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / FIXTURE),
-            "--output", "json", "--framework", "gdpr")
+    run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(repo_root / FIXTURE),
+        "--output",
+        "json",
+        "--framework",
+        "gdpr",
+    )
     data = json.loads(capsys.readouterr().out)
     assert data
     assert all({a["framework"] for a in f["articles"]} == {"GDPR"} for f in data)
@@ -229,17 +243,16 @@ def test_framework_filter_excludes_articles_from_all_reporters(
 
 def test_scan_html_reports(monkeypatch, tmp_path, repo_root):
     for _ in range(2):
-        rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / FIXTURE),
-                     "--output", "all")
+        rc = run_cli(
+            monkeypatch, tmp_path, "--checkov-json", str(repo_root / FIXTURE), "--output", "all"
+        )
         assert rc == 0
     htmls = list(tmp_path.glob("reports/*.html"))
     assert len(htmls) == 6  # two each of dev, security, auditor; no overwrite
 
 
 @pytest.mark.parametrize("output", ["security", "auditor"])
-def test_html_output_file_creates_missing_parent(
-    monkeypatch, tmp_path, repo_root, output
-):
+def test_html_output_file_creates_missing_parent(monkeypatch, tmp_path, repo_root, output):
     out_file = tmp_path / "nested" / output / "report.html"
 
     rc = run_cli(
@@ -259,14 +272,22 @@ def test_html_output_file_creates_missing_parent(
 
 def test_concurrent_scans_do_not_overwrite_reports(tmp_path, repo_root):
     cmd = [
-        sys.executable, "-m", "tf_eu_guard.cli", "scan",
-        "--checkov-json", str(repo_root / FIXTURE), "--output", "all",
+        sys.executable,
+        "-m",
+        "tf_eu_guard.cli",
+        "scan",
+        "--checkov-json",
+        str(repo_root / FIXTURE),
+        "--output",
+        "all",
     ]
     with ThreadPoolExecutor(max_workers=2) as pool:
-        runs = list(pool.map(
-            lambda _: subprocess.run(cmd, cwd=tmp_path, capture_output=True, text=True),
-            range(2),
-        ))
+        runs = list(
+            pool.map(
+                lambda _: subprocess.run(cmd, cwd=tmp_path, capture_output=True, text=True),
+                range(2),
+            )
+        )
     assert all(run.returncode == 0 for run in runs), [run.stderr for run in runs]
     names = sorted(path.name for path in (tmp_path / "reports").glob("*.html"))
     assert len(names) == 6
@@ -295,22 +316,36 @@ def test_scan_iac_type_and_framework_both_apply(monkeypatch, tmp_path, repo_root
     """--iac-type (what to scan) and --framework (what to report) are independent."""
     k8s_doc = {
         "check_type": "kubernetes",
-        "results": {"failed_checks": [
-            {
-                # a registry-mapped K8s check that cites both frameworks
-                "check_id": "EUGUARD_NIS2_002",  # Kubernetes-specific registry mapping
-                "check_name": "check",
-                "resource": "Secret/app",
-                "file_path": "/secret.yaml",
-                "file_line_range": [0, 0],
-                "guideline": None,
-            },
-        ]},
+        "results": {
+            "failed_checks": [
+                {
+                    # a registry-mapped K8s check that cites both frameworks
+                    "check_id": "EUGUARD_NIS2_002",  # Kubernetes-specific registry mapping
+                    "check_name": "check",
+                    "resource": "Secret/app",
+                    "file_path": "/secret.yaml",
+                    "file_line_range": [0, 0],
+                    "guideline": None,
+                },
+            ]
+        },
     }
     f = tmp_path / "k8s.json"
-    f.write_text(json.dumps([{"check_type": "terraform", "results": {"failed_checks": []}}, k8s_doc]))
-    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(f),
-                 "--iac-type", "kubernetes", "--framework", "nis2", "--output", "json")
+    f.write_text(
+        json.dumps([{"check_type": "terraform", "results": {"failed_checks": []}}, k8s_doc])
+    )
+    rc = run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(f),
+        "--iac-type",
+        "kubernetes",
+        "--framework",
+        "nis2",
+        "--output",
+        "json",
+    )
     assert rc == 0
     data = json.loads(capsys.readouterr().out)
     assert len(data) == 1
@@ -323,30 +358,46 @@ def test_scan_iac_type_selects_matching_element(monkeypatch, tmp_path, repo_root
     """A mixed-framework JSON array yields the terraform element when iac_type=terraform."""
     tf_doc = {
         "check_type": "terraform",
-        "results": {"failed_checks": [{
-            "check_id": "CKV_AWS_18",  # registry-mapped
-            "check_name": "check",
-            "resource": "aws_x.y",
-            "file_path": "/a.tf",
-            "file_line_range": [1, 2],
-            "guideline": None,
-        }]},
+        "results": {
+            "failed_checks": [
+                {
+                    "check_id": "CKV_AWS_18",  # registry-mapped
+                    "check_name": "check",
+                    "resource": "aws_x.y",
+                    "file_path": "/a.tf",
+                    "file_line_range": [1, 2],
+                    "guideline": None,
+                }
+            ]
+        },
     }
     k8s_doc = {
         "check_type": "kubernetes",
-        "results": {"failed_checks": [{
-            "check_id": "CKV_AWS_18",  # same ID, kubernetes element
-            "check_name": "check",
-            "resource": "Pod/x",
-            "file_path": "/p.yaml",
-            "file_line_range": [1, 2],
-            "guideline": None,
-        }]},
+        "results": {
+            "failed_checks": [
+                {
+                    "check_id": "CKV_AWS_18",  # same ID, kubernetes element
+                    "check_name": "check",
+                    "resource": "Pod/x",
+                    "file_path": "/p.yaml",
+                    "file_line_range": [1, 2],
+                    "guideline": None,
+                }
+            ]
+        },
     }
     f = tmp_path / "mixed.json"
     f.write_text(json.dumps([k8s_doc, tf_doc]))
-    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(f),
-                 "--iac-type", "terraform", "--output", "json")
+    rc = run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(f),
+        "--iac-type",
+        "terraform",
+        "--output",
+        "json",
+    )
     assert rc == 0
     data = json.loads(capsys.readouterr().out)
     assert [d["resource"] for d in data] == ["aws_x.y"]
@@ -360,14 +411,18 @@ def test_scan_terraform_plan_takes_path_not_checkov_json(monkeypatch, tmp_path, 
         calls["target"], calls["iac_type"] = target, iac_type
         return {
             "check_type": "terraform_plan",
-            "results": {"failed_checks": [{
-                "check_id": "CKV_AWS_293",  # registry-mapped
-                "check_name": "check",
-                "resource": "aws_db_instance.main",
-                "file_path": "/plan.json",
-                "file_line_range": [0, 0],
-                "guideline": None,
-            }]},
+            "results": {
+                "failed_checks": [
+                    {
+                        "check_id": "CKV_AWS_293",  # registry-mapped
+                        "check_name": "check",
+                        "resource": "aws_db_instance.main",
+                        "file_path": "/plan.json",
+                        "file_line_range": [0, 0],
+                        "guideline": None,
+                    }
+                ]
+            },
         }
 
     # cli.py imports run_checkov from checkov_runner at scan time, so
@@ -376,8 +431,9 @@ def test_scan_terraform_plan_takes_path_not_checkov_json(monkeypatch, tmp_path, 
 
     plan = tmp_path / "plan.json"
     plan.write_text("{}")  # contents don't matter: run_checkov is stubbed
-    rc = run_cli(monkeypatch, tmp_path, str(plan),
-                 "--iac-type", "terraform_plan", "--output", "json")
+    rc = run_cli(
+        monkeypatch, tmp_path, str(plan), "--iac-type", "terraform_plan", "--output", "json"
+    )
     assert rc == 0
     assert calls["iac_type"] == "terraform_plan"
     assert Path(calls["target"]) == plan
@@ -388,8 +444,16 @@ def test_scan_terraform_plan_takes_path_not_checkov_json(monkeypatch, tmp_path, 
 
 def test_scan_terraform_plan_fixture(monkeypatch, tmp_path, repo_root, capsys):
     """Plan-mode scan: mapped findings with [0,0] line ranges degrade gracefully."""
-    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / PLAN_FIXTURE),
-                 "--iac-type", "terraform_plan", "--output", "json")
+    rc = run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(repo_root / PLAN_FIXTURE),
+        "--iac-type",
+        "terraform_plan",
+        "--output",
+        "json",
+    )
     assert rc == 0
     data = json.loads(capsys.readouterr().out)
     assert len(data) > 0
@@ -401,24 +465,43 @@ def test_scan_terraform_plan_fixture(monkeypatch, tmp_path, repo_root, capsys):
 
 def test_scan_kubernetes_fixture(monkeypatch, tmp_path, repo_root, capsys):
     """Kubernetes scan: kind/namespace/name resources, CKV_K8S_* mappings."""
-    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / K8S_FIXTURE),
-                 "--iac-type", "kubernetes", "--output", "json")
+    rc = run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(repo_root / K8S_FIXTURE),
+        "--iac-type",
+        "kubernetes",
+        "--output",
+        "json",
+    )
     assert rc == 0
     data = json.loads(capsys.readouterr().out)
     assert len(data) > 0
     # K8s resources render as Kind.namespace.name
     assert any(f["resource"].startswith("Pod.") for f in data)
     # the K8s registry namespace is mapped
-    assert any(f["check_id"].startswith("CKV_K8S") or f["check_id"].startswith("CKV2_K8S")
-               for f in data)
+    assert any(
+        f["check_id"].startswith("CKV_K8S") or f["check_id"].startswith("CKV2_K8S") for f in data
+    )
     # the custom K8s secrets check fires and enriches
     assert any(f["check_id"] == "EUGUARD_NIS2_002" for f in data)
 
 
 def test_scan_kubernetes_framework_filter(monkeypatch, tmp_path, repo_root, capsys):
     """--framework composes with --iac-type kubernetes."""
-    run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / K8S_FIXTURE),
-            "--iac-type", "kubernetes", "--framework", "gdpr", "--output", "json")
+    run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(repo_root / K8S_FIXTURE),
+        "--iac-type",
+        "kubernetes",
+        "--framework",
+        "gdpr",
+        "--output",
+        "json",
+    )
     data = json.loads(capsys.readouterr().out)
     assert all(any(a["framework"] == "GDPR" for a in f["articles"]) for f in data)
 

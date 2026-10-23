@@ -92,9 +92,7 @@ def _scan_codebuild_env(conf: dict) -> bool:
         return False
     variables = environment.get("environment_variable", [])
     for variable in _iter_mapping_values(variables):
-        variable_type = str(
-            unwrap_checkov_scalar(variable.get("type")) or "PLAINTEXT"
-        ).upper()
+        variable_type = str(unwrap_checkov_scalar(variable.get("type")) or "PLAINTEXT").upper()
         if variable_type in _SECRET_REFERENCE_TYPES:
             continue
         name = unwrap_checkov_scalar(variable.get("name"))

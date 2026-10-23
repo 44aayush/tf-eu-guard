@@ -86,9 +86,7 @@ class DevReporter(BaseReporter):
                     )
                     report_lines.append(f"    Compliance: {articles_str}")
 
-                report_lines.append(
-                    f"\n    [dim]{escape(str(finding.risk_explanation))}[/dim]"
-                )
+                report_lines.append(f"\n    [dim]{escape(str(finding.risk_explanation))}[/dim]")
 
                 if finding.remediation:
                     report_lines.append("\n    [bold]Fix:[/bold]")
@@ -105,9 +103,7 @@ class DevReporter(BaseReporter):
         return report_text
 
 
-def generate_dev_report(
-    findings: list[EnrichedFinding], unmapped_count: int = 0
-) -> None:
+def generate_dev_report(findings: list[EnrichedFinding], unmapped_count: int = 0) -> None:
     """
     Generate and print developer-focused terminal report.
 
@@ -186,22 +182,19 @@ def generate_dev_report(
             # Compliance articles
             if finding.articles:
                 articles_str = ", ".join(
-                    f"[bold]{escape(str(a.framework.value))}[/bold] "
-                    f"{escape(str(a.article))}"
+                    f"[bold]{escape(str(a.framework.value))}[/bold] {escape(str(a.article))}"
                     for a in sorted_articles(finding)
                 )
                 console.print(f"    [dim]Compliance:[/dim] {articles_str}")
 
             # Risk explanation
-            console.print(
-                f"\n    [italic]{escape(str(finding.risk_explanation))}[/italic]"
-            )
+            console.print(f"\n    [italic]{escape(str(finding.risk_explanation))}[/italic]")
 
             # Remediation
             if finding.remediation:
                 console.print("\n    [bold]Remediation:[/bold]")
                 # Indent remediation code
-                for line in finding.remediation.strip().split('\n'):
+                for line in finding.remediation.strip().split("\n"):
                     console.print(f"      [dim]{escape(line)}[/dim]")
 
             # Guideline link — scheme-validated: a javascript: guideline must

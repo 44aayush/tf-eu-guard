@@ -97,11 +97,7 @@ def test_check_counts_computed_from_live_registry(registry):
     registry_extra["CKV_TEST_EXTRA"] = ComplianceMapping(
         check_id="CKV_TEST_EXTRA",
         check_name="test",
-        articles=[
-            ArticleReference(
-                framework=Framework.NIS2, article="Art. 21(2)(h)", title="x"
-            )
-        ],
+        articles=[ArticleReference(framework=Framework.NIS2, article="Art. 21(2)(h)", title="x")],
         risk_explanation="r",
         remediation="r",
         severity=Severity.HIGH,
@@ -166,9 +162,13 @@ def test_doc_check_detects_drift(registry, tmp_path, monkeypatch, capsys):
     doc = generate_coverage_doc.DOC_PATH
     original = doc.read_text(encoding="utf-8")
     monkeypatch.setattr(
-        generate_coverage_doc.Path, "read_text",
-        lambda self, *a, **kw: original.replace("15 requirements", "99 requirements")
-        if self == doc else Path.read_text(self, *a, **kw),
+        generate_coverage_doc.Path,
+        "read_text",
+        lambda self, *a, **kw: (
+            original.replace("15 requirements", "99 requirements")
+            if self == doc
+            else Path.read_text(self, *a, **kw)
+        ),
     )
     assert generate_coverage_doc.main_check() == 1
     assert "out of sync" in capsys.readouterr().err
@@ -176,9 +176,7 @@ def test_doc_check_detects_drift(registry, tmp_path, monkeypatch, capsys):
 
 def test_doc_check_fails_when_doc_missing(tmp_path, capsys, monkeypatch):
     """No doc file -> explicit failure telling you to generate it."""
-    monkeypatch.setattr(
-        generate_coverage_doc, "DOC_PATH", tmp_path / "missing.md"
-    )
+    monkeypatch.setattr(generate_coverage_doc, "DOC_PATH", tmp_path / "missing.md")
     assert generate_coverage_doc.main_check() == 1
     assert "does not exist" in capsys.readouterr().err
 

@@ -8,6 +8,7 @@ rejected by GitHub Code Scanning.
 
 import json
 from pathlib import Path
+from typing import Any
 from urllib.parse import unquote
 
 import pytest
@@ -26,27 +27,43 @@ SCHEMA_PATH = Path(__file__).parent / "schemas" / "sarif-2.1.0.json"
 jsonschema = pytest.importorskip("jsonschema", reason="jsonschema not installed")
 
 
-def make_finding(**overrides) -> EnrichedFinding:
-    defaults = dict(
-        check_id="CKV_AWS_18",
-        check_name="Ensure S3 bucket has encryption enabled",
-        resource="aws_s3_bucket.data",
-        file_path="main.tf",
-        file_line_range=[10, 20],
-        guideline="https://docs.bridgecrew.io/docs/s3-encryption",
-        articles=[
+_DEFAULT_LINE_RANGE = object()
+
+
+def make_finding(
+    check_id: str = "CKV_AWS_18",
+    check_name: str = "Ensure S3 bucket has encryption enabled",
+    resource: str = "aws_s3_bucket.data",
+    file_path: str = "main.tf",
+    file_line_range: Any = _DEFAULT_LINE_RANGE,
+    guideline: str | None = "https://docs.bridgecrew.io/docs/s3-encryption",
+    articles: list[ArticleReference] | None = None,
+    risk_explanation: str = "Unencrypted bucket.",
+    remediation: str = "Enable encryption.",
+    severity: Severity = Severity.HIGH,
+) -> EnrichedFinding:
+    if file_line_range is _DEFAULT_LINE_RANGE:
+        file_line_range = [10, 20]
+    if articles is None:
+        articles = [
             ArticleReference(
                 Framework.GDPR,
                 "Art. 32(1)(a)",
                 "Pseudonymisation and encryption of personal data",
             )
-        ],
-        risk_explanation="Unencrypted bucket.",
-        remediation="Enable encryption.",
-        severity=Severity.HIGH,
+        ]
+    return EnrichedFinding(
+        check_id=check_id,
+        check_name=check_name,
+        resource=resource,
+        file_path=file_path,
+        file_line_range=file_line_range,
+        guideline=guideline,
+        articles=articles,
+        risk_explanation=risk_explanation,
+        remediation=remediation,
+        severity=severity,
     )
-    defaults.update(overrides)
-    return EnrichedFinding(**defaults)
 
 
 @pytest.fixture(scope="module")
@@ -56,9 +73,7 @@ def sarif_schema():
 
 @pytest.fixture(scope="module")
 def validator(sarif_schema):
-    return jsonschema.Draft7Validator(
-        sarif_schema, format_checker=jsonschema.FormatChecker()
-    )
+    return jsonschema.Draft7Validator(sarif_schema, format_checker=jsonschema.FormatChecker())
 
 
 @pytest.fixture
@@ -90,13 +105,15 @@ def test_document_validates_against_sarif_schema(validator, findings):
 
 
 def test_document_validates_with_unmapped_findings(validator, findings):
-    unmapped = [{
-        "check_id": "CKV_UNMAPPED_999",
-        "check_name": "A check with no EU mapping",
-        "resource": "aws_example.thing",
-        "file_path": "other.tf",
-        "file_line_range": [3, 4],
-    }]
+    unmapped = [
+        {
+            "check_id": "CKV_UNMAPPED_999",
+            "check_name": "A check with no EU mapping",
+            "resource": "aws_example.thing",
+            "file_path": "other.tf",
+            "file_line_range": [3, 4],
+        }
+    ]
     document = build_sarif(findings, unmapped=unmapped)
     validator.validate(document)
 
@@ -171,8 +188,8 @@ def test_result_fields_carry_regulatory_metadata(findings):
 )
 def test_unsafe_guideline_is_omitted_from_sarif(guideline):
     document = build_sarif([make_finding(guideline=guideline)])
-    rule, = document["runs"][0]["tool"]["driver"]["rules"]
-    result, = document["runs"][0]["results"]
+    (rule,) = document["runs"][0]["tool"]["driver"]["rules"]
+    (result,) = document["runs"][0]["results"]
     assert "helpUri" not in rule
     assert "guideline" not in result["properties"]
 
@@ -189,13 +206,15 @@ def test_rule_carries_regulatory_metadata(findings):
 
 
 def test_unmapped_results_are_note_level_and_tagged(validator):
-    unmapped = [{
-        "check_id": "CKV_UNMAPPED_999",
-        "check_name": "A check with no EU mapping",
-        "resource": "aws_example.thing",
-        "file_path": "other.tf",
-        "file_line_range": [3, 4],
-    }]
+    unmapped = [
+        {
+            "check_id": "CKV_UNMAPPED_999",
+            "check_name": "A check with no EU mapping",
+            "resource": "aws_example.thing",
+            "file_path": "other.tf",
+            "file_line_range": [3, 4],
+        }
+    ]
     document = build_sarif([], unmapped=unmapped)
     validator.validate(document)
     run = document["runs"][0]
@@ -203,9 +222,7 @@ def test_unmapped_results_are_note_level_and_tagged(validator):
     assert result["level"] == "note"
     assert result["properties"]["mapped"] is False
     assert result["properties"]["resource"] == "aws_example.thing"
-    assert result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == (
-        "other.tf"
-    )
+    assert result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == ("other.tf")
     assert "remediation" not in result["properties"]
     assert "no current EU regulatory mapping" in result["message"]["text"]
     (rule,) = run["tool"]["driver"]["rules"]
@@ -270,19 +287,19 @@ def test_checkov_scan_relative_path_becomes_repository_relative(validator, tmp_p
     )
 
 
-def test_path_outside_repository_is_retained_without_unsafe_location(
-    validator, tmp_path
-):
+def test_path_outside_repository_is_retained_without_unsafe_location(validator, tmp_path):
     repo = tmp_path / "checkout"
     scan = repo / "examples" / "vulnerable-aws"
     scan.mkdir(parents=True)
-    unmapped = [{
-        "check_id": "CKV_UNMAPPED_999",
-        "check_name": "A check with no EU mapping",
-        "resource": "aws_example.thing",
-        "file_path": "../../../../outside.tf",
-        "file_line_range": [3, 4],
-    }]
+    unmapped = [
+        {
+            "check_id": "CKV_UNMAPPED_999",
+            "check_name": "A check with no EU mapping",
+            "resource": "aws_example.thing",
+            "file_path": "../../../../outside.tf",
+            "file_line_range": [3, 4],
+        }
+    ]
 
     document = build_sarif(
         [make_finding(file_path="../../../../outside.tf")],
@@ -320,9 +337,12 @@ def test_cli_sarif_output_validates(monkeypatch, tmp_path, repo_root, capsys, va
     monkeypatch.setattr(
         "sys.argv",
         [
-            "tf-eu-guard", "scan",
-            "--checkov-json", str(repo_root / "tests/fixtures/checkov-vulnerable-tf.json"),
-            "--output", "sarif",
+            "tf-eu-guard",
+            "scan",
+            "--checkov-json",
+            str(repo_root / "tests/fixtures/checkov-vulnerable-tf.json"),
+            "--output",
+            "sarif",
         ],
     )
     assert main() == 0
@@ -345,9 +365,13 @@ def test_cli_source_scan_uses_repository_relative_locations(
     monkeypatch.setattr(
         "sys.argv",
         [
-            "tf-eu-guard", "scan", str(repo_root / "examples" / "vulnerable-aws"),
-            "--checkov-json", str(repo_root / "tests/fixtures/checkov-vulnerable-tf.json"),
-            "--output", "sarif",
+            "tf-eu-guard",
+            "scan",
+            str(repo_root / "examples" / "vulnerable-aws"),
+            "--checkov-json",
+            str(repo_root / "tests/fixtures/checkov-vulnerable-tf.json"),
+            "--output",
+            "sarif",
         ],
     )
     assert main() == 0
@@ -369,9 +393,14 @@ def test_cli_sarif_output_file(monkeypatch, tmp_path, repo_root, capsys, validat
     monkeypatch.setattr(
         "sys.argv",
         [
-            "tf-eu-guard", "scan",
-            "--checkov-json", str(repo_root / "tests/fixtures/checkov-vulnerable-tf.json"),
-            "--output", "sarif", "--output-file", str(out_file),
+            "tf-eu-guard",
+            "scan",
+            "--checkov-json",
+            str(repo_root / "tests/fixtures/checkov-vulnerable-tf.json"),
+            "--output",
+            "sarif",
+            "--output-file",
+            str(out_file),
         ],
     )
     assert main() == 0

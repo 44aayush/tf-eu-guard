@@ -48,9 +48,7 @@ CATEGORY_BADGES = {
 }
 
 CATEGORY_BLURBS = {
-    CoverageCategory.AUTOMATED: (
-        "The tool can directly evaluate this from IaC input today."
-    ),
+    CoverageCategory.AUTOMATED: ("The tool can directly evaluate this from IaC input today."),
     CoverageCategory.PARTIAL: (
         "The technical config provides evidence for only part of the "
         "requirement; the rest needs non-IaC evidence."
@@ -101,20 +99,15 @@ def render_doc() -> str:
 
     summary_bits = []
     if summary[CoverageCategory.AUTOMATED.value]:
-        summary_bits.append(
-            f"{summary[CoverageCategory.AUTOMATED.value]} automated"
-        )
+        summary_bits.append(f"{summary[CoverageCategory.AUTOMATED.value]} automated")
     if summary[CoverageCategory.PARTIAL.value]:
         summary_bits.append(f"{summary[CoverageCategory.PARTIAL.value]} partial")
     if summary[CoverageCategory.MANUAL.value]:
         summary_bits.append(f"{summary[CoverageCategory.MANUAL.value]} manual")
     if summary[CoverageCategory.NOT_COVERED.value]:
-        summary_bits.append(
-            f"{summary[CoverageCategory.NOT_COVERED.value]} not covered"
-        )
+        summary_bits.append(f"{summary[CoverageCategory.NOT_COVERED.value]} not covered")
     lines.append(
-        f"**Summary: {len(coverage)} requirements inventoried — "
-        f"{' · '.join(summary_bits)}.**"
+        f"**Summary: {len(coverage)} requirements inventoried — {' · '.join(summary_bits)}.**"
     )
     lines.append("")
 
@@ -139,7 +132,9 @@ def render_doc() -> str:
         for requirement in coverage:
             if requirement.framework.value != framework:
                 continue
-            lines.append(f"### {requirement.framework.value} Art. {requirement.article} — {requirement.title}")
+            lines.append(
+                f"### {requirement.framework.value} Art. {requirement.article} — {requirement.title}"
+            )
             lines.append("")
             lines.append(f"{CATEGORY_BADGES[requirement.category]}")
             lines.append("")
@@ -147,9 +142,7 @@ def render_doc() -> str:
             if requirement.checks:
                 lines.append("")
                 checks = ", ".join(f"`{c}`" for c in requirement.checks)
-                lines.append(
-                    f"Mapped checks ({requirement.check_count}): {checks}."
-                )
+                lines.append(f"Mapped checks ({requirement.check_count}): {checks}.")
             lines.append("")
 
     lines.append("---")
