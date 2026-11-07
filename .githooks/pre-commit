@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Bootstrap the project development environment with uv, then run the local
+# quality gate before allowing a commit.
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+if ! command -v uv >/dev/null 2>&1; then
+  echo "pre-commit: uv is required; install uv and retry" >&2
+  exit 1
+fi
+
+VENV_DIR="${UV_PROJECT_ENVIRONMENT:-.venv}"
+VENV_PYTHON="$VENV_DIR/bin/python"
+
+if [ ! -x "$VENV_PYTHON" ]; then
+  echo "pre-commit: creating $VENV_DIR with Python 3.11+ via uv"
+  uv venv --python 3.11 "$VENV_DIR"
+fi
+
+echo "pre-commit: installing project development tools via uv"
+uv pip install --python "$VENV_PYTHON" -e ".[dev]"
+
+status=0
+
+run_check() {
+  local name="$1"
+  shift
+  echo "pre-commit: running $name"
+  if ! "$@"; then
+    status=1
+  fi
+}
+
+run_check "ruff format" "$VENV_DIR/bin/ruff" format .
+run_check ruff "$VENV_DIR/bin/ruff" check .
+run_check mypy "$VENV_DIR/bin/mypy" .
+
+exit "$status"

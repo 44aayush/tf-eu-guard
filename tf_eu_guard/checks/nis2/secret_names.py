@@ -8,30 +8,45 @@ import re
 # as ``data.aws_secretsmanager_secret_version.db.secret_string`` and
 # ``aws_ssm_parameter.password.value`` are references too, not credentials
 # embedded in the configuration.
-_REFERENCE_TRAVERSAL = re.compile(
-    r"^[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_-]*)+$"
-)
+_REFERENCE_TRAVERSAL = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_-]*)+$")
 _INTERPOLATION = re.compile(r"\$\{[^{}]+\}")
-_REFERENCE_ROOTS = frozenset({
-    "count", "data", "each", "local", "module", "path", "self", "terraform", "var",
-})
+_REFERENCE_ROOTS = frozenset(
+    {
+        "count",
+        "data",
+        "each",
+        "local",
+        "module",
+        "path",
+        "self",
+        "terraform",
+        "var",
+    }
+)
 
 # Match complete underscore-delimited tokens, not arbitrary substrings: a
 # name such as ``MONKEY`` is not a credential merely because it ends in KEY.
-_SENSITIVE_TOKENS = frozenset({
-    "PASSWORD",
-    "PASSWD",
-    "PWD",
-    "SECRET",
-    "TOKEN",
-    "KEY",
-    "APIKEY",
-    "CREDENTIAL",
-    "CREDENTIALS",
-})
+_SENSITIVE_TOKENS = frozenset(
+    {
+        "PASSWORD",
+        "PASSWD",
+        "PWD",
+        "SECRET",
+        "TOKEN",
+        "KEY",
+        "APIKEY",
+        "CREDENTIAL",
+        "CREDENTIALS",
+    }
+)
 _NON_SECRET_EXACT_NAMES = frozenset({"PWD", "OLDPWD"})
 _NON_SECRET_SUFFIXES = (
-    "_URL", "_ENDPOINT", "_NAME", "_ARN", "_FILE", "_PATH",
+    "_URL",
+    "_ENDPOINT",
+    "_NAME",
+    "_ARN",
+    "_FILE",
+    "_PATH",
 )
 
 
@@ -49,8 +64,7 @@ def is_sensitive_env_name(name: str) -> bool:
         return False
     tokens = set(re.split(r"[^A-Z0-9]+", normalized))
     sensitive = bool(tokens & _SENSITIVE_TOKENS) or any(
-        compound in normalized
-        for compound in ("APIKEY", "ACCESS_KEY", "PRIVATE_KEY")
+        compound in normalized for compound in ("APIKEY", "ACCESS_KEY", "PRIVATE_KEY")
     )
     if normalized.endswith(_NON_SECRET_SUFFIXES):
         return False

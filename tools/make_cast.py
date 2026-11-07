@@ -6,6 +6,7 @@ The cast types the command (e.g. `tf-eu-guard scan examples/vulnerable-aws/ --ou
 with per-keystroke timing, then streams the captured report output in realistic chunks.
 Play with `asciinema play <demo.cast>` or embed via https://asciinema.org.
 """
+
 import json
 import sys
 import time
@@ -14,7 +15,11 @@ from pathlib import Path
 
 def main() -> None:
     src, dst = Path(sys.argv[1]), Path(sys.argv[2])
-    command = sys.argv[3] if len(sys.argv) > 3 else "tf-eu-guard scan examples/vulnerable-aws/ --output dev"
+    command = (
+        sys.argv[3]
+        if len(sys.argv) > 3
+        else "tf-eu-guard scan examples/vulnerable-aws/ --output dev"
+    )
     ansi = src.read_text()
 
     events: list[list] = []  # [elapsed, "o", data]

@@ -19,9 +19,7 @@ from tf_eu_guard.reporting.security_report import generate_security_report
 from tf_eu_guard.reporting.sorting import sort_findings, sorted_articles
 
 
-def render_json_report(
-    findings: list[EnrichedFinding], unmapped: list[dict[str, Any]]
-) -> None:
+def render_json_report(findings: list[EnrichedFinding], unmapped: list[dict[str, Any]]) -> None:
     """Print the mapped findings as the JSON report."""
     output = [
         {
@@ -110,11 +108,7 @@ def render_html_reports(
         "security": (f"scan_report_{timestamp_suffix}.html", generate_security_report),
         "auditor": (f"auditor_report_{timestamp_suffix}.html", generate_auditor_report),
     }
-    report_kinds = (
-        ["dev", "security", "auditor"]
-        if args.output == "all"
-        else [args.output]
-    )
+    report_kinds = ["dev", "security", "auditor"] if args.output == "all" else [args.output]
 
     written_paths = []
     for report_kind in report_kinds:
@@ -137,11 +131,7 @@ def render_html_reports(
         )
         written_paths.append(output_path)
 
-    label = (
-        "Reports"
-        if len(written_paths) > 1
-        else f"{args.output.capitalize()} report"
-    )
+    label = "Reports" if len(written_paths) > 1 else f"{args.output.capitalize()} report"
     print(f"{label} written ({len(findings)} findings):")
     for output_path in written_paths:
         print(f"  {output_path}")

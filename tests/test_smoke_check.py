@@ -210,6 +210,7 @@ def test_scan_invalid_json_raises(monkeypatch):
 
 def test_scan_non_array_json_raises(monkeypatch):
     """A JSON object (not an array) is a contract violation, not a count."""
+
     def fake_run(cmd, **kwargs):
         return subprocess.CompletedProcess(cmd, 0, stdout='{"results": {}}', stderr="")
 

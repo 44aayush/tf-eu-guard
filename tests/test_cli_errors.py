@@ -52,9 +52,7 @@ def test_exit_code_for_maps_exceptions():
     assert _exit_code_for(json.JSONDecodeError("malformed", "{}", 0)) == EXIT_INVALID_INPUT
     assert _exit_code_for(FileNotFoundError("no such file")) == EXIT_INVALID_INPUT
     assert _exit_code_for(RegistryValidationError("schema violation")) == EXIT_RUNTIME_FAILURE
-    assert _exit_code_for(
-        subprocess.CalledProcessError(2, "checkov")
-    ) == EXIT_RUNTIME_FAILURE
+    assert _exit_code_for(subprocess.CalledProcessError(2, "checkov")) == EXIT_RUNTIME_FAILURE
     assert _exit_code_for(RuntimeError("unexpected")) == EXIT_RUNTIME_FAILURE
 
 
@@ -66,9 +64,7 @@ def test_exit_code_for_maps_exceptions():
     ],
     ids=["schema-error", "unhashable-key"],
 )
-def test_malformed_registry_exits_3(
-    monkeypatch, tmp_path, capsys, registry_text, expected_error
-):
+def test_malformed_registry_exits_3(monkeypatch, tmp_path, capsys, registry_text, expected_error):
     """A malformed packaged registry is a runtime failure."""
     fake_package = tmp_path / "fake_pkg"
     mapping_dir = fake_package / "mapping"
@@ -87,6 +83,7 @@ def test_malformed_registry_exits_3(
 
 def test_checkov_crash_exits_3(monkeypatch, tmp_path, capsys):
     """A Checkov process failure is a runtime failure."""
+
     def fake_run_checkov(target, iac_type="terraform"):
         raise subprocess.CalledProcessError(2, ["checkov"])
 
@@ -100,14 +97,17 @@ def test_checkov_crash_exits_3(monkeypatch, tmp_path, capsys):
 def test_malformed_checkov_json_exits_2(monkeypatch, tmp_path):
     finding_file = tmp_path / "garbage.json"
     finding_file.write_text("{not json")
-    assert run_cli(
-        monkeypatch,
-        tmp_path,
-        "--checkov-json",
-        str(finding_file),
-        "--output",
-        "json",
-    ) == EXIT_INVALID_INPUT
+    assert (
+        run_cli(
+            monkeypatch,
+            tmp_path,
+            "--checkov-json",
+            str(finding_file),
+            "--output",
+            "json",
+        )
+        == EXIT_INVALID_INPUT
+    )
 
 
 def test_checkov_json_directory_exits_2(monkeypatch, tmp_path, capsys):
@@ -144,14 +144,17 @@ def test_checkov_json_permission_error_exits_2(monkeypatch, tmp_path, capsys):
 def test_malformed_checkov_shape_exits_2(monkeypatch, tmp_path):
     finding_file = tmp_path / "wrong-shape.json"
     finding_file.write_text(json.dumps({"results": {"failed_checks": "not-a-list"}}))
-    assert run_cli(
-        monkeypatch,
-        tmp_path,
-        "--checkov-json",
-        str(finding_file),
-        "--output",
-        "json",
-    ) == EXIT_INVALID_INPUT
+    assert (
+        run_cli(
+            monkeypatch,
+            tmp_path,
+            "--checkov-json",
+            str(finding_file),
+            "--output",
+            "json",
+        )
+        == EXIT_INVALID_INPUT
+    )
 
 
 @pytest.mark.parametrize(
@@ -216,9 +219,7 @@ def test_symlink_outside_scan_root_exits_2(monkeypatch, tmp_path, repo_root, cap
     assert "resolves outside scan root" in capsys.readouterr().err
 
 
-def test_malformed_registry_injected_into_cli_exits_3(
-    monkeypatch, tmp_path, capsys, repo_root
-):
+def test_malformed_registry_injected_into_cli_exits_3(monkeypatch, tmp_path, capsys, repo_root):
     empty_registry = tmp_path / "empty-mapping"
     empty_registry.mkdir()
     source = repo_root / FIXTURE

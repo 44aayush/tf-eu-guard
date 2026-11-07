@@ -28,7 +28,8 @@ def find_gate_failures(
     threshold = Severity(args.fail_on_severity)
     threshold_rank = SEVERITIES_LOW_TO_HIGH.index(threshold)
     return [
-        finding for finding in findings
+        finding
+        for finding in findings
         if SEVERITIES_LOW_TO_HIGH.index(finding.severity) >= threshold_rank
     ]
 

@@ -64,9 +64,7 @@ def test_split_findings_keeps_unmapped_aside(registry, sample_finding):
     enrich_findings alone would drop it."""
     mapped_cid = next(iter(registry))
     unmapped = sample_finding("CKV_AWS_DOES_NOT_EXIST_999")
-    enriched, unmapped_out = split_findings(
-        [sample_finding(mapped_cid), unmapped], registry
-    )
+    enriched, unmapped_out = split_findings([sample_finding(mapped_cid), unmapped], registry)
     assert [f.check_id for f in enriched] == [mapped_cid]
     assert unmapped_out == [unmapped]
 
@@ -75,8 +73,10 @@ def test_split_findings_preserves_unmapped_fields(registry, sample_finding):
     """The raw Checkov dict survives untouched — resource, file, lines — so a
     caller can render it without re-running Checkov."""
     raw = sample_finding(
-        "CKV_AWS_10", resource="aws_iam_account_password_policy.weak",
-        file_path="/main.tf", file_line_range=[3, 12],
+        "CKV_AWS_10",
+        resource="aws_iam_account_password_policy.weak",
+        file_path="/main.tf",
+        file_line_range=[3, 12],
     )
     _, unmapped = split_findings([raw], registry)
     assert unmapped == [raw]
@@ -92,7 +92,8 @@ def test_split_findings_partitions_every_finding(registry, sample_finding):
     """No finding is lost or duplicated: mapped + unmapped == input count."""
     known = list(registry)[:3]
     findings = [sample_finding(c) for c in known] + [
-        sample_finding("CKV_AWS_UNMAPPED_1"), sample_finding("CKV_AWS_UNMAPPED_2")
+        sample_finding("CKV_AWS_UNMAPPED_1"),
+        sample_finding("CKV_AWS_UNMAPPED_2"),
     ]
     enriched, unmapped = split_findings(findings, registry)
     assert len(enriched) + len(unmapped) == len(findings)

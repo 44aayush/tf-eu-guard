@@ -57,14 +57,8 @@ GDPR_TITLES: dict[str, str] = {
 #: these in one table prevents the auditor report from inheriting whichever
 #: registry happened to be loaded first.
 ARTICLE_TITLES: dict[tuple[Framework, str], str] = {
-    **{
-        (Framework.NIS2, f"Art. 21(2)({letter})"): title
-        for letter, title in NIS2_TITLES.items()
-    },
-    **{
-        (Framework.GDPR, f"Art. {article}"): title
-        for article, title in GDPR_TITLES.items()
-    },
+    **{(Framework.NIS2, f"Art. 21(2)({letter})"): title for letter, title in NIS2_TITLES.items()},
+    **{(Framework.GDPR, f"Art. {article}"): title for article, title in GDPR_TITLES.items()},
     (Framework.POLICY, "Policy EUSC-001"): "AWS European Sovereign Cloud deployment policy",
 }
 
@@ -72,6 +66,7 @@ ARTICLE_TITLES: dict[tuple[Framework, str], str] = {
 def canonical_article_title(framework: Framework, article: str) -> str | None:
     """Return the authoritative title for an article reference."""
     return ARTICLE_TITLES.get((framework, article))
+
 
 # ---------------------------------------------------------------------------
 # The inventory. Authored once: classifications and rationales are human

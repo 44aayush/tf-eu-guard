@@ -34,9 +34,7 @@ from tf_eu_guard.models import Framework, Severity
 # top-level article like "Art. 44" (GDPR Chapter V transfers have no numbered
 # paragraph). Project policy references use the same registry article field but
 # are explicitly outside the regulatory article inventory.
-ARTICLE_RE = re.compile(
-    r"^(?:Art\. \d+(\(\d+\))?(\([a-z]\))?|Policy [A-Za-z0-9_.-]+)$"
-)
+ARTICLE_RE = re.compile(r"^(?:Art\. \d+(\(\d+\))?(\([a-z]\))?|Policy [A-Za-z0-9_.-]+)$")
 # Stock Checkov ids ("CKV_AWS_18", "CKV2_AWS_6", "CKV_K8S_16", "CKV2_K8S_6")
 # plus tf-eu-guard's custom EU-compliance checks ("EUGUARD_GDPR_001",
 # "EUGUARD_GDPR_002", "EUGUARD_NIS2_001").
@@ -108,7 +106,9 @@ def test_registry_titles_match_canonical_article_table(repo_root):
                 key = (article["framework"], article["article"])
                 seen.setdefault(key, set()).add(article["title"])
                 canonical = ARTICLE_TITLES[(Framework(article["framework"]), article["article"])]
-                assert article["title"] == canonical, f"{path.name}:{check_id} has non-canonical title"
+                assert article["title"] == canonical, (
+                    f"{path.name}:{check_id} has non-canonical title"
+                )
     assert all(len(titles) == 1 for titles in seen.values())
 
 
@@ -121,7 +121,7 @@ def test_registry_risk_text_does_not_make_unsupported_legal_conclusions(repo_roo
         for check_id, entry in raw.items():
             text = entry.get("risk", "")
             for match in pattern.finditer(text):
-                window = text[max(0, match.start() - 40):match.end() + 40]
+                window = text[max(0, match.start() - 40) : match.end() + 40]
                 assert "Art." not in window, (
                     f"unsupported legal wording in {path.name}:{check_id}: {window!r}"
                 )
@@ -133,14 +133,10 @@ def test_registry_risk_citations_are_declared_in_articles(repo_root):
     for path in sorted((repo_root / "tf_eu_guard" / "mapping").glob("registry-*.yaml")):
         raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         for check_id, entry in raw.items():
-            declared = {
-                (article["framework"], article["article"])
-                for article in entry["articles"]
-            }
+            declared = {(article["framework"], article["article"]) for article in entry["articles"]}
             cited = set(citation.findall(entry.get("risk", "")))
             assert cited <= declared, (
-                f"undeclared risk citation in {path.name}:{check_id}: "
-                f"{sorted(cited - declared)}"
+                f"undeclared risk citation in {path.name}:{check_id}: {sorted(cited - declared)}"
             )
 
 
@@ -173,6 +169,7 @@ def test_encryption_maps_to_nis2_h_and_gdpr_a(registry, cid):
 
 # --- Phase 3: custom EU-specific checks are mapped -----------------------------
 
+
 @pytest.mark.parametrize(
     "cid",
     ["EUGUARD_GDPR_001", "EUGUARD_GDPR_002", "EUGUARD_NIS2_001"],
@@ -191,8 +188,7 @@ def test_region_checks_separate_sovereignty_policy_from_transfers(registry):
     """Commercial EU policy failures must not be labelled as Chapter V transfers."""
     assert _gdpr(registry["EUGUARD_GDPR_001"]) == set()
     assert {
-        (article.framework, article.article)
-        for article in registry["EUGUARD_GDPR_001"].articles
+        (article.framework, article.article) for article in registry["EUGUARD_GDPR_001"].articles
     } == {(Framework.POLICY, "Policy EUSC-001")}
     assert _gdpr(registry["EUGUARD_GDPR_002"]) == {"Art. 44"}
 
@@ -200,12 +196,14 @@ def test_region_checks_separate_sovereignty_policy_from_transfers(registry):
 def test_canonical_titles_cover_corrected_articles(registry):
     assert registry["CKV_AWS_163"].articles
     gdpr_b = [
-        a for a in registry["CKV_AWS_163"].articles
+        a
+        for a in registry["CKV_AWS_163"].articles
         if a.framework is Framework.GDPR and a.article == "Art. 32(1)(b)"
     ]
     assert gdpr_b and gdpr_b[0].title == ARTICLE_TITLES[(Framework.GDPR, "Art. 32(1)(b)")]
     nis2_g = [
-        a for a in registry.values()
+        a
+        for a in registry.values()
         for a in a.articles
         if a.framework is Framework.NIS2 and a.article == "Art. 21(2)(g)"
     ]
@@ -231,7 +229,7 @@ def test_kubernetes_secret_mapping_is_kubernetes_specific(registry):
     remediation = registry["EUGUARD_NIS2_002"].remediation
     assert "secretKeyRef" in remediation
     assert "aws_" not in remediation
-    assert "resource \"" not in remediation
+    assert 'resource "' not in remediation
 
 
 def test_remediations_match_eusc_region_policy(registry):
@@ -343,9 +341,18 @@ def test_runtime_registry_rejects_missing_namespace(tmp_path, repo_root):
         ("- one\n- two\n", r"registry-bad.yaml"),
         ("CKV_X:\n", r"registry-bad.yaml:CKV_X"),
         ("CKV_X: string\n", r"registry-bad.yaml:CKV_X"),
-        ("CKV_X:\n  check_name: x\n  articles: [null]\n  risk: r\n  remediation: fix\n  severity: LOW\n", r"registry-bad.yaml:CKV_X"),
-        ("CKV_X:\n  check_name: x\n  articles:\n    - framework: GDPR\n      article: lol\n      title: t\n  risk: r\n  remediation: fix\n  severity: LOW\n", r"registry-bad.yaml:CKV_X"),
-        ("CKV_X:\n  check_name: [x]\n  articles: []\n  risk: r\n  remediation: fix\n  severity: LOW\n", r"registry-bad.yaml:CKV_X"),
+        (
+            "CKV_X:\n  check_name: x\n  articles: [null]\n  risk: r\n  remediation: fix\n  severity: LOW\n",
+            r"registry-bad.yaml:CKV_X",
+        ),
+        (
+            "CKV_X:\n  check_name: x\n  articles:\n    - framework: GDPR\n      article: lol\n      title: t\n  risk: r\n  remediation: fix\n  severity: LOW\n",
+            r"registry-bad.yaml:CKV_X",
+        ),
+        (
+            "CKV_X:\n  check_name: [x]\n  articles: []\n  risk: r\n  remediation: fix\n  severity: LOW\n",
+            r"registry-bad.yaml:CKV_X",
+        ),
     ],
 )
 def test_registry_shape_errors_are_registry_validation_errors(tmp_path, content, where):
@@ -374,8 +381,7 @@ def test_registry_rejects_within_file_duplicate_check_id(tmp_path):
     )
     dup = tmp_path / "registry-dup.yaml"
     dup.write_text(
-        "CKV_AWS_1:\n" + entry.format(name="first")
-        + "CKV_AWS_1:\n" + entry.format(name="second")
+        "CKV_AWS_1:\n" + entry.format(name="first") + "CKV_AWS_1:\n" + entry.format(name="second")
     )
     with pytest.raises(RegistryValidationError, match=r"CKV_AWS_1.*line 10"):
         load_registry_file(dup)
@@ -472,6 +478,7 @@ def test_end2end_findings_are_all_mapped(repo_root, registry):
         f"now reports them as unmapped: {unmapped}"
     )
 
+
 # --- Registry expansion: CloudTrail / CodeBuild / ECS / ElastiCache / Aurora ---
 # These IDs were originally confirmed from the historical Checkov 3.3.13
 # capture of the corresponding examples/end2end/*.tf fixtures, then authored.
@@ -481,22 +488,51 @@ def test_end2end_findings_are_all_mapped(repo_root, registry):
 
 EXPANSION_IDS = {
     # cloudtrail.tf
-    "CKV_AWS_67", "CKV_AWS_36", "CKV_AWS_35", "CKV_AWS_252", "CKV2_AWS_10",
+    "CKV_AWS_67",
+    "CKV_AWS_36",
+    "CKV_AWS_35",
+    "CKV_AWS_252",
+    "CKV2_AWS_10",
     # codebuild.tf
-    "CKV_AWS_316", "CKV_AWS_147", "CKV_AWS_314",
+    "CKV_AWS_316",
+    "CKV_AWS_147",
+    "CKV_AWS_314",
     # ecs.tf
-    "CKV_AWS_333", "CKV_AWS_65", "CKV_AWS_223", "CKV_AWS_224",
-    "CKV_AWS_332", "CKV_AWS_336", "CKV_AWS_249",
+    "CKV_AWS_333",
+    "CKV_AWS_65",
+    "CKV_AWS_223",
+    "CKV_AWS_224",
+    "CKV_AWS_332",
+    "CKV_AWS_336",
+    "CKV_AWS_249",
     # elasticache.tf
-    "CKV_AWS_29", "CKV_AWS_30", "CKV_AWS_31", "CKV_AWS_191", "CKV2_AWS_50",
+    "CKV_AWS_29",
+    "CKV_AWS_30",
+    "CKV_AWS_31",
+    "CKV_AWS_191",
+    "CKV2_AWS_50",
     # rds-cluster.tf (all pre-existing)
-    "CKV_AWS_96", "CKV_AWS_139", "CKV_AWS_313", "CKV_AWS_324",
-    "CKV_AWS_325", "CKV_AWS_326", "CKV_AWS_327", "CKV_AWS_162", "CKV2_AWS_8",
+    "CKV_AWS_96",
+    "CKV_AWS_139",
+    "CKV_AWS_313",
+    "CKV_AWS_324",
+    "CKV_AWS_325",
+    "CKV_AWS_326",
+    "CKV_AWS_327",
+    "CKV_AWS_162",
+    "CKV2_AWS_8",
     # redshift.tf
-    "CKV_AWS_87", "CKV_AWS_64", "CKV_AWS_71", "CKV_AWS_321",
-    "CKV_AWS_142", "CKV_AWS_154", "CKV_AWS_391",
+    "CKV_AWS_87",
+    "CKV_AWS_64",
+    "CKV_AWS_71",
+    "CKV_AWS_321",
+    "CKV_AWS_142",
+    "CKV_AWS_154",
+    "CKV_AWS_391",
     # waf.tf
-    "CKV_AWS_192", "CKV_AWS_175", "CKV2_AWS_31",
+    "CKV_AWS_192",
+    "CKV_AWS_175",
+    "CKV2_AWS_31",
 }
 
 
@@ -524,7 +560,10 @@ def test_redshift_severity_matches_rds_precedent(registry, cid):
     a public data warehouse is CRITICAL (matches CKV_AWS_17) and an unencrypted
     one is HIGH (matches CKV_AWS_16)."""
     assert cid in registry, f"{cid} not in registry"
-    assert registry[cid].severity == registry["CKV_AWS_17" if cid == "CKV_AWS_87" else "CKV_AWS_16"].severity
+    assert (
+        registry[cid].severity
+        == registry["CKV_AWS_17" if cid == "CKV_AWS_87" else "CKV_AWS_16"].severity
+    )
 
 
 def test_nis2_only_expansion_entries_have_no_gdpr_article(registry):

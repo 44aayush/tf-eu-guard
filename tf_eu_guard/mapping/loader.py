@@ -41,16 +41,11 @@ _ARTICLE_RE = re.compile(r"^(Art\. \d+(\(\d+\))?(\([a-z]\))?|Policy [A-Za-z0-9_.
 
 def _require_expected_registry_namespaces(paths: list[Path]) -> None:
     """Raise when a registry directory does not contain every required namespace."""
-    found_namespaces = {
-        path.stem.removeprefix("registry-") for path in paths
-    }
-    missing_namespaces = sorted(
-        set(EXPECTED_REGISTRY_NAMESPACES) - found_namespaces
-    )
+    found_namespaces = {path.stem.removeprefix("registry-") for path in paths}
+    missing_namespaces = sorted(set(EXPECTED_REGISTRY_NAMESPACES) - found_namespaces)
     if missing_namespaces:
         raise RegistryValidationError(
-            "missing expected registry namespace(s): "
-            f"{', '.join(missing_namespaces)}"
+            f"missing expected registry namespace(s): {', '.join(missing_namespaces)}"
         )
 
 
@@ -73,13 +68,11 @@ class _UniqueKeyLoader(yaml.SafeLoader):
             key = self.construct_object(key_node, deep=deep)
             if not isinstance(key, str):
                 raise RegistryValidationError(
-                    f"non-string mapping key {key!r} "
-                    f"(line {key_node.start_mark.line + 1})"
+                    f"non-string mapping key {key!r} (line {key_node.start_mark.line + 1})"
                 )
             if key in seen:
                 raise RegistryValidationError(
-                    f"duplicate key '{key}' "
-                    f"(line {key_node.start_mark.line + 1})"
+                    f"duplicate key '{key}' (line {key_node.start_mark.line + 1})"
                 )
             seen.add(key)
         return super().construct_mapping(node, deep=deep)
@@ -122,25 +115,18 @@ def _validate_entry(check_id: str, data: dict[str, Any], source: Path) -> None:
             raise RegistryValidationError(f"{where}: article must be a mapping")
         for field in ("framework", "article", "title"):
             if field not in article or article[field] is None:
-                raise RegistryValidationError(
-                    f"{where}: article missing required field '{field}'"
-                )
+                raise RegistryValidationError(f"{where}: article missing required field '{field}'")
         if not isinstance(article["framework"], str):
             raise RegistryValidationError(f"{where}: article framework must be a string")
         if article["framework"] not in VALID_FRAMEWORKS:
             raise RegistryValidationError(
-                f"{where}: framework '{article['framework']}' not in "
-                f"{sorted(VALID_FRAMEWORKS)}"
+                f"{where}: framework '{article['framework']}' not in {sorted(VALID_FRAMEWORKS)}"
             )
         if not isinstance(article["article"], str) or not _ARTICLE_RE.fullmatch(article["article"]):
-            raise RegistryValidationError(
-                f"{where}: malformed article '{article['article']}'"
-            )
+            raise RegistryValidationError(f"{where}: malformed article '{article['article']}'")
         if not isinstance(article["title"], str) or not article["title"].strip():
             raise RegistryValidationError(f"{where}: article title must be a string")
-        canonical = canonical_article_title(
-            Framework(article["framework"]), article["article"]
-        )
+        canonical = canonical_article_title(Framework(article["framework"]), article["article"])
         if canonical and article["title"] != canonical:
             raise RegistryValidationError(
                 f"{where}: title for {article['framework']} {article['article']} "
@@ -161,13 +147,9 @@ def load_registry_file(registry_path: Path) -> dict[str, ComplianceMapping]:
         except RegistryValidationError as exc:
             raise RegistryValidationError(f"{registry_path.name}: {exc}") from None
         except yaml.YAMLError as exc:
-            raise RegistryValidationError(
-                f"{registry_path.name}: invalid YAML: {exc}"
-            ) from exc
+            raise RegistryValidationError(f"{registry_path.name}: invalid YAML: {exc}") from exc
     if not isinstance(raw_registry, dict):
-        raise RegistryValidationError(
-            f"{registry_path.name}: registry root must be a mapping"
-        )
+        raise RegistryValidationError(f"{registry_path.name}: registry root must be a mapping")
 
     mappings = {}
     for check_id, data in raw_registry.items():
@@ -222,9 +204,7 @@ def load_registry(registry_path: Path) -> dict[str, ComplianceMapping]:
                 raise RegistryValidationError(f"{path.name}: no entries found")
             for check_id, mapping in file_mappings.items():
                 if check_id in merged:
-                    raise RegistryValidationError(
-                        f"duplicate check_id '{check_id}' in {path.name}"
-                    )
+                    raise RegistryValidationError(f"duplicate check_id '{check_id}' in {path.name}")
                 merged[check_id] = mapping
 
         _require_expected_registry_namespaces(paths)

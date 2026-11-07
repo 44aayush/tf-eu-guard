@@ -1,6 +1,6 @@
 [project]
 name = "tf-eu-guard"
-version = "0.7.0"
+version = "0.7.1"
 description = "EU compliance security linter for Terraform and Kubernetes — NIS2 and GDPR mapping"
 authors = [
     {name = "44aayush", email = "k44aayush.official@gmail.com"}
@@ -8,11 +8,35 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
-keywords = ["terraform", "security", "compliance", "nis2", "gdpr", "iac"]
+keywords = [
+    "terraform",
+    "terraform-security",
+    "terraform-compliance",
+    "terraform-plan",
+    "kubernetes",
+    "kubernetes-security",
+    "infrastructure-as-code",
+    "iac-security",
+    "cloud-security",
+    "devsecops",
+    "checkov",
+    "sarif",
+    "github-actions",
+    "eu-compliance",
+    "nis2",
+    "nis2-compliance",
+    "gdpr",
+    "gdpr-compliance",
+    "gdpr-article-32",
+    "gdpr-article-44",
+]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
+    "Environment :: Console",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -27,6 +51,14 @@ dependencies = [
     "rich>=13.7.1",      # For terminal output formatting
     "jinja2>=3.1.4",     # For HTML report templating
 ]
+
+[project.urls]
+Homepage = "https://github.com/44aayush/tf-eu-guard"
+Repository = "https://github.com/44aayush/tf-eu-guard"
+Documentation = "https://github.com/44aayush/tf-eu-guard/tree/main/docs"
+Issues = "https://github.com/44aayush/tf-eu-guard/issues"
+Changelog = "https://github.com/44aayush/tf-eu-guard/blob/main/CHANGELOG.md"
+Security = "https://github.com/44aayush/tf-eu-guard/blob/main/SECURITY.md"
 
 [project.optional-dependencies]
 dev = [

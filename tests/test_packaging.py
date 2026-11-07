@@ -31,7 +31,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 def test_runtime_version_comes_from_distribution_metadata():
     """The import-time version must not be a second hand-maintained constant."""
     assert __version__ == installed_version("tf-eu-guard")
-    assert __version__ == "0.7.0"
+    assert __version__ == "0.7.1"
+
 
 #: The registry data files that must ship inside the wheel, verbatim.
 REGISTRY_FILES = (
@@ -64,8 +65,8 @@ def test_ci_smoke_tests_a_non_editable_wheel_from_outside_checkout():
     assert "pip install --require-hashes -r requirements.lock" in commands
     assert "pip install --no-deps dist/*.whl" in commands
     assert "tf-eu-guard version" in commands
-    assert "tf-eu-guard scan \"$GITHUB_WORKSPACE/examples/compliant-aws\" --output json" in commands
-    assert "cd \"$WHEEL_SMOKE_DIR\"" in commands
+    assert 'tf-eu-guard scan "$GITHUB_WORKSPACE/examples/compliant-aws" --output json' in commands
+    assert 'cd "$WHEEL_SMOKE_DIR"' in commands
     assert "tf_eu_guard.__file__" in commands
     assert "secrets_in_code.__file__" in commands
     assert "is_relative_to(checkout)" in commands
@@ -125,8 +126,14 @@ def _build_wheel(tmp_path: Path) -> Path:
         )
     result = subprocess.run(
         [
-            sys.executable, "-m", "build", "--wheel", "--no-isolation",
-            "--outdir", str(tmp_path), str(REPO_ROOT),
+            sys.executable,
+            "-m",
+            "build",
+            "--wheel",
+            "--no-isolation",
+            "--outdir",
+            str(tmp_path),
+            str(REPO_ROOT),
         ],
         capture_output=True,
         text=True,

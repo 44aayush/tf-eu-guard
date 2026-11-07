@@ -34,8 +34,7 @@ from tf_eu_guard.reporting.sorting import (
 #: The OASIS SARIF 2.1.0 schema this output targets (what Code Scanning
 #: ingests). Also the ``$schema`` value written into the document itself.
 SARIF_SCHEMA_URI = (
-    "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/"
-    "master/Schemata/sarif-schema-2.1.0.json"
+    "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json"
 )
 
 #: Severities that map to each SARIF level. Code Scanning renders ``error``
@@ -112,9 +111,7 @@ def _windows_artifact_path(
     repository_root: object | None,
 ) -> str | None:
     """Return a Windows artifact path relative to the repository boundary."""
-    repository = (
-        _windows_root(repository_root) if repository_root is not None else None
-    )
+    repository = _windows_root(repository_root) if repository_root is not None else None
     scan = None
     if scan_root is not None:
         scan = _windows_root(scan_root, repository)
@@ -243,8 +240,7 @@ def _valid_line_range(file_line_range: object) -> tuple[int, int] | None:
     if not isinstance(file_line_range, (list, tuple)) or len(file_line_range) != 2:
         return None
     start, end = file_line_range
-    if any(isinstance(value, bool) or not isinstance(value, int)
-           for value in (start, end)):
+    if any(isinstance(value, bool) or not isinstance(value, int) for value in (start, end)):
         return None
     if start < 1 or end < start:
         return None
@@ -346,12 +342,8 @@ def build_sarif(
 
     # Build the rule registry before results. Rule indexes are then a lookup
     # derived from the sorted, complete rule set rather than a stale position.
-    mapped_by_id = {
-        _required_check_id(finding.check_id): finding for finding in enriched
-    }
-    unmapped_by_id = {
-        _required_check_id(check.get("check_id")): check for check in unmapped
-    }
+    mapped_by_id = {_required_check_id(finding.check_id): finding for finding in enriched}
+    unmapped_by_id = {_required_check_id(check.get("check_id")): check for check in unmapped}
     for check_id in sorted(set(mapped_by_id) | set(unmapped_by_id)):
         if check_id in mapped_by_id:
             _rule_for(check_id, mapped_by_id[check_id])
@@ -360,8 +352,7 @@ def build_sarif(
 
     results: list[dict[str, Any]] = []
     entries: list[tuple[str, EnrichedFinding | dict[str, Any]]] = sorted(
-        [("mapped", finding) for finding in enriched]
-        + [("unmapped", check) for check in unmapped],
+        [("mapped", finding) for finding in enriched] + [("unmapped", check) for check in unmapped],
         key=lambda entry: (
             finding_sort_key(cast(EnrichedFinding, entry[1]))
             if entry[0] == "mapped"
@@ -380,21 +371,23 @@ def build_sarif(
                 repository_root,
             )
             guideline = safe_guideline(finding.guideline)
-            results.append({
-                "ruleId": check_id,
-                "ruleIndex": index,
-                "level": sarif_level(finding.severity),
-                "message": {"text": finding.risk_explanation or finding.check_name},
-                "locations": [location] if location is not None else [],
-                "properties": {
-                    "mapped": True,
-                    "resource": finding.resource,
-                    "severity": finding.severity.value,
-                    "articles": _articles_property(finding),
-                    "remediation": finding.remediation,
-                    **({"guideline": guideline} if guideline else {}),
-                },
-            })
+            results.append(
+                {
+                    "ruleId": check_id,
+                    "ruleIndex": index,
+                    "level": sarif_level(finding.severity),
+                    "message": {"text": finding.risk_explanation or finding.check_name},
+                    "locations": [location] if location is not None else [],
+                    "properties": {
+                        "mapped": True,
+                        "resource": finding.resource,
+                        "severity": finding.severity.value,
+                        "articles": _articles_property(finding),
+                        "remediation": finding.remediation,
+                        **({"guideline": guideline} if guideline else {}),
+                    },
+                }
+            )
             continue
 
         check = cast(dict[str, Any], item)
@@ -406,23 +399,25 @@ def build_sarif(
             scan_root,
             repository_root,
         )
-        results.append({
-            "ruleId": check_id,
-            "ruleIndex": index,
-            "level": "note",
-            "message": {
-                "text": (
-                    f"{check.get('check_name', check_id)} — no current EU "
-                    f"regulatory mapping (surfaced for visibility, does not "
-                    f"affect severity gating)."
-                )
-            },
-            "locations": [location] if location is not None else [],
-            "properties": {
-                "mapped": False,
-                "resource": check.get("resource"),
-            },
-        })
+        results.append(
+            {
+                "ruleId": check_id,
+                "ruleIndex": index,
+                "level": "note",
+                "message": {
+                    "text": (
+                        f"{check.get('check_name', check_id)} — no current EU "
+                        f"regulatory mapping (surfaced for visibility, does not "
+                        f"affect severity gating)."
+                    )
+                },
+                "locations": [location] if location is not None else [],
+                "properties": {
+                    "mapped": False,
+                    "resource": check.get("resource"),
+                },
+            }
+        )
 
     invocation: dict[str, Any] = {"executionSuccessful": True}
     if target:
@@ -431,16 +426,18 @@ def build_sarif(
     return {
         "$schema": SARIF_SCHEMA_URI,
         "version": "2.1.0",
-        "runs": [{
-            "tool": {
-                "driver": {
-                    "name": "tf-eu-guard",
-                    "version": version,
-                    "informationUri": "https://github.com/44aayush/tf-eu-guard",
-                    "rules": rules,
-                }
-            },
-            "invocations": [invocation],
-            "results": results,
-        }],
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "tf-eu-guard",
+                        "version": version,
+                        "informationUri": "https://github.com/44aayush/tf-eu-guard",
+                        "rules": rules,
+                    }
+                },
+                "invocations": [invocation],
+                "results": results,
+            }
+        ],
     }

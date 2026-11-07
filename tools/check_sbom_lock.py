@@ -16,9 +16,7 @@ def _lock_components(lock_path: Path) -> set[tuple[str, str]]:
     text = lock_path.read_text(encoding="utf-8")
     return {
         (_normalise(match.group(1)), match.group(2))
-        for match in re.finditer(
-            r"^([A-Za-z0-9_.-]+)==([^\s\\]+)", text, re.MULTILINE
-        )
+        for match in re.finditer(r"^([A-Za-z0-9_.-]+)==([^\s\\]+)", text, re.MULTILINE)
     }
 
 

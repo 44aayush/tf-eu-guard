@@ -65,11 +65,13 @@ def test_run_checkov_live_smoke(vulnerable_stack_dir):
 def test_run_checkov_invalid_json_is_runtime_failure(tmp_path, returncode):
     def fake_run(cmd, **kwargs):
         return type(
-            "R", (), {
+            "R",
+            (),
+            {
                 "returncode": returncode,
                 "stdout": "",
                 "stderr": "traceback line\nfinal Checkov crash detail",
-            }
+            },
         )()
 
     monkeypatch = pytest.MonkeyPatch()
@@ -84,11 +86,15 @@ def test_run_checkov_invalid_json_is_runtime_failure(tmp_path, returncode):
 
 def test_run_checkov_nonzero_status_includes_stderr(tmp_path):
     def fake_run(cmd, **kwargs):
-        return type("R", (), {
-            "returncode": 2,
-            "stdout": "{}",
-            "stderr": "configuration error: bad fixture",
-        })()
+        return type(
+            "R",
+            (),
+            {
+                "returncode": 2,
+                "stdout": "{}",
+                "stderr": "configuration error: bad fixture",
+            },
+        )()
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
@@ -111,11 +117,15 @@ def test_run_checkov_rejects_parsing_errors_and_names_files(tmp_path):
     }
 
     def fake_run(cmd, **kwargs):
-        return type("R", (), {
-            "returncode": 0,
-            "stdout": json.dumps(payload),
-            "stderr": "",
-        })()
+        return type(
+            "R",
+            (),
+            {
+                "returncode": 0,
+                "stdout": json.dumps(payload),
+                "stderr": "",
+            },
+        )()
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
@@ -137,11 +147,15 @@ def test_run_checkov_rejects_summary_only_empty_source_scan(tmp_path):
     }
 
     def fake_run(cmd, **kwargs):
-        return type("R", (), {
-            "returncode": 0,
-            "stdout": json.dumps(payload),
-            "stderr": "",
-        })()
+        return type(
+            "R",
+            (),
+            {
+                "returncode": 0,
+                "stdout": json.dumps(payload),
+                "stderr": "",
+            },
+        )()
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
@@ -307,8 +321,7 @@ def test_run_checkov_checkout_cannot_shadow_checkov(tmp_path):
     fake_checkov.mkdir()
     (fake_checkov / "__init__.py").write_text("")
     (fake_checkov / "main.py").write_text(
-        "from pathlib import Path\n"
-        f"Path({str(sentinel)!r}).write_text('shadowed')\n"
+        f"from pathlib import Path\nPath({str(sentinel)!r}).write_text('shadowed')\n"
     )
 
     output = run_checkov(target)
@@ -331,5 +344,7 @@ def test_run_checkov_ignores_checkout_checkov_config(tmp_path):
 
 def test_supported_iac_types_contents():
     assert SUPPORTED_IAC_TYPES == (
-        "terraform", "terraform_plan", "kubernetes",
+        "terraform",
+        "terraform_plan",
+        "kubernetes",
     )

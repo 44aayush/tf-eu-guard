@@ -76,8 +76,8 @@ def main() -> int:
         try:
             review = date.fromisoformat(str(exception["review_date"]))
             expiry = date.fromisoformat(str(exception["expiry_date"]))
-        except ValueError as error:
-            errors.append(f"{advisory}: invalid review/expiry date: {error}")
+        except ValueError as exc:
+            errors.append(f"{advisory}: invalid review/expiry date: {exc}")
             continue
         if review > expiry:
             errors.append(f"{advisory}: review_date must not be after expiry_date")

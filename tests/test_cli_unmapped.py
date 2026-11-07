@@ -11,38 +11,38 @@ UNMAPPED_FIXTURE = "tests/fixtures/checkov-unmapped-tf.json"
 def _mixed_doc():
     """Return one mapped and two unmapped Checkov failures."""
     return {
-        "results": {"failed_checks": [
-            {
-                "check_id": "CKV_AWS_40",
-                "check_name": "check",
-                "resource": "aws_x.y",
-                "file_path": "/a.tf",
-                "file_line_range": [1, 2],
-                "guideline": None,
-            },
-            {
-                "check_id": "CKV_AWS_10",
-                "check_name": "check",
-                "resource": "aws_iam_account_password_policy.weak",
-                "file_path": "/a.tf",
-                "file_line_range": [3, 4],
-                "guideline": None,
-            },
-            {
-                "check_id": "CKV_AWS_11",
-                "check_name": "check",
-                "resource": "aws_iam_account_password_policy.weak",
-                "file_path": "/a.tf",
-                "file_line_range": [3, 4],
-                "guideline": None,
-            },
-        ]}
+        "results": {
+            "failed_checks": [
+                {
+                    "check_id": "CKV_AWS_40",
+                    "check_name": "check",
+                    "resource": "aws_x.y",
+                    "file_path": "/a.tf",
+                    "file_line_range": [1, 2],
+                    "guideline": None,
+                },
+                {
+                    "check_id": "CKV_AWS_10",
+                    "check_name": "check",
+                    "resource": "aws_iam_account_password_policy.weak",
+                    "file_path": "/a.tf",
+                    "file_line_range": [3, 4],
+                    "guideline": None,
+                },
+                {
+                    "check_id": "CKV_AWS_11",
+                    "check_name": "check",
+                    "resource": "aws_iam_account_password_policy.weak",
+                    "file_path": "/a.tf",
+                    "file_line_range": [3, 4],
+                    "guideline": None,
+                },
+            ]
+        }
     }
 
 
-def test_unmapped_findings_not_in_json_stdout_but_counted_on_stderr(
-    monkeypatch, tmp_path, capsys
-):
+def test_unmapped_findings_not_in_json_stdout_but_counted_on_stderr(monkeypatch, tmp_path, capsys):
     """JSON remains a mapped-findings array while stderr reports unmapped data."""
     finding_file = tmp_path / "mixed.json"
     finding_file.write_text(json.dumps(_mixed_doc()))
@@ -88,9 +88,7 @@ def test_unmapped_findings_never_trip_the_gate(monkeypatch, tmp_path, capsys):
         assert "do not affect this gate" in capsys.readouterr().err
 
 
-def test_mapped_findings_still_trip_the_gate_alongside_unmapped(
-    monkeypatch, tmp_path, capsys
-):
+def test_mapped_findings_still_trip_the_gate_alongside_unmapped(monkeypatch, tmp_path, capsys):
     """A mapped finding still fails when unmapped findings are present."""
     finding_file = tmp_path / "mixed.json"
     finding_file.write_text(json.dumps(_mixed_doc()))
@@ -114,14 +112,11 @@ def test_unmapped_count_in_all_html_reports(monkeypatch, tmp_path):
     rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(finding_file), "--output", "all")
     assert rc == 0
     html_reports = {
-        path.name.split("_")[0]: path.read_text()
-        for path in tmp_path.glob("reports/*.html")
+        path.name.split("_")[0]: path.read_text() for path in tmp_path.glob("reports/*.html")
     }
     assert len(html_reports) == 3
     for report_kind, document in html_reports.items():
-        assert "no current EU regulatory mapping" in document, (
-            f"{report_kind} report missing note"
-        )
+        assert "no current EU regulatory mapping" in document, f"{report_kind} report missing note"
     assert "Unmapped Checkov findings: 2" in html_reports["dev"]
     assert "Unmapped Checkov findings: 2" in html_reports["scan"]
     assert "<strong>2</strong> failed check(s)" in html_reports["auditor"]

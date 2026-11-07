@@ -129,8 +129,7 @@ def validate_scan_root_symlinks(scan_root: Path) -> None:
                     ) from exc
                 if not is_within(resolved, root):
                     raise ValueError(
-                        f"Symlink '{candidate}' resolves outside scan root '{root}' "
-                        f"to '{resolved}'"
+                        f"Symlink '{candidate}' resolves outside scan root '{root}' to '{resolved}'"
                     )
                 if resolved.is_dir():
                     pending.append(resolved)
@@ -142,8 +141,7 @@ def run_checkov(target: Path, iac_type: str = "terraform") -> dict[str, Any]:
     """Run Checkov against a directory or plan file and return parsed JSON."""
     if iac_type not in SUPPORTED_IAC_TYPES:
         raise ValueError(
-            f"Unsupported iac_type '{iac_type}' — expected one of "
-            f"{', '.join(SUPPORTED_IAC_TYPES)}"
+            f"Unsupported iac_type '{iac_type}' — expected one of {', '.join(SUPPORTED_IAC_TYPES)}"
         )
     target = Path(target).resolve()
     if not target.exists():
@@ -169,11 +167,17 @@ def run_checkov(target: Path, iac_type: str = "terraform") -> dict[str, Any]:
         target_flag = ["-d", str(target)]
 
     cmd = [
-        sys.executable, "-I", "-c", CHECKOV_BOOTSTRAP,
+        sys.executable,
+        "-I",
+        "-c",
+        CHECKOV_BOOTSTRAP,
         *target_flag,
-        "--external-checks-dir", str(checks_dir),
-        "--output", "json",
-        "--framework", iac_type,
+        "--external-checks-dir",
+        str(checks_dir),
+        "--output",
+        "json",
+        "--framework",
+        iac_type,
     ]
 
     result = subprocess.run(

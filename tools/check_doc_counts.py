@@ -59,10 +59,7 @@ def compute_counts() -> dict[str, int]:
     counts["k8s_nis2"] = framework_count(("registry-kubernetes",), "NIS2")
     counts["k8s_gdpr"] = framework_count(("registry-kubernetes",), "GDPR")
 
-    severity = Counter(
-        mapping["severity"]
-        for mapping in entries["registry-aws"].values()
-    )
+    severity = Counter(mapping["severity"] for mapping in entries["registry-aws"].values())
     counts["aws_critical"] = severity["CRITICAL"]
     counts["aws_high"] = severity["HIGH"]
     counts["aws_medium"] = severity["MEDIUM"]
@@ -75,14 +72,20 @@ def compute_counts() -> dict[str, int]:
     return counts
 
 
-#: (file, regex, expected, what-it-is). One capture group per expected int —
-#: a tuple means several groups in one documented sentence.
+#: (file, regex, expected, what-it-is). ``expected`` names one count key per
+#: capture group; a tuple means several keys in one documented sentence.
 #: Keep in sync with the wording in the docs; if you reword a line, update its
 #: pattern here in the same commit.
-CHECKS: list[tuple[str, re.Pattern, int | tuple[int, ...], str]] = [
+CountKey = str | tuple[str, ...]
+CHECKS: list[tuple[str, re.Pattern[str], CountKey, str]] = [
     # --- README.md ---
     ("README.md", re.compile(r"mappings-(\d+)-orange"), "total", "badge total mappings"),
-    ("README.md", re.compile(r"\*\*(\d+) Checkov checks mapped\*\*"), "total", "registry section total"),
+    (
+        "README.md",
+        re.compile(r"\*\*(\d+) Checkov check IDs mapped\*\*"),
+        "total",
+        "registry section total",
+    ),
     ("README.md", re.compile(r"AWS: (\d+) mappings"), "aws", "AWS mappings"),
     (
         "README.md",
@@ -188,9 +191,7 @@ def main() -> int:
                 f"Update the doc or tools/check_doc_counts.py CHECKS."
             )
             continue
-        expected_values = (
-            expected if isinstance(expected, tuple) else (expected,)
-        )
+        expected_values = expected if isinstance(expected, tuple) else (expected,)
         for match in matches:
             # findall yields a string for a single capture group, a tuple otherwise.
             groups = match if isinstance(match, tuple) else (match,)

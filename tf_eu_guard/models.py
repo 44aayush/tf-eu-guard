@@ -6,6 +6,7 @@ from enum import StrEnum
 
 class Severity(StrEnum):
     """Finding severity levels."""
+
     CRITICAL = "CRITICAL"
     HIGH = "HIGH"
     MEDIUM = "MEDIUM"
@@ -15,6 +16,7 @@ class Severity(StrEnum):
 
 class Framework(StrEnum):
     """Regulatory frameworks and project policy scopes used in reports."""
+
     NIS2 = "NIS2"
     GDPR = "GDPR"
     POLICY = "POLICY"
@@ -23,6 +25,7 @@ class Framework(StrEnum):
 @dataclass
 class ArticleReference:
     """Reference to a specific compliance framework article."""
+
     framework: Framework
     article: str  # e.g. "Art. 21(2)(f)"
     title: str  # Human-readable article title
@@ -31,6 +34,7 @@ class ArticleReference:
 @dataclass
 class ComplianceMapping:
     """Maps a Checkov check to EU compliance requirements."""
+
     check_id: str
     check_name: str
     articles: list[ArticleReference]
@@ -42,6 +46,7 @@ class ComplianceMapping:
 @dataclass
 class EnrichedFinding:
     """A Checkov finding enriched with EU compliance context."""
+
     check_id: str
     check_name: str
     resource: str
@@ -64,6 +69,7 @@ class EnrichedFinding:
 @dataclass
 class ScanReport:
     """Complete scan report with metadata and findings."""
+
     target_path: str
     scan_timestamp: str
     checkov_version: str
@@ -75,9 +81,7 @@ class ScanReport:
     @property
     def by_severity(self) -> dict[Severity, list[EnrichedFinding]]:
         """Group findings by severity."""
-        grouped: dict[Severity, list[EnrichedFinding]] = {
-            severity: [] for severity in Severity
-        }
+        grouped: dict[Severity, list[EnrichedFinding]] = {severity: [] for severity in Severity}
         for finding in self.findings:
             grouped[finding.severity].append(finding)
         return grouped

@@ -38,7 +38,9 @@ def test_runner_and_cli_route_to_all_types():
     assert hook_smoke_dispatch.types_for_path("tf_eu_guard/cli.py") == ALL_TYPES
 
 
-@pytest.mark.parametrize("registry", ["registry-aws.yaml", "registry-azure.yaml", "registry-gcp.yaml"])
+@pytest.mark.parametrize(
+    "registry", ["registry-aws.yaml", "registry-azure.yaml", "registry-gcp.yaml"]
+)
 def test_cloud_registries_route_to_terraform_types(registry):
     """Documented: registry-aws/azure/gcp.yaml -> terraform + terraform_plan
     (the same CKV_AWS_*-style IDs fire in both modes)."""
@@ -47,22 +49,28 @@ def test_cloud_registries_route_to_terraform_types(registry):
 
 def test_kubernetes_registry_routes_to_kubernetes_only():
     """Documented: registry-kubernetes.yaml -> kubernetes only."""
-    assert (
-        hook_smoke_dispatch.types_for_path("tf_eu_guard/mapping/registry-kubernetes.yaml")
-        == ["kubernetes"]
-    )
+    assert hook_smoke_dispatch.types_for_path("tf_eu_guard/mapping/registry-kubernetes.yaml") == [
+        "kubernetes"
+    ]
 
 
 def test_unknown_mapping_file_defaults_to_terraform_types():
     """Documented: any other file under mapping/ (e.g. a new registry) ->
     terraform + terraform_plan (conservative default)."""
-    assert hook_smoke_dispatch.types_for_path("tf_eu_guard/mapping/registry-oci.yaml") == TERRAFORM_TYPES
+    assert (
+        hook_smoke_dispatch.types_for_path("tf_eu_guard/mapping/registry-oci.yaml")
+        == TERRAFORM_TYPES
+    )
 
 
 def test_k8s_checks_route_to_kubernetes():
     """Documented: checks/k8s/* -> kubernetes only."""
-    assert hook_smoke_dispatch.types_for_path("tf_eu_guard/checks/k8s/secrets_in_code.py") == ["kubernetes"]
-    assert hook_smoke_dispatch.types_for_path("tf_eu_guard/checks/k8s/__init__.py") == ["kubernetes"]
+    assert hook_smoke_dispatch.types_for_path("tf_eu_guard/checks/k8s/secrets_in_code.py") == [
+        "kubernetes"
+    ]
+    assert hook_smoke_dispatch.types_for_path("tf_eu_guard/checks/k8s/__init__.py") == [
+        "kubernetes"
+    ]
 
 
 @pytest.mark.parametrize("subdir", ["gdpr", "nis2"])
@@ -91,11 +99,12 @@ def test_examples_route_by_directory_name():
     """Documented: the example's directory decides — *plan* -> terraform_plan,
     *kubernetes* -> kubernetes, everything else -> terraform."""
     assert hook_smoke_dispatch.types_for_path("examples/vulnerable-aws/main.tf") == ["terraform"]
-    assert hook_smoke_dispatch.types_for_path("examples/vulnerable-aws-plan/plan.json") == ["terraform_plan"]
-    assert (
-        hook_smoke_dispatch.types_for_path("examples/vulnerable-kubernetes/pod.yaml")
-        == ["kubernetes"]
-    )
+    assert hook_smoke_dispatch.types_for_path("examples/vulnerable-aws-plan/plan.json") == [
+        "terraform_plan"
+    ]
+    assert hook_smoke_dispatch.types_for_path("examples/vulnerable-kubernetes/pod.yaml") == [
+        "kubernetes"
+    ]
     assert hook_smoke_dispatch.types_for_path("examples/compliant-aws/main.tf") == ["terraform"]
 
 
@@ -127,7 +136,9 @@ def test_main_no_file_path_is_quiet(monkeypatch):
 
 def test_main_unrelated_edit_runs_nothing(monkeypatch, capsys):
     calls = []
-    monkeypatch.setattr(subprocess, "run", lambda *a, **k: calls.append(a) or subprocess.CompletedProcess(a, 0))
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **k: calls.append(a) or subprocess.CompletedProcess(a, 0)
+    )
     assert _run_main(monkeypatch, _payload(file_path="README.md")) == 0
     assert calls == []
 
@@ -151,6 +162,7 @@ def test_main_runs_one_smoke_check_per_type(monkeypatch, capsys):
 
 def test_main_forwards_worst_exit_code(monkeypatch):
     """A failing smoke check (exit 2) must surface as exit 2 from the hook."""
+
     def fake_run(cmd, **kwargs):
         return subprocess.CompletedProcess(cmd, 2)
 
@@ -167,7 +179,9 @@ def test_main_absolute_repo_path_is_made_relative(monkeypatch):
         return subprocess.CompletedProcess(cmd, 0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    abs_path = hook_smoke_dispatch.REPO_ROOT / "tf_eu_guard" / "mapping" / "registry-kubernetes.yaml"
+    abs_path = (
+        hook_smoke_dispatch.REPO_ROOT / "tf_eu_guard" / "mapping" / "registry-kubernetes.yaml"
+    )
     assert _run_main(monkeypatch, _payload(file_path=str(abs_path))) == 0
     assert len(calls) == 1
     assert calls[0][calls[0].index("--iac-type") + 1] == "kubernetes"

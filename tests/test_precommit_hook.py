@@ -36,22 +36,23 @@ import pytest
 import yaml
 
 HOOK_FILE = ".pre-commit-hooks.yaml"
+DEV_HOOK_FILE = ".githooks/pre-commit"
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _bin_available(name: str) -> bool:
     """A binary is usable if it's on PATH or beside the running interpreter."""
-    return (
-        shutil.which(name) is not None
-        or (Path(sys.executable).parent / name).exists()
-    )
+    return shutil.which(name) is not None or (Path(sys.executable).parent / name).exists()
 
 
 # Only the subprocess-based integration tests are conditional; the hermetic
 # wiring test below always runs.
 integration_skip = pytest.mark.skipif(
-    not (_bin_available("pre-commit") and _bin_available("tf-eu-guard")
-         and shutil.which("git") is not None),
+    not (
+        _bin_available("pre-commit")
+        and _bin_available("tf-eu-guard")
+        and shutil.which("git") is not None
+    ),
     reason="pre-commit / git / tf-eu-guard not available for the hook integration test",
 )
 
@@ -75,6 +76,20 @@ def test_hook_definition_wiring(repo_root: Path):
     assert entry["entry"] == "tf-eu-guard scan"
     # Keep the hook's HIGH-or-worse mapped-finding threshold explicit.
     assert entry["args"] == ["--output", "dev", "--fail-on-severity", "HIGH"]
+
+
+def test_uv_development_hook_bootstraps_tools_and_runs_quality_gate(repo_root: Path):
+    """The tracked Git hook must provision the dev tools before checking code."""
+    hook = (repo_root / DEV_HOOK_FILE).read_text()
+
+    assert hook.startswith("#!/usr/bin/env bash")
+    assert "uv venv --python 3.11" in hook
+    assert 'uv pip install --python "$VENV_PYTHON" -e ".[dev]"' in hook
+    assert '"$VENV_DIR/bin/ruff" format .' in hook
+    assert '"$VENV_DIR/bin/ruff" check .' in hook
+    assert hook.index('"$VENV_DIR/bin/ruff" format .') < hook.index('"$VENV_DIR/bin/ruff" check .')
+    assert '"$VENV_DIR/bin/mypy" .' in hook
+    assert '"$VENV_PYTHON" -m pytest -q' not in hook
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -166,8 +181,7 @@ def test_precommit_hook_gates_vulnerable_fixture(tmp_path, hook_repo):
         f"{result.stdout}\n{result.stderr}"
     )
     assert result.returncode != 0, (
-        "vulnerable fixture must fail the hook:\n"
-        f"{result.stdout}\n{result.stderr}"
+        f"vulnerable fixture must fail the hook:\n{result.stdout}\n{result.stderr}"
     )
 
 
@@ -178,6 +192,5 @@ def test_precommit_hook_passes_compliant_fixture(tmp_path, hook_repo):
     repo = _make_fixture_repo(tmp_path, "compliant", "compliant-aws", hook_path, hook_rev)
     result = _run_precommit(repo)
     assert result.returncode == 0, (
-        "compliant fixture must pass the hook:\n"
-        f"{result.stdout}\n{result.stderr}"
+        f"compliant fixture must pass the hook:\n{result.stdout}\n{result.stderr}"
     )

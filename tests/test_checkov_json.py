@@ -45,13 +45,17 @@ MULTI_TYPE = [
 
 K8S_ELEMENT = {
     "check_type": "kubernetes",
-    "results": {"failed_checks": [{
-        "check_id": "CKV_K8S_17",
-        "check_name": "Kubernetes check",
-        "resource": "Pod/example",
-        "file_path": "/pod.yaml",
-        "file_line_range": [1, 2],
-    }]},
+    "results": {
+        "failed_checks": [
+            {
+                "check_id": "CKV_K8S_17",
+                "check_name": "Kubernetes check",
+                "resource": "Pod/example",
+                "file_path": "/pod.yaml",
+                "file_line_range": [1, 2],
+            }
+        ]
+    },
 }
 
 MIXED_FRAMEWORKS = [SAMPLE, K8S_ELEMENT]
@@ -136,7 +140,9 @@ def test_extract_rejects_malformed_required_finding_fields(field, value, message
         extract_failed_checks({"results": {"failed_checks": [check]}})
 
 
-@pytest.mark.parametrize("field", ["check_id", "check_name", "resource", "file_path", "file_line_range"])
+@pytest.mark.parametrize(
+    "field", ["check_id", "check_name", "resource", "file_path", "file_line_range"]
+)
 def test_extract_rejects_missing_required_finding_fields(field):
     check = dict(SAMPLE["results"]["failed_checks"][0])
     del check[field]
@@ -227,9 +233,7 @@ def test_load_checkov_json_permission_error_is_user_input(monkeypatch, tmp_path)
     monkeypatch.setattr(
         Path,
         "read_text",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            PermissionError(13, "Permission denied")
-        ),
+        lambda *args, **kwargs: (_ for _ in ()).throw(PermissionError(13, "Permission denied")),
     )
     with pytest.raises(CheckovInputError, match="Cannot read Checkov JSON input"):
         load_checkov_json(source)

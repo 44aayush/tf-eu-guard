@@ -38,8 +38,7 @@ def filter_findings_by_framework(
     filtered_findings: list[EnrichedFinding] = []
     for finding in findings:
         finding.articles = [
-            article for article in finding.articles
-            if article.framework == target_framework
+            article for article in finding.articles if article.framework == target_framework
         ]
         if finding.articles:
             finding.risk_explanation = scope_risk_text(

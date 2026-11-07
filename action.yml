@@ -1,5 +1,5 @@
 name: 'tf-eu-guard'
-description: 'EU compliance security linter for Terraform (source, plan JSON) and Kubernetes (NIS2 + GDPR)'
+description: 'Scan Terraform, Terraform plan JSON, and Kubernetes for NIS2/GDPR findings with JSON, HTML, SARIF, and CI gating'
 branding:
   icon: 'shield'
   color: 'blue'
@@ -14,7 +14,7 @@ inputs:
     required: false
     default: 'json'
   iac-type:
-    description: 'IaC language to scan: terraform, terraform_plan (pass the plan file path as path), or kubernetes — mirrors the CLI --iac-type flag'
+    description: 'IaC target to scan: terraform, terraform_plan (pass the plan file path as path), or kubernetes — mirrors the CLI --iac-type flag'
     required: false
     default: 'terraform'
   framework:
