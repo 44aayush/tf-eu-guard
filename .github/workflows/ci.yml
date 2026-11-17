@@ -413,7 +413,7 @@ jobs:
         run: |
           set -euo pipefail
           tf-eu-guard scan examples/end2end/ --output json > scan.json
-          for id in EUGUARD_GDPR_001 EUGUARD_NIS2_001; do
+          for id in EUGUARD_POLICY_001 EUGUARD_NIS2_001; do
             if grep -q "\"$id\"" scan.json; then
               echo "OK: $id fired and was enriched"
             else

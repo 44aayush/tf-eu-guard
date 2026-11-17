@@ -5,9 +5,12 @@ so a hardening flag or a pin cannot be dropped silently.
 """
 
 import re
+import shutil
+import subprocess
 import tomllib
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -222,6 +225,33 @@ def test_ci_jobs_install_from_hashed_locks_without_resolving():
             assert line.strip() != "pip install -e .", name
 
 
+def _git_index_mode(rel_path: str) -> str:
+    """Mode git records for a file (the Linux CI checkout honors it).
+
+    Filesystem exec bits do not exist on Windows, so the index is the source of
+    truth. Skips when git or a git checkout is unavailable (e.g. an sdist).
+    """
+    if shutil.which("git") is None:
+        pytest.skip("git is not available")
+    result = subprocess.run(
+        ["git", "ls-files", "-s", "--", rel_path],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        pytest.skip("not a git checkout (or file untracked); cannot read index mode")
+    return result.stdout
+
+
+def test_git_index_mode_detects_non_executable(monkeypatch):
+    # Red proof: a 100644 index entry must fail the executable-bit assertion.
+    fake = subprocess.CompletedProcess([], 0, stdout="100644 abc 0\tx.sh\n", stderr="")
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: fake)
+    assert not _git_index_mode("x.sh").startswith("100755")
+
+
 def test_lock_check_job_regenerates_locks_and_fails_on_diff():
     job = _ci_jobs()["lock-check"]
     commands = _job_commands(job)
@@ -230,7 +260,7 @@ def test_lock_check_job_regenerates_locks_and_fails_on_diff():
     assert "git diff --exit-code" in commands
     for lock in LOCK_FILES:
         assert lock in commands
-    assert (ROOT / "tools" / "compile-locks.sh").stat().st_mode & 0o111
+    assert _git_index_mode("tools/compile-locks.sh").startswith("100755")
     for step in job["steps"]:
         if "uses" in step:
             assert SHA_PIN.match(step["uses"]), step["uses"]
@@ -454,3 +484,76 @@ def test_obsolete_test_scripts_are_gone_and_unreferenced():
         assert not (ROOT / "tests" / script).exists()
         assert script not in (ROOT / "tests" / "README.md").read_text(encoding="utf-8")
         assert script not in (ROOT / "README.md").read_text(encoding="utf-8")
+
+
+# --- EUGUARD IDs expected by the workflows must be live, current checks ------
+
+EUGUARD_ID = re.compile(r"\bEUGUARD_[A-Z0-9_]+\b")
+EXPECTED_LOOP = re.compile(r"for\s+\w+\s+in\s+([^;\n]+?)\s*;\s*do")
+CHECK_ID_DECL = re.compile(r"""(?:check_id\s*=\s*|\bid\s*=\s*)["'](EUGUARD_[A-Z0-9_]+)["']""")
+
+
+def _workflow_expected_eu_ids() -> dict[str, set[str]]:
+    """EUGUARD IDs the workflows expect, per workflow file.
+
+    Covers every ``for <var> in ...; do`` list and any other EUGUARD ID that
+    appears on a non-comment workflow line (jq selects, grep assertions).
+    """
+    found: dict[str, set[str]] = {}
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        ids: set[str] = set()
+        text = path.read_text(encoding="utf-8")
+        for match in EXPECTED_LOOP.finditer(text):
+            ids.update(EUGUARD_ID.findall(match.group(1)))
+        for line in text.splitlines():
+            if not line.lstrip().startswith("#"):
+                ids.update(EUGUARD_ID.findall(line))
+        if ids:
+            found[path.name] = ids
+    return found
+
+
+def _registered_check_ids() -> set[str]:
+    checks_dir = ROOT / "tf_eu_guard" / "checks"
+    ids: set[str] = set()
+    for path in checks_dir.rglob("*.py"):
+        ids.update(CHECK_ID_DECL.findall(path.read_text(encoding="utf-8")))
+    return ids
+
+
+def _live_registry_ids() -> tuple[set[str], set[str]]:
+    registry: set[str] = set()
+    deprecated: set[str] = set()
+    for path in sorted((ROOT / "tf_eu_guard" / "mapping").glob("registry-*.yaml")):
+        for check_id, entry in (_load(path) or {}).items():
+            if not str(check_id).startswith("EUGUARD_"):
+                continue
+            registry.add(check_id)
+            if "DEPRECATED" in str(entry.get("risk", "")):
+                deprecated.add(check_id)
+    return registry, deprecated
+
+
+def test_workflow_parser_finds_eu_ids():
+    # Guard the guard: a broken regex must not make the check below vacuous.
+    found = _workflow_expected_eu_ids()
+    assert "action-e2e.yml" in found
+    assert "EUGUARD_NIS2_001" in found["action-e2e.yml"]
+
+
+def test_workflow_expected_eu_ids_are_current_registered_checks():
+    registry, deprecated = _live_registry_ids()
+    registered = _registered_check_ids()
+    problems = []
+    for name, ids in _workflow_expected_eu_ids().items():
+        for check_id in sorted(ids):
+            if check_id not in registry:
+                problems.append(f"{name}: {check_id} is not in any registry")
+            if check_id in deprecated:
+                problems.append(f"{name}: {check_id} is a deprecated alias and is never emitted")
+            if check_id not in registered:
+                problems.append(
+                    f"{name}: {check_id} is not registered by a check class "
+                    "under tf_eu_guard/checks/"
+                )
+    assert not problems, "\n".join(problems)

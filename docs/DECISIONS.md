@@ -40,7 +40,7 @@ policy control, not a GDPR citation.
 
 ## 5. Custom EU-specific checks for gaps Checkov doesn't cover
 
-`EUGUARD_GDPR_001` (EUSC-only sovereignty policy),
+`EUGUARD_POLICY_001` (configurable residency policy; `EUGUARD_GDPR_001` is its deprecated alias),
 `EUGUARD_GDPR_002` (known third-country regions, GDPR Chapter V review), and
 `EUGUARD_NIS2_001` (selected hardcoded secret fields, Art. 21(2)(e) secure
 development) load through Checkov's external-check mechanism. Provider

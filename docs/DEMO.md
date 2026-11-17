@@ -100,12 +100,12 @@ jq 'length' compliant.json
 ```bash
 # The end2end suite contains hardcoded AWS keys and non-EU regions
 tf-eu-guard scan examples/end2end/ --output json | \
-  jq '.[] | select(.check_id == "EUGUARD_NIS2_001" or .check_id == "EUGUARD_GDPR_001" or .check_id == "EUGUARD_GDPR_002")'
+  jq '.[] | select(.check_id == "EUGUARD_NIS2_001" or .check_id == "EUGUARD_POLICY_001" or .check_id == "EUGUARD_GDPR_002")'
 ```
 
 **What to capture**: JSON output showing:
 - `EUGUARD_NIS2_001` detecting hardcoded secrets
-- `EUGUARD_GDPR_001` reporting the out-of-policy EUSC sovereignty configuration
+- `EUGUARD_POLICY_001` reporting a provider region outside the configured residency policy
 - `EUGUARD_GDPR_002` reporting a known third-country region for hedged Chapter V review
 - The policy finding has a `Policy EUSC-001` reference; the transfer-review finding has GDPR Art. 44
 

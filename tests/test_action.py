@@ -1,6 +1,7 @@
 """Static and shell-level checks for the composite GitHub Action."""
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -252,3 +253,24 @@ def test_readme_documents_the_new_inputs_and_requirements():
     assert "`artifact-name`" in readme
     assert "`timeout`" in readme
     assert "| `output` | `--output` | `dev` |" in readme
+
+
+BASH4_ONLY_PATTERNS = {
+    "case-modification expansion ${x,,} ${x^^} ${x,} ${x^}": r"\$\{[A-Za-z_][A-Za-z_0-9]*(,,?|\^\^?)[^}]*\}|\$\{[1-9,^]*(,,?|\^\^?)\}",
+    "declare -A / local -A (associative arrays)": r"\b(declare|local|typeset)\s+-[a-zA-Z]*A",
+    "mapfile / readarray": r"\b(mapfile|readarray)\b",
+    "|& pipe": r"\|&",
+    "&>> redirect": r"&>>",
+    "coproc": r"\bcoproc\b",
+    "${x@Q} transform": r"\$\{[^}]*@[QEPAaUuL]\}",
+    "negative array index": r"\$\{[A-Za-z_][A-Za-z_0-9]*\[-[0-9]+\]\}",
+}
+
+
+def test_action_script_avoids_bash4_only_constructs():
+    run = _scan_run()
+    found = [name for name, pat in BASH4_ONLY_PATTERNS.items() if re.search(pat, run)]
+    assert not found, (
+        "macOS ships bash 3.2 as /bin/bash, so the Action's shell must avoid bash 4+ "
+        f"constructs; found: {found}"
+    )

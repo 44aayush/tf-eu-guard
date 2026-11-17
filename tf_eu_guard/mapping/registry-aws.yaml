@@ -1822,8 +1822,8 @@ CKV_AWS_144:
     replication is the mechanism that keeps personal data available and restorable
     after a regional outage, relevant to NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c).
   remediation: |
-    Replicate the bucket to another region permitted by the EU Sovereign Cloud
-    policy (an in-policy region, when available):
+    Replicate the bucket to another region permitted by the configured
+    residency policy (an in-policy region, when available):
       resource "aws_s3_bucket_replication_configuration" "data" {
         role   = aws_iam_role.replication.arn
         bucket = aws_s3_bucket.data.id
@@ -3612,11 +3612,10 @@ CKV_AWS_67:
   risk: >
     A single-region trail records management events in one region only, so
     activity in every other region — including a region an attacker pivots
-    into — leaves no audit trail at all. This project deploys only to the AWS
-    European Sovereign Cloud, so an out-of-region foothold is precisely the
-    activity that would never appear in the trail; under the EUSC-only
-    EUGUARD_GDPR_001 policy, any region outside that partition is already a
-    data-residency red flag, and here it is also an invisible one. NIS2
+    into — leaves no audit trail at all. Activity in a region outside the
+    configured residency policy is precisely what a single-region trail would
+    miss; EUGUARD_POLICY_001/002 already flag such regions as a data-residency
+    red flag, and here it would also be an invisible one. NIS2
     Art. 21(2)(b) requires detection and analysis of incidents, which a
     partial trail cannot support.
   remediation: |

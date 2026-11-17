@@ -114,8 +114,8 @@ runs:
 
         # Boolean inputs accept true/True/TRUE/1/yes/YES (case-insensitive).
         is_true() {
-          case "${1,,}" in
-            true|1|yes) return 0 ;;
+          case "$1" in
+            [Tt][Rr][Uu][Ee]|1|[Yy][Ee][Ss]) return 0 ;;
             *) return 1 ;;
           esac
         }

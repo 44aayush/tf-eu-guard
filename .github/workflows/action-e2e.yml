@@ -65,7 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f tf-eu-guard.sarif
-          for expected in CKV_AWS_18 CKV_AWS_288 EUGUARD_GDPR_001 EUGUARD_NIS2_001; do
+          for expected in CKV_AWS_18 CKV_AWS_288 EUGUARD_POLICY_001 EUGUARD_NIS2_001; do
             jq -e --arg id "$expected" \
               '.runs[0].results[] | select(.ruleId == $id)' \
               tf-eu-guard.sarif > /dev/null \
@@ -130,7 +130,7 @@ jobs:
         run: |
           set -euo pipefail
           # Checkov's terraform_plan runner does not run provider-level checks;
-          # EUGUARD_GDPR_001 only fires on Terraform source (see README).
+          # EUGUARD_POLICY_001 only fires on Terraform source (see README).
           for expected in EUGUARD_NIS2_001 CKV2_AWS_30; do
             jq -e --arg id "$expected" \
               '.runs[0].results[] | select(.ruleId == $id)' \
