@@ -1,11 +1,9 @@
 # tf-eu-guard — tests
 
-All testing is consolidated here. There are two layers:
-
-| Layer | File(s) | Runs Checkov? | Purpose |
-|-------|---------|:-------------:|---------|
-| **Unit** (hermetic) | `test_*.py` | no | Fast pytest checks: registry integrity, enrichment and parsing, CLI contracts, SARIF schema, HTML reporters, documentation counts, and coverage generation. |
-| **Integration** (single runner) | `run_all_tests.sh` | yes | End-to-end: real CLI, a live Checkov scan of `examples/` by default, enrichment, all report formats, framework filters, then the unit suite. |
+All testing is consolidated here as a hermetic pytest suite (`test_*.py`). It
+does not run Checkov except in tests that opt in with `TFEG_RUN_CHECKOV=1`
+(CI sets it). CI (`.github/workflows/ci.yml`) additionally scans the `examples/`
+fixtures end to end and `action-e2e.yml` exercises the GitHub Action itself.
 
 `conftest.py` holds shared fixtures (`registry`, `sample_finding`, paths) and puts
 the repo root on `sys.path` so tests import `tf_eu_guard` without an install.
@@ -19,49 +17,13 @@ extras, runs an initial Checkov scan):
 bash install_and_test.sh
 ```
 
-Then run the full consolidated suite:
-
-```bash
-bash tests/run_all_tests.sh
-```
-
-Scan a different Terraform directory:
-
-```bash
-TF_TARGET=path/to/terraform bash tests/run_all_tests.sh
-```
-
-Unit tests only (fast, no Checkov required):
+Then run the suite:
 
 ```bash
 pytest tests -o addopts="-q"      # -o addopts neutralises the --cov default
 pytest tests                       # with coverage (needs the .[dev] extras)
+TFEG_RUN_CHECKOV=1 pytest          # include the tests that run real Checkov
 ```
-
-## Where the output goes
-
-`run_all_tests.sh` mirrors everything to `tests/results/` (git-ignored):
-
-- `latest-run.txt` — full transcript of the most recent run (overwritten).
-- `run-<timestamp>.txt` — an archived copy of each run.
-- `scan.json` — the raw Checkov JSON from that run, kept for inspection.
-
-This is deliberate: the suite is meant to be run by a human and the transcript
-reviewed afterwards.
-
-## How results are classified
-
-The runner never uses `set -e`; each test reports independently:
-
-- **PASS** — assertion succeeded.
-- **FAIL** — a real problem; listed in the summary and sets a non-zero exit code.
-- **SKIP** — a prerequisite is missing (e.g. the `checkov` CLI isn't installed).
-  When Checkov is absent, the runner falls back to `tests/fixtures/checkov-vulnerable-tf.json`
-  so enrichment can still be exercised.
-- **WARN** — a known optional limitation or prerequisite. The `security` and
-  `auditor` output formats are real self-contained HTML reports, and the runner
-  checks their document structure and rendered findings rather than treating
-  them as stubs.
 
 ## Phase 2 coverage
 
@@ -102,18 +64,5 @@ The runner never uses `set -e`; each test reports independently:
 The committed `tests/fixtures/checkov-*.json` files retain their
 `summary.checkov_version` value of **3.3.13** as historical parser and
 enrichment captures. They are deliberately not current-runtime claims. Live
-source scans and the package dependency use pinned Checkov **3.3.29**; the
+source scans and the package dependency use pinned Checkov **3.4.5**; the
 capture version is preserved so parser regressions remain reproducible.
-
-## Legacy cleanup
-
-The old scattered scripts (`test_phase1.sh`, `quick_test.sh`,
-`MANUAL_TESTING_INSTRUCTIONS.md`, `test_checkov_output.py`) are superseded by
-this directory. Remove them with:
-
-```bash
-bash tests/cleanup_legacy_files.sh
-```
-
-It removes only that explicit list (git-aware), and logs to `tests/results/`.
-`install_and_test.sh` and `tests/fixtures/checkov-vulnerable-tf.json` are intentionally kept.

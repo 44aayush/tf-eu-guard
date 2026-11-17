@@ -1,7 +1,7 @@
 # Checkov JSON Schema Documentation
 
 **Date**: 2026-08-23  
-**Checkov Version**: 3.3.29
+**Checkov Version**: 3.3.29 (version of the original capture; the current pin is 3.4.5, which still leaves `severity` null in most results)
 **Source**: Scan of vulnerable TF files at `/home/aayush/Desktop/tf-eu-guard/tf/`
 
 ## Top-Level Structure
@@ -35,7 +35,7 @@ Each entry in `results.failed_checks[]` contains:
 | `guideline` | string | "https://docs.prismacloud.io/..." | ✅ External reference link |
 | `check_result` | object | `{"result": "FAILED", ...}` | ❌ Not used (status is implicit) |
 | `code_block` | array/null | Code snippet | ⚠️ Often null, not reliable |
-| `severity` | string/null | "HIGH" / null | ⚠️ Often null in 3.3.29 |
+| `severity` | string/null | "HIGH" / null | ⚠️ Often null |
 | `entity_tags` | object | `{"Name": "..."}` | ❌ Not used |
 | `breadcrumbs` | object | Variable tracing | ❌ Not used |
 
@@ -60,7 +60,7 @@ it cannot create a SARIF result with a null `ruleId`.
 
 ### ⚠️ Severity Handling
 
-**Observation**: The `severity` field is often `null` in Checkov 3.3.29 output.
+**Observation**: The `severity` field is often `null` in Checkov output (observed in 3.3.29 and 3.4.5).
 
 **Impact**: We must define severity in our `registry-aws.yaml` mappings, not rely on Checkov's severity.
 

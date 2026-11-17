@@ -85,11 +85,17 @@ def test_uv_development_hook_bootstraps_tools_and_runs_quality_gate(repo_root: P
     assert hook.startswith("#!/usr/bin/env bash")
     assert "uv venv --python 3.11" in hook
     assert 'uv pip install --python "$VENV_PYTHON" -e ".[dev]"' in hook
-    assert '"$VENV_DIR/bin/ruff" format .' in hook
-    assert '"$VENV_DIR/bin/ruff" check .' in hook
-    assert hook.index('"$VENV_DIR/bin/ruff" format .') < hook.index('"$VENV_DIR/bin/ruff" check .')
-    assert '"$VENV_DIR/bin/mypy" .' in hook
-    assert '"$VENV_PYTHON" -m pytest -q' not in hook
+    # Windows venvs use Scripts/python.exe; POSIX venvs use bin/python.
+    assert "$VENV_DIR/Scripts/python.exe" in hook
+    assert "$VENV_DIR/bin/python" in hook
+    # Check-only: the hook must not rewrite files during a commit.
+    assert "ruff format --check ." in hook
+    assert "-m ruff format ." not in hook
+    assert "-m ruff check ." in hook
+    assert "-m mypy --ignore-missing-imports tf_eu_guard tools" in hook
+    # Dependencies are installed only when the venv is missing.
+    assert hook.index('if [ -z "$VENV_PYTHON" ]') < hook.index("uv pip install")
+    assert "-m pytest" not in hook
 
 
 def _git(repo: Path, *args: str) -> str:

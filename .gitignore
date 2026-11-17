@@ -27,9 +27,10 @@ wheels/
 .coverage
 htmlcov/
 .tox/
+.mypy_cache/
 
 # Virtual environments
-venv/
+.venv/
 env/
 ENV/
 
@@ -43,9 +44,14 @@ ENV/
 checkov-repo/
 *.log
 
-# Generated HTML reports (tf-eu-guard --output security|auditor|all)
-# Stored in reports/ directory with timestamped format: dev_report_DDMMYYYYHHMM.html
+# Generated reports (tf-eu-guard --output dev|security|auditor|all) go to
+# reports/ as dev_report_*.html, scan_report_*.html, auditor_report_*.html
+# (timestamped with a random suffix); SARIF/SBOM/coverage output is ignored too.
 reports/
+*.sarif
+sbom.json
+coverage.xml
+uv.lock
 tests/results/*.html
 
 # OS

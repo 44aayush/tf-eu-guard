@@ -3079,7 +3079,7 @@
                 "definition_context_file_path": null
             },
             {
-                "check_id": "EUGUARD_NIS2_002",
+                "check_id": "EUGUARD_NIS2_003",
                 "bc_check_id": null,
                 "check_name": "Ensure containers use secretKeyRef instead of literal sensitive env values",
                 "check_result": {

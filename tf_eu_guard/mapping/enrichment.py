@@ -9,7 +9,11 @@ def split_findings(
     checkov_findings: list[dict[str, Any]],
     registry: dict[str, ComplianceMapping],
 ) -> tuple[list[EnrichedFinding], list[dict[str, Any]]]:
-    """Partition Checkov findings into enriched and unmapped collections."""
+    """Partition Checkov findings into enriched and unmapped collections.
+
+    Entries carrying ``suppressed``/``suppression_reason`` (from
+    ``extract_skipped_checks``) keep those fields on both outputs.
+    """
     enriched: list[EnrichedFinding] = []
     unmapped: list[dict[str, Any]] = []
 
@@ -35,6 +39,8 @@ def split_findings(
                 risk_explanation=mapping.risk_explanation,
                 remediation=mapping.remediation,
                 severity=mapping.severity,
+                suppressed=bool(check.get("suppressed", False)),
+                suppression_reason=check.get("suppression_reason"),
             )
         )
 

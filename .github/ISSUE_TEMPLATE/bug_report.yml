@@ -1,0 +1,38 @@
+name: Bug report
+description: Something tf-eu-guard did wrong (crash, wrong finding, wrong exit code)
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command or Action configuration
+      description: The `tf-eu-guard scan ...` command line or the `uses:` step with its `with:` inputs.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `tf-eu-guard version`, or the Action ref.
+    validations:
+      required: true
+  - type: dropdown
+    id: iac
+    attributes:
+      label: IaC type
+      options: [terraform, terraform_plan, kubernetes]
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output and a minimal reproducer
+      description: Do not paste secrets or real account IDs; redact the Terraform.
+      render: text

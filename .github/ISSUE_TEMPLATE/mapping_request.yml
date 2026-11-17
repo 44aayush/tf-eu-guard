@@ -1,0 +1,32 @@
+name: Mapping request
+description: Propose a Checkov check to map to NIS2 / GDPR articles (open this before a PR)
+labels: [mapping]
+body:
+  - type: input
+    id: check-ids
+    attributes:
+      label: Checkov check ID(s)
+      placeholder: CKV_AWS_123
+    validations:
+      required: true
+  - type: dropdown
+    id: namespace
+    attributes:
+      label: Registry file
+      options: [registry-aws, registry-azure, registry-gcp, registry-kubernetes, new namespace]
+    validations:
+      required: true
+  - type: textarea
+    id: articles
+    attributes:
+      label: Proposed articles
+      description: Framework, article and sub-point (for example NIS2 Art. 21(2)(h)) and why the check evidences it.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Verification
+      description: Confirm the ID fires in a real Checkov scan and cite the legal text you checked the sub-point letters against.
+    validations:
+      required: true

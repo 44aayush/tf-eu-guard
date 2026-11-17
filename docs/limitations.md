@@ -55,12 +55,17 @@ Recurring structural blind spots (each also noted in the article docs):
 - **MFA and identity-provider state** live at the account/IdP level,
   not per-resource — a resource linter has limited visibility there.
 - **Region checks are signals, not verdicts.** A commercial EU region can
-  fail the project's stricter EUSC sovereignty policy without being a GDPR
-  Chapter V transfer. A known non-EU/EEA region is flagged for Chapter V
+  fail a stricter configured residency policy (for example `--residency-policy
+  eusc`) without being a GDPR Chapter V transfer. A known non-EU/EEA region is flagged for Chapter V
   review; adequacy decisions, SCCs and BCRs can lawfully permit a transfer,
   and the tool cannot see transfers made by application code or downstream
   services. Kubernetes is out of scope for residency entirely — manifests
   don't declare where the cluster runs (see [`DECISIONS.md`](DECISIONS.md) #9).
+  Residency checks read literal values: a region supplied by a variable fails
+  the policy checks closed (there is no `--var-file` support), S3 replication
+  destinations are not evaluated, `--checkov-json` cannot apply a policy
+  (results are pre-computed), and plan-mode, Azure and GCP residency are not
+  covered.
 
 ## Unmapped findings
 
@@ -74,18 +79,99 @@ build — but their absence from the compliance view is a statement about *mappi
 coverage*, not about their security relevance. A scan that shows "53
 mapped, 9 unmapped" is reporting 62 real Checkov failures, not 53.
 
+## Inline suppressions
+
+Checkov honours inline skip comments: `#checkov:skip=CKV_AWS_18:reason` in
+Terraform and `checkov.io/skip1: CKV_K8S_8=reason` annotations in Kubernetes.
+Checkov moves such results from `failed_checks` to `skipped_checks`, and
+anyone who can edit the scanned code can add them. tf-eu-guard therefore
+reads `skipped_checks` and never lets a suppression disappear:
+
+- Every report lists suppressed checks separately ("Suppressed by inline
+  comment") with check ID, resource, file and lines, and the stated reason
+  (or "no reason given" when the comment has none or Checkov's
+  "No comment provided" placeholder).
+- Suppressed findings are not active findings: they are excluded from the
+  totals, severity counts and article tables, and they do **not** count toward
+  `--fail-on-severity` / `--fail-on-any`. A scan whose only failures were
+  suppressed is reported as "No active findings; N suppressed", never as a
+  clean result.
+- `--fail-on-suppressed` exits 1 when any *mapped* suppressed finding exists
+  (unmapped ones never gate, as with the other gates). `--framework` filters
+  suppressed findings exactly as it filters active ones, so the gate follows
+  the selected framework.
+- JSON entries carry `"suppressed"` and `"suppression_reason"` (`false`/`null`
+  for active findings). Unmapped suppressed checks are, like unmapped active
+  ones, only counted on stderr in JSON. SARIF results get
+  `suppressions: [{"kind": "inSource", "justification": <reason>}]`
+  (`justification` is omitted when no reason was given), for mapped and
+  unmapped checks alike.
+
+What this does not do: it does not verify that a stated reason is true or
+approved, and it does not expire suppressions. Without `--fail-on-suppressed`
+a suppression is visible but does not fail the build; a reviewed waiver file
+with owners and expiry dates is a separate, planned feature (N-01 in
+`NEW_FUNC.md`). Suppressions made outside the scanned code (for example a
+`.checkov.yml` skip list) are blocked by the runner, not reported.
+
+## Network access and platform mode
+
+By default tf-eu-guard runs Checkov with `--skip-download`: Checkov makes
+no request to the Prisma Cloud platform, so scans work offline and give the
+same result everywhere. The cost is that findings from a source scan carry
+no "Documentation" link (the guideline URL is platform metadata); reports
+omit the link rather than failing. `--online` removes `--skip-download` and
+lets Checkov fetch that metadata (one HTTPS request per scan).
+
+Platform credentials are never forwarded. Every `BC_*` and `PRISMA_*`
+variable (for example `BC_API_KEY`, `PRISMA_API_URL`, `BC_CA_BUNDLE`) and
+every `CKV_IGNORE*` variable (`CKV_IGNORED_DIRECTORIES`,
+`CKV_IGNORE_HIDDEN_DIRECTORIES`) is removed from Checkov's environment, with
+or without `--online`, so Checkov cannot enter platform mode, upload results
+or apply suppressions configured on the platform.
+
+## Scan scope: skipped paths and `--exclude`
+
+Checkov does not read hidden entries (names starting with `.`),
+`.terraform`, `node_modules` or `.serverless`. The pre-scan guards (symlink
+containment and the `*.tf.json` rejection) skip the same entries, so a
+virtual environment's `bin/python` link or a Terraform plugin cache does not
+abort a scan. Elsewhere, a symlink that leaves the scan root or is broken
+aborts the scan (exit 2) when it is a directory or a file Checkov would
+parse for the selected IaC type (`.tf`, `.tfvars`, `.hcl` for Terraform;
+`.yaml`, `.yml`, `.json` for Kubernetes); any other such link only prints a
+warning. `--exclude PATTERN` (repeatable, alias `--skip-path`) is passed to
+Checkov as `--skip-path` and applied by the guards with the same matching:
+a regular expression searched in the absolute path (a pattern starting with
+a single `.` is taken literally), or a plain substring of it. Example:
+`tf-eu-guard scan . --exclude tests/fixtures`.
+
+## Remote modules are not analysed
+
+Checkov does not download registry or Git modules, so resources defined
+inside a module whose `source` is not a local path (`./` or `../`) are never
+evaluated: a call such as `terraform-aws-modules/s3-bucket/aws` with
+`acl = "public-read"` yields no finding for that bucket. After a Terraform
+source scan tf-eu-guard prints a stderr warning, "not analysed: remote
+module sources", listing each such module call. The module-pinning checks
+`CKV_TF_1` (commit hash) and `CKV_TF_2` (version tag) run on the call itself
+and are mapped to NIS2 Art. 21(2)(d), supply chain security. Scan a
+`terraform show -json` plan (`--iac-type terraform_plan`) to cover module
+contents, because a plan contains the expanded resources. An opt-in module
+download is planned (N-14).
+
 ## Assumptions worth knowing about
 
 - **Personal data is assumed present.** GDPR Art. 32 governs the
   security of *personal-data* processing; the tool cannot know which
   resources hold personal data, so it takes the conservative
   assumption that the scanned infrastructure does.
-- **Severity is authored, not detected.** Checkov 3.3.29 emits
+- **Severity is authored, not detected.** Checkov 3.4.5 emits
   `severity: null` for most checks, so severities come from the
   registry, weighted by regulatory impact. Two people could defensibly
   disagree with a given rating — the registry is versioned and
   reviewable for exactly that reason.
-- **Checkov 3.3.29 is pinned.** Check IDs (the registry's join keys)
+- **Checkov 3.4.5 is pinned.** Check IDs (the registry's join keys)
   are stable within that pin; upgrading the backend is a deliberate,
   registry-reviewed event, not a floating dependency.
 

@@ -1,18 +1,18 @@
 name: 'tf-eu-guard'
-description: 'Scan Terraform, Terraform plan JSON, and Kubernetes for NIS2/GDPR findings with JSON, HTML, SARIF, and CI gating'
+description: 'Scan Terraform, Terraform plan JSON, and Kubernetes for NIS2/GDPR findings with terminal, HTML, JSON, SARIF, and CI gating. Requires a Linux runner with Docker (for example ubuntu-latest); macOS and Windows runners are not supported'
 branding:
   icon: 'shield'
   color: 'blue'
 
 inputs:
   path:
-    description: 'Path to the IaC directory (or, for iac-type: terraform_plan, the "terraform show -json" plan file), relative to the repository root'
-    required: true
+    description: 'Path to the IaC directory (or, for iac-type: terraform_plan, the "terraform show -json" plan file), relative to the repository root or an absolute path under the workspace'
+    required: false
     default: './terraform'
   output:
-    description: 'Report format (dev, security, auditor, json, sarif, all). upload-reports applies to HTML outputs (security, auditor, or all); sarif writes tf-eu-guard.sarif into the workspace by default for GitHub Code Scanning'
+    description: 'Report format (dev, security, auditor, json, sarif, all). The default, dev, prints a readable report to the job log; the Action does not upload SARIF unless upload-sarif is true. upload-reports applies to HTML outputs (security, auditor, or all); sarif writes tf-eu-guard.sarif into the workspace by default for GitHub Code Scanning'
     required: false
-    default: 'json'
+    default: 'dev'
   iac-type:
     description: 'IaC target to scan: terraform, terraform_plan (pass the plan file path as path), or kubernetes — mirrors the CLI --iac-type flag'
     required: false
@@ -26,13 +26,25 @@ inputs:
     required: false
     default: 'HIGH'
   upload-reports:
-    description: 'Upload generated HTML report(s) as a workflow artifact; applies only to output security, auditor, or all (ignored for dev, json, and sarif)'
+    description: 'Upload generated HTML report(s) as a workflow artifact (true, 1 or yes, any case); applies only to output security, auditor, or all (ignored for dev, json, and sarif)'
     required: false
     default: 'false'
   fail-on-any:
-    description: 'Fail the workflow when any mapped finding exists, regardless of severity'
+    description: 'Fail the workflow when any mapped finding exists, regardless of severity (true, 1 or yes, any case)'
     required: false
     default: 'false'
+  fail-on-suppressed:
+    description: 'Fail the workflow when any mapped finding is suppressed by an inline checkov:skip comment (true, 1 or yes, any case; mirrors --fail-on-suppressed)'
+    required: false
+    default: 'false'
+  residency-policy:
+    description: 'AWS region residency policy for EUGUARD_POLICY_001/002: eu-eea (default), eusc, or custom (requires allowed-regions); mirrors --residency-policy. Ignored with checkov-json'
+    required: false
+    default: 'eu-eea'
+  allowed-regions:
+    description: 'Comma-separated region allowlist; required with, and only valid with, residency-policy: custom; mirrors --allowed-regions'
+    required: false
+    default: ''
   checkov-json:
     description: 'Use a pre-generated Checkov JSON result instead of running Checkov (path is optional when set)'
     required: false
@@ -42,15 +54,27 @@ inputs:
     required: false
     default: ''
   output-file:
-    description: 'Destination for one security, auditor, or SARIF report; relative paths are under the workspace, upload-reports uses this exact path for security/auditor, and upload-sarif uses it for SARIF (default: /workspace/tf-eu-guard.sarif)'
+    description: 'Destination for one security, auditor, or SARIF report; relative paths are under the workspace, as are absolute paths beginning with the runner workspace directory; upload-reports uses this exact path for security/auditor, and upload-sarif uses it for SARIF (default: tf-eu-guard.sarif in the workspace)'
     required: false
     default: ''
   upload-sarif:
-    description: 'Upload the SARIF output to GitHub Code Scanning (the workflow needs security-events: write permission); only applies when output is sarif and uses output-file or tf-eu-guard.sarif by default'
+    description: 'Upload the SARIF output to GitHub Code Scanning (true, 1 or yes, any case; the workflow needs security-events: write permission); only applies when output is sarif and uses output-file or tf-eu-guard.sarif by default'
     required: false
     default: 'false'
   category:
     description: 'Optional unique GitHub Code Scanning category for this SARIF upload; set a distinct value when uploading multiple scans in one job'
+    required: false
+    default: ''
+  artifact-name:
+    description: 'Name of the workflow artifact created by upload-reports; set a distinct value when the Action runs more than once in a job or workflow with upload-reports'
+    required: false
+    default: 'tf-eu-guard-reports'
+  timeout:
+    description: 'Checkov timeout in seconds, passed to the CLI --timeout flag (0 disables it); empty keeps the CLI default'
+    required: false
+    default: ''
+  image:
+    description: 'Optional container image to run instead of the default ghcr.io/44aayush/tf-eu-guard:<action ref>. Pin by digest for a verifiable supply chain (ghcr.io/44aayush/tf-eu-guard@sha256:...). When set, a failed pull fails the step; there is no fallback to a local build'
     required: false
     default: ''
 
@@ -72,14 +96,91 @@ runs:
         INPUT_FRAMEWORK: ${{ inputs.framework }}
         INPUT_FAIL_ON_SEVERITY: ${{ inputs.fail-on-severity }}
         INPUT_FAIL_ON_ANY: ${{ inputs.fail-on-any }}
+        INPUT_FAIL_ON_SUPPRESSED: ${{ inputs.fail-on-suppressed }}
+        INPUT_RESIDENCY_POLICY: ${{ inputs.residency-policy }}
+        INPUT_ALLOWED_REGIONS: ${{ inputs.allowed-regions }}
         INPUT_CHECKOV_JSON: ${{ inputs.checkov-json }}
         INPUT_OUTPUT_DIR: ${{ inputs.output-dir }}
         INPUT_OUTPUT_FILE: ${{ inputs.output-file }}
+        INPUT_IMAGE: ${{ inputs.image }}
+        INPUT_TIMEOUT: ${{ inputs.timeout }}
+        INPUT_UPLOAD_REPORTS: ${{ inputs.upload-reports }}
+        INPUT_UPLOAD_SARIF: ${{ inputs.upload-sarif }}
         ACTION_PATH: ${{ github.action_path }}
+        ACTION_REF: ${{ github.action_ref }}
+        RUNNER_TEMP_DIR: ${{ runner.temp }}
       run: |
         set -euo pipefail
-        image="tf-eu-guard:action-${GITHUB_RUN_ID:-local}"
-        docker build --quiet -t "$image" "$ACTION_PATH"
+
+        # Boolean inputs accept true/True/TRUE/1/yes/YES (case-insensitive).
+        is_true() {
+          case "${1,,}" in
+            true|1|yes) return 0 ;;
+            *) return 1 ;;
+          esac
+        }
+        # Normalised values for the upload steps' `if:` conditions. Written
+        # first so they exist even when the scan fails.
+        if is_true "$INPUT_UPLOAD_REPORTS"; then
+          echo "upload-reports=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "upload-reports=false" >> "$GITHUB_OUTPUT"
+        fi
+        if is_true "$INPUT_UPLOAD_SARIF"; then
+          echo "upload-sarif=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "upload-sarif=false" >> "$GITHUB_OUTPUT"
+        fi
+
+        # Prefer the release image published to GHCR by release-image.yml
+        # (tagged with the action ref, e.g. v0.8.0). If the pull fails (ref is
+        # a branch or SHA, image not published yet, registry unreachable) fall
+        # back to building the image from the action's own source. An explicit
+        # `image` input (for example a @sha256 digest) never falls back.
+        local_image="tf-eu-guard:action-${GITHUB_RUN_ID:-local}"
+        if [ -n "$INPUT_IMAGE" ]; then
+          docker pull --quiet "$INPUT_IMAGE" >/dev/null
+          image="$INPUT_IMAGE"
+        else
+          image=""
+          if [ -n "$ACTION_REF" ]; then
+            candidate="ghcr.io/44aayush/tf-eu-guard:${ACTION_REF}"
+            if docker pull --quiet "$candidate" >/dev/null 2>&1; then
+              image="$candidate"
+            else
+              echo "::notice::could not pull $candidate; building the image locally"
+            fi
+          fi
+          if [ -z "$image" ]; then
+            docker build --quiet -t "$local_image" "$ACTION_PATH"
+            image="$local_image"
+          fi
+        fi
+
+        # Writable output area. The workspace is mounted read-only (the scanned
+        # code is untrusted); every report is written under /out and copied
+        # back into the workspace after the scan, so later steps (artifact and
+        # SARIF upload) keep finding them at the usual relative paths.
+        out_host="$(mktemp -d "${RUNNER_TEMP_DIR:-${TMPDIR:-/tmp}}/tf-eu-guard-out.XXXXXX")"
+        trap 'rm -rf "$out_host"' EXIT
+
+        # Map a user-supplied output location to a path under /out. A leading
+        # $GITHUB_WORKSPACE/ (the workspace is mounted at its host path) or
+        # /workspace/ (the old container path) is accepted as
+        # workspace-relative; any other absolute path is rejected.
+        out_rel() {
+          local value="$1"
+          value="${value#"$GITHUB_WORKSPACE"/}"
+          value="${value#/workspace/}"
+          case "$value" in
+            /*|..|../*|*/..|*/../*)
+              echo "::error::output paths must be inside the workspace and must not contain '..': $1" >&2
+              exit 2
+              ;;
+          esac
+          value="${value#./}"
+          printf '/out/%s' "$value"
+        }
 
         args=()
         if [ -n "$INPUT_CHECKOV_JSON" ]; then
@@ -98,18 +199,35 @@ runs:
         if [ -n "$INPUT_FAIL_ON_SEVERITY" ]; then
           args+=(--fail-on-severity "$INPUT_FAIL_ON_SEVERITY")
         fi
-        if [ "$INPUT_FAIL_ON_ANY" = "true" ]; then
+        if is_true "$INPUT_FAIL_ON_ANY"; then
           args+=(--fail-on-any)
         fi
-        if [ -n "$INPUT_OUTPUT_DIR" ]; then
-          args+=(--output-dir "$INPUT_OUTPUT_DIR")
+        if is_true "$INPUT_FAIL_ON_SUPPRESSED"; then
+          args+=(--fail-on-suppressed)
         fi
+        if [ -n "$INPUT_RESIDENCY_POLICY" ]; then
+          args+=(--residency-policy "$INPUT_RESIDENCY_POLICY")
+        fi
+        if [ -n "$INPUT_ALLOWED_REGIONS" ]; then
+          args+=(--allowed-regions "$INPUT_ALLOWED_REGIONS")
+        fi
+        if [ -n "$INPUT_TIMEOUT" ]; then
+          args+=(--timeout "$INPUT_TIMEOUT")
+        fi
+        # Reports always go to the writable /out mount (default: reports/).
+        output_dir="$INPUT_OUTPUT_DIR"
+        if [ -z "$output_dir" ]; then
+          output_dir=reports
+        fi
+        out_dir_path="$(out_rel "$output_dir")" || exit 2
+        args+=(--output-dir "$out_dir_path")
         # SARIF always lands in the workspace (not just stdout) so later
         # steps — and the Code Scanning upload below — can consume it.
         if [ -n "$INPUT_OUTPUT_FILE" ]; then
-          args+=(--output-file "$INPUT_OUTPUT_FILE")
+          out_file_path="$(out_rel "$INPUT_OUTPUT_FILE")" || exit 2
+          args+=(--output-file "$out_file_path")
         elif [ "$INPUT_OUTPUT" = "sarif" ]; then
-          args+=(--output-file /workspace/tf-eu-guard.sarif)
+          args+=(--output-file /out/tf-eu-guard.sarif)
         fi
 
         # The Python runner executes the installed Checkov package from a
@@ -120,39 +238,59 @@ runs:
         # threshold, 2 = bad invocation, 3 = tool failure); let it
         # propagate.
         set +e
+        # Hardening: the scanned code is untrusted and Checkov evaluates
+        # Terraform expressions from it (asteval), so the container has no
+        # network (Checkov runs with --skip-download), a read-only root
+        # filesystem, no capabilities, no privilege escalation, and a
+        # read-only workspace. Only /tmp (tmpfs) and /out are writable. The
+        # workspace is mounted at its host path so absolute runner paths in
+        # `path` and `checkov-json` resolve inside the container.
         docker run --rm \
+          --network none \
+          --read-only \
+          --tmpfs /tmp \
+          --cap-drop ALL \
+          --security-opt no-new-privileges \
           --user "$(id -u):$(id -g)" \
-          -v "$GITHUB_WORKSPACE:/workspace" \
-          -w /workspace \
+          -e HOME=/tmp \
+          -e XDG_CACHE_HOME=/tmp/.cache \
+          -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE:ro" \
+          -v "$out_host:/out" \
+          -w "$GITHUB_WORKSPACE" \
           "$image" "${args[@]}"
         status=$?
         set -e
+
+        # Copy generated reports into the workspace for later steps.
+        if [ -n "$(ls -A "$out_host")" ]; then
+          cp -R "$out_host"/. "$GITHUB_WORKSPACE"/
+        fi
         echo "exit-code=$status" >> "$GITHUB_OUTPUT"
         exit "$status"
 
     - name: Upload HTML reports as artifact
       # always(): the reports are exactly what you want to inspect when
       # the severity gate failed the scan step.
-      if: ${{ always() && inputs.upload-reports == 'true' && (inputs.output == 'all' || ((inputs.output == 'security' || inputs.output == 'auditor') && inputs.output-file == '')) }}
-      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      if: ${{ always() && steps.scan.outputs.upload-reports == 'true' && (inputs.output == 'all' || ((inputs.output == 'security' || inputs.output == 'auditor') && inputs.output-file == '')) }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
-        name: tf-eu-guard-reports
+        name: ${{ inputs.artifact-name }}
         path: ${{ inputs.output-dir || 'reports' }}/*.html
         if-no-files-found: error
         retention-days: 30
 
     - name: Upload single HTML report as artifact
-      if: ${{ always() && inputs.upload-reports == 'true' && (inputs.output == 'security' || inputs.output == 'auditor') && inputs.output-file != '' }}
-      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      if: ${{ always() && steps.scan.outputs.upload-reports == 'true' && (inputs.output == 'security' || inputs.output == 'auditor') && inputs.output-file != '' }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
-        name: tf-eu-guard-reports
+        name: ${{ inputs.artifact-name }}
         path: ${{ inputs.output-file }}
         if-no-files-found: error
         retention-days: 30
 
     - name: Upload SARIF to GitHub Code Scanning
-      if: ${{ always() && inputs.upload-sarif == 'true' && inputs.output == 'sarif' }}
-      uses: github/codeql-action/upload-sarif@60168efe1c415ce0f5521ea06d5c2062adbeed1b
+      if: ${{ always() && steps.scan.outputs.upload-sarif == 'true' && inputs.output == 'sarif' }}
+      uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
       with:
         sarif_file: ${{ inputs.output-file || 'tf-eu-guard.sarif' }}
         category: ${{ inputs.category }}

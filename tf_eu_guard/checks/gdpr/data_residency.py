@@ -1,58 +1,60 @@
 """
 Custom Checkov checks for AWS region policy and transfer review.
 
-The project has two deliberately separate signals:
+Three signals, deliberately separate:
 
-* ``EUGUARD_GDPR_001`` is the project's EUSC-only sovereignty policy. It flags
-  commercial EU regions such as ``eu-central-1`` because they are outside the
-  chosen AWS partition, without making a GDPR Chapter V claim.
-* ``EUGUARD_GDPR_002`` is a narrower Chapter V review signal. It fires only
-  for a known AWS region outside the EU/EEA, such as ``us-east-1``. It does
-  not decide whether a transfer is lawful; adequacy decisions, SCCs, BCRs or
-  another Chapter V mechanism still require human review.
+* ``EUGUARD_POLICY_001`` (provider block) and ``EUGUARD_POLICY_002`` (resource
+  level) enforce the configured *residency policy*: ``eu-eea`` (default; the
+  EU/EEA commercial regions plus the AWS European Sovereign Cloud), ``eusc``
+  (Sovereign Cloud only) or ``custom`` (``--allowed-regions``). They are
+  project-policy findings, not GDPR legal conclusions. The policy reaches the
+  checks, which run inside the Checkov subprocess, through the
+  ``TF_EU_GUARD_RESIDENCY_POLICY`` / ``TF_EU_GUARD_ALLOWED_REGIONS``
+  environment variables (see :mod:`tf_eu_guard.residency`), read at scan time.
+* ``EUGUARD_GDPR_002`` (provider block) and ``EUGUARD_GDPR_003`` (resource
+  level) are narrower Chapter V review signals. They fire only for a known AWS
+  region outside the EU/EEA, such as ``us-east-1``. They do not decide whether
+  a transfer is lawful; adequacy decisions, SCCs, BCRs or another Chapter V
+  mechanism still require human review.
 
-Design note: region is configured on the AWS *provider*, not on individual
-resources (``aws_s3_bucket`` / ``aws_db_instance`` / ``aws_instance`` have no
-``region`` argument), so this is a provider-level check. Each ``provider "aws"``
-block's ``region`` is inspected; resources deployed via an out-of-policy aliased
-provider (e.g. ``provider = aws.non_eusc``) inherit the finding flagged on that
-block.
+Where regions are set: the AWS provider block's ``region`` is the default
+deployment target, so the provider checks inspect each ``provider "aws"``
+block (resources using an out-of-policy aliased provider inherit the finding
+on that block). Since AWS provider 6.0 most resources also accept a top-level
+``region`` argument that overrides the provider, and some resources place data
+in other regions through replica settings (DynamoDB global-table replicas,
+Secrets Manager replicas, ECR replication destinations, Backup copy-action
+vaults). The resource-level checks cover those shapes; see
+:mod:`tf_eu_guard.checks.regions_conf`. S3 replication destinations are bucket
+ARNs whose region is not resolvable statically and are not covered.
 
-This deliberately deviates from the resource-level sketch in PROJECT_PLAN.md
-§3.1, which would return UNKNOWN for every resource because the ``region``
-attribute never appears in a resource's configuration.
-
-For the sovereignty policy, region classification is fail-closed: the explicit
-allowlist — :data:`tf_eu_guard.regions.EUSC_REGIONS`, not AWS's "eu-" naming
-prefix — is the source of truth. The prefix is a *geographic*
-("Europe") label, not an EU-membership one, and no longer a residency signal
-at all under this policy: ``eu-west-2`` (London, UK) and ``eu-central-2``
-(Zurich, Switzerland) are GDPR third countries, and the commercial EU regions
-(``eu-central-1`` et al.) are GDPR-permissible but outside the Sovereign Cloud.
-Any region not on the allowlist — non-EUSC regions, malformed strings, and
-unresolved variable references (``var.region`` / ``"${var.region}"``, which
-Checkov passes through as raw text) — fails the policy check: a deployment
-target that cannot be proven to be the Sovereign Cloud statically is flagged
-for review, not waved through. The Chapter V check uses a separate known-region
-table and leaves unknown values undecided.
+Policy classification is fail-closed: the explicit allowlist, not AWS's "eu-"
+naming prefix, is the source of truth (``eu-west-2`` London and
+``eu-central-2`` Zurich are GDPR third countries). Any region off the allowlist
+-- including malformed strings and unresolved variable references
+(``var.region`` / ``"${var.region}"``, which Checkov passes through as raw
+text) -- fails the policy checks. The Chapter V checks use a separate
+known-region table and leave unknown values undecided.
 """
+
+import os
 
 from checkov.common.models.enums import CheckCategories, CheckResult
 from checkov.terraform.checks.provider.base_check import BaseProviderCheck
+from checkov.terraform.checks.resource.base_resource_check import BaseResourceCheck
 
+from tf_eu_guard.checks.regions_conf import collect_regions
 from tf_eu_guard.checks.values import unwrap_checkov_scalar
-from tf_eu_guard.regions import EU_EEA_REGIONS, EUSC_REGIONS, KNOWN_AWS_REGIONS
+from tf_eu_guard.regions import EU_EEA_REGIONS, KNOWN_AWS_REGIONS
+from tf_eu_guard.residency import allowed_regions_from_env
 
 
 class EURegionEnforcement(BaseProviderCheck):
-    """Flag AWS provider blocks outside the project's EUSC-only policy."""
+    """Flag AWS provider blocks outside the configured residency policy."""
 
     def __init__(self):
-        name = (
-            "Ensure the AWS provider region is in the EU Sovereign Cloud "
-            "(project sovereignty policy)"
-        )
-        check_id = "EUGUARD_GDPR_001"
+        name = "Ensure the AWS provider region is within the configured residency policy"
+        check_id = "EUGUARD_POLICY_001"
         supported_provider = ["aws"]
         categories = [CheckCategories.GENERAL_SECURITY]
         super().__init__(
@@ -63,15 +65,14 @@ class EURegionEnforcement(BaseProviderCheck):
         )
 
     def scan_provider_conf(self, conf):
-        """Return PASSED only for an allowlisted EUSC region; else FAILED.
+        """Return PASSED only for a region in the active policy; else FAILED.
 
         UNKNOWN is reserved for the genuinely undecidable no-information
         cases: the region is unset on this provider block (inherited at apply
         time from the environment or instance metadata) or is blank/non-string.
-        Everything else fails closed — a literal out-of-policy region (non-EU
-        *or* commercial EU), an unrecognized or malformed region string, and
+        Everything else fails closed — a literal out-of-policy region, an unrecognized or malformed region string, and
         an unresolved variable reference all produce a finding, because a
-        deployment target that cannot be proven to be the Sovereign Cloud
+        deployment target that cannot be proven to be in policy
         statically must be reviewed rather than waved through.
         """
         region = unwrap_checkov_scalar(conf.get("region"))
@@ -84,7 +85,7 @@ class EURegionEnforcement(BaseProviderCheck):
         if not isinstance(region, str) or not region.strip():
             return CheckResult.UNKNOWN
 
-        if region.strip().lower() in EUSC_REGIONS:
+        if region.strip().lower() in allowed_regions_from_env(os.environ):
             return CheckResult.PASSED
         return CheckResult.FAILED
 
@@ -128,3 +129,77 @@ class ThirdCountryTransferReview(BaseProviderCheck):
 
 check = EURegionEnforcement()
 transfer_review_check = ThirdCountryTransferReview()
+
+
+class ResourceRegionPolicy(BaseResourceCheck):
+    """Flag resource-level regions outside the configured residency policy."""
+
+    def __init__(self):
+        name = (
+            "Ensure resource regions (region argument, replicas, copy destinations) "
+            "are within the configured residency policy"
+        )
+        super().__init__(
+            name=name,
+            id="EUGUARD_POLICY_002",
+            categories=[CheckCategories.GENERAL_SECURITY],
+            supported_resources=["aws_*"],
+        )
+
+    def scan_resource_conf(self, conf):
+        """PASSED if every collected region is in policy; FAILED on any other.
+
+        No region information at all is UNKNOWN. A literal region outside the
+        policy, or an unresolved variable in an explicit region attribute,
+        fails closed. ``evaluated_keys`` lists the offending attributes.
+        """
+        refs = collect_regions(self.entity_type, conf)
+        if not refs:
+            return CheckResult.UNKNOWN
+        allowed = allowed_regions_from_env(os.environ)
+        offending = [ref.key for ref in refs if ref.region not in allowed]
+        if offending:
+            self.evaluated_keys = offending
+            return CheckResult.FAILED
+        self.evaluated_keys = [ref.key for ref in refs]
+        return CheckResult.PASSED
+
+
+class ResourceThirdCountryTransferReview(BaseResourceCheck):
+    """Flag resource-level known non-EU/EEA regions for Chapter V review."""
+
+    def __init__(self):
+        name = (
+            "Review resource regions outside the EU/EEA (region argument, replicas, "
+            "copy destinations) for GDPR Chapter V transfer safeguards"
+        )
+        super().__init__(
+            name=name,
+            id="EUGUARD_GDPR_003",
+            categories=[CheckCategories.GENERAL_SECURITY],
+            supported_resources=["aws_*"],
+        )
+
+    def scan_resource_conf(self, conf):
+        """FAILED only if a collected region is a known third-country region.
+
+        EU/EEA (including EUSC) is PASSED; unknown or unresolved regions are
+        left UNKNOWN rather than turned into a legal conclusion.
+        """
+        refs = collect_regions(self.entity_type, conf)
+        third_country = [
+            ref.key
+            for ref in refs
+            if ref.region in KNOWN_AWS_REGIONS and ref.region not in EU_EEA_REGIONS
+        ]
+        if third_country:
+            self.evaluated_keys = third_country
+            return CheckResult.FAILED
+        if refs and all(ref.region in EU_EEA_REGIONS for ref in refs):
+            self.evaluated_keys = [ref.key for ref in refs]
+            return CheckResult.PASSED
+        return CheckResult.UNKNOWN
+
+
+resource_policy_check = ResourceRegionPolicy()
+resource_transfer_review_check = ResourceThirdCountryTransferReview()

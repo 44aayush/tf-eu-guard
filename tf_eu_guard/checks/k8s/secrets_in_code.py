@@ -2,7 +2,8 @@
 Custom Checkov check: hardcoded secrets in Kubernetes manifests.
 
 Kubernetes-specific counterpart of ``checks/nis2/secrets_in_code.py``
-(EUGUARD_NIS2_002). Two shapes are flagged:
+(EUGUARD_NIS2_002 for Secret manifests, EUGUARD_NIS2_003 for container
+environment variables). Two shapes are flagged:
 
 1. Literal values in a ``Secret`` manifest (``data`` — including values that
    are only base64-of-plaintext, i.e. not real secrets management — or
@@ -28,8 +29,8 @@ from checkov.kubernetes.checks.resource.base_container_check import BaseK8sConta
 from checkov.kubernetes.checks.resource.base_spec_check import BaseK8Check
 
 from tf_eu_guard.checks.nis2.secret_names import (
-    is_literal_env_value,
-    is_sensitive_env_name,
+    has_embedded_credentials,
+    is_secret_env_variable,
 )
 
 
@@ -49,6 +50,8 @@ class K8sSecretManifestHardcodedSecrets(BaseK8Check):
         )
 
     def scan_spec_conf(self, conf):
+        if _is_sops_encrypted(conf):
+            return CheckResult.PASSED
         self.evaluated_keys = ["data", "stringData"]
         for field in ("data", "stringData"):
             values = conf.get(field)
@@ -64,7 +67,7 @@ class K8sContainerEnvHardcodedSecrets(BaseK8sContainerCheck):
 
     def __init__(self):
         name = "Ensure containers use secretKeyRef instead of literal sensitive env values"
-        check_id = "EUGUARD_NIS2_002"
+        check_id = "EUGUARD_NIS2_003"
         categories = [CheckCategories.SECRETS]
         super().__init__(
             name=name,
@@ -85,16 +88,33 @@ class K8sContainerEnvHardcodedSecrets(BaseK8sContainerCheck):
             value = entry.get("value")
             if not isinstance(value, str):
                 continue  # numeric/boolean values are not secrets
-            if not is_literal_env_value(value):
-                continue  # empty values and URL/endpoint configuration
-            if name.endswith(("_file", "_path")):
+            if not value.strip() or value.strip().startswith("$("):
+                continue  # empty values and $(VAR) references
+            if name.endswith(("_file", "_path")) and not has_embedded_credentials(value):
                 # The _FILE / _PATH suffix is the standard convention for a
                 # pointer to a mounted secret file, not a literal secret.
                 continue
-            if is_sensitive_env_name(name):
+            if is_secret_env_variable(name, value):
                 self.evaluated_container_keys = [f"env/[{idx}]/value"]
                 return CheckResult.FAILED
         return CheckResult.PASSED
+
+
+def _is_sops_encrypted(conf: dict) -> bool:
+    """True for a SOPS-encrypted Secret: top-level ``sops`` block or ``ENC[`` values.
+
+    Encrypted values are safe to commit; only the key holder can read them.
+    """
+    if isinstance(conf, dict) and conf.get("sops"):
+        return True
+    values = [
+        v
+        for field in ("data", "stringData")
+        if isinstance(conf.get(field), dict)
+        for v in conf[field].values()
+        if isinstance(v, str) and v.strip()
+    ]
+    return bool(values) and all(v.strip().startswith("ENC[") for v in values)
 
 
 def _values_look_committed(values: dict) -> bool:
@@ -106,13 +126,13 @@ def _values_look_committed(values: dict) -> bool:
     ``stringData`` — means the credential itself is committed.
     """
     for value in values.values():
-        if isinstance(value, str) and value.strip():
+        if isinstance(value, str) and value.strip() and not value.strip().startswith("ENC["):
             return True
     return False
 
 
-# Both checks intentionally share the EUGUARD_NIS2_002 identity.  Keep the
-# historical ``check`` export for Checkov's external-check loader while making
+# Each check has its own ID (EUGUARD_NIS2_002 Secret manifests, EUGUARD_NIS2_003
+# container env vars).  Keep the historical ``check`` export for Checkov's external-check loader while making
 # the reassignment explicit to the type checker.
 check: K8sSecretManifestHardcodedSecrets | K8sContainerEnvHardcodedSecrets = (
     K8sSecretManifestHardcodedSecrets()

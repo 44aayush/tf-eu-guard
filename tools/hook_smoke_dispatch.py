@@ -11,10 +11,12 @@ passed, 1 = unexpected error, 2 = a smoke check failed (Claude Code shows
 stderr to the user even though the edit already completed).
 
 Path mapping:
-- ``tf_eu_guard/checkov_runner.py`` and ``tf_eu_guard/checkov/*.py`` /
-  ``tf_eu_guard/cli.py`` and ``tf_eu_guard/cli/*`` — all types. These are
+- ``tf_eu_guard/checkov_runner.py`` (a facade), ``tf_eu_guard/checkov/*.py``
+  (``process.py``, ``json.py``, ``types.py``), the ``tf_eu_guard/cli/`` package,
+  ``constants.py``, ``models.py`` and ``mapping/*.py`` — all types. These are
   exactly the class of file that broke terraform_plan in c7e68f6 while leaving
   Kubernetes untouched.
+- ``tf_eu_guard/residency.py`` and ``regions.py`` — terraform + terraform_plan.
 - ``tf_eu_guard/mapping/registry-aws.yaml`` (and azure/gcp) — terraform +
   terraform_plan (the AWS registry covers both; plan mode fires the same
   CKV_AWS_* IDs).
@@ -49,18 +51,37 @@ from tf_eu_guard.constants import SUPPORTED_IAC_TYPES  # noqa: E402
 ALL_TYPES = list(SUPPORTED_IAC_TYPES)
 TERRAFORM_TYPES = ["terraform", "terraform_plan"]
 
+# Paths (files, or directories ending in "/") whose edits can affect every IaC type.
+ALL_TYPE_PREFIXES = (
+    "tf_eu_guard/checkov_runner.py",
+    "tf_eu_guard/checkov/",
+    "tf_eu_guard/cli/",
+    "tf_eu_guard/constants.py",
+    "tf_eu_guard/models.py",
+)
+# Files that only affect Terraform scans (residency policy and region tables).
+TERRAFORM_ONLY_FILES = (
+    "tf_eu_guard/residency.py",
+    "tf_eu_guard/regions.py",
+)
+
 
 def types_for_path(path: str) -> list[str] | None:
     """Map an edited repo-relative path to the IaC types to smoke-check."""
     p = Path(path)
 
-    # Runner/CLI changes can affect every scan path.
-    if (
-        p.match("tf_eu_guard/checkov_runner.py")
-        or p.match("tf_eu_guard/checkov/*")
-        or p.match("tf_eu_guard/cli.py")
-        or p.match("tf_eu_guard/cli/*")
-    ):
+    # Runner/CLI/core-module changes can affect every scan path. ROUTED_ALL_TYPES
+    # lists repo-relative file or directory prefixes (tests assert they exist).
+    posix = p.as_posix()
+    if any(posix == prefix or posix.startswith(prefix) for prefix in ALL_TYPE_PREFIXES):
+        return ALL_TYPES
+
+    # Residency policy and region data drive the Terraform provider/region checks.
+    if posix in TERRAFORM_ONLY_FILES:
+        return TERRAFORM_TYPES
+
+    # Python in mapping/ (loader, enrichment, schema, coverage) touches every type.
+    if p.match("tf_eu_guard/mapping/*.py"):
         return ALL_TYPES
 
     # Registry files: kubernetes.yaml only affects the k8s namespace; every

@@ -60,41 +60,12 @@ class EnrichedFinding:
     remediation: str = ""
     severity: Severity = Severity.MEDIUM
 
+    # Inline suppression (``#checkov:skip=ID:reason`` / ``checkov.io/skip``).
+    # Suppressed findings are reported but never counted as active findings.
+    suppressed: bool = False
+    suppression_reason: str | None = None
+
     @property
     def frameworks(self) -> set[Framework]:
         """Return unique frameworks referenced by this finding."""
         return {article.framework for article in self.articles}
-
-
-@dataclass
-class ScanReport:
-    """Complete scan report with metadata and findings."""
-
-    target_path: str
-    scan_timestamp: str
-    checkov_version: str
-    findings: list[EnrichedFinding]
-    total_checks_run: int
-    total_failed: int
-    total_passed: int
-
-    @property
-    def by_severity(self) -> dict[Severity, list[EnrichedFinding]]:
-        """Group findings by severity."""
-        grouped: dict[Severity, list[EnrichedFinding]] = {severity: [] for severity in Severity}
-        for finding in self.findings:
-            grouped[finding.severity].append(finding)
-        return grouped
-
-    @property
-    def by_framework(self) -> dict[Framework, list[EnrichedFinding]]:
-        """Group findings by framework."""
-        grouped: dict[Framework, list[EnrichedFinding]] = {
-            Framework.NIS2: [],
-            Framework.GDPR: [],
-            Framework.POLICY: [],
-        }
-        for finding in self.findings:
-            for framework in finding.frameworks:
-                grouped[framework].append(finding)
-        return grouped

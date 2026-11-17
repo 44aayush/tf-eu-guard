@@ -1,16 +1,15 @@
 """Developer-focused terminal report."""
 
-from pathlib import Path
+from typing import Any
 
 from rich.console import Console
 from rich.markup import escape
-from rich.text import Text
 
-from tf_eu_guard.models import EnrichedFinding, ScanReport, Severity
-from tf_eu_guard.reporting.base import BaseReporter
+from tf_eu_guard.models import EnrichedFinding, Severity
 from tf_eu_guard.reporting.html_common import line_range, safe_guideline
 from tf_eu_guard.reporting.sorting import finding_sort_key, sort_findings, sorted_articles
 from tf_eu_guard.reporting.styles import SEVERITY_COLOR_TERMINAL, SEVERITY_ORDER
+from tf_eu_guard.reporting.suppressed import SuppressedItem, suppressed_items
 
 
 def _group_findings_by_file(
@@ -40,70 +39,32 @@ def _sort_findings_within_file(
     return sorted(findings, key=_finding_severity_sort_key)
 
 
-class DevReporter(BaseReporter):
-    """Terminal-first report optimized for developers."""
-
-    def __init__(self):
-        self.console = Console()
-
-    def generate(self, report: ScanReport, output_path: Path | None = None) -> str:
-        """Generate developer-focused terminal report."""
-        findings_by_file = _group_findings_by_file(report.findings)
-
-        report_lines = []
-        report_lines.append("\n[bold]tf-eu-guard scan results[/bold]")
-        report_lines.append(f"Target: {escape(str(report.target_path))}")
-        report_lines.append(f"Timestamp: {escape(str(report.scan_timestamp))}")
-        report_lines.append(
-            f"\nFindings: {report.total_failed} failed / {report.total_checks_run} total\n"
+def _suppressed_lines(items: list[SuppressedItem]) -> list[str]:
+    """Rich-markup lines for the 'Suppressed by inline comment' section."""
+    lines = [
+        f"\n[bold yellow]Suppressed by inline comment ({len(items)})[/bold yellow]",
+        "[dim]These checks failed but were suppressed in the scanned code. They are "
+        "not active findings and do not affect --fail-on-severity / --fail-on-any.[/dim]",
+    ]
+    for item in items:
+        lines.append(
+            f"\n  [yellow]○[/yellow] [bold]{escape(item.check_id)}[/bold]: "
+            f"{escape(item.check_name)}"
         )
-
-        for file_path, findings in sorted(findings_by_file.items()):
-            report_lines.append(f"\n[bold cyan]{escape(str(file_path))}[/bold cyan]")
-
-            sorted_findings = _sort_findings_within_file(findings)
-
-            for finding in sorted_findings:
-                severity_color = SEVERITY_COLOR_TERMINAL[finding.severity]
-
-                report_lines.append(
-                    f"\n  [{severity_color}]●[/{severity_color}] "
-                    f"{escape(str(finding.check_id))}: {escape(str(finding.check_name))}"
-                )
-                report_lines.append(f"    Resource: {escape(str(finding.resource))}")
-                line_ref = line_range(finding)
-                if line_ref:
-                    report_lines.append(f"    Lines: {escape(str(line_ref))}")
-                report_lines.append(
-                    f"    Severity: [{severity_color}]{escape(finding.severity.value)}"
-                    f"[/{severity_color}]"
-                )
-
-                if finding.articles:
-                    articles_str = ", ".join(
-                        f"{escape(str(a.framework.value))} {escape(str(a.article))}"
-                        for a in sorted_articles(finding)
-                    )
-                    report_lines.append(f"    Compliance: {articles_str}")
-
-                report_lines.append(f"\n    [dim]{escape(str(finding.risk_explanation))}[/dim]")
-
-                if finding.remediation:
-                    report_lines.append("\n    [bold]Fix:[/bold]")
-                    report_lines.append(f"    {escape(str(finding.remediation))}")
-
-        report_text = "\n".join(report_lines)
-
-        if output_path:
-            with open(output_path, "w") as f:
-                # Parse the known report markup so escaped user brackets remain
-                # literal instead of being removed by a broad regex.
-                f.write(Text.from_markup(report_text).plain)
-
-        return report_text
+        lines.append(f"    [dim]Resource:[/dim] {escape(item.resource)}")
+        lines.append(f"    [dim]File:[/dim] {escape(item.location)}")
+        lines.append(f"    [dim]Reason:[/dim] {escape(item.reason_text)}")
+        if not item.mapped:
+            lines.append("    [dim]No current EU regulatory mapping[/dim]")
+    return lines
 
 
-def generate_dev_report(findings: list[EnrichedFinding], unmapped_count: int = 0) -> None:
+def generate_dev_report(
+    findings: list[EnrichedFinding],
+    unmapped_count: int = 0,
+    suppressed: list[EnrichedFinding] | None = None,
+    suppressed_unmapped: list[dict[str, Any]] | None = None,
+) -> None:
     """
     Generate and print developer-focused terminal report.
 
@@ -111,10 +72,14 @@ def generate_dev_report(findings: list[EnrichedFinding], unmapped_count: int = 0
         findings: List of enriched findings with compliance mappings
         unmapped_count: Number of Checkov findings with no registry mapping —
             surfaced as a count so they are present-but-unmapped, not absent
+        suppressed: Mapped findings suppressed by inline ``checkov:skip``
+            comments, shown in their own section and never counted as active
+        suppressed_unmapped: Raw Checkov dicts for suppressed unmapped checks
     """
     console = Console()
+    suppressed_list = suppressed_items(suppressed, suppressed_unmapped)
 
-    if not findings and not unmapped_count:
+    if not findings and not unmapped_count and not suppressed_list:
         console.print("\n[green]✓ No compliance findings![/green]\n")
         return
 
@@ -122,6 +87,17 @@ def generate_dev_report(findings: list[EnrichedFinding], unmapped_count: int = 0
     console.print("\n[bold]═══════════════════════════════════════════════════[/bold]")
     console.print("[bold]  tf-eu-guard: EU Compliance Scan Report[/bold]")
     console.print("[bold]═══════════════════════════════════════════════════[/bold]\n")
+
+    if not findings and not unmapped_count:
+        # Only suppressed findings — not a clean bill of health.
+        console.print(
+            f"[yellow]No active findings; {len(suppressed_list)} suppressed by "
+            f"inline comment.[/yellow]"
+        )
+        for line in _suppressed_lines(suppressed_list):
+            console.print(line)
+        console.print()
+        return
 
     if not findings:
         # Unmapped findings only — the scan is NOT clean, say so explicitly
@@ -134,6 +110,10 @@ def generate_dev_report(findings: list[EnrichedFinding], unmapped_count: int = 0
             "[dim]Checkov reported failures this tool cannot map to NIS2/GDPR — "
             "review them with a plain Checkov run.[/dim]\n"
         )
+        if suppressed_list:
+            for line in _suppressed_lines(suppressed_list):
+                console.print(line)
+            console.print()
         return
 
     # Summary
@@ -150,6 +130,11 @@ def generate_dev_report(findings: list[EnrichedFinding], unmapped_count: int = 0
         console.print(
             f"  [dim]● Unmapped Checkov findings: {unmapped_count} "
             f"(no current EU regulatory mapping — not listed below)[/dim]"
+        )
+    if suppressed_list:
+        console.print(
+            f"  [yellow]○ Suppressed by inline comment: {len(suppressed_list)} "
+            f"(not counted above — listed at the end)[/yellow]"
         )
     console.print()
 
@@ -203,6 +188,10 @@ def generate_dev_report(findings: list[EnrichedFinding], unmapped_count: int = 0
             guideline = safe_guideline(finding.guideline)
             if guideline:
                 console.print(f"\n    [link={escape(guideline)}]→ Documentation[/link]")
+
+    if suppressed_list:
+        for line in _suppressed_lines(suppressed_list):
+            console.print(line)
 
     # Footer
     console.print("\n[bold]═══════════════════════════════════════════════════[/bold]\n")

@@ -8,24 +8,41 @@ name: Action e2e
 # assertion wouldn't catch a regression that dropped one check while a
 # different one was added.
 
+# Code Scanning: the fixtures here are intentionally vulnerable, so their SARIF
+# is NOT uploaded to this repository's Code Scanning on push or pull_request.
+# The upload runs only for a manual workflow_dispatch run (to exercise the
+# upload path), under distinct `e2e-*` categories so it can never be mistaken
+# for a real scan of this repository's own code.
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
+# Default token is read-only.
 permissions:
   contents: read
 
+# One run per ref; superseded pull-request runs are cancelled, pushes finish.
+concurrency:
+  group: action-e2e-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   docker-action-e2e:
+    name: docker-action-e2e
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # contents: read for checkout; security-events: write is used only by the
+    # workflow_dispatch SARIF upload (fork PRs cannot grant it and never upload).
     permissions:
-      # Fork PRs cannot grant this permission; upload-sarif is disabled there.
       contents: read
-      security-events: write
+      security-events: write # SARIF upload to Code Scanning, workflow_dispatch runs only
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # 1. Terraform source → SARIF, severity gating disabled. If the empty
       #    fail-on-severity handling regressed, this step itself would fail
@@ -39,10 +56,10 @@ jobs:
           # upload-reports is intentionally harmless for SARIF: it must not
           # try to upload the absent reports/ directory.
           upload-reports: true
-          # Code Scanning upload only on push — fork PRs can't write
-          # security events.
-          upload-sarif: ${{ github.event_name == 'push' && 'true' || 'false' }}
-          category: terraform-source
+          # Intentionally vulnerable fixtures: upload to Code Scanning only on
+          # a manual run, under a distinct category (see the header comment).
+          upload-sarif: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
+          category: e2e-terraform-source
 
       - name: Assert specific check IDs in the Terraform SARIF
         run: |
@@ -70,8 +87,8 @@ jobs:
           output: sarif
           output-file: action-artifacts/custom-result.sarif
           fail-on-severity: ''
-          upload-sarif: ${{ github.event_name == 'push' && 'true' || 'false' }}
-          category: terraform-custom
+          upload-sarif: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
+          category: e2e-terraform-custom
 
       - name: Assert the custom SARIF destination
         run: |
@@ -177,6 +194,8 @@ jobs:
 
       - name: Assert the gated scan returned findings exit code 1
         if: steps.gated.outcome != 'failure' || steps.gated.outputs['exit-code'] != '1'
+        env:
+          GATED_OUTCOME: ${{ steps.gated.outcome }}
         run: |
-          echo "::error::Default fail-on-severity (HIGH) did not fail the scan step (outcome: ${{ steps.gated.outcome }})"
+          echo "::error::Default fail-on-severity (HIGH) did not fail the scan step (outcome: ${GATED_OUTCOME})"
           exit 1

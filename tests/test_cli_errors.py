@@ -70,7 +70,7 @@ def test_malformed_registry_exits_3(monkeypatch, tmp_path, capsys, registry_text
     mapping_dir = fake_package / "mapping"
     mapping_dir.mkdir(parents=True)
     (mapping_dir / "registry-broken.yaml").write_text(registry_text)
-    monkeypatch.setattr("tf_eu_guard.cli.__file__", str(fake_package / "cli.py"))
+    monkeypatch.setattr("tf_eu_guard.cli._default_registry_path", lambda: mapping_dir)
 
     source = tmp_path / "empty.json"
     source.write_text(json.dumps({"results": {"failed_checks": []}}))
@@ -84,7 +84,7 @@ def test_malformed_registry_exits_3(monkeypatch, tmp_path, capsys, registry_text
 def test_checkov_crash_exits_3(monkeypatch, tmp_path, capsys):
     """A Checkov process failure is a runtime failure."""
 
-    def fake_run_checkov(target, iac_type="terraform"):
+    def fake_run_checkov(target, iac_type="terraform", residency_env=None, **_kw):
         raise subprocess.CalledProcessError(2, ["checkov"])
 
     monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", fake_run_checkov)
@@ -121,14 +121,14 @@ def test_checkov_json_directory_exits_2(monkeypatch, tmp_path, capsys):
 def test_checkov_json_permission_error_exits_2(monkeypatch, tmp_path, capsys):
     finding_file = tmp_path / "permission.json"
     finding_file.write_text("{}")
-    original_read_text = Path.read_text
+    original_read_bytes = Path.read_bytes
 
     def denied(path, *args, **kwargs):
         if path == finding_file:
             raise PermissionError(13, "Permission denied")
-        return original_read_text(path, *args, **kwargs)
+        return original_read_bytes(path, *args, **kwargs)
 
-    monkeypatch.setattr(Path, "read_text", denied)
+    monkeypatch.setattr(Path, "read_bytes", denied)
     rc = run_cli(
         monkeypatch,
         tmp_path,
@@ -232,3 +232,66 @@ def test_malformed_registry_injected_into_cli_exits_3(monkeypatch, tmp_path, cap
     monkeypatch.setattr("sys.argv", arguments)
     assert main(registry_path=tmp_path / "missing-mapping") == EXIT_RUNTIME_FAILURE
     assert "registry path does not exist" in capsys.readouterr().err
+
+
+def test_exit_code_for_explicit_types():
+    """Each exception class maps to one documented code."""
+    from tf_eu_guard.checkov.types import CheckovInputError, CheckovRuntimeError
+    from tf_eu_guard.cli.errors import OutputWriteError
+
+    assert _exit_code_for(CheckovInputError("dir")) == EXIT_INVALID_INPUT
+    assert _exit_code_for(UnicodeDecodeError("utf-8", b"\xff", 0, 1, "bad")) == EXIT_INVALID_INPUT
+    assert _exit_code_for(OutputWriteError("disk")) == EXIT_INVALID_INPUT
+    assert _exit_code_for(CheckovRuntimeError("crash")) == EXIT_RUNTIME_FAILURE
+    # An encode error outside output writing is an internal bug, not input.
+    assert _exit_code_for(UnicodeEncodeError("ascii", "é", 0, 1, "bad")) == EXIT_RUNTIME_FAILURE
+    assert _exit_code_for(OSError("boom")) == EXIT_RUNTIME_FAILURE
+
+
+def test_output_file_write_failure_is_not_scanner_failure(monkeypatch, tmp_path, capsys, repo_root):
+    """An unwritable --output-file is an I/O/config problem (2), not a crash (3)."""
+    blocker = tmp_path / "blocker"
+    blocker.write_text("a file, not a directory")
+    rc = run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(repo_root / FIXTURE),
+        "--output",
+        "security",
+        "--output-file",
+        str(blocker / "report.html"),
+    )
+    assert rc == EXIT_INVALID_INPUT
+    assert "output could not be written" in capsys.readouterr().err
+
+
+def test_output_encode_failure_maps_to_invalid_configuration(
+    monkeypatch, tmp_path, capsys, repo_root
+):
+    def boom(*_args, **_kwargs):
+        raise UnicodeEncodeError("ascii", "€", 0, 1, "ordinal not in range")
+
+    monkeypatch.setattr("tf_eu_guard.cli.app.render_scan_output", boom)
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(repo_root / FIXTURE))
+    assert rc == EXIT_INVALID_INPUT
+    assert "output could not be written" in capsys.readouterr().err
+
+
+def test_checkov_input_decode_failure_is_invalid_input(monkeypatch, tmp_path, capsys, repo_root):
+    bad = tmp_path / "bad.json"
+    bad.write_bytes(b"\xff\xfd\x80")
+    assert run_cli(monkeypatch, tmp_path, "--checkov-json", str(bad)) == EXIT_INVALID_INPUT
+
+
+def test_checkov_timeout_exits_3(monkeypatch, tmp_path, capsys, repo_root):
+    def fake_run(cmd, **kwargs):
+        raise subprocess.TimeoutExpired(cmd, kwargs["timeout"])
+
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
+    (tmp_path / "main.tf").write_text('resource "aws_x" "y" {}\n')
+    rc = run_cli(monkeypatch, tmp_path, str(tmp_path), "--timeout", "7")
+    assert rc == EXIT_RUNTIME_FAILURE
+    err = capsys.readouterr().err
+    assert "did not finish within 7 seconds" in err
+    assert "--timeout" in err

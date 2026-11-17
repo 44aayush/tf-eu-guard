@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "tf-eu-guard JSON report (--output json --json-format object)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "tool", "checkov_version", "scan", "summary", "findings", "unmapped"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {"name": {"const": "tf-eu-guard"}, "version": {"type": "string"}}
+    },
+    "checkov_version": {"type": ["string", "null"]},
+    "scan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "iac_type", "timestamp"],
+      "properties": {
+        "target": {"type": "string"},
+        "iac_type": {"type": "string"},
+        "timestamp": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"}
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["by_severity", "unmapped", "suppressed", "total"],
+      "properties": {
+        "by_severity": {
+          "description": "Active (unsuppressed) mapped findings per severity.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"],
+          "properties": {
+            "CRITICAL": {"type": "integer", "minimum": 0},
+            "HIGH": {"type": "integer", "minimum": 0},
+            "MEDIUM": {"type": "integer", "minimum": 0},
+            "LOW": {"type": "integer", "minimum": 0},
+            "INFO": {"type": "integer", "minimum": 0}
+          }
+        },
+        "unmapped": {"description": "Entries in the unmapped list.", "type": "integer", "minimum": 0},
+        "suppressed": {"description": "Suppressed entries across findings and unmapped.", "type": "integer", "minimum": 0},
+        "total": {"description": "Active mapped findings plus active unmapped findings.", "type": "integer", "minimum": 0}
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check_id", "check_name", "resource", "file_path", "file_line_range", "severity", "articles", "risk_explanation", "remediation", "guideline", "suppressed", "suppression_reason"],
+        "properties": {
+          "check_id": {"type": "string"},
+          "check_name": {"type": "string"},
+          "resource": {"type": "string"},
+          "file_path": {"type": "string"},
+          "file_line_range": {"$ref": "#/$defs/lineRange"},
+          "severity": {"enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]},
+          "articles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["framework", "article", "title"],
+              "properties": {
+                "framework": {"type": "string"},
+                "article": {"type": "string"},
+                "title": {"type": "string"}
+              }
+            }
+          },
+          "risk_explanation": {"type": "string"},
+          "remediation": {"type": "string"},
+          "guideline": {"type": ["string", "null"]},
+          "suppressed": {"type": "boolean"},
+          "suppression_reason": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "unmapped": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check_id", "check_name", "resource", "file_path", "file_line_range", "suppressed"],
+        "properties": {
+          "check_id": {"type": "string"},
+          "check_name": {"type": "string"},
+          "resource": {"type": "string"},
+          "file_path": {"type": "string"},
+          "file_line_range": {"$ref": "#/$defs/lineRange"},
+          "suppressed": {"type": "boolean"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "lineRange": {
+      "type": "array",
+      "items": {"type": "integer", "minimum": 0},
+      "minItems": 2,
+      "maxItems": 2
+    }
+  }
+}

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 tools/hook_smoke_dispatch.py"
+            "command": "sh -c 'for p in \"$CLAUDE_PROJECT_DIR/.venv/bin/python\" \"$CLAUDE_PROJECT_DIR/.venv/Scripts/python.exe\"; do [ -x \"$p\" ] && exec \"$p\" \"$CLAUDE_PROJECT_DIR/tools/hook_smoke_dispatch.py\"; done; exec python3 \"$CLAUDE_PROJECT_DIR/tools/hook_smoke_dispatch.py\"'"
           }
         ]
       }

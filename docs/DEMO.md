@@ -201,15 +201,18 @@ For README and documentation, capture:
 4. **Window size**: Use consistent viewport (1280×800 or 1920×1080)
 5. **Annotation**: Add arrows/highlights after capture to emphasize key features
 
-## Real Screenshots (captured 2026-08-30)
+## Real Screenshots (captured 2026-11-17, tf-eu-guard 0.8.0)
 
 The README already embeds real captures from `docs/screenshots/`:
 
 - `vulnerable-scan.png` / `compliant-scan.png` — terminal dev output with colored
   severity markers and per-finding details (rich SVG → headless Chromium, via
-  `tools/ansi_to_image.py`)
-- `security-dashboard.png` / `auditor-report.png` — Playwright captures of the HTML
-  reports, including the security severity bars and auditor article/resource tables,
+  `tools/ansi_to_image.py`). The vulnerable capture shows the first 55 lines of the
+  53-finding scan (6 CRITICAL, 18 HIGH, 21 MEDIUM, 8 LOW); the compliant capture shows
+  the single `No compliance findings!` line (0 findings)
+- `security-dashboard.png` / `auditor-report.png` — Playwright captures (1280px wide viewport,
+  device scale factor 2; the dashboard is cropped to the top 2400 px, the auditor report is
+  full page) of the HTML reports generated from `examples/vulnerable-aws` (53 findings), including the severity summary and auditor article/resource tables,
   with the live HTML files committed alongside for GitHub-rendered viewing
 
 Regenerate any of them with `tools/ansi_to_image.py` (terminal) or a Playwright

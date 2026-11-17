@@ -35,11 +35,11 @@ target ─▶ 1. run_checkov() ─▶ 2. extract_failed_checks() ─▶ 3. load_
                                                      → exit code 0/1
 ```
 
-### 1. Obtain Checkov results — `tf_eu_guard/checkov_runner.py` and `_checkov_*.py`
+### 1. Obtain Checkov results — `tf_eu_guard/checkov_runner.py` and `tf_eu_guard/checkov/`
 
 Two entry paths, same output shape:
 
-- `run_checkov(path, iac_type)` shells out to Checkov 3.3.29 (pinned in
+- `run_checkov(path, iac_type)` shells out to Checkov 3.4.5 (pinned in
   `pyproject.toml` for reproducible scans). `iac_type` maps to
   Checkov's `--framework`: `terraform` (directory of source),
   `terraform_plan` (a `terraform show -json` file, via `checkov -f`), or
@@ -50,6 +50,11 @@ Two entry paths, same output shape:
   pipe its output straight in (`--checkov-json -`).
 
 ### 2. Filter to failures — `extract_failed_checks()`
+
+(Checkov's `skipped_checks`, which carry inline `checkov:skip` suppressions, are
+read in the same pass and shown by every report as suppressed findings; they do
+not count as active findings. See `tf_eu_guard/reporting/suppressed.py`.)
+
 
 Checkov reports passed *and* failed checks; only failures become
 findings. Each finding carries the identity the registry joins on:
@@ -73,7 +78,7 @@ invocation's fault.
 
 The join step, and the one that decides what the tool is: findings with
 a registry mapping get severity (authored in the registry — Checkov
-3.3.29 emits `severity: null` for most checks), the NIS2/GDPR article
+emits `severity: null` for most checks), the NIS2/GDPR article
 citations, a risk explanation, and copy-paste remediation. Findings
 with no mapping go to a separate *unmapped* list. HTML and terminal reports
 surface its count, JSON writes the count to stderr, and SARIF retains the
@@ -86,8 +91,8 @@ gate a build — visibility without false authority (see
 
 Post-enrichment filter on the article's framework. Unrelated to
 `--iac-type` (what gets scanned); this selects which regulatory regime
-to *report*. `all` also retains project-policy controls such as EUSC
-sovereignty findings; those controls are not included in a GDPR-only filter.
+to *report*. `all` also retains project-policy controls such as region
+residency-policy findings; those controls are not included in a GDPR-only filter.
 
 ### 6. Report — `tf_eu_guard/reporting/`
 
@@ -99,14 +104,33 @@ article-by-article for audit preparation). All formats use the same mapped
 findings list, with the unmapped list surfaced according to each format's
 contract.
 
-### 7. Gate — `tf_eu_guard/cli/`
+### 7. Gate — `tf_eu_guard/cli/gating.py`
 
 `--fail-on-severity` / `--fail-on-any` set exit code 1 when mapped
-findings meet the threshold. The other exit codes are documented in the
+active findings meet the threshold; `--fail-on-suppressed` sets it when any
+mapped finding was suppressed by an inline Checkov comment. The other exit codes are documented in the
 README's CI/CD Gating section: 0 clean, 1 findings, 2 invalid
 input/configuration, 3 scanner/runtime failure — so a pipeline can fail
 the build on findings while paging someone different when the tool
 itself is broken.
+
+## Module layout
+
+| Path | Role |
+| --- | --- |
+| `tf_eu_guard/cli/` | Command line: `parser.py` (arguments), `pipeline.py` (obtain results, filter), `reports.py` (format dispatch), `gating.py` (exit-code gates), `paths.py`, `errors.py` (exception to exit code), `app.py` (orchestration), `__main__.py` |
+| `tf_eu_guard/checkov_runner.py` | Compatibility facade that re-exports the names below for older callers |
+| `tf_eu_guard/checkov/process.py` | Checkov subprocess, scrubbed environment, scan-root and symlink validation |
+| `tf_eu_guard/checkov/json.py` | Validation and normalisation of Checkov JSON (`load_checkov_json`, failed and skipped checks) |
+| `tf_eu_guard/checkov/types.py` | `CheckovRuntimeError`, `CheckovInputError` |
+| `tf_eu_guard/residency.py` | Residency policy selection (`eu-eea`, `eusc`, `custom`). The CLI passes the policy to the Checkov subprocess through two environment variables; the custom checks read it with `allowed_regions_from_env()` |
+| `tf_eu_guard/regions.py` | AWS region tables (EUSC, EU/EEA, known third-country) shared by the policy and the checks |
+| `tf_eu_guard/checks/` | Custom `EUGUARD_*` Checkov checks: `gdpr/data_residency.py` (provider-level `EUGUARD_POLICY_001`, `EUGUARD_GDPR_002`), `nis2/` (secrets in code), `k8s/` (Kubernetes secrets) |
+| `tf_eu_guard/checks/regions_conf.py` | Collects the regions a Terraform resource configuration names (the `region` argument, replicas, copy destinations) for the resource-level checks `EUGUARD_POLICY_002` and `EUGUARD_GDPR_003` |
+| `tf_eu_guard/checks/values.py` | Helpers for reading Checkov's nested-list attribute values |
+| `tf_eu_guard/mapping/` | Registry YAML per provider, `loader.py`, `schema.py`, `enrichment.py` (the join), `requirements.py` and `coverage.py` (requirement inventory and coverage labels) |
+| `tf_eu_guard/models.py` | `EnrichedFinding`, `ScanReport` and the severity and framework enums |
+| `tf_eu_guard/reporting/` | One reporter per format. `suppressed.py` flattens findings suppressed by inline `checkov:skip` comments (mapped and unmapped) into one ordered record type that every report renders; `html_common.py`, `sorting.py` and `styles.py` are shared by the HTML reports |
 
 ## Checkov as a swappable detection backend
 
@@ -123,7 +147,7 @@ its JSON. That boundary is what makes the backend swappable:
   mechanism rather than a parallel scanner, so even tool-specific
   detection keeps a single result shape.
 
-The cost of the pin: Checkov 3.3.29 is held fixed so registry IDs
+The cost of the pin: the Checkov version in `pyproject.toml` is held fixed so registry IDs
 reproduce scan-to-scan. A backend upgrade is therefore a deliberate,
 registry-reviewed event, not a floating dependency.
 

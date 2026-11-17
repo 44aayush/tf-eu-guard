@@ -9,4 +9,7 @@
   # individual matched files. Without this, pre-commit appends every matched
   # .tf file as a positional argument and the CLI rejects the invocation.
   pass_filenames: false
+  # Override `args` in your own config to add repeatable --exclude PATTERN
+  # (e.g. args: [--output, dev, --fail-on-severity, HIGH, --exclude, tests/fixtures]);
+  # `args` replaces this list, so repeat the defaults you want to keep.
   args: ['--output', 'dev', '--fail-on-severity', 'HIGH']

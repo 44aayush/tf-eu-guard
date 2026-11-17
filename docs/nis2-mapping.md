@@ -112,6 +112,26 @@ these unsupported shapes, and no duplicate `EUGUARD_NIS2_001` finding. This
 scope separation avoids claiming that the custom check inspects a Terraform
 configuration shape it does not inspect.
 
+Reference detection: function calls and indexed traversals whose arguments contain
+a Terraform reference (`jsondecode(data.x.y.z)["k"]`, `random_password.db[0].result`,
+`var.m["db"]`, `try(var.pw, null)`, `sensitive(var.pw)`) are indirections. A bare
+dotted value outside the Terraform namespaces (`var`, `local`, `data`, `module`,
+`each`, `count`, `path`) must look like a resource address (`aws_xxx.name.attr`, at
+least three segments), so `db_admin.Password1` is a literal. A string with literal
+text outside its `${...}` interpolations (`prod-${var.env}-Hunter2`) is a literal.
+Fixtures: [`tests/fixtures/secret-shapes-refs`](../tests/fixtures/secret-shapes-refs).
+
+For the CodeBuild shape and for Kubernetes `EUGUARD_NIS2_003`, sensitive names
+include `PASS`, `PASSPHRASE`, `DSN`, `CONNECTION_STRING`/`CONN_STR`, `PAT` and
+`WEBHOOK` in addition to password/token/secret/key tokens. `PUBLIC_KEY`,
+`*_KEY_PREFIX`, `*_TTL`, `*_LENGTH`, `PARTITION_KEY`, `SORT_KEY`, `HASH_KEY` and
+`RANGE_KEY` are never treated as secrets (`*_KEY_ID` such as `AWS_ACCESS_KEY_ID`
+is still flagged). Values are inspected too: `scheme://user:password@host` (any
+variable name, including `https://user:token@host`) and Slack webhook URLs are
+flagged; plain URLs without credentials stay exempt. Kubernetes `Secret`
+manifests with a top-level `sops` block, or only `ENC[...]` values, are skipped.
+Fixtures: [`tests/fixtures/secret-shapes-k8s`](../tests/fixtures/secret-shapes-k8s).
+
 For supported fields, a literal credential is rejected instead of being sourced
 from a secrets manager or a `sensitive` variable resolved at apply time. The
 shared predicate recognises both Terraform's `${...}` interpolation form and
@@ -225,9 +245,9 @@ a per-resource attribute, so a resource-config linter has limited visibility int
 | (c) business continuity / backup | ✓ | 3 |
 | (d) supply-chain security | ✗ organisational | — |
 | (e) secure acquisition/dev/maintenance | ✓ (secrets + patching) | EUGUARD_NIS2_001 + CKV_AWS_226 |
-| (f) assessing effectiveness | ✓ via CI usage | tool itself |
+| (f) assessing effectiveness | ◐ process evidence (CI usage) | tool itself |
 | (g) cyber hygiene / training | ✗ organisational | — |
-| (h) cryptography / encryption | ✓ | 2 |
+| (h) cryptography / encryption | ◐ partial (technical slice only) | 2 |
 | (i) access control / asset mgmt | ✓ strong | 12 |
 | (j) MFA / secured comms | ◐ candidate | (CKV2_AWS_22) |
 

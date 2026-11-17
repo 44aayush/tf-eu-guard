@@ -1,44 +1,128 @@
 name: CI
 
+# Read-only token: CI only checks out and tests code, it never writes to the repo.
 permissions:
   contents: read
+
+# One run per ref. Superseded pull-request runs are cancelled; pushes to main
+# and release-tag runs (this workflow is also called by publish.yml) always
+# finish.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  # Reused by publish.yml so a release tag runs the same checks as main.
+  workflow_call:
 
 jobs:
   lint:
+    name: lint
+    timeout-minutes: 15
     runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
+      - name: Install locked dependencies
+        # Same versions as the Docker image: the hashed runtime lock, the
+        # project itself without resolving anything, then the hashed dev tools
+        # (requirements-dev.lock is constrained by requirements.lock).
         run: |
-          pip install -e ".[dev]"
+          pip install --require-hashes -r requirements.lock -r requirements-dev.lock
+          pip install --no-deps -e .
 
+      # Keep these commands identical to .githooks/pre-commit.
       - name: Lint with ruff
         run: |
-          ruff check tf_eu_guard/ tools/
+          ruff check .
+
+      - name: Check formatting with ruff
+        run: |
+          ruff format --check .
 
       - name: Type-check with mypy
         run: |
-          mypy --ignore-missing-imports tf_eu_guard
+          mypy --ignore-missing-imports tf_eu_guard tools
 
-  supply-chain:
+      - name: Install hashed workflow-lint tooling (zizmor)
+        # zizmor is pinned with hashes in requirements-ci.lock, like the other
+        # CI tools; it lives in its own venv outside the project environment.
+        run: |
+          python -m venv "$RUNNER_TEMP/ci-tools"
+          "$RUNNER_TEMP/ci-tools/bin/python" -m pip install --require-hashes -r requirements-ci.lock
+
+      - name: Audit workflows and the Action with zizmor
+        # Offline (no token, no network) and with the strictest persona so
+        # undocumented permissions and missing concurrency limits fail too.
+        # Settings live in .github/zizmor.yml.
+        run: |
+          "$RUNNER_TEMP/ci-tools/bin/zizmor" --offline --persona auditor --min-severity informational .
+
+      - name: Install actionlint (pinned release, sha256-verified)
+        # Release binary rather than an action: the checksum below is the
+        # only trust anchor. Dependabot cannot bump it; update the version
+        # and checksum together from the release's checksums file.
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+          ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/actionlint.tar.gz"
+          curl -fsSL --retry 3 -o "$archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  ${archive}" | sha256sum --check --strict
+          tar -xzf "$archive" -C "$RUNNER_TEMP" actionlint
+
+      - name: Lint workflows with actionlint
+        run: |
+          "$RUNNER_TEMP/actionlint" -color
+
+  lock-check:
+    name: lock-check
+    timeout-minutes: 10
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Create isolated lock tooling environment
+        run: python -m venv .ci-tools
+      - name: Install hashed lock tooling (uv is pinned in requirements-ci.lock)
+        run: .ci-tools/bin/python -m pip install --require-hashes -r requirements-ci.lock
+      - name: Regenerate the lock files
+        # uv keeps the versions already recorded in each lock, so this only
+        # changes a file when pyproject.toml or a *.in file changed without
+        # the lock being refreshed. Same command as CONTRIBUTING.md.
+        run: PATH="$PWD/.ci-tools/bin:$PATH" tools/compile-locks.sh
+      - name: Fail if a lock file is out of date
+        run: git diff --exit-code -- requirements.lock requirements-dev.lock requirements-ci.lock
+
+  supply-chain:
+    name: supply-chain
+    timeout-minutes: 15
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - name: Install the hashed runtime lock
@@ -62,7 +146,7 @@ jobs:
       - name: Verify SBOM matches the runtime lock
         run: python tools/check_sbom_lock.py requirements.lock sbom.json
       - name: Upload SBOM
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: runtime-sbom
           path: sbom.json
@@ -70,14 +154,18 @@ jobs:
           retention-days: 30
 
   wheel-install:
+    name: wheel-install
+    timeout-minutes: 15
     runs-on: ubuntu-24.04
     needs: [supply-chain]
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
@@ -150,24 +238,39 @@ jobs:
           echo "OK: installed wheel scanned examples/compliant-aws with zero mapped findings"
 
   test:
-    runs-on: ubuntu-24.04
+    name: test (${{ matrix.os }}, ${{ matrix.python-version }})
+    timeout-minutes: 30
+    runs-on: ${{ matrix.os }}
     needs: [lint, supply-chain]
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-24.04]
         python-version: ["3.11", "3.12", "3.13", "3.14"]
+        include:
+          # One interpreter per extra OS keeps the cost down while still
+          # exercising the package's "OS Independent" classifier.
+          - os: windows-latest
+            python-version: "3.12"
+          - os: macos-latest
+            python-version: "3.12"
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
+      - name: Install locked dependencies
+        # The lock is universal (platform markers), so the same hashed files
+        # install on every matrix Python and on Windows and macOS.
         run: |
-          pip install -e ".[dev]"
+          pip install --require-hashes -r requirements.lock -r requirements-dev.lock
+          pip install --no-deps -e .
 
       - name: Run tests
         env:
@@ -177,9 +280,9 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: coverage-${{ matrix.python-version }}
+          name: coverage-${{ matrix.os }}-${{ matrix.python-version }}
           path: coverage.xml
           if-no-files-found: error
           retention-days: 30
@@ -202,20 +305,25 @@ jobs:
           python tools/generate_coverage_doc.py --check
 
   example-scan:
+    name: example-scan
+    timeout-minutes: 20
     runs-on: ubuntu-24.04
     needs: test
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
       - name: Install tf-eu-guard
         run: |
-          pip install -e .
+          pip install --require-hashes -r requirements.lock
+          pip install --no-deps -e .
 
       - name: Scan vulnerable examples
         run: |
@@ -328,7 +436,7 @@ jobs:
 
       - name: Upload HTML reports
         if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: compliance-reports
           path: reports/*.html

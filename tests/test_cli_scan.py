@@ -41,6 +41,38 @@ def test_version_command(monkeypatch, capsys):
     assert "version" in capsys.readouterr().out
 
 
+def test_version_flag(monkeypatch, capsys):
+    from tf_eu_guard import __version__
+
+    monkeypatch.setattr("sys.argv", ["tf-eu-guard", "--version"])
+    with pytest.raises(SystemExit) as exc:
+        main()
+    assert exc.value.code == 0
+    assert __version__ in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("value", ["high", "High", "HIGH"])
+def test_fail_on_severity_is_case_insensitive(monkeypatch, tmp_path, repo_root, value):
+    fixture = str(repo_root / FIXTURE)
+    assert (
+        run_cli(monkeypatch, tmp_path, "--checkov-json", fixture, "--fail-on-severity", value) == 1
+    )
+
+
+def test_fail_on_severity_invalid_is_usage_error(monkeypatch, tmp_path, capsys):
+    with pytest.raises(SystemExit) as exc:
+        run_cli(monkeypatch, tmp_path, "--checkov-json", FIXTURE, "--fail-on-severity", "urgent")
+    assert exc.value.code == 2
+    assert "invalid choice" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("value", ["-1", "abc", "nan"])
+def test_timeout_rejects_bad_values(monkeypatch, tmp_path, value):
+    with pytest.raises(SystemExit) as exc:
+        run_cli(monkeypatch, tmp_path, "--checkov-json", FIXTURE, "--timeout", value)
+    assert exc.value.code == 2
+
+
 def test_scan_defaults_to_cwd(monkeypatch, tmp_path, capsys):
     """No PATH (and no --checkov-json) -> scan the current working directory.
 
@@ -50,7 +82,7 @@ def test_scan_defaults_to_cwd(monkeypatch, tmp_path, capsys):
     """
     calls = {}
 
-    def fake_run_checkov(target, iac_type="terraform"):
+    def fake_run_checkov(target, iac_type="terraform", residency_env=None, **_kw):
         calls["target"] = target
         return {"results": {"failed_checks": []}}
 
@@ -125,7 +157,9 @@ def test_region_policy_and_transfer_review_are_distinct_live_cli_findings(
 ):
     """A real Checkov-backed scan keeps EUSC policy separate from Chapter V."""
     fixture = repo_root / REGION_FIXTURE
-    rc = run_cli(monkeypatch, tmp_path, str(fixture), "--output", "json")
+    rc = run_cli(
+        monkeypatch, tmp_path, str(fixture), "--residency-policy", "eusc", "--output", "json"
+    )
     assert rc == 0
     findings = json.loads(capsys.readouterr().out)
 
@@ -133,16 +167,16 @@ def test_region_policy_and_transfer_review_are_distinct_live_cli_findings(
         return [f for f in findings if f["resource"] == resource]
 
     frankfurt = rows("aws.frankfurt")
-    assert {f["check_id"] for f in frankfurt} == {"EUGUARD_GDPR_001"}
-    assert frankfurt[0]["articles"] == [{"framework": "POLICY", "article": "Policy EUSC-001"}]
+    assert {f["check_id"] for f in frankfurt} == {"EUGUARD_POLICY_001"}
+    assert frankfurt[0]["articles"] == [{"framework": "POLICY", "article": "Policy RESIDENCY-001"}]
 
     virginia = rows("aws.virginia")
     assert {f["check_id"] for f in virginia} == {
-        "EUGUARD_GDPR_001",
+        "EUGUARD_POLICY_001",
         "EUGUARD_GDPR_002",
     }
-    assert next(f for f in virginia if f["check_id"] == "EUGUARD_GDPR_001")["articles"] == [
-        {"framework": "POLICY", "article": "Policy EUSC-001"}
+    assert next(f for f in virginia if f["check_id"] == "EUGUARD_POLICY_001")["articles"] == [
+        {"framework": "POLICY", "article": "Policy RESIDENCY-001"}
     ]
     assert next(f for f in virginia if f["check_id"] == "EUGUARD_GDPR_002")["articles"] == [
         {"framework": "GDPR", "article": "Art. 44"}
@@ -151,7 +185,17 @@ def test_region_policy_and_transfer_review_are_distinct_live_cli_findings(
 
     # A GDPR-only report contains the third-country review, not the separate
     # project-policy finding for the commercial EU region.
-    run_cli(monkeypatch, tmp_path, str(fixture), "--framework", "gdpr", "--output", "json")
+    run_cli(
+        monkeypatch,
+        tmp_path,
+        str(fixture),
+        "--residency-policy",
+        "eusc",
+        "--framework",
+        "gdpr",
+        "--output",
+        "json",
+    )
     gdpr_findings = json.loads(capsys.readouterr().out)
     assert {f["resource"] for f in gdpr_findings} == {"aws.london", "aws.zurich", "aws.virginia"}
     assert all(f["check_id"] == "EUGUARD_GDPR_002" for f in gdpr_findings)
@@ -407,7 +451,7 @@ def test_scan_terraform_plan_takes_path_not_checkov_json(monkeypatch, tmp_path, 
     """Plan mode scans the plan file directly — no --checkov-json required."""
     calls = {}
 
-    def fake_run_checkov(target, iac_type="terraform"):
+    def fake_run_checkov(target, iac_type="terraform", residency_env=None, **_kw):
         calls["target"], calls["iac_type"] = target, iac_type
         return {
             "check_type": "terraform_plan",
@@ -486,6 +530,7 @@ def test_scan_kubernetes_fixture(monkeypatch, tmp_path, repo_root, capsys):
     )
     # the custom K8s secrets check fires and enriches
     assert any(f["check_id"] == "EUGUARD_NIS2_002" for f in data)
+    assert any(f["check_id"] == "EUGUARD_NIS2_003" for f in data)
 
 
 def test_scan_kubernetes_framework_filter(monkeypatch, tmp_path, repo_root, capsys):
@@ -523,3 +568,20 @@ def test_cli_iac_type_choices_match_constants(monkeypatch, tmp_path, capsys):
     # module the single source of truth.
     expected_metavar = "{" + ",".join(SUPPORTED_IAC_TYPES) + "}"
     assert f"--iac-type {expected_metavar}" in err
+
+
+def test_cli_dev_report_survives_cp1252_stdout(monkeypatch, tmp_path, capsys):
+    """The default dev report must not crash on a legacy-code-page stdout."""
+    import io
+    import sys
+
+    from tests.cli_helpers import FIXTURE, run_cli
+
+    raw = io.BytesIO()
+    stream = io.TextIOWrapper(raw, encoding="cp1252")
+    monkeypatch.setattr(sys, "stdout", stream)
+    fixture = Path(FIXTURE).resolve()
+    run_cli(monkeypatch, tmp_path, "--checkov-json", str(fixture), "--output", "dev")
+    stream.flush()
+    text = raw.getvalue().decode("utf-8")
+    assert "●" in text or "✓" in text

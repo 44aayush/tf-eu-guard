@@ -10,7 +10,9 @@ is present.
 import importlib.util
 import json
 import os
+import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -348,3 +350,291 @@ def test_supported_iac_types_contents():
         "terraform_plan",
         "kubernetes",
     )
+
+
+def _fake_drive(monkeypatch, mapping):
+    """Simulate Windows drives: *mapping* maps a path-string prefix to a drive."""
+
+    def splitdrive(path):
+        path = str(path)
+        for prefix, drive in mapping.items():
+            if path.startswith(prefix):
+                return drive, path[len(prefix) :]
+        return "", path
+
+    monkeypatch.setattr("tf_eu_guard.checkov.process.os.path.splitdrive", splitdrive)
+
+
+def test_trusted_workdir_keeps_default_on_same_drive(monkeypatch, tmp_path):
+    from tf_eu_guard.checkov import process
+
+    default = Path(process.sysconfig.get_path("purelib"))
+    _fake_drive(monkeypatch, {str(default): "c:", str(tmp_path): "C:"})
+    assert process.trusted_checkov_workdir(tmp_path) == default
+
+
+def test_trusted_workdir_uses_target_drive_root_on_other_drive(monkeypatch, tmp_path):
+    from tf_eu_guard.checkov import process
+
+    default = Path(process.sysconfig.get_path("purelib"))
+    _fake_drive(monkeypatch, {str(default): "C:", str(tmp_path): "D:"})
+    workdir = process.trusted_checkov_workdir(tmp_path)
+    assert workdir == Path("D:" + os.sep)
+    assert not str(workdir).startswith(str(tmp_path))
+
+
+def test_run_checkov_passes_target_to_workdir(monkeypatch, tmp_path):
+    from tf_eu_guard.checkov import process
+
+    seen = {}
+    monkeypatch.setattr(
+        process, "trusted_checkov_workdir", lambda t: seen.setdefault("t", t) and tmp_path
+    )
+    monkeypatch.setattr(
+        process.subprocess,
+        "run",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("stop")),
+    )
+    plan = tmp_path / "plan.json"
+    plan.write_text("{}")
+    with pytest.raises(RuntimeError, match="stop"):
+        process.run_checkov(plan, "terraform_plan")
+    assert seen["t"] == plan.resolve()
+
+
+# --- T-09..T-12: network, scrubbed environment, guards, excludes, modules -----
+
+
+def _capture_cmd(monkeypatch):
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["env"] = kwargs.get("env")
+        return type("R", (), {"returncode": 0, "stdout": json.dumps(SAMPLE), "stderr": ""})()
+
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
+    return captured
+
+
+def _tf_dir(tmp_path, body='resource "aws_s3_bucket" "b" {}\n'):
+    (tmp_path / "main.tf").write_text(body)
+    return tmp_path
+
+
+def test_skip_download_is_default_and_online_omits_it(tmp_path, monkeypatch):
+    captured = _capture_cmd(monkeypatch)
+    run_checkov(_tf_dir(tmp_path))
+    assert "--skip-download" in captured["cmd"]
+    run_checkov(tmp_path, online=True)
+    assert "--skip-download" not in captured["cmd"]
+
+
+def test_platform_and_ignore_variables_are_scrubbed_even_online(tmp_path, monkeypatch):
+    captured = _capture_cmd(monkeypatch)
+    for name in (
+        "BC_API_KEY",
+        "PRISMA_API_URL",
+        "BC_CA_BUNDLE",
+        "CKV_IGNORED_DIRECTORIES",
+        "CKV_IGNORE_HIDDEN_DIRECTORIES",
+    ):
+        monkeypatch.setenv(name, "x")
+    monkeypatch.setenv("UNRELATED_VAR", "kept")
+    run_checkov(_tf_dir(tmp_path), online=True)
+    env = captured["env"]
+    for name in (
+        "BC_API_KEY",
+        "PRISMA_API_URL",
+        "BC_CA_BUNDLE",
+        "CKV_IGNORED_DIRECTORIES",
+        "CKV_IGNORE_HIDDEN_DIRECTORIES",
+    ):
+        assert name not in env
+    assert env["UNRELATED_VAR"] == "kept"
+
+
+def test_exclude_is_passed_to_checkov_as_skip_path(tmp_path, monkeypatch):
+    captured = _capture_cmd(monkeypatch)
+    run_checkov(_tf_dir(tmp_path), exclude=("tests/fixtures", r"vendor/.*\.tf$"))
+    cmd = captured["cmd"]
+    pairs = [cmd[i + 1] for i, a in enumerate(cmd) if a == "--skip-path"]
+    assert pairs == ["tests/fixtures", r"vendor/.*\.tf$"]
+
+
+def test_guards_skip_hidden_terraform_and_node_modules(tmp_path, monkeypatch):
+    _capture_cmd(monkeypatch)
+    _tf_dir(tmp_path)
+    outside = tmp_path.parent / (tmp_path.name + "-outside.txt")
+    outside.write_text("x")
+    venv_bin = tmp_path / ".venv" / "bin"
+    venv_bin.mkdir(parents=True)
+    (venv_bin / "python").symlink_to(outside)
+    cache = tmp_path / ".terraform" / "modules" / "x"
+    cache.mkdir(parents=True)
+    (cache / "versions.tf.json").write_text("{}")
+    (tmp_path / "node_modules").mkdir()
+    (tmp_path / "node_modules" / "a.tf.json").write_text("{}")
+    assert run_checkov(tmp_path)["results"]["failed_checks"]
+
+
+def test_escaping_tf_symlink_still_rejected(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "outside.tf"
+    outside.write_text("")
+    (root / "link.tf").symlink_to(outside)
+    with pytest.raises(ValueError, match="resolves outside scan root"):
+        run_checkov(root)
+
+
+def test_broken_tf_symlink_rejected_but_other_broken_link_only_warns(tmp_path, capsys, monkeypatch):
+    _capture_cmd(monkeypatch)
+    _tf_dir(tmp_path)
+    (tmp_path / "gone.txt").symlink_to(tmp_path / "missing")
+    run_checkov(tmp_path)
+    assert "broken symlink" in capsys.readouterr().err
+    (tmp_path / "gone.tf").symlink_to(tmp_path / "missing")
+    with pytest.raises(ValueError, match="broken"):
+        run_checkov(tmp_path)
+
+
+def test_escaping_non_source_symlink_warns_but_escaping_dir_rejected(tmp_path, capsys, monkeypatch):
+    _capture_cmd(monkeypatch)
+    root = tmp_path / "root"
+    root.mkdir()
+    _tf_dir(root)
+    outside = tmp_path / "outside.bin"
+    outside.write_text("x")
+    (root / "data.bin").symlink_to(outside)
+    run_checkov(root)
+    assert "resolves outside scan root" in capsys.readouterr().err
+    outdir = tmp_path / "outdir"
+    outdir.mkdir()
+    (root / "linkdir").symlink_to(outdir)
+    with pytest.raises(ValueError, match="resolves outside scan root"):
+        run_checkov(root)
+
+
+def test_kubernetes_symlink_suffixes_follow_framework(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "o.yaml"
+    outside.write_text("")
+    (root / "link.yaml").symlink_to(outside)
+    with pytest.raises(ValueError, match="resolves outside scan root"):
+        run_checkov(root, "kubernetes")
+
+
+def test_exclude_honoured_by_guards(tmp_path, monkeypatch):
+    _capture_cmd(monkeypatch)
+    _tf_dir(tmp_path)
+    broken = tmp_path / "fixtures"
+    broken.mkdir()
+    (broken / "bad.tf.json").write_text("{}")
+    (broken / "bad.tf").symlink_to(tmp_path / "missing")
+    with pytest.raises(ValueError):
+        run_checkov(tmp_path)
+    assert run_checkov(tmp_path, exclude=("fixtures",))["results"]["failed_checks"]
+    # regex semantics, as Checkov's --skip-path
+    assert run_checkov(tmp_path, exclude=(r"fix.ures$",))["results"]["failed_checks"]
+
+
+def test_remote_module_warning(tmp_path, capsys, monkeypatch):
+    _capture_cmd(monkeypatch)
+    (tmp_path / "main.tf").write_text(
+        'module "reg" {\n  source = "terraform-aws-modules/s3-bucket/aws"\n}\n'
+        'module "git" {\n  source = "git::https://example.com/x.git?ref=v1"\n}\n'
+        'module "loc" {\n  source = "./modules/local"\n}\n'
+        'module "up" {\n  source = "../shared"\n}\n'
+    )
+    run_checkov(tmp_path)
+    err = capsys.readouterr().err
+    assert "not analysed: remote module sources" in err
+    assert "module.reg (terraform-aws-modules/s3-bucket/aws)" in err
+    assert "module.git (git::https://example.com/x.git?ref=v1)" in err
+    assert "module.loc" not in err
+    assert "module.up" not in err
+
+
+def test_no_remote_module_warning_for_local_only(tmp_path, capsys, monkeypatch):
+    _capture_cmd(monkeypatch)
+    _tf_dir(tmp_path, 'module "loc" {\n  source = "./m"\n}\n')
+    run_checkov(tmp_path)
+    assert "remote module" not in capsys.readouterr().err
+
+
+def test_cli_wires_exclude_and_online(monkeypatch, tmp_path):
+    from tf_eu_guard.cli.parser import build_parser
+
+    args = build_parser().parse_args(
+        ["scan", str(tmp_path), "--exclude", "a", "--skip-path", "b", "--online"]
+    )
+    assert args.exclude == ["a", "b"]
+    assert args.online is True
+    assert build_parser().parse_args(["scan", "."]).online is False
+
+
+@pytest.mark.parametrize("output", ["dev", "security", "auditor", "json", "sarif", "all"])
+def test_reporters_tolerate_missing_guideline(repo_root, tmp_path, monkeypatch, output):
+    from tests.cli_helpers import run_cli
+
+    fixture = json.loads((repo_root / "tests/fixtures/checkov-vulnerable-tf.json").read_text())
+    assert fixture["results"]["failed_checks"]
+    for check in fixture["results"]["failed_checks"]:
+        check["guideline"] = None
+    source = tmp_path / "in.json"
+    source.write_text(json.dumps(fixture))
+    code = run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(source),
+        "--output",
+        output,
+        "--output-dir",
+        str(tmp_path / "out"),
+    )
+    assert code in (0, 1, None)
+
+
+def _ok_result():
+    return type(
+        "R",
+        (),
+        {
+            "returncode": 0,
+            "stdout": '{"results": {"failed_checks": []}, "summary": {"parsing_errors": 0}}',
+            "stderr": "",
+        },
+    )()
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "expected"),
+    [({}, 600), ({"timeout": 12.5}, 12.5), ({"timeout": 0}, None)],
+)
+def test_run_checkov_passes_timeout_and_encoding(tmp_path, monkeypatch, kwargs, expected):
+    seen = {}
+
+    def fake_run(cmd, **kw):
+        seen.update(kw)
+        return _ok_result()
+
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
+    (tmp_path / "main.tf").write_text('resource "aws_x" "y" {}\n')
+    run_checkov(tmp_path, **kwargs)
+    assert seen["timeout"] == expected
+    assert seen["encoding"] == "utf-8"
+    assert seen["errors"] == "replace"
+    assert "text" not in seen
+
+
+def test_run_checkov_timeout_raises_runtime_error(tmp_path, monkeypatch):
+    def fake_run(cmd, **kw):
+        raise subprocess.TimeoutExpired(cmd, kw["timeout"])
+
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
+    (tmp_path / "main.tf").write_text('resource "aws_x" "y" {}\n')
+    with pytest.raises(CheckovRuntimeError, match="did not finish within 5 seconds"):
+        run_checkov(tmp_path, timeout=5)

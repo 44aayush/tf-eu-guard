@@ -400,7 +400,7 @@ literal in `db-app.tf`, so this gap compounds the hardcoded-secret finding.
 **CKV_AWS_67** — Ensure CloudTrail is enabled in all Regions
 **Mapped to**: NIS2 Art. 21(2)(b) — Incident handling
 **Severity**: HIGH
-**Expected instances**: `cloudtrail.tf` — `aws_cloudtrail.account_trail` has `is_multi_region_trail = false`, so out-of-region activity leaves no audit trail (relevant under the EUSC-only `EUGUARD_GDPR_001` policy)
+**Expected instances**: `cloudtrail.tf` — `aws_cloudtrail.account_trail` has `is_multi_region_trail = false`, so out-of-region activity leaves no audit trail (relevant under a residency policy such as `EUGUARD_POLICY_001`)
 
 **CKV_AWS_35** — Ensure CloudTrail logs are encrypted at rest using KMS CMKs
 **Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)
@@ -626,9 +626,9 @@ finding.
 
 ### High Severity
 
-**EUGUARD_GDPR_001** — Provider region outside the EU Sovereign Cloud
-**Mapped to**: Policy EUSC-001 — AWS European Sovereign Cloud deployment policy
-**Expected instances**: `consts.tf` / `providers.tf` — the check only accepts the EU Sovereign Cloud region `eusc-de-east-1`, so every other configured region fails. A commercial EU region such as `eu-central-1` would be an out-of-policy finding without a GDPR Chapter V citation.
+**EUGUARD_POLICY_001** — Provider region outside the configured residency policy
+**Mapped to**: Policy RESIDENCY-001 — AWS region residency policy
+**Expected instances**: `consts.tf` / `providers.tf` — the default `eu-eea` policy accepts EU/EEA commercial regions and the Sovereign Cloud, so a provider such as `us-west-1` fails; under `--residency-policy eusc` only `eusc-de-east-1` passes. No GDPR Chapter V citation is attached to this policy finding.
 
 **EUGUARD_GDPR_002** — Known provider region outside the EU/EEA
 **Mapped to**: GDPR Art. 44 — General principle for transfers of personal data to third countries

@@ -2,12 +2,14 @@
 
 Classifies each requirement of NIS2 Art. 21(2)(a)–(j) and GDPR
 Art. 32(1)(a)–(d) (plus GDPR Art. 44, which the custom residency check
-maps) into one of four categories, so a user can tell "this requirement
+maps) into one of five categories, so a user can tell "this requirement
 has automated checks" from "this requirement has never been looked at":
 
 - **Automated** — the tool can directly evaluate this from IaC input today
 - **Partial** — the technical config provides evidence for only part of
   the requirement
+- **Process evidence** — no resource check evidences it; the tool's
+  repeatable runs are the evidence
 - **Manual** — needs non-IaC evidence (policy, governance, staff
   training, incident-response process) that Terraform/Kubernetes
   manifests structurally can never show

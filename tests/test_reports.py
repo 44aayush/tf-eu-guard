@@ -250,7 +250,7 @@ class TestAuditorReport:
         assert (
             'href="https://github.com/44aayush/tf-eu-guard/blob/v9.8.7/docs/gdpr-mapping.md"' in doc
         )
-        assert "blob/v0.7.1/docs/" not in doc
+        assert "blob/v0.8.0/docs/" not in doc
 
     def test_toc_anchors_resolve(self):
         doc = generate_auditor_report(_sample_findings())
@@ -457,7 +457,7 @@ def test_html_reports_still_link_safe_guidelines():
     # not turn the untrusted Checkov guideline into an external link.
     auditor = generate_auditor_report(findings)
     assert 'href="https://docs.prismacloud.io' not in auditor
-    assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v0.7.1/docs/' in auditor
+    assert 'href="https://github.com/44aayush/tf-eu-guard/blob/v0.8.0/docs/' in auditor
 
 
 def test_committed_html_reports_use_hedged_language_and_keep_disclaimers():

@@ -20,6 +20,9 @@ class CoverageCategory(StrEnum):
 
     AUTOMATED = "automated"
     PARTIAL = "partial"
+    #: No resource check maps here; the tool's own repeatable CI runs are
+    #: the evidence. Distinct from PARTIAL, which implies mapped checks.
+    PROCESS_EVIDENCE = "process evidence"
     MANUAL = "manual"
     NOT_COVERED = "not covered"
 
@@ -59,7 +62,7 @@ GDPR_TITLES: dict[str, str] = {
 ARTICLE_TITLES: dict[tuple[Framework, str], str] = {
     **{(Framework.NIS2, f"Art. 21(2)({letter})"): title for letter, title in NIS2_TITLES.items()},
     **{(Framework.GDPR, f"Art. {article}"): title for article, title in GDPR_TITLES.items()},
-    (Framework.POLICY, "Policy EUSC-001"): "AWS European Sovereign Cloud deployment policy",
+    (Framework.POLICY, "Policy RESIDENCY-001"): "AWS region residency policy",
 }
 
 
@@ -135,12 +138,14 @@ REQUIREMENTS: tuple[dict, ...] = (
     dict(
         framework=Framework.NIS2,
         letter="f",
-        category=CoverageCategory.PARTIAL,
+        category=CoverageCategory.PROCESS_EVIDENCE,
         rationale=(
-            "No single resource check maps here — the evidence is the tool "
-            "itself: running tf-eu-guard on every PR and in CI is a repeatable, "
-            "timestamped effectiveness assessment (mirrors GDPR Art. 32(1)(d)). "
-            "The documented assessment process around those runs is organisational."
+            "No resource check maps here and none can: the evidence is the "
+            "tool's own use. Running tf-eu-guard on every PR and in CI yields "
+            "repeatable, timestamped scan output that an assessment process "
+            "can cite. That is process evidence, not an evaluated control; the "
+            "documented assessment process around those runs is organisational "
+            "(mirrors GDPR Art. 32(1)(d))."
         ),
     ),
     dict(
@@ -159,13 +164,14 @@ REQUIREMENTS: tuple[dict, ...] = (
     dict(
         framework=Framework.NIS2,
         letter="h",
-        category=CoverageCategory.AUTOMATED,
+        category=CoverageCategory.PARTIAL,
         rationale=(
-            "Encryption at rest and in transit is fully visible in IaC: KMS "
-            "configurations, TLS enforcement, encrypted storage and transit "
-            "settings are directly evaluable. (Key management *policy* around "
-            "the crypto is organisational, but the requirement's technical "
-            "measures are automated.)"
+            "The article concerns *policies and procedures* on cryptography. "
+            "IaC shows the technical slice: encryption at rest and in transit, "
+            "KMS configuration and TLS enforcement are directly evaluable. "
+            "Whether a cryptography policy exists, key lifecycle and rotation "
+            "procedures, algorithm selection rationale and key custody are "
+            "organisational and not visible in IaC."
         ),
     ),
     dict(
@@ -181,22 +187,28 @@ REQUIREMENTS: tuple[dict, ...] = (
     dict(
         framework=Framework.NIS2,
         letter="j",
-        category=CoverageCategory.AUTOMATED,
+        category=CoverageCategory.PARTIAL,
         rationale=(
-            "MFA enforcement, authentication configuration and secured "
-            "communication channels (TLS, disabled legacy protocols, private "
-            "clusters) are directly evaluable from IaC."
+            "The article covers multi-factor authentication and secured "
+            "voice, video, text and emergency communications. The mapped "
+            "checks evaluate only a narrow slice: client certificates, basic "
+            "authentication and TLS or legacy-protocol settings on "
+            "infrastructure. MFA enrolment and enforcement for people, and "
+            "the security of voice, video, messaging and emergency "
+            "communication systems, are outside what IaC shows."
         ),
     ),
     # --- GDPR ---
     dict(
         framework=Framework.GDPR,
         letter="32(1)(a)",
-        category=CoverageCategory.AUTOMATED,
+        category=CoverageCategory.PARTIAL,
         rationale=(
-            "Pseudonymisation is an application-level property, but the "
-            "encryption the article pairs it with — at rest and in transit — "
-            "is fully visible in IaC and directly evaluable."
+            "Only the encryption half is evaluable: encryption at rest and in "
+            "transit is visible in IaC. Pseudonymisation is an "
+            "application-level property that cannot be evaluated from "
+            "infrastructure configuration, so the requirement as a whole is "
+            "only partly covered."
         ),
     ),
     dict(
@@ -222,16 +234,19 @@ REQUIREMENTS: tuple[dict, ...] = (
     dict(
         framework=Framework.GDPR,
         letter="32(1)(d)",
-        category=CoverageCategory.PARTIAL,
+        category=CoverageCategory.PROCESS_EVIDENCE,
         rationale=(
-            "Same shape as NIS2 21(2)(f): continuous scanning in CI is the "
-            "technical evidence of regular testing; the testing *process* "
-            "(pen tests, review cadence) is organisational."
+            "Same shape as NIS2 21(2)(f): the evidence is the tool's own use. "
+            "Continuous scanning in CI produces repeatable evidence that "
+            "testing happens, which is process evidence rather than an "
+            "evaluated control; the few mapped checks (Azure Data Factory and Defender "
+            "settings) do not evidence the requirement itself. The testing "
+            "*process* (pen tests, review cadence) is organisational."
         ),
     ),
     dict(
         # Custom check EUGUARD_GDPR_002: known third-country provider region ->
-        # transfer review signal. EUGUARD_GDPR_001 is a separate project-policy
+        # transfer review signal. EUGUARD_POLICY_001/002 are separate project-policy
         # control and is intentionally not part of this regulatory inventory.
         # Deliberately the honest mid category: the config is evaluable, the
         # lawful-transfer analysis is not (docs/gdpr-mapping.md standard).
@@ -239,8 +254,8 @@ REQUIREMENTS: tuple[dict, ...] = (
         letter="44",
         category=CoverageCategory.PARTIAL,
         rationale=(
-            "The custom EUGUARD_GDPR_002 check flags known AWS provider regions "
-            "outside the EU/EEA for Chapter V review. The adequacy/SCC analysis "
+            "The custom EUGUARD_GDPR_002 and EUGUARD_GDPR_003 checks flag known AWS "
+            "provider and resource-level regions outside the EU/EEA for Chapter V review. The adequacy/SCC analysis "
             "itself is legal, not technical — a third-country signal is a prompt "
             "for review, not a violation or definitive legal conclusion."
         ),

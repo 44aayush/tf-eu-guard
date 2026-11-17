@@ -3,8 +3,10 @@
 Each finding becomes a SARIF ``result`` whose ``ruleId`` is the Checkov
 check ID; the registry's regulatory context (NIS2/GDPR articles, severity,
 remediation) rides along in ``properties`` on both the ``tool.driver.rules``
-entry and the per-result ``properties``, so Code Scanning surfaces the
-article metadata without extra clicks. Unmapped Checkov findings are
+entry and the per-result ``properties``. Code Scanning renders each rule's
+``help`` (remediation and article list), ``properties.tags`` (framework and
+article labels, filterable) and ``properties.security-severity`` (ranking);
+the custom ``properties`` themselves are for other SARIF consumers. Unmapped Checkov findings are
 included as low-visibility ``note``-level results tagged
 ``properties.mapped = false`` rather than silently dropped — the same
 surface-them-anywhere policy the HTML and JSON reports follow.
@@ -14,6 +16,7 @@ in ``tests/test_sarif_report.py`` (schema vendored under
 ``tests/schemas/``), not just eyeballed.
 """
 
+import hashlib
 import ntpath
 import posixpath
 import re
@@ -50,6 +53,108 @@ def sarif_level(severity: Severity) -> str:
     if severity is Severity.MEDIUM:
         return "warning"
     return "note"
+
+
+#: GitHub Code Scanning ranks alerts by ``properties.security-severity``, a
+#: string holding a CVSS-like 0.0-10.0 score. GitHub's bands are critical
+#: > 9.0, high 7.0-8.9, medium 4.0-6.9, low 0.1-3.9; each value below sits
+#: inside its band. Rules with no registry mapping carry no
+#: ``security-severity`` at all (they have no registry severity, and are
+#: ``note``-level), so GitHub falls back to ranking them by ``level``.
+SECURITY_SEVERITY: dict[Severity, str] = {
+    Severity.CRITICAL: "9.5",
+    Severity.HIGH: "8.0",
+    Severity.MEDIUM: "5.5",
+    Severity.LOW: "3.0",
+    Severity.INFO: "0.0",
+}
+
+#: ``partialFingerprints`` key; the suffix is the hash recipe version.
+FINGERPRINT_KEY = "tfEuGuard/v1"
+
+#: File-level fallback location for results whose source file is outside
+#: the repository (``locations`` is required by GitHub for every result).
+ROOT_URI_BASE_ID = "%SRCROOT%"
+
+_MD_SPECIAL = re.compile(r"([\\`*_\[\]<>#|~&])")
+
+
+def _md_escape(text: str) -> str:
+    """Backslash-escape Markdown and HTML-significant characters in *text*."""
+    return _MD_SPECIAL.sub(r"\\\1", text)
+
+
+def _outside_path_key(
+    file_path: object, scan_root: object | None, repository_root: object | None
+) -> str:
+    """Fingerprint path for a file outside the repository.
+
+    Relative to the scan root when one is known (stable across machines);
+    otherwise the basename plus a hash of the normalized absolute path, so
+    two different outside files never collide.
+    """
+    text = _path_text(file_path)
+    if scan_root is not None and not _is_windows_absolute(_path_text(scan_root)):
+        repo = _posix_root(repository_root) if repository_root is not None else None
+        scan = _posix_root(scan_root, repo)
+        candidate = Path(text) if text.startswith("/") else scan / text
+        resolved = Path(posixpath.normpath(str(candidate)))
+        return "outside:" + posixpath.relpath(str(resolved), str(scan))
+    normalized = posixpath.normpath(text)
+    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
+    return f"outside:{posixpath.basename(normalized)}:{digest}"
+
+
+def _fingerprint(check_id: str, resource: object, artifact_uri: str | None) -> str:
+    """Stable sha256 of check ID, resource and repo-relative path.
+
+    A result outside the repository hashes an empty path: an absolute or
+    ``../`` path would differ per machine and defeat the stability.
+    """
+    material = "\n".join((check_id, str(resource or ""), artifact_uri or ""))
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def _rule_help(finding: EnrichedFinding) -> dict[str, str]:
+    """``help`` with plain-text and Markdown remediation plus article list."""
+    articles = _articles_property(finding)
+    remediation = finding.remediation or ""
+    text_parts = []
+    md_parts = []
+    if remediation:
+        text_parts.append(f"Remediation: {remediation}")
+        md_parts.append(f"**Remediation**\n\n{_md_escape(remediation)}")
+    if articles:
+        text_parts.append("Regulatory references: " + "; ".join(articles))
+        md_parts.append(
+            "**Regulatory references**\n\n" + "\n".join(f"- {_md_escape(a)}" for a in articles)
+        )
+    if not text_parts:
+        text_parts.append(finding.check_name or finding.check_id)
+        md_parts.append(_md_escape(finding.check_name or finding.check_id))
+    return {"text": "\n\n".join(text_parts), "markdown": "\n\n".join(md_parts)}
+
+
+def _rule_tags(finding: EnrichedFinding) -> list[str]:
+    """``security``, then framework names, then article labels."""
+    tags = ["security"]
+    for article in sorted_articles(finding):
+        if article.framework.value not in tags:
+            tags.append(article.framework.value)
+    for label in _articles_property(finding):
+        if label not in tags:
+            tags.append(label)
+    return tags
+
+
+def _suppressions(suppressed: bool, reason: str | None) -> dict[str, Any]:
+    """Return the ``suppressions`` result member for an inline-skipped check."""
+    if not suppressed:
+        return {}
+    suppression: dict[str, Any] = {"kind": "inSource"}
+    if reason:
+        suppression["justification"] = reason
+    return {"suppressions": [suppression]}
 
 
 def _articles_property(finding: EnrichedFinding) -> list[str]:
@@ -270,6 +375,11 @@ def _physical_location(
     return {"physicalLocation": location}
 
 
+def _root_location() -> dict[str, Any]:
+    """File-level location at the repository root, for out-of-repo files."""
+    return {"physicalLocation": {"artifactLocation": {"uri": ".", "uriBaseId": ROOT_URI_BASE_ID}}}
+
+
 def build_sarif(
     enriched: list[EnrichedFinding],
     unmapped: list[dict[str, Any]] | None = None,
@@ -277,6 +387,8 @@ def build_sarif(
     target: str | None = None,
     scan_root: object | None = None,
     repository_root: object | None = None,
+    suppressed: list[EnrichedFinding] | None = None,
+    suppressed_unmapped: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build a SARIF 2.1.0 document from enriched (and unmapped) findings.
 
@@ -292,13 +404,20 @@ def build_sarif(
             paths are resolved relative to this root.
         repository_root: Checkout root used to make artifact locations
             repository-relative. Findings outside this root retain their
-            result metadata but have no physical location.
+            result metadata but get a file-level location at the repository root
+            (``uri: "."`` with ``uriBaseId: %SRCROOT%``).
+        suppressed: Mapped findings suppressed by inline ``checkov:skip``
+            comments. They become results carrying a SARIF ``suppressions``
+            entry of kind ``inSource`` (with the stated reason as
+            ``justification`` when one was given).
+        suppressed_unmapped: Raw Checkov dicts for suppressed unmapped checks,
+            handled the same way.
 
     Returns:
         A SARIF 2.1.0 document as a plain dict, ready to serialize.
     """
-    enriched = sort_findings(enriched)
-    unmapped = sort_unmapped_findings(unmapped or [])
+    enriched = sort_findings([*enriched, *(suppressed or [])])
+    unmapped = sort_unmapped_findings([*(unmapped or []), *(suppressed_unmapped or [])])
 
     rules: list[dict[str, Any]] = []
     rule_index: dict[str, int] = {}
@@ -313,7 +432,10 @@ def build_sarif(
                 "severity": finding.severity.value,
                 "articles": _articles_property(finding),
                 "remediation": finding.remediation,
+                "tags": _rule_tags(finding),
+                "security-severity": SECURITY_SEVERITY[finding.severity],
             },
+            "help": _rule_help(finding),
         }
         if finding.check_name:
             rule["shortDescription"] = {"text": finding.check_name}
@@ -332,7 +454,7 @@ def build_sarif(
             return rule_index[check_id]
         rule: dict[str, Any] = {
             "id": check_id,
-            "properties": {"mapped": False},
+            "properties": {"mapped": False, "tags": ["security"]},
         }
         if check.get("check_name"):
             rule["shortDescription"] = {"text": check["check_name"]}
@@ -371,19 +493,27 @@ def build_sarif(
                 repository_root,
             )
             guideline = safe_guideline(finding.guideline)
+            artifact_uri = _artifact_uri(finding.file_path, scan_root, repository_root)
+            if artifact_uri is None:
+                artifact_uri = _outside_path_key(finding.file_path, scan_root, repository_root)
             results.append(
                 {
                     "ruleId": check_id,
                     "ruleIndex": index,
                     "level": sarif_level(finding.severity),
                     "message": {"text": finding.risk_explanation or finding.check_name},
-                    "locations": [location] if location is not None else [],
+                    "locations": [location if location is not None else _root_location()],
+                    "partialFingerprints": {
+                        FINGERPRINT_KEY: _fingerprint(check_id, finding.resource, artifact_uri)
+                    },
+                    **_suppressions(finding.suppressed, finding.suppression_reason),
                     "properties": {
                         "mapped": True,
                         "resource": finding.resource,
                         "severity": finding.severity.value,
                         "articles": _articles_property(finding),
                         "remediation": finding.remediation,
+                        **({"locationOutsideRepository": True} if location is None else {}),
                         **({"guideline": guideline} if guideline else {}),
                     },
                 }
@@ -399,6 +529,9 @@ def build_sarif(
             scan_root,
             repository_root,
         )
+        artifact_uri = _artifact_uri(check.get("file_path", ""), scan_root, repository_root)
+        if artifact_uri is None:
+            artifact_uri = _outside_path_key(check.get("file_path", ""), scan_root, repository_root)
         results.append(
             {
                 "ruleId": check_id,
@@ -411,10 +544,15 @@ def build_sarif(
                         f"affect severity gating)."
                     )
                 },
-                "locations": [location] if location is not None else [],
+                "locations": [location if location is not None else _root_location()],
+                "partialFingerprints": {
+                    FINGERPRINT_KEY: _fingerprint(check_id, check.get("resource"), artifact_uri)
+                },
+                **_suppressions(bool(check.get("suppressed")), check.get("suppression_reason")),
                 "properties": {
                     "mapped": False,
                     "resource": check.get("resource"),
+                    **({"locationOutsideRepository": True} if location is None else {}),
                 },
             }
         )

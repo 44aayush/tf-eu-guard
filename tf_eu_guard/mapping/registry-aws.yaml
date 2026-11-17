@@ -5,7 +5,7 @@
 # Article letters verified against Directive (EU) 2022/2555 and Regulation
 # (EU) 2016/679 — see docs/nis2-mapping.md, docs/gdpr-mapping.md and
 # docs/check-mapping-table.md for the reasoning and verification status.
-# Severity is authored here (Checkov 3.3.29 leaves `severity` null).
+# Severity is authored here (Checkov 3.4.5 leaves `severity` null).
 # =============================================================================
 
 
@@ -865,31 +865,90 @@ CKV_AWS_130:
 # Custom tf-eu-guard checks (Phase 3)  ->  EU-specific requirements not covered
 # by stock Checkov policies. Implemented under tf_eu_guard/checks/ and loaded via
 # `--external-checks-dir tf_eu_guard/checks` (wired into checkov_runner.py).
-#   EUGUARD_GDPR_001  provider-level EUSC sovereignty policy
-#   EUGUARD_GDPR_002  known third-country provider region: Chapter V review
-#   EUGUARD_NIS2_001  hardcoded secrets in IaC (NIS2 secure development)
+#   EUGUARD_POLICY_001  provider-level residency policy (eu-eea | eusc | custom)
+#   EUGUARD_POLICY_002  resource-level regions (region arg, replicas, copy vaults)
+#   EUGUARD_GDPR_001    DEPRECATED alias of EUGUARD_POLICY_001 (0.7.x JSON)
+#   EUGUARD_GDPR_002    known third-country provider region: Chapter V review
+#   EUGUARD_GDPR_003    known third-country resource region: Chapter V review
+#   EUGUARD_NIS2_001    hardcoded secrets in IaC (NIS2 secure development)
 # -----------------------------------------------------------------------------
 
-EUGUARD_GDPR_001:
-  check_name: "Ensure the AWS provider region is in the EU Sovereign Cloud (project sovereignty policy)"
+EUGUARD_POLICY_001:
+  check_name: "Ensure the AWS provider region is within the configured residency policy"
   articles:
     - framework: POLICY
-      article: "Policy EUSC-001"
-      title: "AWS European Sovereign Cloud deployment policy"
+      article: "Policy RESIDENCY-001"
+      title: "AWS region residency policy"
   risk: >
-    This project is based on the AWS European Sovereign Cloud: only EUSC
-    regions are acceptable deployment targets. A commercial EU/EEA region such
-    as eu-central-1 is outside this project's sovereignty policy even though it
-    may satisfy the GDPR geographic baseline. A non-EU/EEA region is also
-    outside this policy, but any Chapter V transfer review is reported
-    separately by EUGUARD_GDPR_002. This finding is a project-policy deviation,
-    not a GDPR legal conclusion.
+    The AWS provider region is outside the configured residency policy
+    (--residency-policy: eu-eea by default, eusc for the AWS European
+    Sovereign Cloud only, or a custom allowlist). Under eusc, a commercial
+    EU/EEA region such as eu-central-1 is outside the policy even though it
+    may satisfy the GDPR geographic baseline. An unresolved variable region
+    cannot be proven to be in policy statically and also fails. Any Chapter V
+    transfer review for a non-EU/EEA region is reported separately by
+    EUGUARD_GDPR_002. This finding is a project-policy deviation, not a GDPR
+    legal conclusion.
   remediation: |
-    Pin every aws provider block to an EU Sovereign Cloud region:
+    Pin every aws provider block to a region allowed by the policy:
       # Before:
+      provider "aws" { region = "us-east-1" }
+      # After (eu-eea policy):
       provider "aws" { region = "eu-central-1" }
-      # After:
-      provider "aws" { region = "eusc-de-east-1" }
+    Under --residency-policy eusc use region = "eusc-de-east-1". An unresolved
+    variable region needs a literal value in the scanned configuration.
+  severity: HIGH
+
+# Deprecated alias: 0.7.x --checkov-json files carry this ID. Identical mapping
+# to EUGUARD_POLICY_001; removed in the next release.
+EUGUARD_GDPR_001:
+  check_name: "Ensure the AWS provider region is within the configured residency policy"
+  articles:
+    - framework: POLICY
+      article: "Policy RESIDENCY-001"
+      title: "AWS region residency policy"
+  risk: >
+    DEPRECATED: EUGUARD_GDPR_001 was renamed EUGUARD_POLICY_001 and this alias
+    will be removed in the next release. The AWS provider region is outside the
+    residency policy in effect when the scan ran (EUSC-only in 0.7.x). A
+    commercial EU/EEA region such as eu-central-1 was outside that policy even
+    though it may satisfy the GDPR geographic baseline. Any Chapter V transfer
+    review is reported separately by EUGUARD_GDPR_002. This finding is a
+    project-policy deviation, not a GDPR legal conclusion.
+  remediation: |
+    Pin every aws provider block to a region allowed by the policy:
+      # Before:
+      provider "aws" { region = "us-east-1" }
+      # After (eu-eea policy):
+      provider "aws" { region = "eu-central-1" }
+    Under --residency-policy eusc use region = "eusc-de-east-1". An unresolved
+    variable region needs a literal value in the scanned configuration.
+  severity: HIGH
+
+EUGUARD_POLICY_002:
+  check_name: "Ensure resource regions (region argument, replicas, copy destinations) are within the configured residency policy"
+  articles:
+    - framework: POLICY
+      article: "Policy RESIDENCY-001"
+      title: "AWS region residency policy"
+  risk: >
+    A resource places data outside the configured residency policy through its
+    own region argument (AWS provider 6.0+ accepts one on most resources) or
+    through a replica or copy destination (DynamoDB replica, Secrets Manager
+    replica, ECR replication destination, Backup copy-action vault). These
+    override the provider region, so a compliant provider block does not make
+    the resource compliant. An unresolved variable in an explicit region
+    attribute cannot be proven in policy and also fails. S3 replication
+    destinations are bucket ARNs and are not evaluated. This finding is a
+    project-policy deviation, not a GDPR legal conclusion.
+  remediation: |
+    Use a region allowed by the policy for the resource and every replica:
+      # Before:
+      replica { region_name = "us-east-1" }
+      # After (eu-eea policy):
+      replica { region_name = "eu-west-1" }
+    Under --residency-policy eusc use region codes of the AWS European
+    Sovereign Cloud. Use literal values; unresolved variables fail closed.
   severity: HIGH
 
 EUGUARD_GDPR_002:
@@ -908,9 +967,30 @@ EUGUARD_GDPR_002:
     not a definitive legal conclusion.
   remediation: |
     Confirm the data flows and document the applicable Chapter V mechanism,
-    or pin the provider to an EU/EEA region. To satisfy this project's stricter
-    sovereignty policy as well, use an AWS European Sovereign Cloud region:
-      provider "aws" { region = "eusc-de-east-1" }
+    or pin the provider to an EU/EEA region:
+      provider "aws" { region = "eu-central-1" }
+  severity: HIGH
+
+EUGUARD_GDPR_003:
+  check_name: "Review resource regions outside the EU/EEA (region argument, replicas, copy destinations) for GDPR Chapter V transfer safeguards"
+  articles:
+    - framework: GDPR
+      article: "Art. 44"
+      title: "General principle for transfers of personal data to third countries"
+  risk: >
+    A resource whose own region argument, replica or copy destination is a
+    known AWS region outside the EU/EEA is a technical signal that
+    personal-data processing may involve a third-country transfer, even when
+    the provider region is in the EU/EEA. GDPR Chapter V (Art. 44-49) may
+    require an adequacy decision, Standard Contractual Clauses, Binding
+    Corporate Rules, or another safeguard, but this configuration alone cannot
+    show whether a transfer occurs or whether its mechanism is lawful. Treat
+    this as a hedged Chapter V review signal, not a definitive legal
+    conclusion.
+  remediation: |
+    Confirm the data flows and document the applicable Chapter V mechanism,
+    or move the resource, replica or copy destination to an EU/EEA region:
+      replica { region_name = "eu-west-1" }
   severity: HIGH
 
 EUGUARD_NIS2_001:
@@ -4269,3 +4349,50 @@ CKV2_AWS_31:
         resource_arn            = aws_wafv2_web_acl.app.arn
       }
   severity: MEDIUM
+
+# -----------------------------------------------------------------------------
+# Terraform module supply chain  (any *.tf with a module block)  ->  NIS2 Art. 21(2)(d)
+# -----------------------------------------------------------------------------
+# Cloud-agnostic Checkov module checks (CKV_TF_*), kept in this file because the
+# registry layout is one file per Terraform provider namespace and the packaged
+# file list is fixed. Both fire on the module call itself, so they are reported
+# even though Checkov does not download remote modules (see docs/limitations.md).
+# -----------------------------------------------------------------------------
+
+CKV_TF_1:
+  check_name: "Ensure Terraform module sources use a commit hash"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(d)"
+      title: "Supply chain security"
+  risk: >
+    A module source without a commit hash (a branch, a tag or no ref) can be
+    re-pointed to different code after review, so what `terraform init` fetches
+    is no longer the artifact that was assessed. This weakens the supply-chain
+    integrity that NIS2 Art. 21(2)(d) expects the entity to manage.
+  remediation: |
+    Pin Git module sources to a full commit hash:
+      module "network" {
+        source = "git::https://example.com/org/network.git?ref=<40-character-commit-sha>"
+      }
+  severity: MEDIUM
+
+CKV_TF_2:
+  check_name: "Ensure Terraform module sources use a tag with a version number"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(d)"
+      title: "Supply chain security"
+  risk: >
+    A module source with no version tag (or a floating branch) lets upstream
+    changes reach your infrastructure unreviewed. Pinning at least to a version
+    tag keeps module updates deliberate, supporting the supply-chain security
+    NIS2 Art. 21(2)(d) refers to.
+  remediation: |
+    Pin the module to a version:
+      module "s3" {
+        source  = "terraform-aws-modules/s3-bucket/aws"
+        version = "4.1.2"
+      }
+    or, for Git sources, use a version tag: source = "git::https://example.com/org/m.git?ref=v1.2.3"
+  severity: LOW

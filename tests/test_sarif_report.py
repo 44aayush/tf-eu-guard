@@ -7,6 +7,7 @@ rejected by GitHub Code Scanning.
 """
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
@@ -308,7 +309,15 @@ def test_path_outside_repository_is_retained_without_unsafe_location(validator, 
         repository_root=repo,
     )
     validator.validate(document)
-    assert all(not result["locations"] for result in document["runs"][0]["results"])
+    for result in document["runs"][0]["results"]:
+        (location,) = result["locations"]
+        assert location["physicalLocation"]["artifactLocation"] == {
+            "uri": ".",
+            "uriBaseId": "%SRCROOT%",
+        }
+        assert "region" not in location["physicalLocation"]
+        assert result["properties"]["locationOutsideRepository"] is True
+        assert "outside" not in json.dumps(result["partialFingerprints"])
 
 
 def test_windows_separators_and_uri_delimiters_are_preserved_safely(validator):
@@ -407,3 +416,131 @@ def test_cli_sarif_output_file(monkeypatch, tmp_path, repo_root, capsys, validat
     document = json.loads(out_file.read_text(encoding="utf-8"))
     validator.validate(document)
     assert "SARIF report written" in capsys.readouterr().out
+
+
+# --- T-13: Code Scanning fields -------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("severity", "score"),
+    [
+        (Severity.CRITICAL, "9.5"),
+        (Severity.HIGH, "8.0"),
+        (Severity.MEDIUM, "5.5"),
+        (Severity.LOW, "3.0"),
+        (Severity.INFO, "0.0"),
+    ],
+)
+def test_rule_security_severity_per_severity(validator, severity, score):
+    document = build_sarif([make_finding(severity=severity)])
+    validator.validate(document)
+    (rule,) = document["runs"][0]["tool"]["driver"]["rules"]
+    assert rule["properties"]["security-severity"] == score
+    assert isinstance(rule["properties"]["security-severity"], str)
+
+
+def test_rule_help_and_tags(validator):
+    finding = make_finding(
+        remediation="Set `encrypted = true` for *all* [buckets] <now>.",
+        articles=[
+            ArticleReference(Framework.NIS2, "Art. 21(2)(h)", "Cryptography"),
+            ArticleReference(Framework.GDPR, "Art. 32(1)(a)", "Encryption"),
+        ],
+    )
+    document = build_sarif([finding])
+    validator.validate(document)
+    (rule,) = document["runs"][0]["tool"]["driver"]["rules"]
+    assert "Set `encrypted = true`" in rule["help"]["text"]
+    assert "NIS2 Art. 21(2)(h)" in rule["help"]["text"]
+    markdown = rule["help"]["markdown"]
+    assert "\\`encrypted = true\\`" in markdown
+    assert "\\*all\\*" in markdown and "\\[buckets\\]" in markdown
+    assert "\\<now>" not in markdown and "\\<now\\>" in markdown
+    assert "- NIS2 Art. 21(2)(h)" in markdown
+    tags = rule["properties"]["tags"]
+    assert tags[0] == "security"
+    assert {"NIS2", "GDPR", "NIS2 Art. 21(2)(h)", "GDPR Art. 32(1)(a)"} <= set(tags)
+
+
+def test_unmapped_rule_has_no_security_severity(validator):
+    document = build_sarif(
+        [],
+        unmapped=[
+            {
+                "check_id": "CKV_X_1",
+                "check_name": "x",
+                "resource": "aws_x.y",
+                "file_path": "a.tf",
+                "file_line_range": [1, 2],
+            }
+        ],
+    )
+    validator.validate(document)
+    (rule,) = document["runs"][0]["tool"]["driver"]["rules"]
+    assert "security-severity" not in rule["properties"]
+    assert "help" not in rule
+
+
+def _fingerprints(document):
+    return [r["partialFingerprints"]["tfEuGuard/v1"] for r in document["runs"][0]["results"]]
+
+
+def test_fingerprints_are_stable_and_distinguish_resources(validator):
+    findings = [
+        make_finding(resource="aws_s3_bucket.a"),
+        make_finding(resource="aws_s3_bucket.b"),
+        make_finding(resource="aws_s3_bucket.a", file_path="other.tf"),
+    ]
+    first = build_sarif(findings)
+    second = build_sarif(list(reversed(findings)))
+    validator.validate(first)
+    assert sorted(_fingerprints(first)) == sorted(_fingerprints(second))
+    assert len(set(_fingerprints(first))) == 3
+    assert all(len(fp) == 64 and int(fp, 16) >= 0 for fp in _fingerprints(first))
+    # Line moves do not change the fingerprint.
+    moved = build_sarif([make_finding(resource="aws_s3_bucket.a", file_line_range=[40, 50])])
+    assert _fingerprints(moved)[0] == _fingerprints(build_sarif([findings[0]]))[0]
+
+
+def test_outside_repo_fingerprints_differ_per_file(tmp_path):
+    repo = tmp_path / "checkout"
+    scan = repo / "src"
+    scan.mkdir(parents=True)
+    findings = [
+        make_finding(file_path="../../one/x.tf"),
+        make_finding(file_path="../../two/x.tf"),
+    ]
+    for kwargs in ({"scan_root": scan, "repository_root": repo}, {}):
+        document = build_sarif(findings, **kwargs)
+        if kwargs:
+            assert len(set(_fingerprints(document))) == 2
+    # No roots: in-repo-looking relative paths are normalized, so use absolute ones.
+    document = build_sarif(
+        [make_finding(file_path="/../a/x.tf"), make_finding(file_path="/../b/x.tf")],
+        repository_root=repo,
+    )
+    assert len(set(_fingerprints(document))) == 2
+    again = build_sarif(findings, scan_root=scan, repository_root=repo)
+    assert _fingerprints(again) == _fingerprints(
+        build_sarif(findings, scan_root=scan, repository_root=repo)
+    )
+
+
+def test_outside_path_key_without_scan_root_hashes_absolute_path(tmp_path):
+    from tf_eu_guard.reporting.sarif_report import _outside_path_key
+
+    repo = tmp_path / "checkout"
+    repo.mkdir()
+    key_a = _outside_path_key("/../a/x.tf", None, repo)
+    key_b = _outside_path_key("/../b/x.tf", None, repo)
+    assert re.fullmatch(r"outside:x\.tf:[0-9a-f]{16}", key_a)
+    assert re.fullmatch(r"outside:x\.tf:[0-9a-f]{16}", key_b)
+    assert key_a != key_b
+    assert key_a == _outside_path_key("/../a/x.tf", None, repo)
+
+    def build(*paths):
+        return build_sarif([make_finding(file_path=p) for p in paths], repository_root=repo)
+
+    first = _fingerprints(build("/../a/x.tf", "/../b/x.tf"))
+    assert first[0] != first[1]
+    assert first == _fingerprints(build("/../a/x.tf", "/../b/x.tf"))

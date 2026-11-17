@@ -1,27 +1,50 @@
 """Argument parser construction for the CLI."""
 
 import argparse
+import math
 from pathlib import Path
 
+from tf_eu_guard import __version__
 from tf_eu_guard.constants import (
+    DEFAULT_CHECKOV_TIMEOUT,
     FRAMEWORK_FILTERS,
     OUTPUT_FORMATS,
     SUPPORTED_IAC_TYPES,
 )
 from tf_eu_guard.models import Severity
+from tf_eu_guard.residency import DEFAULT_POLICY, RESIDENCY_POLICIES, parse_allowed_regions
 
 
 def fail_on_severity_arg(value: str) -> str | None:
     """Parse ``--fail-on-severity`` while allowing an empty disabled value."""
     if value == "":
         return None
-    if value not in {severity.value for severity in Severity}:
-        raise argparse.ArgumentError(
-            None,
+    normalised = value.strip().upper()
+    if normalised not in {severity.value for severity in Severity}:
+        raise argparse.ArgumentTypeError(
             f"invalid choice: {value!r} "
-            f"(choose from CRITICAL, HIGH, MEDIUM, LOW, INFO, or '' to disable)",
+            f"(choose from CRITICAL, HIGH, MEDIUM, LOW, INFO, or '' to disable)"
         )
-    return value
+    return normalised
+
+
+def timeout_arg(value: str) -> float:
+    """Parse ``--timeout`` as a non-negative number of seconds (0 disables)."""
+    try:
+        seconds = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid number of seconds: {value!r}") from None
+    if not math.isfinite(seconds) or seconds < 0:
+        raise argparse.ArgumentTypeError(f"must be a finite number >= 0, got {value!r}")
+    return seconds
+
+
+def allowed_regions_arg(value: str) -> tuple[str, ...]:
+    """Parse ``--allowed-regions`` into normalised region codes."""
+    try:
+        return parse_allowed_regions(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -30,6 +53,12 @@ def build_parser() -> argparse.ArgumentParser:
         prog="tf-eu-guard",
         description="EU compliance security linter for Terraform (source, plan JSON) "
         "and Kubernetes (NIS2 + GDPR)",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"tf-eu-guard {__version__}",
+        help="Print the version and exit (same as the 'version' command).",
     )
     parser.add_argument(
         "command",
@@ -80,14 +109,65 @@ def build_parser() -> argparse.ArgumentParser:
         "PATH becomes optional when this is set.",
     )
     parser.add_argument(
+        "--exclude",
+        "--skip-path",
+        dest="exclude",
+        action="append",
+        default=[],
+        metavar="PATTERN",
+        help="Skip files/directories whose absolute path matches PATTERN "
+        "(repeatable). Same semantics as Checkov's --skip-path: PATTERN is "
+        "a Python regular expression searched in the full path (a pattern "
+        "starting with a single '.' is taken literally), and any path "
+        "containing PATTERN as plain text also matches, so 'tests/fixtures' "
+        "works. Also honoured by tf-eu-guard's symlink and *.tf.json checks. "
+        "Ignored with --checkov-json and terraform_plan.",
+    )
+    parser.add_argument(
+        "--online",
+        action="store_true",
+        help="Let Checkov download guideline metadata from the Prisma Cloud "
+        "platform (adds 'Documentation' links; makes one HTTPS request per "
+        "scan). Off by default: Checkov runs with --skip-download. Platform "
+        "API keys (BC_*, PRISMA_*) are always removed from Checkov's "
+        "environment, even with --online; no results are uploaded.",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=timeout_arg,
+        default=DEFAULT_CHECKOV_TIMEOUT,
+        metavar="SECONDS",
+        help="Kill the Checkov subprocess and exit 3 if it runs longer than "
+        f"SECONDS (default: {DEFAULT_CHECKOV_TIMEOUT}; 0 disables the limit). "
+        "Ignored with --checkov-json.",
+    )
+    parser.add_argument(
         "--output-file",
         type=Path,
         default=None,
         metavar="FILE",
-        help="For --output security|auditor|sarif, write the single report here "
-        "(HTML defaults to reports/scan_report_<timestamp>.html or "
-        "reports/auditor_report_<timestamp>.html; sarif: stdout by "
-        "default). Ignored for dev, json and all.",
+        help="For --output security|auditor|sarif|json, write the single report "
+        "here (UTF-8; HTML defaults to reports/scan_report_<timestamp>.html or "
+        "reports/auditor_report_<timestamp>.html; sarif and json: stdout by "
+        "default). Ignored for dev and all.",
+    )
+    parser.add_argument(
+        "--json-format",
+        choices=("array", "object"),
+        default="array",
+        help="Layout of --output json (default: array). 'array' is the legacy "
+        "bare list of findings and is deprecated: the default changes to "
+        "'object' in a future release. 'object' is the versioned document "
+        "(schema_version, tool, checkov_version, scan, summary, findings, "
+        "unmapped) with line ranges, check names, risk text and remediation.",
+    )
+    parser.add_argument(
+        "--allow-partial",
+        action="store_true",
+        help="Continue, with a stderr warning, when Checkov reports parsing "
+        "errors. By default parsing errors fail the scan (source scans and "
+        "--checkov-json alike), because files that could not be parsed were "
+        "not checked.",
     )
     parser.add_argument(
         "--output-dir",
@@ -98,6 +178,24 @@ def build_parser() -> argparse.ArgumentParser:
         "created if missing). For --output all, the three HTML files are "
         "written here with timestamped names.",
     )
+    parser.add_argument(
+        "--residency-policy",
+        choices=list(RESIDENCY_POLICIES),
+        default=DEFAULT_POLICY,
+        help="AWS region residency policy enforced by EUGUARD_POLICY_001/002 "
+        "(default: eu-eea). 'eu-eea' allows EU/EEA commercial regions and the "
+        "AWS European Sovereign Cloud; 'eusc' allows only the Sovereign Cloud; "
+        "'custom' uses --allowed-regions. Ignored with --checkov-json (results "
+        "are pre-computed).",
+    )
+    parser.add_argument(
+        "--allowed-regions",
+        type=allowed_regions_arg,
+        default=None,
+        metavar="REGION[,REGION...]",
+        help="Comma-separated region allowlist; required with, and only valid "
+        "with, --residency-policy custom.",
+    )
 
     parser.add_argument(
         "--fail-on-severity",
@@ -105,7 +203,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="SEVERITY",
         help="Exit with code 1 if any finding is at or above this severity "
-        "(CRITICAL, HIGH, MEDIUM, LOW, INFO — for CI/CD gating). Default: "
+        "(CRITICAL, HIGH, MEDIUM, LOW, INFO, case-insensitive — for CI/CD gating). Default: "
         "disabled (exit 0 unless an error occurs). An empty value also "
         "disables gating (the GitHub Action passes its cleared input "
         "through verbatim). "
@@ -121,5 +219,15 @@ def build_parser() -> argparse.ArgumentParser:
         "Like --fail-on-severity, considers only MAPPED findings "
         "(unmapped Checkov findings are surfaced in reports but do not "
         "fail the gate).",
+    )
+    parser.add_argument(
+        "--fail-on-suppressed",
+        action="store_true",
+        help="Exit with code 1 if any MAPPED finding was suppressed by an inline "
+        "Checkov comment (#checkov:skip=ID:reason in Terraform, "
+        "checkov.io/skip annotations in Kubernetes). Suppressed findings are "
+        "always listed in every report but never count toward "
+        "--fail-on-severity / --fail-on-any. Honors --framework. Unmapped "
+        "suppressed checks are reported but do not trip this gate.",
     )
     return parser

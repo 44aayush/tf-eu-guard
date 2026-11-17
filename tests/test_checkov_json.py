@@ -232,7 +232,7 @@ def test_load_checkov_json_permission_error_is_user_input(monkeypatch, tmp_path)
     source.write_text("{}")
     monkeypatch.setattr(
         Path,
-        "read_text",
+        "read_bytes",
         lambda *args, **kwargs: (_ for _ in ()).throw(PermissionError(13, "Permission denied")),
     )
     with pytest.raises(CheckovInputError, match="Cannot read Checkov JSON input"):
@@ -247,9 +247,37 @@ def test_load_checkov_json_array_from_file(tmp_path):
 
 
 def test_load_checkov_json_from_stdin(monkeypatch):
-    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(SAMPLE)))
+    stdin = io.TextIOWrapper(io.BytesIO(json.dumps(SAMPLE).encode()), encoding="utf-8")
+    monkeypatch.setattr("sys.stdin", stdin)
     findings = extract_failed_checks(load_checkov_json(Path("-")))
     assert findings[0]["check_id"] == "CKV_AWS_17"
+
+
+@pytest.mark.parametrize("encoding", ["utf-16", "utf-16-le", "utf-16-be", "utf-8-sig"], ids=str)
+def test_load_checkov_json_detects_bom(tmp_path, encoding):
+    """PowerShell 5 writes UTF-16 LE with a BOM; editors add a UTF-8 BOM."""
+    raw = json.dumps(SAMPLE).encode(encoding)
+    if encoding == "utf-16-be":
+        raw = b"\xfe\xff" + raw
+    elif encoding == "utf-16-le":
+        raw = b"\xff\xfe" + raw
+    source = tmp_path / "out.json"
+    source.write_bytes(raw)
+    findings = extract_failed_checks(load_checkov_json(source))
+    assert findings[0]["check_id"] == "CKV_AWS_17"
+
+
+def test_load_checkov_json_stdin_utf16_bom(monkeypatch):
+    raw = json.dumps(SAMPLE).encode("utf-16")
+    monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(raw), encoding="utf-8"))
+    assert extract_failed_checks(load_checkov_json(Path("-")))[0]["check_id"] == "CKV_AWS_17"
+
+
+def test_load_checkov_json_undecodable_bytes_are_input_error(tmp_path):
+    source = tmp_path / "bad.json"
+    source.write_bytes(b"\xff\xfd\x80 not json")
+    with pytest.raises(CheckovInputError, match="utf-8"):
+        load_checkov_json(source)
 
 
 def test_load_checkov_json_real_capture(repo_root):

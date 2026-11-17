@@ -1,0 +1,93 @@
+{
+  "check_type": "terraform",
+  "results": {
+    "passed_checks": [],
+    "failed_checks": [
+      {
+        "check_id": "CKV_AWS_24",
+        "check_name": "Ensure no security groups allow ingress from 0.0.0.0:0 to port 22",
+        "check_result": {
+          "result": "FAILED"
+        },
+        "file_path": "/network.tf",
+        "file_line_range": [
+          1,
+          12
+        ],
+        "resource": "aws_security_group.ssh",
+        "guideline": null
+      }
+    ],
+    "skipped_checks": [
+      {
+        "check_id": "CKV_AWS_18",
+        "check_name": "Ensure the S3 bucket has access logging enabled",
+        "check_result": {
+          "result": "SKIPPED",
+          "suppress_comment": "access logging handled by the central log account"
+        },
+        "file_path": "/storage.tf",
+        "file_line_range": [
+          3,
+          8
+        ],
+        "resource": "aws_s3_bucket.logs",
+        "guideline": null
+      },
+      {
+        "check_id": "CKV_AWS_145",
+        "check_name": "Ensure S3 buckets are encrypted with KMS by default",
+        "check_result": {
+          "result": "SKIPPED",
+          "suppress_comment": "No comment provided"
+        },
+        "file_path": "/storage.tf",
+        "file_line_range": [
+          10,
+          14
+        ],
+        "resource": "aws_s3_bucket.scratch",
+        "guideline": null
+      },
+      {
+        "check_id": "CKV_AWS_13",
+        "check_name": "Ensure IAM password policy prevents password reuse",
+        "check_result": {
+          "result": "SKIPPED",
+          "suppress_comment": "legacy account, rotation handled by SSO"
+        },
+        "file_path": "/iam.tf",
+        "file_line_range": [
+          1,
+          6
+        ],
+        "resource": "aws_iam_account_password_policy.legacy",
+        "guideline": null
+      },
+      {
+        "check_id": "CKV_AWS_15",
+        "check_name": "Ensure IAM password policy requires at least one uppercase letter",
+        "check_result": {
+          "result": "SKIPPED",
+          "suppress_comment": "No comment provided"
+        },
+        "file_path": "/iam.tf",
+        "file_line_range": [
+          1,
+          6
+        ],
+        "resource": "aws_iam_account_password_policy.legacy",
+        "guideline": null
+      }
+    ],
+    "parsing_errors": []
+  },
+  "summary": {
+    "passed": 0,
+    "failed": 1,
+    "skipped": 4,
+    "parsing_errors": 0,
+    "resource_count": 5,
+    "checkov_version": "3.3.29"
+  }
+}

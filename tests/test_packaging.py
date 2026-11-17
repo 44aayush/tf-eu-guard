@@ -31,7 +31,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 def test_runtime_version_comes_from_distribution_metadata():
     """The import-time version must not be a second hand-maintained constant."""
     assert __version__ == installed_version("tf-eu-guard")
-    assert __version__ == "0.7.1"
+    assert __version__ == "0.8.0"
 
 
 #: The registry data files that must ship inside the wheel, verbatim.
@@ -183,3 +183,31 @@ def test_wheel_ships_the_custom_checks(tmp_path):
             "tf_eu_guard/checks/__init__.py",
         ):
             assert inner in names, f"{inner} missing from the wheel"
+
+
+def test_sdist_excludes_docs_examples_and_workflows(tmp_path):
+    """The sdist is an explicit allowlist, not the whole working tree."""
+    pytest.importorskip(
+        "build", reason="sdist-content checks require the CI build tooling environment"
+    )
+    pytest.importorskip(
+        "hatchling", reason="sdist-content checks require the CI build tooling environment"
+    )
+    if installed_version("hatchling") != "1.32.4":
+        pytest.skip("sdist-content checks require the pinned Hatchling 1.32.4 environment")
+    result = subprocess.run(
+        [sys.executable, "-m", "build", "--sdist", "--no-isolation", "--outdir", str(tmp_path)]
+        + [str(REPO_ROOT)],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr[-500:]
+    import tarfile
+
+    (sdist,) = tmp_path.glob("*.tar.gz")
+    with tarfile.open(sdist) as tar:
+        names = tar.getnames()
+    top = {name.split("/")[1] for name in names if "/" in name}
+    assert {"tf_eu_guard", "tests", "README.md", "LICENSE", "pyproject.toml"} <= top
+    assert not top & {"docs", "examples", ".github", ".claude", ".venv"}
+    assert any(n.endswith("tf_eu_guard/mapping/registry-aws.yaml") for n in names)

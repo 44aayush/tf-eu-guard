@@ -38,15 +38,33 @@ def apply_scan_gate(
     args: argparse.Namespace,
     findings: list[EnrichedFinding],
     unmapped: list[dict[str, Any]],
+    suppressed: list[EnrichedFinding] | None = None,
 ) -> int:
-    """Print gate messages and return the scan's findings status code."""
+    """Print gate messages and return the scan's findings status code.
+
+    ``findings`` are the active findings only; suppressed ones never count
+    toward ``--fail-on-severity`` / ``--fail-on-any`` and trip the gate only
+    through ``--fail-on-suppressed``.
+    """
     failing_findings = find_gate_failures(args, findings)
+    gate_failed = False
     if failing_findings:
         print(
             f"Fail: {len(failing_findings)} finding(s) at or above threshold "
             f"({args.fail_on_severity or 'ANY'}) — see report above.",
             file=sys.stderr,
         )
+        gate_failed = True
+
+    if getattr(args, "fail_on_suppressed", False) and suppressed:
+        print(
+            f"Fail: {len(suppressed)} mapped finding(s) suppressed by inline "
+            f"Checkov comments (--fail-on-suppressed) — see report above.",
+            file=sys.stderr,
+        )
+        gate_failed = True
+
+    if gate_failed:
         return EXIT_FINDINGS
 
     # Unmapped Checkov findings never affect the gate because severity is
