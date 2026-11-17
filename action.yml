@@ -133,7 +133,7 @@ runs:
         fi
 
         # Prefer the release image published to GHCR by release-image.yml
-        # (tagged with the action ref, e.g. v0.8.0). If the pull fails (ref is
+        # (tagged with the action ref, e.g. v0.8.1). If the pull fails (ref is
         # a branch or SHA, image not published yet, registry unreachable) fall
         # back to building the image from the action's own source. An explicit
         # `image` input (for example a @sha256 digest) never falls back.

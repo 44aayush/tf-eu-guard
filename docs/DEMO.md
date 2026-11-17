@@ -201,7 +201,7 @@ For README and documentation, capture:
 4. **Window size**: Use consistent viewport (1280×800 or 1920×1080)
 5. **Annotation**: Add arrows/highlights after capture to emphasize key features
 
-## Real Screenshots (captured 2026-11-17, tf-eu-guard 0.8.0)
+## Real Screenshots (captured 2026-11-17, tf-eu-guard 0.8.1)
 
 The README already embeds real captures from `docs/screenshots/`:
 

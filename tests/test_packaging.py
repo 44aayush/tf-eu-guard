@@ -31,7 +31,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 def test_runtime_version_comes_from_distribution_metadata():
     """The import-time version must not be a second hand-maintained constant."""
     assert __version__ == installed_version("tf-eu-guard")
-    assert __version__ == "0.8.0"
+    assert __version__ == "0.8.1"
 
 
 #: The registry data files that must ship inside the wheel, verbatim.
