@@ -10,6 +10,8 @@ release point.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-17
+
 ### Fixed
 
 - The published container image now carries OCI labels (`image.source`,
@@ -438,7 +440,8 @@ registries.**
 - `--checkov-json` for pre-generated Checkov output, `--framework`
   filter, `--fail-on-severity` / `--fail-on-any` CI gating.
 
-[Unreleased]: https://github.com/44aayush/tf-eu-guard/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/44aayush/tf-eu-guard/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/44aayush/tf-eu-guard/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/44aayush/tf-eu-guard/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/44aayush/tf-eu-guard/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/44aayush/tf-eu-guard/compare/v0.6.0...v0.7.0

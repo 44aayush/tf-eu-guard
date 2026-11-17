@@ -339,7 +339,7 @@ family (`CKV_AWS_10`–`15`).
 ### GitHub Action
 
 ```yaml
-- uses: 44aayush/tf-eu-guard@v0.8.0
+- uses: 44aayush/tf-eu-guard@v0.8.1
   with:
     path: './infra'
     iac-type: 'terraform'        # terraform | terraform_plan | kubernetes
@@ -404,7 +404,7 @@ jobs:
       security-events: write   # for upload-sarif
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: 44aayush/tf-eu-guard@v0.8.0
+      - uses: 44aayush/tf-eu-guard@v0.8.1
         with:
           path: './infra'
           output: sarif
@@ -427,12 +427,12 @@ through the `image` input (a pull failure then fails the step instead of
 falling back to a local build):
 
 ```bash
-docker buildx imagetools inspect ghcr.io/44aayush/tf-eu-guard:v0.8.0 | grep Digest
+docker buildx imagetools inspect ghcr.io/44aayush/tf-eu-guard:v0.8.1 | grep Digest
 gh attestation verify oci://ghcr.io/44aayush/tf-eu-guard@sha256:<digest> --owner 44aayush
 ```
 
 ```yaml
-- uses: 44aayush/tf-eu-guard@v0.8.0
+- uses: 44aayush/tf-eu-guard@v0.8.1
   with:
     image: ghcr.io/44aayush/tf-eu-guard@sha256:<digest>
 ```
@@ -441,7 +441,7 @@ For HTML artifacts, select an HTML-producing output and optionally choose a
 directory for the generated reports:
 
 ```yaml
-- uses: 44aayush/tf-eu-guard@v0.8.0
+- uses: 44aayush/tf-eu-guard@v0.8.1
   with:
     path: './infra'
     output: all
@@ -454,7 +454,7 @@ directory for the generated reports:
 ```yaml
 repos:
   - repo: https://github.com/44aayush/tf-eu-guard
-    rev: v0.8.0
+    rev: v0.8.1
     hooks:
       - id: tf-eu-guard
 ```

@@ -581,3 +581,13 @@ def test_image_build_step_sets_version_and_revision_labels():
     labels = build["with"]["labels"].splitlines()
     assert "org.opencontainers.image.version=${{ github.ref_name }}" in labels
     assert "org.opencontainers.image.revision=${{ github.sha }}" in labels
+
+
+def test_image_version_label_default_matches_pyproject_version():
+    """A version bump must not forget the Dockerfile's local-build default."""
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    final = _final_dockerfile_stage()
+    match = re.search(r"^ARG VERSION=(\S+)$", final, flags=re.MULTILINE)
+    assert match, "final stage must declare ARG VERSION=<default> after its FROM"
+    assert match.group(1) == project["version"]
+    assert 'org.opencontainers.image.version="${VERSION}"' in final

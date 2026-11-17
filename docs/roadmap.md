@@ -25,7 +25,7 @@ working notes (`NEW_FUNC.md`); the descriptions here are the short form.
 - Severity and finding gates for CI, a GitHub Action, and a pre-commit hook
 - Container image with provenance and SBOM attestations
 
-### Unreleased (0.8.0 work)
+### 0.8.0
 
 - Suppression reporting: inline `checkov:skip` comments appear in every report
   with their reason, and `--fail-on-suppressed` can gate on them
@@ -39,6 +39,10 @@ working notes (`NEW_FUNC.md`); the descriptions here are the short form.
 - Offline-by-default scans (Checkov runs with `--skip-download`), a hardened
   Action container, and hash-checked dependency locks
 - More AWS regions and a drift check against botocore
+
+### 0.8.1
+
+- OCI image labels link the GHCR package to the repository
 
 ## Planned
 
