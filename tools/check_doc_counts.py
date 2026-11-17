@@ -50,14 +50,22 @@ def compute_counts() -> dict[str, int]:
     counts["tf_nis2"] = framework_count(TF_CLOUD_REGISTRIES, "NIS2")
     counts["tf_gdpr"] = framework_count(TF_CLOUD_REGISTRIES, "GDPR")
     # GDPR Art. 32(1) specifically: the tf GDPR total minus the Art. 44 custom
-    # check, which the docs list as its own scope-table row. The EUSC-only
-    # EUGUARD_GDPR_001 mapping is a project POLICY and is not part of this
-    # subtraction.
-    counts["tf_gdpr_32"] = counts["tf_gdpr"] - int(
-        "EUGUARD_GDPR_002" in entries.get("registry-aws", {})
+    # checks (provider and resource level), which the docs list as their own
+    # scope-table row. The EUGUARD_POLICY_* mappings are project POLICY and
+    # are not part of this subtraction.
+    counts["tf_gdpr_32"] = counts["tf_gdpr"] - sum(
+        cid in entries.get("registry-aws", {}) for cid in ("EUGUARD_GDPR_002", "EUGUARD_GDPR_003")
     )
     counts["k8s_nis2"] = framework_count(("registry-kubernetes",), "NIS2")
     counts["k8s_gdpr"] = framework_count(("registry-kubernetes",), "GDPR")
+
+    # Article refs: every entry of every ``articles`` list in registry-aws,
+    # per framework (a check citing two NIS2 letters counts twice).
+    aws_refs = Counter(
+        a["framework"] for m in entries["registry-aws"].values() for a in m["articles"]
+    )
+    counts["aws_refs_nis2"] = aws_refs["NIS2"]
+    counts["aws_refs_gdpr"] = aws_refs["GDPR"]
 
     severity = Counter(mapping["severity"] for mapping in entries["registry-aws"].values())
     counts["aws_critical"] = severity["CRITICAL"]
@@ -168,6 +176,12 @@ CHECKS: list[tuple[str, re.Pattern[str], CountKey, str]] = [
         ),
         ("aws_critical", "aws_high", "aws_medium", "aws_low", "aws"),
         "post-extension severity distribution",
+    ),
+    (
+        "docs/check-mapping-table.md",
+        re.compile(r"article refs: NIS2 (\d+), GDPR (\d+)"),
+        ("aws_refs_nis2", "aws_refs_gdpr"),
+        "AWS article references per framework (entries in `articles` lists)",
     ),
 ]
 

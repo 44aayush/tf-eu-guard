@@ -2,7 +2,7 @@
 """Generate docs/regulatory-coverage.md from the mapping registries.
 
 Requirement-level coverage: classifies each requirement of NIS2 Art. 21(2)
-and GDPR Art. 32(1)/44 as Automated / Partial / Manual / Not covered, so a
+and GDPR Art. 32(1)/44 as Automated / Partial / Process evidence / Manual / Not covered, so a
 reader can tell "NIS2 Art. 21(2)(h) has automated checks" from "NIS2
 Art. 21(2)(a) needs organisational evidence this tool cannot see" — every
 unaddressed requirement otherwise looks identical (silently absent) to a
@@ -43,6 +43,7 @@ DOC_PATH = REPO_ROOT / "docs" / "regulatory-coverage.md"
 CATEGORY_BADGES = {
     CoverageCategory.AUTOMATED: "✅ **Automated**",
     CoverageCategory.PARTIAL: "◐ **Partial**",
+    CoverageCategory.PROCESS_EVIDENCE: "🧾 **Process evidence**",
     CoverageCategory.MANUAL: "👤 **Manual**",
     CoverageCategory.NOT_COVERED: "❌ **Not covered**",
 }
@@ -52,6 +53,11 @@ CATEGORY_BLURBS = {
     CoverageCategory.PARTIAL: (
         "The technical config provides evidence for only part of the "
         "requirement; the rest needs non-IaC evidence."
+    ),
+    CoverageCategory.PROCESS_EVIDENCE: (
+        "No resource check evidences it directly. Running the tool repeatably (for "
+        "example in CI) produces records an assessment process can cite, but "
+        "that is evidence of process, not an evaluated control."
     ),
     CoverageCategory.MANUAL: (
         "Needs non-IaC evidence (policy, governance, staff training, "
@@ -90,7 +96,7 @@ def render_doc() -> str:
     lines.append(
         "Coverage here is classified **by requirement, not by mapped-check "
         "count**. Every unaddressed requirement otherwise looks identical — "
-        "silently absent — to a covered one. Four categories:"
+        "silently absent — to a covered one. Five categories:"
     )
     lines.append("")
     for category in CoverageCategory:
@@ -102,6 +108,8 @@ def render_doc() -> str:
         summary_bits.append(f"{summary[CoverageCategory.AUTOMATED.value]} automated")
     if summary[CoverageCategory.PARTIAL.value]:
         summary_bits.append(f"{summary[CoverageCategory.PARTIAL.value]} partial")
+    if summary[CoverageCategory.PROCESS_EVIDENCE.value]:
+        summary_bits.append(f"{summary[CoverageCategory.PROCESS_EVIDENCE.value]} process evidence")
     if summary[CoverageCategory.MANUAL.value]:
         summary_bits.append(f"{summary[CoverageCategory.MANUAL.value]} manual")
     if summary[CoverageCategory.NOT_COVERED.value]:

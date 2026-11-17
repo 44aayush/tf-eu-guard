@@ -27,9 +27,8 @@ from checkov.common.models.enums import CheckCategories, CheckResult
 from checkov.terraform.checks.resource.base_resource_check import BaseResourceCheck
 
 from tf_eu_guard.checks.nis2.secret_names import (
-    is_literal_env_value,
     is_literal_secret_value,
-    is_sensitive_env_name,
+    is_secret_env_variable,
 )
 from tf_eu_guard.checks.values import unwrap_checkov_scalar
 
@@ -97,7 +96,7 @@ def _scan_codebuild_env(conf: dict) -> bool:
             continue
         name = unwrap_checkov_scalar(variable.get("name"))
         value = unwrap_checkov_scalar(variable.get("value"))
-        if is_sensitive_env_name(name) and is_literal_env_value(value):
+        if is_secret_env_variable(name, value):
             return True
     return False
 

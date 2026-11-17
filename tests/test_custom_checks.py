@@ -37,7 +37,16 @@ from tf_eu_guard.checks.nis2.secrets_in_code import (
 )  # noqa: E402
 from tf_eu_guard.regions import EUSC_REGIONS
 
-# --- EUGUARD_GDPR_001: EU Sovereign Cloud region enforcement (provider check) --
+# --- EUGUARD_POLICY_001: residency policy enforcement (provider check) --
+# The tests below pin the strict ``eusc`` policy (the 0.7.x behaviour); the
+# default eu-eea policy and custom allowlists are covered in test_residency.py.
+
+
+@pytest.fixture(autouse=True)
+def _eusc_policy(monkeypatch):
+    monkeypatch.setenv("TF_EU_GUARD_RESIDENCY_POLICY", "eusc")
+    monkeypatch.delenv("TF_EU_GUARD_ALLOWED_REGIONS", raising=False)
+
 
 # Every "eu"-prefixed region in AWS's commercial partition (verified against
 # the AWS "Regions and Zones" reference and botocore's partition data,
@@ -139,7 +148,7 @@ def test_region_allowlist_is_exact():
 
 def test_region_check_identity():
     check = EURegionEnforcement()
-    assert check.id == "EUGUARD_GDPR_001"
+    assert check.id == "EUGUARD_POLICY_001"
     assert check.supported_provider == ["aws"]
 
 
@@ -182,8 +191,10 @@ def test_region_aliased_providers_live(repo_root):
     if not fixture.exists():
         pytest.skip("tests/fixtures/region-aliases/ not present")
 
-    findings = extract_failed_checks(run_checkov(fixture))
-    flagged = {c["resource"] for c in findings if c["check_id"] == "EUGUARD_GDPR_001"}
+    findings = extract_failed_checks(
+        run_checkov(fixture, residency_env={"TF_EU_GUARD_RESIDENCY_POLICY": "eusc"})
+    )
+    flagged = {c["resource"] for c in findings if c["check_id"] == "EUGUARD_POLICY_001"}
 
     # eu-prefixed third countries must produce findings on their own alias.
     assert "aws.london" in flagged
@@ -514,8 +525,10 @@ def test_k8s_env_empty_value_passes():
 def test_k8s_checks_identity():
     """K8s variants use their own registry entry so Terraform remediation
     cannot leak into Kubernetes reports."""
-    for check in (K8sSecretManifestHardcodedSecrets(), K8sContainerEnvHardcodedSecrets()):
-        assert check.id == "EUGUARD_NIS2_002"
+    assert K8sSecretManifestHardcodedSecrets().id == "EUGUARD_NIS2_002"
+    # The container-env check has its own ID so a report can tell the rules apart.
+    assert K8sContainerEnvHardcodedSecrets().id == "EUGUARD_NIS2_003"
+    assert K8sSecretManifestHardcodedSecrets().id != K8sContainerEnvHardcodedSecrets().id
     assert "Secret" in K8sSecretManifestHardcodedSecrets().supported_specs
     assert "Pod" in K8sContainerEnvHardcodedSecrets().supported_specs
 

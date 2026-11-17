@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: benign
+spec:
+  selector:
+    matchLabels:
+      app: benign
+  template:
+    metadata:
+      labels:
+        app: benign
+    spec:
+      containers:
+        - name: app
+          image: registry.example/app:1.0
+          env:
+            - name: PARTITION_KEY
+              value: "tenant_id"
+            - name: TOKEN_TTL
+              value: "3600"
+            - name: PUBLIC_KEY
+              value: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample"

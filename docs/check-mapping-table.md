@@ -2,8 +2,8 @@
 
 **Reference stack**: the vulnerable Terraform under [`examples/vulnerable-aws/`](../examples/vulnerable-aws/)
 (`iam.tf`, `s3.tf`, `rds.tf`, `network.tf`, plus `outputs.tf`).
-**Mapped in `registry-aws.yaml`**: **181 check IDs** — 178 stock Checkov policies plus
-3 custom tf-eu-guard checks (**§**, added in Phase 3). The original 38-mapping core
+**Mapped in `registry-aws.yaml`**: **186 check IDs** — 180 stock Checkov policies plus
+6 custom tf-eu-guard checks (**§**, added in Phase 3). The original 38-mapping core
 covered the original vulnerable Terraform reference stack; subsequent extensions (from
 2026-08-30 on) grew the registry so that *every* Checkov check firing across the
 in-repo stacks (`examples/vulnerable-aws/`, `examples/end2end/`) enriches.
@@ -12,14 +12,14 @@ Mapping counts in the docs are verified against the registries in CI
 
 Article letters are verified against **Directive (EU) 2022/2555 (NIS2) Art. 21(2)**
 and **Regulation (EU) 2016/679 (GDPR) Art. 32(1)**. The table also includes the
-project's non-regulatory EUSC policy reference. Full legal text and reasoning
+project's non-regulatory region residency policy reference. Full legal text and reasoning
 live in [`nis2-mapping.md`](nis2-mapping.md) and [`gdpr-mapping.md`](gdpr-mapping.md).
 
 > **Provenance / verification status.** The mappings were originally assembled from
 > a **historical Checkov 3.3.13 capture** (`tests/fixtures/checkov-raw-output.json`)
 > plus the Checkov policy index, at a time when Checkov could not be executed in
 > the development environment. That capture remains a parser/enrichment fixture;
-> current runtime scans use pinned Checkov 3.3.29. Checkov now runs in CI and
+> current runtime scans use pinned Checkov 3.4.5. Checkov now runs in CI and
 > locally, so every ID has been re-verified against live scans of both in-repo stacks:
 > `examples/vulnerable-aws/`
 > (50 stock Checkov failing checks, all mapped) and `examples/end2end/` (295 stock
@@ -99,14 +99,17 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 | CKV2_AWS_12 | network.tf | aws_vpc | Default SG not restricted | 21(2)(i) | – | MEDIUM |
 | CKV2_AWS_11 | network.tf | aws_vpc | VPC flow logging disabled | 21(2)(b) | – | MEDIUM |
 | CKV_AWS_130 ‡ | network.tf | aws_subnet | Auto-assigns public IP | 21(2)(i) | 32(1)(b) | MEDIUM |
-| EUGUARD_GDPR_001 § | main.tf | aws provider | Provider region outside the EU Sovereign Cloud | – | Policy EUSC-001 | HIGH |
+| EUGUARD_POLICY_001 § | main.tf | aws provider | Provider region outside the configured residency policy | – | Policy RESIDENCY-001 | HIGH |
+| EUGUARD_GDPR_001 § | main.tf | aws provider | Deprecated alias of EUGUARD_POLICY_001 (removed next release) | – | Policy RESIDENCY-001 | HIGH |
+| EUGUARD_POLICY_002 § | main.tf | aws_* resources | Resource `region`, replica or copy-destination outside the residency policy | – | Policy RESIDENCY-001 | HIGH |
 | EUGUARD_GDPR_002 § | main.tf | aws provider | Known provider region outside the EU/EEA requires Chapter V review | – | 44 | HIGH |
+| EUGUARD_GDPR_003 § | main.tf | aws_* resources | Known resource-level region outside the EU/EEA requires Chapter V review | – | 44 | HIGH |
 | EUGUARD_NIS2_001 § | rds.tf | aws_db_instance | Hardcoded DB password (literal) | 21(2)(e) | 32(1)(b) | CRITICAL |
 
 ### Coverage summary
 
 - **By severity** (original 38): 9 CRITICAL · 15 HIGH · 14 MEDIUM — plus the
-  extension above (181 total: 23 CRITICAL · 67 HIGH · 66 MEDIUM · 25 LOW).
+  extension above (186 total: 23 CRITICAL · 70 HIGH · 67 MEDIUM · 26 LOW).
 - **By framework** (original 38): 21 map to **both** NIS2 and GDPR, 11 NIS2-only, 6 GDPR-only.
 - **By file**: iam.tf (12), s3.tf (9), rds.tf (9), network.tf (7), main.tf (1).
 - **By theme**: access control / least privilege (20), public exposure (7),
@@ -120,7 +123,7 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 
 The mappings were originally authored from a captured scan plus the Checkov policy
 index because Checkov could not run in the development environment at the time.
-That is no longer the case: Checkov 3.3.29 now executes in CI and locally, and every
+That is no longer the case: Checkov 3.4.5 now executes in CI and locally, and every
 ID above has been re-verified against live scans of both in-repo stacks:
 
 ```bash
@@ -165,9 +168,12 @@ remediation text lives in the registry):
 | Secrets in code | 21(2)(e) | 32(1)(b) | CKV_AWS_41, 45, 46 |
 | IAM / access control | 21(2)(i) | 32(1)(b) | CKV2_AWS_40, CKV_AWS_109, 111, 283, 356, 70, CKV2_AWS_41, 79, 162, 359, CKV2_AWS_52 |
 | Network segmentation | 21(2)(i) | 32(1)(b) | CKV_AWS_137, 248, 38, 39, 117, CKV2_AWS_5, 23 |
+| Terraform module pinning (cloud-agnostic) | 21(2)(d) | – | CKV_TF_1, CKV_TF_2 |
 
-Severity distribution after the extension: **23 CRITICAL · 67 HIGH · 66 MEDIUM ·
-25 LOW** (181 total; article refs: NIS2 129, GDPR 96).
+Severity distribution after the extension: **23 CRITICAL · 70 HIGH · 67 MEDIUM ·
+26 LOW** (186 total; article refs: NIS2 176, GDPR 135). An *article ref* is one
+entry in a check's `articles` list in `registry-aws.yaml`, counted per framework, so a
+check citing two NIS2 letters counts twice; the 3 `POLICY` refs are not included.
 
 ### Checks still intentionally unmapped
 
@@ -191,7 +197,7 @@ conceivable check with an article reference the code doesn't justify.
    `examples/end2end/`); the remaining ‡ IDs are authored from the Checkov policy
    index and are dormant only because no fixture yet holds a triggering resource.
    The registry stays honest about what has actually been reproduced.
-2. **Severity is authored here.** Checkov 3.3.29 returns `severity: null`, so the
+2. **Severity is authored here.** Checkov 3.4.5 returns `severity: null`, so the
    registry is the source of truth for severity (see `docs/checkov-schema.md`).
 3. **Conservative dual-mapping.** A check maps to *both* frameworks only where both
    articles genuinely apply (e.g. encryption → GDPR 32(1)(a) *and* NIS2 21(2)(h)).

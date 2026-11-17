@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
 <title>tf-eu-guard Security Report</title>
 <style>
   :root { color-scheme: light dark; }
@@ -20,8 +21,8 @@
 
   .summary { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
   .stat {
-    flex: 1 1 120px; background: #fff; border: 1px solid #e2e2e2; border-radius: 8px;
-    padding: 14px 16px; box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    flex: 1 1 90px; background: #fff; border: 1px solid #e2e2e2; border-radius: 8px;
+    padding: 14px 12px; box-shadow: 0 1px 2px rgba(0,0,0,.04);
   }
   .stat .num { font-size: 1.7rem; font-weight: 700; line-height: 1; }
   .stat .label { font-size: 0.78rem; color: #666; text-transform: uppercase; letter-spacing: .04em; }
@@ -29,8 +30,8 @@
   .chart { background: #fff; border: 1px solid #e2e2e2; border-radius: 8px; padding: 18px 20px; }
   .chart .row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
   .chart .rlabel { flex: 0 0 90px; font-size: 0.85rem; font-weight: 600; }
-  .chart .track { flex: 1; background: #eee; border-radius: 4px; overflow: hidden; }
-  .chart .bar { height: 20px; border-radius: 4px 0 0 4px; min-width: 2px; }
+  .chart .track { display: block; flex: 1; background: #eee; border-radius: 4px; overflow: hidden; }
+  .chart .bar { display: block; height: 20px; border-radius: 4px 0 0 4px; min-width: 2px; }
   .chart .rcount { flex: 0 0 40px; text-align: right; font-variant-numeric: tabular-nums; }
   .unmapped { color: #555; font-size: 0.9rem; margin: 10px 0 0; }
 
@@ -42,7 +43,7 @@
   .finding-head .cid { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }
   .finding-head .cname { color: #333; }
   .badge {
-    display: inline-block; color: #fff; font-size: 0.7rem; font-weight: 700;
+    display: inline-block; font-size: 0.7rem; font-weight: 700;
     padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: .03em;
   }
   dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; margin: 10px 0; font-size: 0.9rem; }
@@ -71,12 +72,18 @@
     .remediation pre { background: #1b1d22; border-color: #33373f; }
     .art { background: #2b3140; border-color: #3a4256; color: #cdd7e5; }
   }
+
+  .suppressed { margin-top: 28px; border-top: 3px solid #b9770e; padding-top: 4px; }
+  .suppressed table { border-collapse: collapse; width: 100%; font-family: system-ui, sans-serif; font-size: 0.92rem; margin: 12px 0; }
+  .suppressed th, .suppressed td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; vertical-align: top; }
+  .suppressed th { background: #fdf2e0; }
+  .attention { background: #fef5e7; border: 1px solid #f5cba7; color: #7e5109; padding: 24px; border-radius: 8px; text-align: center; font-family: system-ui, sans-serif; }
 </style>
 </head>
 <body>
 <header>
   <h1>tf-eu-guard &mdash; Security Report</h1>
-  <div class="meta"><span>Target: <code>examples/vulnerable-aws</code></span><span>Generated: 2026-10-17 22:05 UTC</span><span>Findings: 53</span></div>
+  <div class="meta"><span>Target: <code>examples/vulnerable-aws</code></span><span>Generated: 2026-11-17 13:45 UTC</span><span>Findings: 53</span></div>
 </header>
 <section class="summary">
 <div class="stat"><div class="num">53</div><div class="label">Findings</div></div>
@@ -84,7 +91,7 @@
 <div class="stat"><div class="num" style="color:#c0392b">6</div><div class="label">CRITICAL</div></div>
 <div class="stat"><div class="num" style="color:#e67e22">18</div><div class="label">HIGH</div></div>
 <div class="stat"><div class="num" style="color:#d4ac0d">21</div><div class="label">MEDIUM</div></div>
-<div class="stat"><div class="num" style="color:#2980b9">8</div><div class="label">LOW</div></div>
+<div class="stat"><div class="num" style="color:#2471a3">8</div><div class="label">LOW</div></div>
 <div class="stat"><div class="num">45</div><div class="label">NIS2</div></div>
 <div class="stat"><div class="num">32</div><div class="label">GDPR</div></div>
 <div class="stat"><div class="num">1</div><div class="label">Policy</div></div>
@@ -94,13 +101,13 @@
 <div class="row"><span class="rlabel">CRITICAL</span><span class="track"><span class="bar" style="width:29%;background:#c0392b"></span></span><span class="rcount">6</span></div>
 <div class="row"><span class="rlabel">HIGH</span><span class="track"><span class="bar" style="width:86%;background:#e67e22"></span></span><span class="rcount">18</span></div>
 <div class="row"><span class="rlabel">MEDIUM</span><span class="track"><span class="bar" style="width:100%;background:#d4ac0d"></span></span><span class="rcount">21</span></div>
-<div class="row"><span class="rlabel">LOW</span><span class="track"><span class="bar" style="width:38%;background:#2980b9"></span></span><span class="rcount">8</span></div>
+<div class="row"><span class="rlabel">LOW</span><span class="track"><span class="bar" style="width:38%;background:#2471a3"></span></span><span class="rcount">8</span></div>
 </section>
 <h2>Findings by severity</h2>
 <h3 style="color:#c0392b">CRITICAL (6)</h3>
 <article class="finding sev-critical" style="border-left-color:#c0392b">
   <div class="finding-head">
-    <span class="badge" style="background:#c0392b">CRITICAL</span>
+    <span class="badge" style="background:#c0392b;color:#ffffff">CRITICAL</span>
     <span class="cid">CKV_AWS_287</span>
     <span class="cname">Ensure IAM policies does not allow credentials exposure</span>
   </div>
@@ -117,11 +124,10 @@
   # After:
   &quot;Action&quot;: [&quot;s3:GetObject&quot;, &quot;s3:PutObject&quot;]
   &quot;Resource&quot;: &quot;arn:aws:s3:::my-app-data/*&quot;</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-287" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-critical" style="border-left-color:#c0392b">
   <div class="finding-head">
-    <span class="badge" style="background:#c0392b">CRITICAL</span>
+    <span class="badge" style="background:#c0392b;color:#ffffff">CRITICAL</span>
     <span class="cid">CKV_AWS_288</span>
     <span class="cname">Ensure IAM policies does not allow data exfiltration</span>
   </div>
@@ -135,11 +141,10 @@
   <div class="remediation"><h4>Remediation</h4><pre>Constrain read actions to specific resource ARNs, never &quot;*&quot;:
   &quot;Action&quot;: [&quot;s3:GetObject&quot;]
   &quot;Resource&quot;: &quot;arn:aws:s3:::approved-bucket/*&quot;</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-288" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-critical" style="border-left-color:#c0392b">
   <div class="finding-head">
-    <span class="badge" style="background:#c0392b">CRITICAL</span>
+    <span class="badge" style="background:#c0392b;color:#ffffff">CRITICAL</span>
     <span class="cid">CKV_AWS_289</span>
     <span class="cname">Ensure IAM policies does not allow permissions management / resource exposure without constraints</span>
   </div>
@@ -154,11 +159,10 @@
 with a permissions boundary and explicit resource ARNs:
   &quot;Action&quot;: [&quot;iam:AttachUserPolicy&quot;]
   &quot;Resource&quot;: &quot;arn:aws:iam::123456789012:user/app-*&quot;</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-289" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-critical" style="border-left-color:#c0392b">
   <div class="finding-head">
-    <span class="badge" style="background:#c0392b">CRITICAL</span>
+    <span class="badge" style="background:#c0392b;color:#ffffff">CRITICAL</span>
     <span class="cid">CKV_AWS_289</span>
     <span class="cname">Ensure IAM policies does not allow permissions management / resource exposure without constraints</span>
   </div>
@@ -173,11 +177,10 @@ with a permissions boundary and explicit resource ARNs:
 with a permissions boundary and explicit resource ARNs:
   &quot;Action&quot;: [&quot;iam:AttachUserPolicy&quot;]
   &quot;Resource&quot;: &quot;arn:aws:iam::123456789012:user/app-*&quot;</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-289" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-critical" style="border-left-color:#c0392b">
   <div class="finding-head">
-    <span class="badge" style="background:#c0392b">CRITICAL</span>
+    <span class="badge" style="background:#c0392b;color:#ffffff">CRITICAL</span>
     <span class="cid">CKV_AWS_17</span>
     <span class="cname">Ensure all data stored in RDS is not publicly accessible</span>
   </div>
@@ -192,11 +195,10 @@ with a permissions boundary and explicit resource ARNs:
   publicly_accessible = false
   # place the instance in private subnets via a db_subnet_group and
   # restrict the security group to internal CIDRs only.</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/public-policies/public-2" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-critical" style="border-left-color:#c0392b">
   <div class="finding-head">
-    <span class="badge" style="background:#c0392b">CRITICAL</span>
+    <span class="badge" style="background:#c0392b;color:#ffffff">CRITICAL</span>
     <span class="cid">EUGUARD_NIS2_001</span>
     <span class="cname">Ensure secrets are not hardcoded in Terraform (use variables/Secrets Manager)</span>
   </div>
@@ -218,7 +220,7 @@ manager or a sensitive variable injected at apply time:
 <h3 style="color:#e67e22">HIGH (18)</h3>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
-    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
     <span class="cid">CKV_AWS_273</span>
     <span class="cname">Ensure access is controlled through SSO and not AWS IAM defined users</span>
   </div>
@@ -234,11 +236,10 @@ manager or a sensitive variable injected at apply time:
   # resource &quot;aws_iam_user&quot; &quot;admin&quot; { ... }
   # Use Identity Center permission sets + account assignments instead
   # (managed via aws_ssoadmin_* resources or the Identity Center console).</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-273" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
-    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
     <span class="cid">CKV_AWS_290</span>
     <span class="cname">Ensure IAM policies does not allow write access without constraints</span>
   </div>
@@ -252,11 +253,10 @@ manager or a sensitive variable injected at apply time:
   <div class="remediation"><h4>Remediation</h4><pre>Scope write actions to the specific resources the workload manages:
   &quot;Action&quot;: [&quot;dynamodb:PutItem&quot;, &quot;dynamodb:UpdateItem&quot;]
   &quot;Resource&quot;: &quot;arn:aws:dynamodb:eu-west-1:123456789012:table/app-*&quot;</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-290" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
-    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
     <span class="cid">CKV_AWS_355</span>
     <span class="cname">Ensure no IAM policies documents allow &quot;*&quot; as a statement&#x27;s resource for restrictable actions</span>
   </div>
@@ -272,11 +272,10 @@ manager or a sensitive variable injected at apply time:
   &quot;Resource&quot;: &quot;*&quot;
   # After:
   &quot;Resource&quot;: &quot;arn:aws:s3:::my-app-data/*&quot;</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-355" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
-    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
     <span class="cid">CKV_AWS_290</span>
     <span class="cname">Ensure IAM policies does not allow write access without constraints</span>
   </div>
@@ -290,11 +289,10 @@ manager or a sensitive variable injected at apply time:
   <div class="remediation"><h4>Remediation</h4><pre>Scope write actions to the specific resources the workload manages:
   &quot;Action&quot;: [&quot;dynamodb:PutItem&quot;, &quot;dynamodb:UpdateItem&quot;]
   &quot;Resource&quot;: &quot;arn:aws:dynamodb:eu-west-1:123456789012:table/app-*&quot;</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-290" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
-    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
     <span class="cid">CKV_AWS_355</span>
     <span class="cname">Ensure no IAM policies documents allow &quot;*&quot; as a statement&#x27;s resource for restrictable actions</span>
   </div>
@@ -310,30 +308,10 @@ manager or a sensitive variable injected at apply time:
   &quot;Resource&quot;: &quot;*&quot;
   # After:
   &quot;Resource&quot;: &quot;arn:aws:s3:::my-app-data/*&quot;</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-355" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
-    <span class="badge" style="background:#e67e22">HIGH</span>
-    <span class="cid">EUGUARD_GDPR_001</span>
-    <span class="cname">Ensure the AWS provider region is in the EU Sovereign Cloud (project sovereignty policy)</span>
-  </div>
-  <dl class="meta">
-    <dt>Resource</dt><dd><code>aws.default</code></dd>
-    <dt>File</dt><dd><code>/main.tf:11-13</code></dd>
-    <dt>Compliance</dt><dd><span class="art">POLICY Policy EUSC-001</span></dd>
-  </dl>
-  <p class="risk">This project is based on the AWS European Sovereign Cloud: only EUSC regions are acceptable deployment targets. A commercial EU/EEA region such as eu-central-1 is outside this project&#x27;s sovereignty policy even though it may satisfy the GDPR geographic baseline. A non-EU/EEA region is also outside this policy, but any Chapter V transfer review is reported separately by EUGUARD_GDPR_002. This finding is a project-policy deviation, not a GDPR legal conclusion.
-</p>
-  <div class="remediation"><h4>Remediation</h4><pre>Pin every aws provider block to an EU Sovereign Cloud region:
-  # Before:
-  provider &quot;aws&quot; { region = &quot;eu-central-1&quot; }
-  # After:
-  provider &quot;aws&quot; { region = &quot;eusc-de-east-1&quot; }</pre></div>
-</article>
-<article class="finding sev-high" style="border-left-color:#e67e22">
-  <div class="finding-head">
-    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
     <span class="cid">EUGUARD_GDPR_002</span>
     <span class="cname">Review AWS provider regions outside the EU/EEA for GDPR Chapter V transfer safeguards</span>
   </div>
@@ -345,13 +323,33 @@ manager or a sensitive variable injected at apply time:
   <p class="risk">A provider pinned to a known AWS region outside the EU/EEA is a technical signal that personal-data processing may involve a third-country transfer. GDPR Chapter V (Art. 44-49) may require an adequacy decision, Standard Contractual Clauses, Binding Corporate Rules, or another safeguard, but this configuration alone cannot show whether a transfer occurs or whether its mechanism is lawful. Treat this as a hedged Chapter V review signal, not a definitive legal conclusion.
 </p>
   <div class="remediation"><h4>Remediation</h4><pre>Confirm the data flows and document the applicable Chapter V mechanism,
-or pin the provider to an EU/EEA region. To satisfy this project&#x27;s stricter
-sovereignty policy as well, use an AWS European Sovereign Cloud region:
-  provider &quot;aws&quot; { region = &quot;eusc-de-east-1&quot; }</pre></div>
+or pin the provider to an EU/EEA region:
+  provider &quot;aws&quot; { region = &quot;eu-central-1&quot; }</pre></div>
 </article>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
-    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
+    <span class="cid">EUGUARD_POLICY_001</span>
+    <span class="cname">Ensure the AWS provider region is within the configured residency policy</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws.default</code></dd>
+    <dt>File</dt><dd><code>/main.tf:11-13</code></dd>
+    <dt>Compliance</dt><dd><span class="art">POLICY Policy RESIDENCY-001</span></dd>
+  </dl>
+  <p class="risk">The AWS provider region is outside the configured residency policy (--residency-policy: eu-eea by default, eusc for the AWS European Sovereign Cloud only, or a custom allowlist). Under eusc, a commercial EU/EEA region such as eu-central-1 is outside the policy even though it may satisfy the GDPR geographic baseline. An unresolved variable region cannot be proven to be in policy statically and also fails. Any Chapter V transfer review for a non-EU/EEA region is reported separately by EUGUARD_GDPR_002. This finding is a project-policy deviation, not a GDPR legal conclusion.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Pin every aws provider block to a region allowed by the policy:
+  # Before:
+  provider &quot;aws&quot; { region = &quot;us-east-1&quot; }
+  # After (eu-eea policy):
+  provider &quot;aws&quot; { region = &quot;eu-central-1&quot; }
+Under --residency-policy eusc use region = &quot;eusc-de-east-1&quot;. An unresolved
+variable region needs a literal value in the scanned configuration.</pre></div>
+</article>
+<article class="finding sev-high" style="border-left-color:#e67e22">
+  <div class="finding-head">
+    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
     <span class="cid">CKV_AWS_24</span>
     <span class="cname">Ensure no security groups allow ingress from 0.0.0.0:0 to port 22</span>
   </div>
@@ -376,11 +374,10 @@ wildcard in both address families when both attributes are present:
     }
   }
 Use SSM Session Manager instead of exposing an administrative port where possible.</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/networking-1-port-security" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
-    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
     <span class="cid">CKV_AWS_133</span>
     <span class="cname">Ensure that RDS instances has backup policy</span>
   </div>
@@ -394,11 +391,10 @@ Use SSM Session Manager instead of exposing an administrative port where possibl
   <div class="remediation"><h4>Remediation</h4><pre>Set a non-zero backup retention window (&gt;= 7 days recommended):
   backup_retention_period = 7
   backup_window           = &quot;03:00-04:00&quot;</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-rds-instances-have-backup-policy" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
-    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
     <span class="cid">CKV_AWS_16</span>
     <span class="cname">Ensure all data stored in the RDS is securely encrypted at rest</span>
   </div>
@@ -415,11 +411,10 @@ Use SSM Session Manager instead of exposing an administrative port where possibl
     kms_key_id        = aws_kms_key.rds.arn
     # ...
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-4" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
-    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
     <span class="cid">CKV2_AWS_6</span>
     <span class="cname">Ensure that S3 bucket has a Public Access block</span>
   </div>
@@ -436,11 +431,10 @@ full resource); at minimum:
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/s3-bucket-should-have-public-access-blocks-defaults-to-false-if-the-public-access-block-is-not-attached" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
-    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
     <span class="cid">CKV_AWS_145</span>
     <span class="cname">Ensure that S3 buckets are encrypted with KMS by default</span>
   </div>
@@ -461,11 +455,10 @@ full resource); at minimum:
       }
     }
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-buckets-are-encrypted-with-kms-by-default" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
-    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
     <span class="cid">CKV_AWS_53</span>
     <span class="cname">Ensure S3 bucket has block public ACLS enabled</span>
   </div>
@@ -484,11 +477,10 @@ full resource); at minimum:
     block_public_policy     = true
     restrict_public_buckets = true
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/bc-aws-s3-19" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
-    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
     <span class="cid">CKV_AWS_54</span>
     <span class="cname">Ensure S3 bucket has block public policy enabled</span>
   </div>
@@ -501,11 +493,10 @@ full resource); at minimum:
 </p>
   <div class="remediation"><h4>Remediation</h4><pre>Enable the guardrail on the bucket&#x27;s public access block:
   block_public_policy = true</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/bc-aws-s3-20" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
-    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
     <span class="cid">CKV_AWS_55</span>
     <span class="cname">Ensure S3 bucket has ignore public ACLs enabled</span>
   </div>
@@ -518,11 +509,10 @@ full resource); at minimum:
 </p>
   <div class="remediation"><h4>Remediation</h4><pre>Enable the guardrail on the bucket&#x27;s public access block:
   ignore_public_acls = true</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/bc-aws-s3-21" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
-    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
     <span class="cid">CKV_AWS_56</span>
     <span class="cname">Ensure S3 bucket has &#x27;restrict_public_buckets&#x27; enabled</span>
   </div>
@@ -535,11 +525,10 @@ full resource); at minimum:
 </p>
   <div class="remediation"><h4>Remediation</h4><pre>Enable the guardrail on the bucket&#x27;s public access block:
   restrict_public_buckets = true</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/bc-aws-s3-22" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
-    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
     <span class="cid">CKV2_AWS_6</span>
     <span class="cname">Ensure that S3 bucket has a Public Access block</span>
   </div>
@@ -556,11 +545,10 @@ full resource); at minimum:
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/s3-bucket-should-have-public-access-blocks-defaults-to-false-if-the-public-access-block-is-not-attached" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
-    <span class="badge" style="background:#e67e22">HIGH</span>
+    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
     <span class="cid">CKV_AWS_145</span>
     <span class="cname">Ensure that S3 buckets are encrypted with KMS by default</span>
   </div>
@@ -581,12 +569,11 @@ full resource); at minimum:
       }
     }
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-buckets-are-encrypted-with-kms-by-default" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <h3 style="color:#d4ac0d">MEDIUM (21)</h3>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_40</span>
     <span class="cname">Ensure IAM policies are attached only to groups or roles (Reducing access management complexity may in-turn reduce opportunity for a principal to inadvertently receive or retain excessive privileges.)</span>
   </div>
@@ -602,11 +589,10 @@ full resource); at minimum:
     group      = aws_iam_group.app.name
     policy_arn = aws_iam_policy.app.arn
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/iam-16-iam-policy-privileges-1" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV2_AWS_11</span>
     <span class="cname">Ensure VPC flow logging is enabled in all VPCs</span>
   </div>
@@ -624,11 +610,10 @@ full resource); at minimum:
     log_destination = aws_cloudwatch_log_group.vpc_flow.arn
     iam_role_arn    = aws_iam_role.vpc_flow.arn
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/logging-9-enable-vpc-flow-logging" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV2_AWS_12</span>
     <span class="cname">Ensure the default security group of every VPC restricts all traffic</span>
   </div>
@@ -644,11 +629,10 @@ full resource); at minimum:
     vpc_id = aws_vpc.main.id
     # no ingress or egress blocks = deny all
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/networking-4" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_130</span>
     <span class="cname">Ensure VPC subnets do not assign public IP by default</span>
   </div>
@@ -661,11 +645,10 @@ full resource); at minimum:
 </p>
   <div class="remediation"><h4>Remediation</h4><pre>Disable automatic public IP assignment; use NAT for egress:
   map_public_ip_on_launch = false</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-vpc-subnets-do-not-assign-public-ip-by-default" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_130</span>
     <span class="cname">Ensure VPC subnets do not assign public IP by default</span>
   </div>
@@ -678,11 +661,10 @@ full resource); at minimum:
 </p>
   <div class="remediation"><h4>Remediation</h4><pre>Disable automatic public IP assignment; use NAT for egress:
   map_public_ip_on_launch = false</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-vpc-subnets-do-not-assign-public-ip-by-default" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_260</span>
     <span class="cname">Ensure no security groups allow ingress from 0.0.0.0:0 to port 80</span>
   </div>
@@ -707,11 +689,10 @@ has both address families, scope both and do not leave either wildcard:
       ipv6_cidr_blocks = [&quot;2001:db8:1234::/48&quot;]
     }
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-aws-security-groups-do-not-allow-ingress-from-00000-to-port-80" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_382</span>
     <span class="cname">Ensure no security groups allow egress from 0.0.0.0:0 to port -1</span>
   </div>
@@ -735,11 +716,10 @@ both address families:
       ipv6_cidr_blocks = [&quot;2001:db8:1234::/48&quot;]
     }
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/bc-aws-382" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_382</span>
     <span class="cname">Ensure no security groups allow egress from 0.0.0.0:0 to port -1</span>
   </div>
@@ -763,11 +743,10 @@ both address families:
       ipv6_cidr_blocks = [&quot;2001:db8:1234::/48&quot;]
     }
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/bc-aws-382" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV2_AWS_30</span>
     <span class="cname">Ensure Postgres RDS as aws_db_instance has Query Logging enabled</span>
   </div>
@@ -783,11 +762,10 @@ both address families:
     parameter { name = &quot;log_connections&quot;  value = &quot;1&quot; }
     parameter { name = &quot;log_disconnections&quot; value = &quot;1&quot; }
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-postgres-rds-has-query-logging-enabled" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_118</span>
     <span class="cname">Ensure that enhanced monitoring is enabled for Amazon RDS instances</span>
   </div>
@@ -801,11 +779,10 @@ both address families:
   <div class="remediation"><h4>Remediation</h4><pre>Enable enhanced monitoring with a monitoring role and a non-zero interval:
   monitoring_interval = 60
   monitoring_role_arn = aws_iam_role.rds_monitoring.arn</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/ensure-that-enhanced-monitoring-is-enabled-for-amazon-rds-instances" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_129</span>
     <span class="cname">Ensure that respective logs of Amazon Relational Database Service (Amazon RDS) are enabled</span>
   </div>
@@ -819,11 +796,10 @@ both address families:
   <div class="remediation"><h4>Remediation</h4><pre>Export the relevant engine logs:
   enabled_cloudwatch_logs_exports = [&quot;postgresql&quot;, &quot;upgrade&quot;]
   # (for MySQL: [&quot;audit&quot;, &quot;error&quot;, &quot;general&quot;, &quot;slowquery&quot;])</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/ensure-that-respective-logs-of-amazon-relational-database-service-amazon-rds-are-enabled" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_157</span>
     <span class="cname">Ensure that RDS instances have Multi-AZ enabled</span>
   </div>
@@ -836,11 +812,10 @@ both address families:
 </p>
   <div class="remediation"><h4>Remediation</h4><pre>Enable Multi-AZ deployment:
   multi_az = true</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-73" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_161</span>
     <span class="cname">Ensure RDS database has IAM authentication enabled</span>
   </div>
@@ -853,11 +828,10 @@ both address families:
 </p>
   <div class="remediation"><h4>Remediation</h4><pre>Enable IAM database authentication:
   iam_database_authentication_enabled = true</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/ensure-rds-database-has-iam-authentication-enabled" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_226</span>
     <span class="cname">Ensure DB instance gets all minor upgrades automatically</span>
   </div>
@@ -872,11 +846,10 @@ both address families:
   resource &quot;aws_db_instance&quot; &quot;main&quot; {
     auto_minor_version_upgrade = true
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-db-instance-gets-all-minor-upgrades-automatically" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_293</span>
     <span class="cname">Ensure that AWS database instances have deletion protection enabled</span>
   </div>
@@ -889,11 +862,10 @@ both address families:
 </p>
   <div class="remediation"><h4>Remediation</h4><pre>Enable deletion protection on the instance:
   deletion_protection = true</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-293" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_144</span>
     <span class="cname">Ensure that S3 bucket has cross-region replication enabled</span>
   </div>
@@ -904,18 +876,17 @@ both address families:
   </dl>
   <p class="risk">A bucket replicated only in one region is lost with that region. Cross-region replication is the mechanism that keeps personal data available and restorable after a regional outage, relevant to NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c).
 </p>
-  <div class="remediation"><h4>Remediation</h4><pre>Replicate the bucket to another region permitted by the EU Sovereign Cloud
-policy (an in-policy region, when available):
+  <div class="remediation"><h4>Remediation</h4><pre>Replicate the bucket to another region permitted by the configured
+residency policy (an in-policy region, when available):
   resource &quot;aws_s3_bucket_replication_configuration&quot; &quot;data&quot; {
     role   = aws_iam_role.replication.arn
     bucket = aws_s3_bucket.data.id
     rule { destination { bucket = aws_s3_bucket.replica.arn } }
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-bucket-has-cross-region-replication-enabled" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_18</span>
     <span class="cname">Ensure the S3 bucket has access logging enabled</span>
   </div>
@@ -932,11 +903,10 @@ policy (an in-policy region, when available):
     target_bucket = aws_s3_bucket.logs.id
     target_prefix = &quot;s3-access/&quot;
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-13-enable-logging" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_21</span>
     <span class="cname">Ensure all data stored in the S3 bucket have versioning enabled</span>
   </div>
@@ -952,11 +922,10 @@ policy (an in-policy region, when available):
     bucket = aws_s3_bucket.data.id
     versioning_configuration { status = &quot;Enabled&quot; }
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-16-enable-versioning" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_144</span>
     <span class="cname">Ensure that S3 bucket has cross-region replication enabled</span>
   </div>
@@ -967,18 +936,17 @@ policy (an in-policy region, when available):
   </dl>
   <p class="risk">A bucket replicated only in one region is lost with that region. Cross-region replication is the mechanism that keeps personal data available and restorable after a regional outage, relevant to NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c).
 </p>
-  <div class="remediation"><h4>Remediation</h4><pre>Replicate the bucket to another region permitted by the EU Sovereign Cloud
-policy (an in-policy region, when available):
+  <div class="remediation"><h4>Remediation</h4><pre>Replicate the bucket to another region permitted by the configured
+residency policy (an in-policy region, when available):
   resource &quot;aws_s3_bucket_replication_configuration&quot; &quot;data&quot; {
     role   = aws_iam_role.replication.arn
     bucket = aws_s3_bucket.data.id
     rule { destination { bucket = aws_s3_bucket.replica.arn } }
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-bucket-has-cross-region-replication-enabled" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_18</span>
     <span class="cname">Ensure the S3 bucket has access logging enabled</span>
   </div>
@@ -995,11 +963,10 @@ policy (an in-policy region, when available):
     target_bucket = aws_s3_bucket.logs.id
     target_prefix = &quot;s3-access/&quot;
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-13-enable-logging" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
-    <span class="badge" style="background:#d4ac0d">MEDIUM</span>
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_21</span>
     <span class="cname">Ensure all data stored in the S3 bucket have versioning enabled</span>
   </div>
@@ -1015,12 +982,11 @@ policy (an in-policy region, when available):
     bucket = aws_s3_bucket.data.id
     versioning_configuration { status = &quot;Enabled&quot; }
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-16-enable-versioning" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
-<h3 style="color:#2980b9">LOW (8)</h3>
-<article class="finding sev-low" style="border-left-color:#2980b9">
+<h3 style="color:#2471a3">LOW (8)</h3>
+<article class="finding sev-low" style="border-left-color:#2471a3">
   <div class="finding-head">
-    <span class="badge" style="background:#2980b9">LOW</span>
+    <span class="badge" style="background:#2471a3;color:#ffffff">LOW</span>
     <span class="cid">CKV2_AWS_5</span>
     <span class="cname">Ensure that Security Groups are attached to another resource</span>
   </div>
@@ -1035,11 +1001,10 @@ policy (an in-policy region, when available):
   resource &quot;aws_instance&quot; &quot;app&quot; {
     vpc_security_group_ids = [aws_security_group.app.id]
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-that-security-groups-are-attached-to-ec2-instances-or-elastic-network-interfaces-enis" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
-<article class="finding sev-low" style="border-left-color:#2980b9">
+<article class="finding sev-low" style="border-left-color:#2471a3">
   <div class="finding-head">
-    <span class="badge" style="background:#2980b9">LOW</span>
+    <span class="badge" style="background:#2471a3;color:#ffffff">LOW</span>
     <span class="cid">CKV_AWS_23</span>
     <span class="cname">Ensure every security group and rule has a description</span>
   </div>
@@ -1058,11 +1023,10 @@ policy (an in-policy region, when available):
       cidr_blocks = [&quot;203.0.113.0/24&quot;]
     }
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/networking-31" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
-<article class="finding sev-low" style="border-left-color:#2980b9">
+<article class="finding sev-low" style="border-left-color:#2471a3">
   <div class="finding-head">
-    <span class="badge" style="background:#2980b9">LOW</span>
+    <span class="badge" style="background:#2471a3;color:#ffffff">LOW</span>
     <span class="cid">CKV2_AWS_60</span>
     <span class="cname">Ensure RDS instance with copy tags to snapshots is enabled</span>
   </div>
@@ -1077,11 +1041,10 @@ policy (an in-policy region, when available):
   resource &quot;aws_db_instance&quot; &quot;main&quot; {
     copy_tags_to_snapshot = true
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-2-60" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
-<article class="finding sev-low" style="border-left-color:#2980b9">
+<article class="finding sev-low" style="border-left-color:#2471a3">
   <div class="finding-head">
-    <span class="badge" style="background:#2980b9">LOW</span>
+    <span class="badge" style="background:#2471a3;color:#ffffff">LOW</span>
     <span class="cid">CKV_AWS_353</span>
     <span class="cname">Ensure that RDS instances have performance insights enabled</span>
   </div>
@@ -1096,11 +1059,10 @@ policy (an in-policy region, when available):
   resource &quot;aws_db_instance&quot; &quot;main&quot; {
     performance_insights_enabled = true
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-353" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
-<article class="finding sev-low" style="border-left-color:#2980b9">
+<article class="finding sev-low" style="border-left-color:#2471a3">
   <div class="finding-head">
-    <span class="badge" style="background:#2980b9">LOW</span>
+    <span class="badge" style="background:#2471a3;color:#ffffff">LOW</span>
     <span class="cid">CKV2_AWS_61</span>
     <span class="cname">Ensure that an S3 bucket has a lifecycle configuration</span>
   </div>
@@ -1120,11 +1082,10 @@ policy (an in-policy region, when available):
       expiration { days = 365 }
     }
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-61" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
-<article class="finding sev-low" style="border-left-color:#2980b9">
+<article class="finding sev-low" style="border-left-color:#2471a3">
   <div class="finding-head">
-    <span class="badge" style="background:#2980b9">LOW</span>
+    <span class="badge" style="background:#2471a3;color:#ffffff">LOW</span>
     <span class="cid">CKV2_AWS_62</span>
     <span class="cname">Ensure S3 buckets should have event notifications enabled</span>
   </div>
@@ -1141,11 +1102,10 @@ policy (an in-policy region, when available):
     lambda_function { lambda_function_arn = aws_lambda_function.auditor.arn
                       events = [&quot;s3:ObjectCreated:*&quot;] }
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-62" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
-<article class="finding sev-low" style="border-left-color:#2980b9">
+<article class="finding sev-low" style="border-left-color:#2471a3">
   <div class="finding-head">
-    <span class="badge" style="background:#2980b9">LOW</span>
+    <span class="badge" style="background:#2471a3;color:#ffffff">LOW</span>
     <span class="cid">CKV2_AWS_61</span>
     <span class="cname">Ensure that an S3 bucket has a lifecycle configuration</span>
   </div>
@@ -1165,11 +1125,10 @@ policy (an in-policy region, when available):
       expiration { days = 365 }
     }
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-61" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
-<article class="finding sev-low" style="border-left-color:#2980b9">
+<article class="finding sev-low" style="border-left-color:#2471a3">
   <div class="finding-head">
-    <span class="badge" style="background:#2980b9">LOW</span>
+    <span class="badge" style="background:#2471a3;color:#ffffff">LOW</span>
     <span class="cid">CKV2_AWS_62</span>
     <span class="cname">Ensure S3 buckets should have event notifications enabled</span>
   </div>
@@ -1186,8 +1145,7 @@ policy (an in-policy region, when available):
     lambda_function { lambda_function_arn = aws_lambda_function.auditor.arn
                       events = [&quot;s3:ObjectCreated:*&quot;] }
   }</pre></div>
-  <a class="doc" href="https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-62" rel="noopener noreferrer" target="_blank">Documentation &#8599;</a>
 </article>
-<footer>Generated by tf-eu-guard v0.7.0 on 2026-10-17 22:05 UTC. Only failed checks that map to a NIS2, GDPR, or project-policy control are shown; 0 unmapped Checkov finding(s) were reported separately; this report is not legal advice and is not a certification; absence of a finding is not evidence of compliance.</footer>
+<footer>Generated by tf-eu-guard v0.8.0 on 2026-11-17 13:45 UTC. Only failed checks that map to a NIS2, GDPR, or project-policy control are shown; 0 finding(s) suppressed by inline comments are listed separately; this report is not legal advice and is not a certification; absence of a finding is not evidence of compliance.</footer>
 </body>
 </html>

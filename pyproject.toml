@@ -1,13 +1,14 @@
 [project]
 name = "tf-eu-guard"
-version = "0.7.1"
+version = "0.8.0"
 description = "EU compliance security linter for Terraform and Kubernetes — NIS2 and GDPR mapping"
 authors = [
     {name = "44aayush", email = "k44aayush.official@gmail.com"}
 ]
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 keywords = [
     "terraform",
     "terraform-security",
@@ -31,10 +32,9 @@ keywords = [
     "gdpr-article-44",
 ]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Environment :: Console",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",
@@ -46,10 +46,9 @@ classifiers = [
 ]
 
 dependencies = [
-    "checkov==3.3.29",   # Pinned for reproducible scans; supports Python 3.10+
+    "checkov==3.4.5",    # Pinned for reproducible scans; supports Python 3.10+
     "pyyaml>=6.0.1",
     "rich>=13.7.1",      # For terminal output formatting
-    "jinja2>=3.1.4",     # For HTML report templating
 ]
 
 [project.urls]
@@ -81,6 +80,25 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["tf_eu_guard"]
+
+# Explicit allowlist: without it hatchling packs every file not ignored by
+# .gitignore (docs/, examples/, .github/, .claude/, untracked files...).
+# Registry YAMLs live inside the package directory, so they are covered.
+[tool.hatch.build.targets.sdist]
+include = [
+  "/tf_eu_guard",
+  "/tests",
+  "/README.md",
+  "/LICENSE",
+  "/CHANGELOG.md",
+  "/SECURITY.md",
+  "/pyproject.toml",
+]
+exclude = [
+  "__pycache__",
+  "*.py[cod]",
+  "/tests/results",
+]
 
 [tool.ruff]
 line-length = 100

@@ -14,7 +14,7 @@
 # -----------------------------------------------------------------------------
 
 EUGUARD_NIS2_002:
-  check_name: "Ensure Kubernetes secrets are not hardcoded in manifests or environment"
+  check_name: "Ensure Kubernetes Secret manifests do not contain hardcoded literal values"
   articles:
     - framework: NIS2
       article: "Art. 21(2)(e)"
@@ -23,9 +23,10 @@ EUGUARD_NIS2_002:
       article: "Art. 32(1)(b)"
       title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: >
-    Literal credentials in a Kubernetes manifest or environment value are
-    committed to configuration and may be copied into source history, logs, and
-    cluster metadata. This creates a potential control gap relevant to NIS2
+    Literal credentials in the data or stringData of a Kubernetes Secret
+    manifest (including base64-encoded plaintext) are committed to
+    configuration and may be copied into source history, logs, and cluster
+    metadata. This creates a potential control gap relevant to NIS2
     Art. 21(2)(e) and may weaken the confidentiality safeguards expected by
     GDPR Art. 32(1)(b); a manifest cannot establish whether the underlying
     secret-management process is adequate.
@@ -39,6 +40,35 @@ EUGUARD_NIS2_002:
               key: password
       # For external-secrets-operator, use ExternalSecret to materialize the
       # Kubernetes Secret and keep the provider reference outside the workload.
+  severity: CRITICAL
+
+EUGUARD_NIS2_003:
+  check_name: "Ensure containers use secretKeyRef instead of literal sensitive env values"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(e)"
+      title: "Security in network and information systems acquisition, development and maintenance"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    A container env entry with a literal value: for a variable whose name marks
+    it as sensitive (password, token, secret, key) places the credential in the
+    pod spec, where it is committed to configuration and visible to anyone who
+    can read the workload object, its rollout history, or its logs. This
+    creates a potential control gap relevant to NIS2 Art. 21(2)(e) and may
+    weaken the confidentiality safeguards expected by GDPR Art. 32(1)(b); a
+    manifest cannot establish whether the underlying secret-management process
+    is adequate.
+  remediation: |
+    Inject the value from a Kubernetes Secret instead of a literal env value:
+      env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-credentials
+              key: password
+      # Or mount the Secret as a file and point the app at it (DB_PASSWORD_FILE).
   severity: CRITICAL
 
 # -----------------------------------------------------------------------------

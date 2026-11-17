@@ -185,3 +185,25 @@ def test_nis2_titles_are_canonical():
     """One canonical title per letter; letter set matches the NIS2 directive."""
     assert set(NIS2_TITLES) == set("abcdefghij")
     assert all(t.strip() for t in NIS2_TITLES.values())
+
+
+def test_t21_label_corrections(registry):
+    """Pin the labels for the five requirements the T-21 review corrected."""
+    by_key = {(r.framework.value, r.article): r for r in compute_coverage(registry)}
+    expected = {
+        ("NIS2", "21(2)(h)"): CoverageCategory.PARTIAL,
+        ("NIS2", "21(2)(j)"): CoverageCategory.PARTIAL,
+        ("GDPR", "32(1)(a)"): CoverageCategory.PARTIAL,
+        ("NIS2", "21(2)(f)"): CoverageCategory.PROCESS_EVIDENCE,
+        ("GDPR", "32(1)(d)"): CoverageCategory.PROCESS_EVIDENCE,
+    }
+    for key, category in expected.items():
+        assert by_key[key].category == category, key
+    assert CoverageCategory.PROCESS_EVIDENCE.value == "process evidence"
+    assert not by_key[("NIS2", "21(2)(f)")].checks
+
+
+def test_process_evidence_renders_in_doc():
+    rendered = generate_coverage_doc.render_doc()
+    assert "**Process evidence**" in rendered
+    assert "process evidence" in rendered.split("**Summary:")[1].splitlines()[0]

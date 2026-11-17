@@ -32,10 +32,41 @@ TERRAFORM_TYPES = ["terraform", "terraform_plan"]
 
 
 def test_runner_and_cli_route_to_all_types():
-    """Documented: checkov_runner.py / cli.py -> all types (the class of file
+    """Documented: checkov_runner.py / cli/ -> all types (the class of file
     that broke terraform_plan in c7e68f6 while leaving Kubernetes untouched)."""
     assert hook_smoke_dispatch.types_for_path("tf_eu_guard/checkov_runner.py") == ALL_TYPES
-    assert hook_smoke_dispatch.types_for_path("tf_eu_guard/cli.py") == ALL_TYPES
+    assert hook_smoke_dispatch.types_for_path("tf_eu_guard/cli/app.py") == ALL_TYPES
+    assert hook_smoke_dispatch.types_for_path("tf_eu_guard/checkov/process.py") == ALL_TYPES
+    assert hook_smoke_dispatch.types_for_path("tf_eu_guard/mapping/loader.py") == ALL_TYPES
+    assert hook_smoke_dispatch.types_for_path("tf_eu_guard/cli.py") is None  # module is gone
+
+
+def test_every_routed_prefix_exists_in_repo():
+    """A route to a path that no longer exists silently disables the hook."""
+    root = hook_smoke_dispatch.REPO_ROOT
+    for prefix in (
+        *hook_smoke_dispatch.ALL_TYPE_PREFIXES,
+        *hook_smoke_dispatch.TERRAFORM_ONLY_FILES,
+    ):
+        assert (root / prefix).exists(), prefix
+    for sub in ("checks/k8s", "checks/gdpr", "checks/nis2", "mapping"):
+        assert (root / "tf_eu_guard" / sub).is_dir(), sub
+
+
+def test_residency_modules_route_to_terraform_types():
+    for path in ("tf_eu_guard/residency.py", "tf_eu_guard/regions.py"):
+        assert hook_smoke_dispatch.types_for_path(path) == TERRAFORM_TYPES
+
+
+def test_claude_settings_hook_prefers_project_venv():
+    settings = json.loads(
+        (hook_smoke_dispatch.REPO_ROOT / ".claude" / "settings.json").read_text(encoding="utf-8")
+    )
+    hooks = settings["hooks"]["PostToolUse"][0]["hooks"]
+    command = hooks[0]["command"]
+    assert ".venv" in command
+    assert not command.startswith("python3")
+    assert "hook_smoke_dispatch.py" in command
 
 
 @pytest.mark.parametrize(
@@ -144,7 +175,7 @@ def test_main_unrelated_edit_runs_nothing(monkeypatch, capsys):
 
 
 def test_main_runs_one_smoke_check_per_type(monkeypatch, capsys):
-    """cli.py routes to all three types -> three smoke_check invocations."""
+    """cli/app.py routes to all three types -> three smoke_check invocations."""
     calls = []
 
     def fake_run(cmd, **kwargs):
@@ -152,7 +183,7 @@ def test_main_runs_one_smoke_check_per_type(monkeypatch, capsys):
         return subprocess.CompletedProcess(cmd, 0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    assert _run_main(monkeypatch, _payload(file_path="tf_eu_guard/cli.py")) == 0
+    assert _run_main(monkeypatch, _payload(file_path="tf_eu_guard/cli/app.py")) == 0
     assert len(calls) == 3
     # each invocation is scoped to exactly one --iac-type
     for cmd in calls:
@@ -195,7 +226,7 @@ def test_contributing_documents_the_routing_rules(repo_root: Path):
     CONTRIBUTING.md — if the routing changes, the docs must change with it."""
     doc = " ".join((repo_root / "CONTRIBUTING.md").read_text(encoding="utf-8").split())
     for claim in (
-        "`cli.py`/`checkov_runner.py` → all types",
+        "`checkov_runner.py`, `tf_eu_guard/checkov/*.py` and `tf_eu_guard/cli/*.py` → all types",
         "`registry-kubernetes.yaml` → kubernetes only",
         "`examples/vulnerable-aws-plan/**` → terraform_plan",
     ):

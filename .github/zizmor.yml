@@ -1,0 +1,7 @@
+# zizmor configuration (run from the lint job in ci.yml).
+rules:
+  self-repository:
+    # `uses: ./` and `uses: ./.github/workflows/ci.yml` are the documented,
+    # universally supported spellings; the newer `$/` syntax is not understood
+    # by every tool yet.
+    disable: true

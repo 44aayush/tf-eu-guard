@@ -24,13 +24,13 @@ reported as an unmapped count (see "Interpreting the output").
 - The user wants a compliance report (terminal, HTML, JSON, or SARIF) for an IaC stack.
 
 ## Prerequisites
-Run from the repo root. Install once (this also installs Checkov 3.3.29; requires Python ≥ 3.11):
+Run from the repo root. Install once (this also installs Checkov 3.4.5; requires Python ≥ 3.11):
 
 ```bash
 pip install -e .
 ```
 
-Verify with `tf-eu-guard version` (prints `tf-eu-guard version 0.7.1` for this release).
+Verify with `tf-eu-guard version` (prints `tf-eu-guard version 0.8.0` for this release).
 
 ## How to run
 

@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 from tf_eu_guard.models import EnrichedFinding, Severity
 from tf_eu_guard.reporting.sorting import sorted_articles
-from tf_eu_guard.reporting.styles import SEVERITY_COLOR, SEVERITY_ORDER
+from tf_eu_guard.reporting.styles import BADGE_TEXT_COLOR, SEVERITY_COLOR, SEVERITY_ORDER
 
 
 def esc(value: object) -> str:
@@ -58,6 +58,11 @@ def safe_guideline(guideline: str | None) -> str | None:
 def severity_class(severity: Severity) -> str:
     """CSS class suffix for a severity, e.g. ``sev-critical``."""
     return f"sev-{severity.value.lower()}"
+
+
+def badge_style(severity: Severity) -> str:
+    """Inline ``style`` attribute for a severity badge (fill plus readable text)."""
+    return f'style="background:{SEVERITY_COLOR[severity]};color:{BADGE_TEXT_COLOR[severity]}"'
 
 
 def severity_counts(findings: list[EnrichedFinding]) -> dict[Severity, int]:
@@ -109,7 +114,7 @@ def finding_card(finding: EnrichedFinding) -> str:
     parts: list[str] = [
         f'<article class="finding {sev_cls}" style="border-left-color:{SEVERITY_COLOR[sev]}">',
         '  <div class="finding-head">',
-        f'    <span class="badge" style="background:{SEVERITY_COLOR[sev]}">{esc(sev.value)}</span>',
+        f'    <span class="badge" {badge_style(sev)}>{esc(sev.value)}</span>',
         f'    <span class="cid">{esc(finding.check_id)}</span>',
         f'    <span class="cname">{esc(finding.check_name)}</span>',
         "  </div>",

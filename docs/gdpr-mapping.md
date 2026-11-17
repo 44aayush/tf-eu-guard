@@ -125,44 +125,62 @@ replace penetration testing, DPIAs, or periodic organisational review.
 > Corporate Rules, or a specific derogation. Recital 83 additionally ties security
 > measures to the risks of processing.
 
-**Infrastructure controls** — this project is based on the **AWS European
-Sovereign Cloud**. The provider-region checks deliberately separate the
-project's stricter sovereignty policy from the GDPR Chapter V review signal:
+**Infrastructure controls** — the region checks deliberately separate a
+configurable residency *policy* from the GDPR Chapter V review signal:
 
 | Check | Control |
 |-------|---------|
-| EUGUARD_GDPR_001 | AWS provider `region` is in the EU Sovereign Cloud (**project policy** custom check) |
+| EUGUARD_POLICY_001 | AWS provider `region` is within the configured residency policy (**project policy** custom check) |
+| EUGUARD_POLICY_002 | Resource-level regions (`region` argument, replicas, copy destinations) are within the policy (**project policy** custom check) |
+| EUGUARD_GDPR_001 | **Deprecated** alias of EUGUARD_POLICY_001 so 0.7.x `--checkov-json` files still map; removed in the next release |
 | EUGUARD_GDPR_002 | A known AWS provider region outside the EU/EEA receives a Chapter V review signal (**custom** check) |
+| EUGUARD_GDPR_003 | A known resource-level region outside the EU/EEA receives a Chapter V review signal (**custom** check) |
 
-`EUGUARD_GDPR_001` and `EUGUARD_GDPR_002` are **custom tf-eu-guard checks**
-(added in Phase 3, implemented in
-[`tf_eu_guard/checks/gdpr/data_residency.py`](../tf_eu_guard/checks/gdpr/data_residency.py)).
-They are **provider-level** checks — the deployment region is a property of
-*where* the `aws` provider deploys, not of any single resource — so they inspect
-each provider block's `region`.
+These are **custom tf-eu-guard checks** implemented in
+[`tf_eu_guard/checks/gdpr/data_residency.py`](../tf_eu_guard/checks/gdpr/data_residency.py).
+The `*_001`/`*_002` provider checks inspect each `provider "aws"` block's
+`region`. Since AWS provider 6.0 most resources also accept a top-level
+`region` argument, and replication settings place data elsewhere regardless of
+the provider, so `EUGUARD_POLICY_002` and `EUGUARD_GDPR_003` inspect: the
+top-level `region` of any `aws_*` resource, `aws_dynamodb_table`
+`replica[].region_name`, `aws_secretsmanager_secret` `replica[].region`,
+`aws_ecr_replication_configuration` destination `region`, and
+`aws_backup_plan` `rule.copy_action.destination_vault_arn` (region parsed from
+the ARN; an unresolved ARN is skipped). `aws_s3_bucket_replication_configuration`
+destinations are bucket ARNs whose region is not resolvable statically and are
+**not** evaluated.
 
-`EUGUARD_GDPR_001` uses an **explicit allowlist, fail-closed**: only the EU
-Sovereign Cloud's `eusc-de-east-1` passes. Everything else fails the project's
-sovereignty policy, including commercial EU regions such as `eu-central-1`,
-which GDPR would permit geographically. Its mapping is `POLICY Policy EUSC-001`,
-not GDPR Art. 44. A still-unresolved region reference (`var.region` with no
-default) also fails this policy check, because a deployment target that cannot
-be proven statically is flagged for review rather than waved through; only a
-fully *unset* region (inherited at apply time) returns *unknown*.
+**Residency policy** (`--residency-policy`, GitHub Action input
+`residency-policy`): `eu-eea` (default) allows the EU/EEA commercial regions
+plus the AWS European Sovereign Cloud; `eusc` allows only `eusc-de-east-1` (the
+0.7.x behaviour); `custom` uses `--allowed-regions REGION[,REGION...]`. The CLI
+hands the policy to the Checkov subprocess through the
+`TF_EU_GUARD_RESIDENCY_POLICY` / `TF_EU_GUARD_ALLOWED_REGIONS` environment
+variables (ambient values are discarded); direct Checkov use without them
+defaults to `eu-eea`, and an invalid value fails closed to the EUSC-only
+allowlist. With `--checkov-json` the results are pre-computed, so the policy
+flags are ignored and a warning is printed.
 
-`EUGUARD_GDPR_002` uses a separate known-region table and returns a failed
-check only for known AWS regions outside the EU/EEA, such as `us-east-1`.
-Commercial EU/EEA and EUSC regions pass this check; unknown or unresolved
-values remain unknown rather than being labelled third countries. Therefore a
-provider pinned to `eu-central-1` produces only the sovereignty-policy finding,
-while `us-east-1` produces both the policy finding and a hedged GDPR Art. 44
-review signal.
+The policy checks are **fail-closed**: a region off the allowlist fails,
+including `eu-west-2` (London) and `eu-central-2` (Zurich), which are third
+countries, and an unresolved region reference (`var.region` with no default),
+because a target that cannot be proven statically is flagged for review. An
+*unset* provider region (inherited at apply time) returns *unknown*, as does a
+resource with no region information. The mapping is `POLICY Policy
+RESIDENCY-001`, not GDPR Art. 44.
+
+`EUGUARD_GDPR_002` / `EUGUARD_GDPR_003` use a separate known-region table and
+fail only for known AWS regions outside the EU/EEA, such as `us-east-1`.
+EU/EEA and EUSC regions pass; unknown or unresolved values remain unknown
+rather than being labelled third countries. A provider in `eu-central-1` with
+a DynamoDB replica in `us-east-1` therefore produces the policy finding and a
+hedged Art. 44 review signal for the table.
 
 **Why Art. 44, not Art. 32**: a known third-country transfer review is a
 *lawful-transfer* question (Chapter V), not a *security-of-processing* control
-(Art. 32). Mapping only `EUGUARD_GDPR_002` to Art. 44 keeps the legal citation
-honest: `EUGUARD_GDPR_001` enforces a separate policy *stricter* than the Art. 44
-baseline (which would accept any EU/EEA region), so its commercial-EU finding is
+(Art. 32). Mapping only `EUGUARD_GDPR_002` / `EUGUARD_GDPR_003` to Art. 44 keeps the legal citation
+honest: `EUGUARD_POLICY_001` / `_002` enforce a separate policy that can be *stricter* than the Art. 44
+baseline (under `eusc`, which rejects commercial EU/EEA regions), so such a finding is
 a policy deviation, not a legal violation. The Art. 44 finding is likewise a
 review signal, not a definitive conclusion about whether a transfer occurs or
 which Chapter V mechanism applies.
@@ -178,11 +196,11 @@ legality, and it cannot see transfers made by application code or downstream ser
 
 | Point | Covered? | Checks |
 |-------|----------|--------|
-| (a) pseudonymisation / encryption | ✓ | 2 |
+| (a) pseudonymisation / encryption | ◐ partial (encryption only) | 2 |
 | (b) confidentiality / integrity / availability / resilience | ✓ strong | 10 |
 | (c) restore availability in a timely manner | ✓ | 3 |
-| (d) regularly testing effectiveness | ✓ via CI usage | tool itself |
-| Ch. V (Art. 44) transfers / data residency | ✓ custom check | EUGUARD_GDPR_002 |
+| (d) regularly testing effectiveness | ◐ process evidence (CI usage) | tool itself |
+| Ch. V (Art. 44) transfers / data residency | ✓ custom checks | EUGUARD_GDPR_002, EUGUARD_GDPR_003 |
 
 ✓ covered · ◐ partial/planned
 

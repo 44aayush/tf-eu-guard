@@ -11,8 +11,11 @@ from typing import Any
 import yaml
 
 from tf_eu_guard.mapping.enrichment import split_findings
-from tf_eu_guard.mapping.requirements import canonical_article_title
+from tf_eu_guard.mapping.requirements import ARTICLE_TITLES, canonical_article_title
 from tf_eu_guard.mapping.schema import (
+    ARTICLE_KEYS,
+    CHECK_ID_RE,
+    ENTRY_KEYS,
     REQUIRED_FIELDS,
     VALID_FRAMEWORKS,
     VALID_SEVERITIES,
@@ -89,6 +92,15 @@ def _validate_entry(check_id: str, data: dict[str, Any], source: Path) -> None:
     if not isinstance(data, dict):
         raise RegistryValidationError(f"{where}: entry must be a mapping")
 
+    if not CHECK_ID_RE.fullmatch(check_id):
+        raise RegistryValidationError(
+            f"{where}: check ID '{check_id}' does not match {CHECK_ID_RE.pattern}"
+        )
+
+    unknown = sorted(set(data) - ENTRY_KEYS)
+    if unknown:
+        raise RegistryValidationError(f"{where}: unknown key(s) {unknown}")
+
     for field in REQUIRED_FIELDS:
         if field not in data or data[field] is None:
             raise RegistryValidationError(f"{where}: missing required field '{field}'")
@@ -113,6 +125,9 @@ def _validate_entry(check_id: str, data: dict[str, Any], source: Path) -> None:
     for article in articles:
         if not isinstance(article, dict):
             raise RegistryValidationError(f"{where}: article must be a mapping")
+        unknown = sorted(set(article) - ARTICLE_KEYS)
+        if unknown:
+            raise RegistryValidationError(f"{where}: unknown article key(s) {unknown}")
         for field in ("framework", "article", "title"):
             if field not in article or article[field] is None:
                 raise RegistryValidationError(f"{where}: article missing required field '{field}'")
@@ -126,8 +141,18 @@ def _validate_entry(check_id: str, data: dict[str, Any], source: Path) -> None:
             raise RegistryValidationError(f"{where}: malformed article '{article['article']}'")
         if not isinstance(article["title"], str) or not article["title"].strip():
             raise RegistryValidationError(f"{where}: article title must be a string")
-        canonical = canonical_article_title(Framework(article["framework"]), article["article"])
-        if canonical and article["title"] != canonical:
+        framework = Framework(article["framework"])
+        canonical = canonical_article_title(framework, article["article"])
+        if canonical is None:
+            elsewhere = sorted(
+                fw.value for (fw, art) in ARTICLE_TITLES if art == article["article"]
+            )
+            hint = f" (it belongs to {', '.join(elsewhere)})" if elsewhere else ""
+            raise RegistryValidationError(
+                f"{where}: {article['framework']} article '{article['article']}' "
+                f"is not a known article in ARTICLE_TITLES{hint}"
+            )
+        if article["title"] != canonical:
             raise RegistryValidationError(
                 f"{where}: title for {article['framework']} {article['article']} "
                 f"must be '{canonical}'"

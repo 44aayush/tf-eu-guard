@@ -8,18 +8,67 @@ on:
     tags:
       - "v*"
 
+# Default token is read-only; each job below widens it only as needed.
 permissions:
   contents: read
 
+# Release runs are never cancelled: a half-finished publish is worse than a
+# queued one. The group differs from ci.yml's so the reusable call below does
+# not wait on its own caller.
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  build:
+  verify-tag:
+    name: verify-tag
+    # Release tags must sit on main's history; a tag pushed from an unreviewed
+    # branch must never reach PyPI or GHCR.
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # Read-only: only fetches history to check ancestry.
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify the tagged commit is an ancestor of origin/main
+        run: |
+          set -euo pipefail
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag $GITHUB_REF_NAME ($GITHUB_SHA) is not reachable from origin/main"
+            exit 1
+          fi
+          echo "OK: $GITHUB_SHA is on origin/main"
+
+  tests:
+    name: tests
+    # The full CI workflow (lint, supply chain, wheel smoke test, test matrix,
+    # example scans) must pass for the tagged commit before anything is built.
+    needs: verify-tag
+    uses: ./.github/workflows/ci.yml
+    # A called workflow cannot be granted more than its caller gives it;
+    # CI needs read access only. (timeout-minutes is not allowed on a
+    # reusable-workflow call; the called jobs set their own.)
+    permissions:
+      contents: read
+
+  build:
+    name: build
+    runs-on: ubuntu-24.04
+    needs: [verify-tag, tests]
+    timeout-minutes: 20
+    # Read-only: builds the wheel and SBOM; it has no publish credentials.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - name: Create isolated release tooling environment
@@ -47,7 +96,7 @@ jobs:
         run: |
           "$RUNNER_TEMP/tf-eu-guard-release-tools/bin/cyclonedx-py" requirements requirements.lock --of JSON --output-reproducible -o "tf-eu-guard-${GITHUB_REF_NAME#v}.cdx.json"
       - name: Upload distribution and SBOM
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-${{ github.ref_name }}
           path: |
@@ -57,31 +106,38 @@ jobs:
           retention-days: 30
 
   publish:
+    name: publish
     runs-on: ubuntu-24.04
     needs: build
     environment: pypi
+    timeout-minutes: 10
+    # id-token: write is PyPI trusted publishing (OIDC); this job never
+    # checks out code, so nothing from the repository runs with that token.
     permissions:
       contents: read
-      id-token: write
+      id-token: write # PyPI trusted publishing (OIDC)
     steps:
       - name: Download built distribution
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-${{ github.ref_name }}
           path: release
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: release/dist/
 
   release-sbom:
+    name: release-sbom
     runs-on: ubuntu-24.04
     needs: publish
+    timeout-minutes: 10
+    # contents: write attaches the SBOM to the GitHub release; nothing else.
     permissions:
-      contents: write
+      contents: write # attach the SBOM to the GitHub release
     steps:
       - name: Download release SBOM
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-${{ github.ref_name }}
           path: release
@@ -96,3 +152,55 @@ jobs:
             gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --generate-notes
           fi
           gh release upload "$GITHUB_REF_NAME" release/tf-eu-guard-*.cdx.json --clobber
+
+  image:
+    name: image
+    # Publish the Action's container image to GHCR with SBOM and provenance
+    # attestations. action.yml pulls ghcr.io/<owner>/tf-eu-guard:<action ref>
+    # and falls back to a local build when the pull fails.
+    runs-on: ubuntu-24.04
+    needs: [verify-tag, tests]
+    timeout-minutes: 30
+    # packages: write pushes the image to GHCR; id-token and attestations:
+    # write sign the build provenance attestation; contents: read for checkout.
+    permissions:
+      contents: read
+      packages: write # push the image to GHCR
+      id-token: write # keyless signing of the provenance attestation
+      attestations: write # store the build provenance attestation
+    env:
+      REGISTRY: ghcr.io
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Compute image name
+        run: |
+          set -euo pipefail
+          # GHCR repository names must be lower case.
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "IMAGE_NAME=${REGISTRY}/${owner}/tf-eu-guard" >> "$GITHUB_ENV"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: true
+          provenance: mode=max
+          sbom: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true

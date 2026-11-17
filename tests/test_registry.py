@@ -17,6 +17,7 @@ import pytest
 import yaml
 from checkov.kubernetes.checks.resource.registry import registry as k8s_registry
 from checkov.terraform.checks.data.registry import data_registry
+from checkov.terraform.checks.module.registry import module_registry
 from checkov.terraform.checks.provider.registry import provider_registry
 from checkov.terraform.checks.resource.registry import resource_registry
 
@@ -38,7 +39,7 @@ ARTICLE_RE = re.compile(r"^(?:Art\. \d+(\(\d+\))?(\([a-z]\))?|Policy [A-Za-z0-9_
 # Stock Checkov ids ("CKV_AWS_18", "CKV2_AWS_6", "CKV_K8S_16", "CKV2_K8S_6")
 # plus tf-eu-guard's custom EU-compliance checks ("EUGUARD_GDPR_001",
 # "EUGUARD_GDPR_002", "EUGUARD_NIS2_001").
-CHECK_ID_RE = re.compile(r"^(CKV2?_(AWS|AZURE|GCP|K8S)_\d+|EUGUARD_[A-Z0-9]+_\d+)$")
+CHECK_ID_RE = re.compile(r"^(CKV2?_(AWS|AZURE|GCP|K8S|TF)_\d+|EUGUARD_[A-Z0-9]+_\d+)$")
 
 
 def test_registry_loads_nonempty(registry):
@@ -172,7 +173,14 @@ def test_encryption_maps_to_nis2_h_and_gdpr_a(registry, cid):
 
 @pytest.mark.parametrize(
     "cid",
-    ["EUGUARD_GDPR_001", "EUGUARD_GDPR_002", "EUGUARD_NIS2_001"],
+    [
+        "EUGUARD_POLICY_001",
+        "EUGUARD_POLICY_002",
+        "EUGUARD_GDPR_001",
+        "EUGUARD_GDPR_002",
+        "EUGUARD_GDPR_003",
+        "EUGUARD_NIS2_001",
+    ],
 )
 def test_custom_checks_present_and_complete(registry, cid):
     """The Phase 3 custom checks must be mapped so their findings enrich."""
@@ -186,11 +194,20 @@ def test_custom_checks_present_and_complete(registry, cid):
 
 def test_region_checks_separate_sovereignty_policy_from_transfers(registry):
     """Commercial EU policy failures must not be labelled as Chapter V transfers."""
-    assert _gdpr(registry["EUGUARD_GDPR_001"]) == set()
-    assert {
-        (article.framework, article.article) for article in registry["EUGUARD_GDPR_001"].articles
-    } == {(Framework.POLICY, "Policy EUSC-001")}
+    for cid in ("EUGUARD_POLICY_001", "EUGUARD_POLICY_002", "EUGUARD_GDPR_001"):
+        assert _gdpr(registry[cid]) == set()
+        assert {(a.framework, a.article) for a in registry[cid].articles} == {
+            (Framework.POLICY, "Policy RESIDENCY-001")
+        }
     assert _gdpr(registry["EUGUARD_GDPR_002"]) == {"Art. 44"}
+    assert _gdpr(registry["EUGUARD_GDPR_003"]) == {"Art. 44"}
+
+
+def test_deprecated_gdpr_001_alias_maps_like_policy_001(registry):
+    alias, current = registry["EUGUARD_GDPR_001"], registry["EUGUARD_POLICY_001"]
+    assert alias.articles == current.articles
+    assert alias.severity == current.severity
+    assert "DEPRECATED" in alias.risk_explanation
 
 
 def test_canonical_titles_cover_corrected_articles(registry):
@@ -214,12 +231,13 @@ def test_canonical_titles_cover_corrected_articles(registry):
 
 def test_transfer_review_risk_matches_documented_legal_standard(registry):
     """The Art. 44 mapping remains a hedged review signal, not a legal verdict."""
-    policy_risk = registry["EUGUARD_GDPR_001"].risk_explanation
+    policy_risk = registry["EUGUARD_POLICY_001"].risk_explanation
     assert "project-policy deviation" in policy_risk
     assert "GDPR legal conclusion" in policy_risk
     assert "GDPR Art. 44" not in policy_risk
 
     transfer_risk = registry["EUGUARD_GDPR_002"].risk_explanation
+    assert "not a definitive legal conclusion" in registry["EUGUARD_GDPR_003"].risk_explanation
     assert "may involve a third-country transfer" in transfer_risk
     assert "not a definitive legal conclusion" in transfer_risk
     assert "violation" not in transfer_risk
@@ -230,6 +248,18 @@ def test_kubernetes_secret_mapping_is_kubernetes_specific(registry):
     assert "secretKeyRef" in remediation
     assert "aws_" not in remediation
     assert 'resource "' not in remediation
+
+
+def test_kubernetes_env_check_has_its_own_registry_entry(registry):
+    secret, env = registry["EUGUARD_NIS2_002"], registry["EUGUARD_NIS2_003"]
+    assert env.check_name != secret.check_name
+    assert "env" in env.risk_explanation
+    assert "Secret manifest" in secret.risk_explanation
+    assert [(a.framework, a.article) for a in env.articles] == [
+        (a.framework, a.article) for a in secret.articles
+    ]
+    assert env.severity == secret.severity
+    assert "secretKeyRef" in env.remediation
 
 
 def test_remediations_match_eusc_region_policy(registry):
@@ -415,7 +445,13 @@ def test_registry_ids_exist_in_checkov(repo_root):
     mapping that never enriches anything.
     """
     checkov_ids = set()
-    for registry in (resource_registry, data_registry, provider_registry, k8s_registry):
+    for registry in (
+        resource_registry,
+        data_registry,
+        provider_registry,
+        module_registry,
+        k8s_registry,
+    ):
         for checks in registry.checks.values():
             for check in checks:
                 checkov_ids.add(check.id)
@@ -482,7 +518,7 @@ def test_end2end_findings_are_all_mapped(repo_root, registry):
 # --- Registry expansion: CloudTrail / CodeBuild / ECS / ElastiCache / Aurora ---
 # These IDs were originally confirmed from the historical Checkov 3.3.13
 # capture of the corresponding examples/end2end/*.tf fixtures, then authored.
-# Current runtime verification uses live Checkov 3.3.29 scans. The tests guard
+# Current runtime verification uses live Checkov 3.4.5 scans. The tests guard
 # the mapping (not the capture): if an entry is removed, the finding goes back
 # to being unmapped.
 
@@ -574,3 +610,14 @@ def test_nis2_only_expansion_entries_have_no_gdpr_article(registry):
         pytest.skip("CKV_AWS_321 not in registry")
     assert _gdpr(registry["CKV_AWS_321"]) == set()
     assert "Art. 21(2)(i)" in _nis2(registry["CKV_AWS_321"])
+
+
+def test_module_pinning_checks_map_to_nis2_supply_chain(registry):
+    """CKV_TF_1/CKV_TF_2 (module source pinning) -> NIS2 Art. 21(2)(d)."""
+    for cid in ("CKV_TF_1", "CKV_TF_2"):
+        mapping = registry[cid]
+        assert [(a.framework, a.article) for a in mapping.articles] == [
+            (Framework.NIS2, "Art. 21(2)(d)")
+        ]
+        assert mapping.articles[0].title == ARTICLE_TITLES[(Framework.NIS2, "Art. 21(2)(d)")]
+        assert mapping.remediation.strip()

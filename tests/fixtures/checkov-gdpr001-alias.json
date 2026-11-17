@@ -1,0 +1,16 @@
+{
+  "check_type": "terraform",
+  "results": {
+    "failed_checks": [
+      {
+        "check_id": "EUGUARD_GDPR_001",
+        "check_name": "Ensure the AWS provider region is in the EU Sovereign Cloud (project sovereignty policy)",
+        "resource": "aws.frankfurt",
+        "file_path": "/main.tf",
+        "file_line_range": [1, 4],
+        "guideline": null
+      }
+    ]
+  },
+  "summary": {"parsing_errors": 0}
+}

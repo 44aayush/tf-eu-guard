@@ -1,7 +1,7 @@
 """Tests for the terminal (dev) report generator.
 
 Exercises ``generate_dev_report`` with mock findings: rendering, severity
-sorting, empty-findings handling, and the ``DevReporter`` class output.
+sorting and empty-findings handling.
 """
 
 import contextlib
@@ -11,8 +11,8 @@ from unittest.mock import patch
 from rich.console import Console
 
 import tf_eu_guard.reporting.dev_report as mod
-from tf_eu_guard.models import ArticleReference, EnrichedFinding, Framework, ScanReport, Severity
-from tf_eu_guard.reporting.dev_report import DevReporter, generate_dev_report
+from tf_eu_guard.models import ArticleReference, EnrichedFinding, Framework, Severity
+from tf_eu_guard.reporting.dev_report import generate_dev_report
 
 
 def _finding(severity=Severity.HIGH, **overrides):
@@ -95,22 +95,6 @@ def test_grouping_by_file():
     assert "/a.tf" in out and "/b.tf" in out
 
 
-def test_dev_reporter_class_generates_text():
-    report = ScanReport(
-        target_path="./terraform",
-        scan_timestamp="2026-08-30",
-        checkov_version="3.3.29",
-        findings=[_finding()],
-        total_checks_run=50,
-        total_failed=1,
-        total_passed=49,
-    )
-    reporter = DevReporter()
-    text = reporter.generate(report)
-    assert "tf-eu-guard scan results" in text
-    assert "CKV_AWS_18" in text
-
-
 def test_rich_markup_in_user_fields_is_rendered_literally():
     finding = _finding(
         check_name="Name [bold]not markup[/bold]",
@@ -123,22 +107,3 @@ def test_rich_markup_in_user_fields_is_rendered_literally():
     assert "resource [red]literal[/red]" in out
     assert "Risk [italic]literal[/italic]" in out
     assert "fix = [not-a-tag]" in out
-
-
-def test_dev_reporter_writes_plain_text_file(tmp_path):
-    report = ScanReport(
-        target_path="./terraform",
-        scan_timestamp="2026-08-30",
-        checkov_version="3.3.29",
-        findings=[_finding(check_name="Name [bold]literal[/bold]")],
-        total_checks_run=50,
-        total_failed=1,
-        total_passed=49,
-    )
-    out_path = tmp_path / "dev.txt"
-    DevReporter().generate(report, output_path=out_path)
-    content = out_path.read_text()
-    assert "\n  [bold]" not in content  # report labels are stripped
-    assert "tf-eu-guard scan results" in content
-    assert "Name [bold]literal[/bold]" in content
-    assert "CKV_AWS_18" in content

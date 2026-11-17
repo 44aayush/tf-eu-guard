@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leaky
+spec:
+  selector:
+    matchLabels:
+      app: leaky
+  template:
+    metadata:
+      labels:
+        app: leaky
+    spec:
+      containers:
+        - name: app
+          image: registry.example/app:1.0
+          env:
+            - name: DB_PASS
+              value: "Sup3rS3cret!"
+            - name: DATABASE_URL
+              value: "postgres://app:Sup3rS3cret@db:5432/app"

@@ -19,15 +19,20 @@ SUPPORTED_IAC_TYPES = ("terraform", "terraform_plan", "kubernetes")
 #: failed to run" — a distinction the old binary 0/1 exit conflated.
 #:   0 = scan ran, no blocking findings
 #:   1 = scan ran, blocking findings found (--fail-on-* threshold met)
-#:   2 = invalid invocation or configuration (bad flags, malformed
-#:       registry, unusable Checkov JSON input)
-#:   3 = scanner/runtime failure (Checkov itself crashed, registry failed
-#:       to load, unexpected internal error)
+#:   2 = invalid invocation or configuration (bad flags, unusable Checkov
+#:       JSON input, missing scan target, an output destination that cannot
+#:       be written or encoded)
+#:   3 = scanner/runtime failure (Checkov itself crashed or timed out, the
+#:       shipped registry is malformed or failed to load, unexpected
+#:       internal error)
 #: argparse's own rejection of bad flags also exits 2, matching this table.
 EXIT_OK = 0
 EXIT_FINDINGS = 1
 EXIT_INVALID_INPUT = 2
 EXIT_RUNTIME_FAILURE = 3
+
+#: Default wall-clock limit (seconds) for the Checkov subprocess; 0 disables.
+DEFAULT_CHECKOV_TIMEOUT = 600
 
 #: Report formats the CLI's ``--output`` accepts. ``all`` writes the dev,
 #: security and auditor HTML files together (see ``--output-dir``); ``sarif``

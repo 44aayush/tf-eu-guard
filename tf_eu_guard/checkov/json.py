@@ -1,11 +1,37 @@
 """Validation and normalization for Checkov JSON output."""
 
+import codecs
 import json
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+from importlib import metadata
 from pathlib import Path
 from typing import Any
 
 from tf_eu_guard.checkov.types import CheckovInputError, CheckovRuntimeError
+
+#: Set by the CLI for ``--allow-partial``: parsing errors then warn instead of fail.
+_ALLOW_PARTIAL: ContextVar[bool] = ContextVar("tf_eu_guard_allow_partial", default=False)
+
+#: Directory of the package's custom ``EUGUARD_*`` checks.
+CUSTOM_CHECKS_DIR = Path(__file__).resolve().parent.parent / "checks"
+CUSTOM_CHECK_PREFIX = "EUGUARD_"
+
+
+@contextmanager
+def allow_partial_results(allow: bool) -> Iterator[None]:
+    """Downgrade Checkov parsing errors to a stderr warning within the block."""
+    token = _ALLOW_PARTIAL.set(allow)
+    try:
+        yield
+    finally:
+        _ALLOW_PARTIAL.reset(token)
+
+
+def _warn(message: str) -> None:
+    print(f"Warning: {message}", file=sys.stderr)
 
 
 def parsing_error_message(checkov_output: dict[str, Any]) -> str | None:
@@ -67,30 +93,136 @@ def validate_scan_output(checkov_output: Any, iac_type: str) -> dict[str, Any]:
 
     error = parsing_error_message(checkov_output)
     if error:
-        raise CheckovRuntimeError(error)
+        if not _ALLOW_PARTIAL.get():
+            raise CheckovRuntimeError(error)
+        _warn(f"{error}; continuing because --allow-partial was given. The result is incomplete.")
     try:
         validate_checkov_output(checkov_output)
     except ValueError as exc:
-        raise CheckovRuntimeError(f"Checkov returned a malformed failed finding: {exc}") from exc
+        raise CheckovRuntimeError(f"Checkov returned a malformed finding: {exc}") from exc
     return checkov_output
+
+
+def decode_json_bytes(raw: bytes, source: str = "input") -> str:
+    """Decode JSON bytes, honouring a UTF-8-SIG or UTF-16 byte-order mark.
+
+    Windows PowerShell 5 writes redirected output as UTF-16 LE with a BOM;
+    many editors add a UTF-8 BOM. Without a BOM the bytes are UTF-8.
+    """
+    if raw.startswith(codecs.BOM_UTF8):
+        encoding = "utf-8-sig"
+    elif raw.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
+        encoding = "utf-16"  # consumes the BOM and picks the byte order
+    else:
+        encoding = "utf-8"
+    try:
+        return raw.decode(encoding)
+    except UnicodeDecodeError as exc:
+        raise CheckovInputError(
+            f"Cannot decode Checkov JSON {source} as {encoding}: {exc.reason}. "
+            "Re-save it as UTF-8 (in PowerShell 5 use '| Out-File -Encoding utf8')."
+        ) from exc
 
 
 def load_checkov_json(json_source: Path, iac_type: str = "terraform") -> dict[str, Any]:
     """Load and normalize a pre-generated Checkov JSON result."""
     if str(json_source) == "-":
-        text = sys.stdin.read()
+        buffer = getattr(sys.stdin, "buffer", None)
+        text = decode_json_bytes(buffer.read(), "from stdin") if buffer else sys.stdin.read()
     else:
         path = Path(json_source)
         if path.is_dir():
             raise CheckovInputError(f"Checkov JSON input must be a file, not a directory: {path}")
         try:
-            text = path.read_text(encoding="utf-8")
+            text = decode_json_bytes(path.read_bytes(), f"file '{path}'")
         except (IsADirectoryError, NotADirectoryError, PermissionError) as exc:
             raise CheckovInputError(
                 f"Cannot read Checkov JSON input '{path}': {exc.strerror or exc}"
             ) from exc
 
-    return normalize_checkov_output(json.loads(text), iac_type)
+    data = json.loads(text)
+    _check_parsing_errors(data)
+    output = normalize_checkov_output(data, iac_type)
+    _warn_installed_version_mismatch(output)
+    _warn_missing_custom_checks(output)
+    return output
+
+
+def _lenient_parsing_error_message(element: dict[str, Any]) -> str | None:
+    """Like :func:`parsing_error_message`, but tolerant of absent or odd summaries."""
+    summary = element.get("summary")
+    if not isinstance(summary, dict) or "parsing_errors" not in summary:
+        results = element.get("results")
+        if not (isinstance(results, dict) and results.get("parsing_errors")):
+            return None
+    return parsing_error_message(element)
+
+
+def _check_parsing_errors(data: Any) -> None:
+    """Fail (or warn with ``--allow-partial``) when the input reports parsing errors.
+
+    Mirrors the source-scan rule. For a list of per-framework results every
+    element counts, since an error in any framework means incomplete coverage.
+    """
+    elements = data if isinstance(data, list) else [data]
+    messages = [
+        message
+        for element in elements
+        if isinstance(element, dict)
+        for message in [_lenient_parsing_error_message(element)]
+        if message
+    ]
+    if not messages:
+        return
+    error = "; ".join(messages)
+    if not _ALLOW_PARTIAL.get():
+        raise CheckovRuntimeError(
+            f"{error} (in the --checkov-json input); the scan cannot be trusted as complete. "
+            "Fix the parsing errors and regenerate the file, or pass --allow-partial."
+        )
+    _warn(f"{error}; continuing because --allow-partial was given. The result is incomplete.")
+
+
+def installed_checkov_version() -> str | None:
+    """Return the installed Checkov version, or ``None`` when not installed."""
+    try:
+        return metadata.version("checkov")
+    except metadata.PackageNotFoundError:
+        return None
+
+
+def checkov_version_of(output: dict[str, Any]) -> str | None:
+    """Return ``summary.checkov_version`` when present."""
+    summary = output.get("summary")
+    version = summary.get("checkov_version") if isinstance(summary, dict) else None
+    return version if isinstance(version, str) and version else None
+
+
+def _warn_installed_version_mismatch(output: dict[str, Any]) -> None:
+    declared = checkov_version_of(output)
+    installed = installed_checkov_version()
+    if declared and installed and declared != installed:
+        _warn(
+            f"the Checkov JSON was produced by Checkov {declared}, but Checkov {installed} "
+            "is installed. Check IDs and result fields can differ between versions."
+        )
+
+
+def _warn_missing_custom_checks(output: dict[str, Any]) -> None:
+    results = output.get("results")
+    if not isinstance(results, dict):
+        return
+    for section in ("passed_checks", "failed_checks", "skipped_checks"):
+        for check in results.get(section) or []:
+            check_id = check.get("check_id") if isinstance(check, dict) else None
+            if isinstance(check_id, str) and check_id.startswith(CUSTOM_CHECK_PREFIX):
+                return
+    _warn(
+        "no EUGUARD_* check appears in the Checkov JSON, so the tf-eu-guard custom checks "
+        "were not loaded: the data-residency and secret-in-code checks are absent and a "
+        "clean result does not cover them. Regenerate the file with "
+        f"--external-checks-dir {CUSTOM_CHECKS_DIR}"
+    )
 
 
 def normalize_checkov_output(data: Any, iac_type: str = "terraform") -> dict[str, Any]:
@@ -151,10 +283,31 @@ def validate_checkov_output(checkov_output: dict[str, Any]) -> None:
             )
         validate_failed_check(check, index)
 
+    # ``skipped_checks`` holds findings suppressed by inline comments. Older
+    # outputs and fixtures omit it, so a missing key is accepted; a present
+    # one is validated as strictly as ``failed_checks``.
+    skipped_checks = results.get("skipped_checks")
+    if skipped_checks is None:
+        return
+    if not isinstance(skipped_checks, list):
+        raise ValueError(
+            "Input does not look like Checkov output: "
+            "'results.skipped_checks' must be a list of objects"
+        )
+    for index, check in enumerate(skipped_checks):
+        if not isinstance(check, dict):
+            raise ValueError(
+                "Input does not look like Checkov output: "
+                f"'results.skipped_checks[{index}]' must be an object"
+            )
+        validate_failed_check(check, index, section="skipped_checks")
 
-def validate_failed_check(check: dict[str, Any], index: int) -> None:
+
+def validate_failed_check(
+    check: dict[str, Any], index: int, section: str = "failed_checks"
+) -> None:
     """Validate the Checkov fields required by every downstream reporter."""
-    prefix = f"'results.failed_checks[{index}]'"
+    prefix = f"'results.{section}[{index}]'"
     required_fields = (
         "check_id",
         "check_name",
@@ -218,3 +371,45 @@ def extract_failed_checks(checkov_output: dict[str, Any]) -> list[dict[str, Any]
         )
 
     return failed
+
+
+#: Checkov's placeholder when a skip comment carries no reason.
+_NO_COMMENT_PLACEHOLDER = "No comment provided"
+
+
+def suppression_reason(check: dict[str, Any]) -> str | None:
+    """Return the stated reason of a skipped check, or ``None`` when absent."""
+    check_result = check.get("check_result")
+    if not isinstance(check_result, dict):
+        return None
+    comment = check_result.get("suppress_comment")
+    if not isinstance(comment, str):
+        return None
+    comment = comment.strip()
+    if not comment or comment == _NO_COMMENT_PLACEHOLDER:
+        return None
+    return comment
+
+
+def extract_skipped_checks(checkov_output: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract checks suppressed by inline ``checkov:skip`` comments.
+
+    Entries have the same shape as :func:`extract_failed_checks` plus
+    ``suppressed: True`` and ``suppression_reason`` (``None`` if none given).
+    """
+    validate_checkov_output(checkov_output)
+    skipped = []
+    for check in checkov_output.get("results", {}).get("skipped_checks") or []:
+        skipped.append(
+            {
+                "check_id": check.get("check_id"),
+                "check_name": check.get("check_name"),
+                "resource": check.get("resource"),
+                "file_path": check.get("file_path"),
+                "file_line_range": check.get("file_line_range", [0, 0]),
+                "guideline": check.get("guideline"),
+                "suppressed": True,
+                "suppression_reason": suppression_reason(check),
+            }
+        )
+    return skipped

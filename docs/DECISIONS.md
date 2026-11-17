@@ -5,7 +5,7 @@ implementation history.
 
 ## 1. Wrap Checkov; don't reimplement scanning
 
-Checkov (pinned at 3.3.29 for reproducible scans) provides detection; tf-eu-guard
+Checkov (pinned at 3.4.5 for reproducible scans) provides detection; tf-eu-guard
 adds the compliance layer: parsing Checkov's JSON, joining each failed check to
 the NIS2/GDPR registry entry, and rendering reports. Pre-generated Checkov JSON
 can also be piped in (`--checkov-json`), so existing Checkov CI jobs work
@@ -13,7 +13,7 @@ unchanged.
 
 ## 2. Severity is authored in the registry
 
-Checkov 3.3.29 emits `severity: null` for most checks. tf-eu-guard therefore
+Checkov 3.x emits `severity: null` for most checks. tf-eu-guard therefore
 assigns each mapping a severity (CRITICAL/HIGH/MEDIUM/LOW) in the registry,
 weighted by regulatory impact.
 
@@ -40,7 +40,7 @@ policy control, not a GDPR citation.
 
 ## 5. Custom EU-specific checks for gaps Checkov doesn't cover
 
-`EUGUARD_GDPR_001` (EUSC-only sovereignty policy),
+`EUGUARD_POLICY_001` (configurable residency policy; `EUGUARD_GDPR_001` is its deprecated alias),
 `EUGUARD_GDPR_002` (known third-country regions, GDPR Chapter V review), and
 `EUGUARD_NIS2_001` (selected hardcoded secret fields, Art. 21(2)(e) secure
 development) load through Checkov's external-check mechanism. Provider
@@ -107,5 +107,28 @@ passed `eu-west-2` London and `eu-central-2` Zurich — GDPR third countries).
 compliance gate; `examples/compliant-aws` pins its providers to
 `eusc-de-east-1`. Fail-closed semantics apply: unresolved region variables
 and unrecognized region strings also fail. When AWS launches a second EUSC
-region, add it to `_EUSC_REGIONS` in
-`tf_eu_guard/checks/gdpr/data_residency.py`.
+region, add it to `EUSC_REGIONS` in
+`tf_eu_guard/regions.py` (the tables moved there in 0.8.0).
+
+## 10a. Residency policy is configurable (supersedes the EUSC-only default)
+
+**Decision (2026-11):** `--residency-policy {eu-eea,eusc,custom}` (default
+`eu-eea`) with `--allowed-regions` for `custom`. The check was renamed
+`EUGUARD_POLICY_001` (it is a policy finding, not a GDPR claim) and
+`EUGUARD_GDPR_001` stays for one release as a deprecated alias so 0.7.x
+`--checkov-json` files still map. `EUGUARD_POLICY_002` / `EUGUARD_GDPR_003`
+add resource-level coverage (`region` argument, replicas, copy destinations).
+The previous EUSC-only behaviour is `--residency-policy eusc`.
+
+## 11. Reports are stdlib-built, self-contained HTML; the auditor report never claims a pass
+
+**Decision:** the security and auditor HTML reports are generated with the
+standard library (`html` for escaping) into a single file with embedded CSS, no
+JavaScript and no external assets. There is no template engine, so the
+generator has no template-loading or packaging surface and the output can be
+attached to a ticket or opened offline. The auditor report is built only from
+*failed* Checkov checks that map to a control, so every article it shows has
+open findings. It never states that a control passes: the absence of a finding
+is explicitly not evidence of compliance (see
+[`limitations.md`](limitations.md)). Showing passed-check evidence is a
+planned feature ([`roadmap.md`](roadmap.md)), not current behaviour.

@@ -20,6 +20,7 @@ REQUIRED_FIELDS = {
     "introduced_by",
     "rationale",
     "mitigation",
+    "reachability",
     "review_date",
     "expiry_date",
 }

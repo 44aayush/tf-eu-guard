@@ -29,7 +29,7 @@ SEVERITY_COLOR: dict[Severity, str] = {
     Severity.CRITICAL: "#c0392b",
     Severity.HIGH: "#e67e22",
     Severity.MEDIUM: "#d4ac0d",
-    Severity.LOW: "#2980b9",
+    Severity.LOW: "#2471a3",
     Severity.INFO: "#7f8c8d",
 }
 
@@ -40,7 +40,26 @@ SEVERITY_COLOR_TERMINAL: dict[Severity, str] = {
     Severity.HIGH: "red",
     Severity.MEDIUM: "yellow",
     Severity.LOW: "blue",
+    Severity.INFO: "dim",
 }
+
+# Text color per severity badge, chosen so the text/background pair reaches at
+# least 4.5:1 (WCAG AA). White fails on the light HIGH/MEDIUM/INFO fills.
+BADGE_TEXT_COLOR: dict[Severity, str] = {
+    Severity.CRITICAL: "#ffffff",
+    Severity.HIGH: "#1a1a1a",
+    Severity.MEDIUM: "#1a1a1a",
+    Severity.LOW: "#ffffff",
+    Severity.INFO: "#1a1a1a",
+}
+
+# Restrictive Content-Security-Policy for the self-contained HTML reports.
+# They use embedded CSS (including style attributes) and no scripts, images
+# or other external resources, so everything else is denied.
+CSP_META = (
+    '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; '
+    "style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'\">"
+)
 
 # Framework display order and the mapping-doc each framework links to
 # (auditor report).
@@ -73,8 +92,8 @@ SECURITY_CSS = """
 
   .summary { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
   .stat {
-    flex: 1 1 120px; background: #fff; border: 1px solid #e2e2e2; border-radius: 8px;
-    padding: 14px 16px; box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    flex: 1 1 90px; background: #fff; border: 1px solid #e2e2e2; border-radius: 8px;
+    padding: 14px 12px; box-shadow: 0 1px 2px rgba(0,0,0,.04);
   }
   .stat .num { font-size: 1.7rem; font-weight: 700; line-height: 1; }
   .stat .label { font-size: 0.78rem; color: #666; text-transform: uppercase; letter-spacing: .04em; }
@@ -82,8 +101,8 @@ SECURITY_CSS = """
   .chart { background: #fff; border: 1px solid #e2e2e2; border-radius: 8px; padding: 18px 20px; }
   .chart .row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
   .chart .rlabel { flex: 0 0 90px; font-size: 0.85rem; font-weight: 600; }
-  .chart .track { flex: 1; background: #eee; border-radius: 4px; overflow: hidden; }
-  .chart .bar { height: 20px; border-radius: 4px 0 0 4px; min-width: 2px; }
+  .chart .track { display: block; flex: 1; background: #eee; border-radius: 4px; overflow: hidden; }
+  .chart .bar { display: block; height: 20px; border-radius: 4px 0 0 4px; min-width: 2px; }
   .chart .rcount { flex: 0 0 40px; text-align: right; font-variant-numeric: tabular-nums; }
   .unmapped { color: #555; font-size: 0.9rem; margin: 10px 0 0; }
 
@@ -95,7 +114,7 @@ SECURITY_CSS = """
   .finding-head .cid { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }
   .finding-head .cname { color: #333; }
   .badge {
-    display: inline-block; color: #fff; font-size: 0.7rem; font-weight: 700;
+    display: inline-block; font-size: 0.7rem; font-weight: 700;
     padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: .03em;
   }
   dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; margin: 10px 0; font-size: 0.9rem; }
@@ -162,7 +181,7 @@ AUDITOR_CSS = """
     background: #fdecea; color: #b03a2e; border: 1px solid #f5b7b1; border-radius: 12px; padding: 2px 10px;
   }
   .badge {
-    display: inline-block; color: #fff; font-size: 0.7rem; font-weight: 700; font-family: system-ui, sans-serif;
+    display: inline-block; font-size: 0.7rem; font-weight: 700; font-family: system-ui, sans-serif;
     padding: 1px 7px; border-radius: 10px; text-transform: uppercase;
   }
   code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88rem; }
@@ -210,7 +229,7 @@ DEV_HTML_CSS = """
   .finding-head .cid { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }
   .finding-head .cname { color: #333; }
   .badge {
-    display: inline-block; color: #fff; font-size: 0.7rem; font-weight: 700;
+    display: inline-block; font-size: 0.7rem; font-weight: 700;
     padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: .03em;
   }
   dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; margin: 10px 0; font-size: 0.9rem; }
@@ -240,4 +259,13 @@ DEV_HTML_CSS = """
     .remediation pre { background: #1b1d22; border-color: #33373f; }
     .art { background: #2b3140; border-color: #3a4256; color: #cdd7e5; }
   }
+"""
+
+#: Styles for the "Suppressed by inline comment" section shared by the HTML reports.
+SUPPRESSED_CSS = """
+  .suppressed { margin-top: 28px; border-top: 3px solid #b9770e; padding-top: 4px; }
+  .suppressed table { border-collapse: collapse; width: 100%; font-family: system-ui, sans-serif; font-size: 0.92rem; margin: 12px 0; }
+  .suppressed th, .suppressed td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; vertical-align: top; }
+  .suppressed th { background: #fdf2e0; }
+  .attention { background: #fef5e7; border: 1px solid #f5cba7; color: #7e5109; padding: 24px; border-radius: 8px; text-align: center; font-family: system-ui, sans-serif; }
 """
