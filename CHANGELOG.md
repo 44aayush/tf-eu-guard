@@ -10,6 +10,13 @@ release point.
 
 ## [Unreleased]
 
+### Fixed
+
+- The published container image now carries OCI labels (`image.source`,
+  `title`, `description`, `licenses`, plus `version` and `revision` set at
+  build time), so GHCR links the package to the repository and it appears in
+  the repo's Packages sidebar.
+
 ## [0.8.0] — 2026-11-17
 
 - CLI: `--version`; `--fail-on-severity` accepts any case; `--timeout SECONDS` (default 600, 0 disables) bounds Checkov and exits 3 on expiry; Checkov output is decoded as UTF-8 explicitly; `--checkov-json` (file or stdin) detects UTF-8 and UTF-16 byte-order marks; failures writing a report are exit 2, not 3; fixed the exit-code comment for a malformed registry.

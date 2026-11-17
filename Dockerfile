@@ -19,6 +19,13 @@ RUN python -m build --wheel --no-isolation --outdir /dist
 
 FROM python:3.12-slim@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8be030f824196b0ae4db6d462c84e51f
 
+# Links the GHCR package to the repository (Packages sidebar). Version and
+# revision labels are added at build time by publish.yml.
+LABEL org.opencontainers.image.title="tf-eu-guard" \
+      org.opencontainers.image.description="EU compliance security linter for Terraform and Kubernetes: NIS2 and GDPR mapping" \
+      org.opencontainers.image.source="https://github.com/44aayush/tf-eu-guard" \
+      org.opencontainers.image.licenses="MIT"
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1

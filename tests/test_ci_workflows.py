@@ -557,3 +557,27 @@ def test_workflow_expected_eu_ids_are_current_registered_checks():
                     "under tf_eu_guard/checks/"
                 )
     assert not problems, "\n".join(problems)
+
+
+def _final_dockerfile_stage() -> str:
+    text = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    return re.split(r"^FROM\s", text, flags=re.MULTILINE)[-1]
+
+
+def test_image_final_stage_has_oci_labels_linking_the_repository():
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    repo_url = project["urls"]["Repository"]
+    final = _final_dockerfile_stage()
+    assert f'org.opencontainers.image.source="{repo_url}"' in final
+    assert f'org.opencontainers.image.licenses="{project["license"]}"' in final
+    assert 'org.opencontainers.image.title="tf-eu-guard"' in final
+    match = re.search(r'org\.opencontainers\.image\.description="([^"]+)"', final)
+    assert match and len(match.group(1)) <= 512
+
+
+def test_image_build_step_sets_version_and_revision_labels():
+    steps = _load(WORKFLOWS / "publish.yml")["jobs"]["image"]["steps"]
+    build = next(s for s in steps if s.get("uses", "").startswith("docker/build-push-action@"))
+    labels = build["with"]["labels"].splitlines()
+    assert "org.opencontainers.image.version=${{ github.ref_name }}" in labels
+    assert "org.opencontainers.image.revision=${{ github.sha }}" in labels
