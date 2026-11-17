@@ -2,7 +2,7 @@
 build==1.6.1
 cyclonedx-bom==7.5.0
 # The release workflow builds with --no-isolation, so pin the backend here too.
-hatchling==1.32.4
+hatchling==1.33.0
 pip-audit==2.10.1
 # Regenerates the locks (tools/compile-locks.sh); CI installs it from this hashed lock.
 uv==0.13.5
