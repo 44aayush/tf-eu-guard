@@ -64,12 +64,23 @@ def apply_scan_gate(
         )
         gate_failed = True
 
+    if getattr(args, "fail_on_unmapped", False) and unmapped:
+        print(
+            f"Fail: {len(unmapped)} unmapped Checkov finding(s) (--fail-on-unmapped)",
+            file=sys.stderr,
+        )
+        gate_failed = True
+
     if gate_failed:
         return EXIT_FINDINGS
 
     # Unmapped Checkov findings never affect the gate because severity is
     # registry-authored. Surface that policy in CI output when a gate is used.
-    if unmapped and (args.fail_on_any or args.fail_on_severity):
+    if (
+        unmapped
+        and (args.fail_on_any or args.fail_on_severity)
+        and not getattr(args, "fail_on_unmapped", False)
+    ):
         print(
             f"Note: {len(unmapped)} unmapped Checkov finding(s) were reported but "
             f"do not affect this gate (no current EU regulatory mapping).",

@@ -4,7 +4,10 @@ Loads every ``registry-*.yaml`` file in the mapping directory and merges them
 into one registry (check_id -> ComplianceMapping), with schema validation.
 """
 
+import dataclasses
 import re
+from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -81,7 +84,12 @@ class _UniqueKeyLoader(yaml.SafeLoader):
         return super().construct_mapping(node, deep=deep)
 
 
-def _validate_entry(check_id: str, data: dict[str, Any], source: Path) -> None:
+def _validate_entry(
+    check_id: str,
+    data: dict[str, Any],
+    source: Path,
+    strict_policy_titles: bool = True,
+) -> None:
     """Validate one registry entry against the mapping schema.
 
     Registry files are shipped application data, so malformed YAML must fail at
@@ -142,6 +150,12 @@ def _validate_entry(check_id: str, data: dict[str, Any], source: Path) -> None:
         if not isinstance(article["title"], str) or not article["title"].strip():
             raise RegistryValidationError(f"{where}: article title must be a string")
         framework = Framework(article["framework"])
+        if (
+            not strict_policy_titles
+            and framework is Framework.POLICY
+            and article["article"].startswith("Policy ")
+        ):
+            continue  # overlay policy articles are user-defined; any title is fine
         canonical = canonical_article_title(framework, article["article"])
         if canonical is None:
             elsewhere = sorted(
@@ -159,7 +173,9 @@ def _validate_entry(check_id: str, data: dict[str, Any], source: Path) -> None:
             )
 
 
-def load_registry_file(registry_path: Path) -> dict[str, ComplianceMapping]:
+def load_registry_file(
+    registry_path: Path, *, strict_policy_titles: bool = True
+) -> dict[str, ComplianceMapping]:
     """Load and validate a single registry YAML file.
 
     Raises :class:`RegistryValidationError` on schema violations — and on
@@ -182,7 +198,7 @@ def load_registry_file(registry_path: Path) -> dict[str, ComplianceMapping]:
             raise RegistryValidationError(
                 f"{registry_path.name}:{check_id}: check_id must be a non-empty string"
             )
-        _validate_entry(check_id, data, registry_path)
+        _validate_entry(check_id, data, registry_path, strict_policy_titles)
         articles = [
             ArticleReference(
                 framework=Framework(article["framework"]),
@@ -236,6 +252,58 @@ def load_registry(registry_path: Path) -> dict[str, ComplianceMapping]:
         return merged
 
     return load_registry_file(registry_path)
+
+
+@dataclass
+class LoadedRegistry:
+    """A merged registry plus a record of which overlays shaped it."""
+
+    mappings: dict[str, ComplianceMapping]
+    overridden: list[str] = dataclasses.field(default_factory=list)
+    # overlay file -> (entry count, number of entries replacing an existing check)
+    file_stats: dict[Path, tuple[int, int]] = dataclasses.field(default_factory=dict)
+    # every file read, bundled first then overlays, in load order (provenance digest)
+    files: list[Path] = dataclasses.field(default_factory=list)
+
+    @property
+    def overlay_files(self) -> list[Path]:
+        return list(self.file_stats)
+
+
+def load_overlay_file(path: Path) -> dict[str, ComplianceMapping]:
+    """Load one overlay file: same schema, user-defined POLICY titles, may not be empty."""
+    mappings = load_registry_file(path, strict_policy_titles=False)
+    if not mappings:
+        raise RegistryValidationError(f"{path.name}: no entries found")
+    return mappings
+
+
+def overlay_files_in(directory: Path) -> list[Path]:
+    """Return the ``*.yaml`` files of an overlay directory, sorted by name."""
+    if not directory.is_dir():
+        raise FileNotFoundError(f"registry overlay directory does not exist: {directory}")
+    paths = sorted(directory.glob("*.yaml"))
+    if not paths:
+        raise ValueError(f"no *.yaml files found in overlay directory {directory}")
+    return paths
+
+
+def load_registry_with_overlays(base: Path, overlays: Sequence[Path]) -> LoadedRegistry:
+    """Load the base registry, then apply overlay directories in order (later wins)."""
+    mappings = load_registry(base)
+    loaded = LoadedRegistry(mappings)
+    loaded.files = sorted(base.glob("registry-*.yaml")) if base.is_dir() else [base]
+    overridden: set[str] = set()
+    for directory in overlays:
+        for path in overlay_files_in(directory):
+            file_mappings = load_overlay_file(path)
+            replaced = file_mappings.keys() & mappings.keys()
+            overridden |= replaced
+            mappings.update(file_mappings)
+            loaded.files.append(path)
+            loaded.file_stats[path] = (len(file_mappings), len(replaced))
+    loaded.overridden = sorted(overridden)
+    return loaded
 
 
 def validate_all(mapping_dir: Path | None = None) -> dict[str, int]:

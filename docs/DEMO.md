@@ -1,6 +1,6 @@
 # Demo & Screenshot Guide
 
-This document explains how to capture screenshots and terminal recordings for tf-eu-guard demonstrations. The tool is fully functional, but automated screenshot/recording generation is not possible in sandboxed environments.
+This document explains how to capture screenshots and terminal recordings for tf-eu-guard demonstrations. Automated screenshot and recording generation is not possible in sandboxed environments.
 
 ## Prerequisites
 
@@ -75,7 +75,7 @@ Resources are rendered as text/code in the table; the auditor report does not ad
 per-resource links.
 
 **Key points to highlight**:
-- Clean, professional layout suitable for compliance documentation
+- Layout suitable for compliance documentation
 - Only OPEN findings shown (no "X% passing" percentages)
 - Direct mapping from regulation article to infrastructure issue
 
@@ -250,4 +250,4 @@ The GitHub Actions workflow uploads HTML reports as artifacts. To download for d
 3. Download "compliance-reports" artifact
 4. Extract and open HTML files locally
 
-These are production-quality reports generated in a real CI environment, suitable for including in documentation or presentations.
+These reports come from a real CI run and can go into documentation or presentations.

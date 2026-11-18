@@ -1,8 +1,8 @@
 # Roadmap
 
-Shipped features are listed first, then planned work. Planned items carry no
-promised dates or order. Detailed designs for them live in the maintainer's
-working notes (`NEW_FUNC.md`); the descriptions here are the short form.
+Shipped features are listed first, then planned work. Planned items have no
+dates or order. Detailed designs for them live in the maintainer's
+working notes; the descriptions here are the short form.
 
 ## Shipped
 
@@ -44,46 +44,46 @@ working notes (`NEW_FUNC.md`); the descriptions here are the short form.
 
 - OCI image labels link the GHCR package to the repository
 
+### 0.9.0
+
+- Waiver file with owner, reason and expiry, and a "Waived" report section
+- Project configuration file, custom and overlay registries
+- Baseline and changed-only mode
+- List unmapped findings and gate on them
+- Requirement evidence matrix in the auditor report and JSON
+- Evidence bundle with provenance (`--evidence-dir`)
+- Secret scanning through Checkov's secrets framework
+- Terraform variable files and `--download-external-modules`
+- Markdown and CSV outputs, job summary and Action inputs/outputs
+- Versioned JSON schema (v2) and a `diff` command
+- Stable Python API (`tf_eu_guard.scan`)
+- `explain` subcommand for registry entries
+
 ## Planned
 
-No dates are promised. The IDs refer to `NEW_FUNC.md`.
-
-### Trust and adoption
-
-- Waiver file with owner, reason and expiry, and a "Waived" report section (N-01)
-- Project configuration file (N-02)
-- Custom and overlay registries (N-03)
-- Baseline and changed-only mode (N-05)
-- List unmapped findings and gate on them (N-13)
+These items were deferred from 0.9.0. The N-xx labels are feature IDs from the 0.7.1 review.
 
 ### Compliance depth
 
-- Full compliance matrix with passed-check evidence (N-04)
 - Residency engine for Azure, GCP and plan mode, with adequacy-decision
   classification (N-06)
 - More regulatory frameworks: Implementing Regulation (EU) 2024/2690, ENISA
   guidance, DORA technical controls, ISO/IEC 27001 Annex A, BSI C5, national
   NIS2 profiles (N-07). Earlier notes listed ISO 27001 and NIST CSF; NIST CSF is
   not currently planned.
-- Registry growth and tooling, including `explain` and a per-mapping confidence
-  field (N-08)
-- Evidence bundle with provenance (N-15)
+- Per-mapping confidence field and a frequency report (N-08)
 - Scope GDPR findings by data classification (N-19)
 
 ### Inputs and integrations
 
 - More IaC inputs: Helm, Kustomize, CloudFormation, ARM and Bicep, Dockerfiles,
   GitHub Actions workflows (N-09)
-- Secret scanning through Checkov's secrets framework (N-10)
-- CI integrations: job summary, pull-request comment, outputs (N-11)
-- Terraform variable files and external modules (N-14)
+- Remaining CI integrations, such as a pull-request comment (N-11)
 
 ### Output and API
 
-- More output formats (N-12)
-- Versioned JSON schema and a diff command (N-16)
+- Remaining output formats (N-12)
 - Registry published in other tools' formats (N-17)
-- Stable Python API (N-18)
 - Report localisation (N-20)
 
 CRA and DORA remain out of scope as product frameworks, as stated in the

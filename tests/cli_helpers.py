@@ -16,3 +16,10 @@ def run_cli(monkeypatch, tmp_path: Path, *arguments):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr("sys.argv", ["tf-eu-guard", "scan", *arguments])
     return main()
+
+
+def run_command(monkeypatch, tmp_path: Path, *argv) -> int:
+    """Invoke the CLI with ``argv`` as-is (no implicit ``scan``)."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", ["tf-eu-guard", *argv])
+    return main()

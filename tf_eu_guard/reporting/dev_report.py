@@ -6,10 +6,13 @@ from rich.console import Console
 from rich.markup import escape
 
 from tf_eu_guard.models import EnrichedFinding, Severity
-from tf_eu_guard.reporting.html_common import line_range, safe_guideline
+from tf_eu_guard.reporting.baselined import baselined_lines
+from tf_eu_guard.reporting.html_common import line_range, safe_guideline, unmapped_rows
 from tf_eu_guard.reporting.sorting import finding_sort_key, sort_findings, sorted_articles
 from tf_eu_guard.reporting.styles import SEVERITY_COLOR_TERMINAL, SEVERITY_ORDER
 from tf_eu_guard.reporting.suppressed import SuppressedItem, suppressed_items
+from tf_eu_guard.reporting.waived import waived_lines
+from tf_eu_guard.reporting.weakening import weakening_rich
 
 
 def _group_findings_by_file(
@@ -64,6 +67,10 @@ def generate_dev_report(
     unmapped_count: int = 0,
     suppressed: list[EnrichedFinding] | None = None,
     suppressed_unmapped: list[dict[str, Any]] | None = None,
+    waived: list[EnrichedFinding] | None = None,
+    unmapped: list[dict[str, Any]] | None = None,
+    weakening_settings: list[str] | None = None,
+    baselined: list[EnrichedFinding] | None = None,
 ) -> None:
     """
     Generate and print developer-focused terminal report.
@@ -75,26 +82,49 @@ def generate_dev_report(
         suppressed: Mapped findings suppressed by inline ``checkov:skip``
             comments, shown in their own section and never counted as active
         suppressed_unmapped: Raw Checkov dicts for suppressed unmapped checks
+        unmapped: Raw unmapped Checkov dicts; when given, listed in full
+            (``--show-unmapped``)
     """
     console = Console()
-    suppressed_list = suppressed_items(suppressed, suppressed_unmapped)
 
-    if not findings and not unmapped_count and not suppressed_list:
+    def print_unmapped() -> None:
+        for cid, name, res, path, lines in unmapped_rows(unmapped or []):
+            console.print(
+                f"  [dim]- {escape(cid)} {escape(name)} | {escape(res)} | "
+                f"{escape(path)}:{escape(lines)}[/dim]"
+            )
+
+    suppressed_list = suppressed_items(suppressed, suppressed_unmapped)
+    waived_list = waived or []
+    baselined_list = baselined or []
+    extra = [
+        *(_suppressed_lines(suppressed_list) if suppressed_list else []),
+        *(waived_lines(waived_list) if waived_list else []),
+        *(baselined_lines(baselined_list) if baselined_list else []),
+    ]
+
+    settings = weakening_rich(weakening_settings)
+    if not (findings or unmapped_count or suppressed_list or waived_list or baselined_list):
         console.print("\n[green]✓ No compliance findings![/green]\n")
+        for line in settings:
+            console.print(line)
         return
 
     # Header
     console.print("\n[bold]═══════════════════════════════════════════════════[/bold]")
     console.print("[bold]  tf-eu-guard: EU Compliance Scan Report[/bold]")
     console.print("[bold]═══════════════════════════════════════════════════[/bold]\n")
+    for line in settings:
+        console.print(line)
 
     if not findings and not unmapped_count:
-        # Only suppressed findings — not a clean bill of health.
+        # Only suppressed/waived findings — not a clean bill of health.
         console.print(
             f"[yellow]No active findings; {len(suppressed_list)} suppressed by "
-            f"inline comment.[/yellow]"
+            f"inline comment, {len(waived_list)} waived, {len(baselined_list)} known in "
+            "baseline.[/yellow]"
         )
-        for line in _suppressed_lines(suppressed_list):
+        for line in extra:
             console.print(line)
         console.print()
         return
@@ -110,8 +140,9 @@ def generate_dev_report(
             "[dim]Checkov reported failures this tool cannot map to NIS2/GDPR — "
             "review them with a plain Checkov run.[/dim]\n"
         )
-        if suppressed_list:
-            for line in _suppressed_lines(suppressed_list):
+        print_unmapped()
+        if extra:
+            for line in extra:
                 console.print(line)
             console.print()
         return
@@ -136,6 +167,17 @@ def generate_dev_report(
             f"  [yellow]○ Suppressed by inline comment: {len(suppressed_list)} "
             f"(not counted above — listed at the end)[/yellow]"
         )
+    if waived_list:
+        console.print(
+            f"  [yellow]○ Waived: {len(waived_list)} "
+            f"(not counted above — listed at the end)[/yellow]"
+        )
+    if baselined_list:
+        console.print(
+            f"  [yellow]○ Known (in baseline): {len(baselined_list)} "
+            f"(not counted above — listed at the end)[/yellow]"
+        )
+    print_unmapped()
     console.print()
 
     findings_by_file = _group_findings_by_file(findings)
@@ -189,9 +231,8 @@ def generate_dev_report(
             if guideline:
                 console.print(f"\n    [link={escape(guideline)}]→ Documentation[/link]")
 
-    if suppressed_list:
-        for line in _suppressed_lines(suppressed_list):
-            console.print(line)
+    for line in extra:
+        console.print(line)
 
     # Footer
     console.print("\n[bold]═══════════════════════════════════════════════════[/bold]\n")

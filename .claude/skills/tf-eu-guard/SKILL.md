@@ -14,7 +14,7 @@ description: >
 `tf-eu-guard` runs Checkov against Terraform (source or plan JSON) or Kubernetes
 manifests. Findings with a registry mapping receive their **NIS2 Art. 21(2)** /
 **GDPR Art. 32** (and 44) reference, a plain-language risk, registry
-remediation, and severity. Findings with no EU mapping are **not discarded** —
+remediation, and severity. Findings with no EU mapping are kept:
 they retain their Checkov identity/location, are tracked separately, and are
 reported as an unmapped count (see "Interpreting the output").
 
@@ -30,7 +30,7 @@ Run from the repo root. Install once (this also installs Checkov 3.4.5; requires
 pip install -e .
 ```
 
-Verify with `tf-eu-guard version` (prints `tf-eu-guard version 0.8.1` for this release).
+Verify with `tf-eu-guard version` (prints `tf-eu-guard version 0.9.0` for this release).
 
 ## How to run
 
@@ -109,8 +109,8 @@ specifically want mapped findings alone. HTML reports are written to `reports/` 
 Each finding has `check_id`, `severity` (CRITICAL/HIGH/MEDIUM/LOW/INFO), `resource`, `file_path`,
 and one or more `articles` (`{framework, article}`).
 
-**`--output json` returns mapped findings only** — a Checkov finding with no registry entry
-is silently absent from this array specifically. It is *not* absent from the scan: `dev` and
+**`--output json` returns mapped findings only.** A Checkov finding with no registry entry
+does not appear in this array, but it is still in the scan: `dev` and
 `security` output show an "Unmapped Checkov findings: N" count, and `--output sarif` includes
 every unmapped finding as a result with its identity/location and
 `properties.mapped: false`, without registry remediation. Mapped SARIF results

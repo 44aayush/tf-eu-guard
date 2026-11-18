@@ -1,6 +1,7 @@
 """Data models for compliance findings and reports."""
 
 from dataclasses import dataclass, field
+from datetime import date
 from enum import StrEnum
 
 
@@ -43,6 +44,18 @@ class ComplianceMapping:
     severity: Severity
 
 
+@dataclass(frozen=True)
+class Waiver:
+    """A reviewed acceptance of one mapped finding (see ``tf_eu_guard.waivers``)."""
+
+    check_id: str
+    resource: str
+    owner: str
+    reason: str
+    expires: date
+    file: str | None = None
+
+
 @dataclass
 class EnrichedFinding:
     """A Checkov finding enriched with EU compliance context."""
@@ -64,6 +77,9 @@ class EnrichedFinding:
     # Suppressed findings are reported but never counted as active findings.
     suppressed: bool = False
     suppression_reason: str | None = None
+
+    # Set when an unexpired waiver from the waiver file covers this finding.
+    waiver: Waiver | None = None
 
     @property
     def frameworks(self) -> set[Framework]:

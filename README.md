@@ -5,11 +5,11 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![Checkov 3.4.5](https://img.shields.io/badge/checkov-3.4.5-8A2BE2)](https://www.checkov.io/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Mappings](https://img.shields.io/badge/NIS2%20%2B%20GDPR%20mappings-257-orange)](docs/check-mapping-table.md)
+[![Mappings](https://img.shields.io/badge/NIS2%20%2B%20GDPR%20mappings-276-orange)](docs/check-mapping-table.md)
 
 **Links:** [PyPI package](https://pypi.org/project/tf-eu-guard/) · [Documentation](#documentation) · [Changelog](CHANGELOG.md)
 
-**EU compliance security linter for infrastructure as code (IaC)** — scans **Terraform source, Terraform plan JSON, and Kubernetes manifests** with Checkov, then maps infrastructure misconfigurations to **NIS2** (Directive 2022/2555) and **GDPR** (Regulation 2016/679) requirements. It is designed for Terraform security scanning, Kubernetes compliance checks, DevSecOps pipelines, GitHub Actions, SARIF, and audit preparation.
+**EU compliance security linter for infrastructure as code (IaC).** It scans Terraform source, Terraform plan JSON, and Kubernetes manifests with Checkov, then maps infrastructure misconfigurations to NIS2 (Directive 2022/2555) and GDPR (Regulation 2016/679) requirements. It is built for Terraform security scanning, Kubernetes compliance checks, DevSecOps pipelines, GitHub Actions, SARIF, and audit preparation.
 
 ---
 
@@ -17,9 +17,9 @@
 
 The [NIS2 Directive](https://eur-lex.europa.eu/eli/dir/2022/2555) set **October 17, 2024** as the deadline for Member States to adopt and publish national transposition measures; applicability and enforcement still depend on national law and whether an entity is in scope. Article 21(2) mandates risk-management measures including access control, encryption, incident handling, backup policies, and secure authentication. GDPR Article 32 imposes similar technical and organizational safeguards for processing personal data.
 
-Most organizations scan infrastructure-as-code with tools like Checkov or tfsec, but **the output is generic security findings** — not compliance mappings. Security teams must manually trace each finding to the relevant NIS2 or GDPR article, a slow and error-prone process that blocks audit preparation.
+Most organizations scan infrastructure-as-code with tools like Checkov or tfsec, but the output is generic security findings, not compliance mappings. Security teams must manually trace each finding to the relevant NIS2 or GDPR article, a slow and error-prone process that blocks audit preparation.
 
-**tf-eu-guard solves this**: it wraps Checkov, enriches each failed check with the relevant NIS2/GDPR article references, and produces reports structured for developers, security engineers, and auditors.
+tf-eu-guard wraps Checkov, enriches each failed check with the relevant NIS2/GDPR article references, and produces reports structured for developers, security engineers, and auditors.
 
 ---
 
@@ -65,21 +65,34 @@ it is gitignored, so do not commit it.
 
 ### Basic Scan
 
-<pre><code># Scan a Terraform directory
-<span style="color: orange;">tf-eu-guard scan ./terraform --output dev</span>
+```bash
+# Scan a Terraform directory
+tf-eu-guard scan ./terraform --output dev
 
 # Generate all three HTML reports
-<span style="color: orange;">tf-eu-guard scan ./terraform --output all</span>
+tf-eu-guard scan ./terraform --output all
 
 # Filter to GDPR-only findings and output JSON
-<span style="color: orange;">tf-eu-guard scan ./terraform --output json --framework gdpr</span>
+tf-eu-guard scan ./terraform --output json --framework gdpr
+
+# Markdown summary or CSV (one row per finding and article); also write a summary and counts
+# file (key=value, GitHub $GITHUB_OUTPUT format) next to any other --output
+tf-eu-guard scan ./terraform --output csv --output-file findings.csv
+tf-eu-guard scan ./terraform --output json --summary-file summary.md --counts-file counts.txt
 
 # Fail the build (exit code 1) on HIGH or worse findings — for CI/CD
-<span style="color: orange;">tf-eu-guard scan ./terraform --fail-on-severity HIGH</span>
+tf-eu-guard scan ./terraform --fail-on-severity HIGH
 
 # Skip paths (repeatable; Checkov --skip-path semantics: regex or substring of the absolute path)
-<span style="color: orange;">tf-eu-guard scan . --exclude tests/fixtures --exclude vendor</span>
-</code></pre>
+tf-eu-guard scan . --exclude tests/fixtures --exclude vendor
+
+# Show the registry entry (severity, articles, risk, remediation) for one check
+tf-eu-guard explain CKV_AWS_16
+
+# Layer your own registry entries over the bundled ones (repeatable; later wins), then lint them
+tf-eu-guard scan ./terraform --registry-dir ./our-registry
+tf-eu-guard registry validate ./our-registry
+```
 
 **Network behaviour.** Scans run Checkov with `--skip-download`, so no request
 is made to the Prisma Cloud platform and reports have no "Documentation" links.
@@ -91,26 +104,38 @@ removed from Checkov's environment, even with `--online`. See
 **Remote modules.** Checkov does not download modules, so resources inside
 registry or Git modules are not analysed; a stderr warning lists such module
 calls, and `CKV_TF_1`/`CKV_TF_2` (module pinning) map to NIS2 Art. 21(2)(d).
+`--download-external-modules` lets Checkov fetch them (network access, third-party
+code; Terraform source scans only). The GitHub Action runs with `--network none`, so
+that flag does not work there. `--var-file FILE` (repeatable) passes Terraform variable
+files so values such as a provider region set via `var.*` resolve.
 
-> **Try it:** Run <span style="color: orange;"><code>tf-eu-guard scan examples/vulnerable-aws/ --output all</code></span> to see ~53 mapped findings,
-> or <span style="color: orange;"><code>tf-eu-guard scan examples/compliant-aws/ --output dev</code></span> to see zero mapped findings on the compliant fixture.
+**Secrets.** `--secrets` also runs Checkov's `secrets` framework (hard-coded credentials,
+`CKV_SECRET_*`, mapped to NIS2 Art. 21(2)(e) and GDPR Art. 32(1)(b), severity HIGH). It
+works with Terraform, Terraform plan, Kubernetes and `--checkov-json` (a `secrets` element in
+the file is merged; none means no secret findings). Reports show the secret type and file
+location only: the secret value, code excerpt and Checkov's hash of the secret are never
+copied into any output. Parsing errors in the secrets scan fail the run like any other.
+
+> **Try it:** Run `tf-eu-guard scan examples/vulnerable-aws/ --output all` to see ~53 mapped findings,
+> or `tf-eu-guard scan examples/compliant-aws/ --output dev` to see zero mapped findings on the compliant fixture.
 
 ### Scan Terraform Plan JSON
 
 Plan-mode scanning catches the configuration as it will actually be applied.
 Generate the plan JSON, then scan it:
 
-<pre><code>terraform plan -out=tfplan.binary
-terraform show -json tfplan.binary &gt; plan.json
-<span style="color: orange;">tf-eu-guard scan plan.json --iac-type terraform_plan --output json</span>
-</code></pre>
+```bash
+terraform plan -out=tfplan.binary
+terraform show -json tfplan.binary > plan.json
+tf-eu-guard scan plan.json --iac-type terraform_plan --output json
+```
 
 > Plan mode runs Checkov against the plan file itself (`checkov -f <plan.json>
 > --framework terraform_plan`). It reuses the same `CKV_AWS_*` check IDs as source
 > mode (verified: a plan of `examples/vulnerable-aws` maps 31 findings, all to
 > existing registry entries), minus lifecycle-block checks that plan JSON doesn't
 > store. Findings report `file_line_range: [0, 0]` (the whole plan is one JSON
-> line) — reports omit the line reference in that case.
+> line), so reports omit the line reference.
 > A committed fixture lives at `examples/vulnerable-aws-plan/`.
 >
 > Note: `--checkov-json` is a *different* feature — it reuses Checkov JSON output
@@ -120,10 +145,11 @@ terraform show -json tfplan.binary &gt; plan.json
 
 ### Scan Kubernetes
 
-<pre><code><span style="color: orange;">tf-eu-guard scan ./k8s --iac-type kubernetes --output all</span>
-</code></pre>
+```bash
+tf-eu-guard scan ./k8s --iac-type kubernetes --output all
+```
 
-> **Try it:** <span style="color: orange;"><code>tf-eu-guard scan examples/vulnerable-kubernetes/ --iac-type kubernetes --output json</code></span>
+> **Try it:** `tf-eu-guard scan examples/vulnerable-kubernetes/ --iac-type kubernetes --output json`
 > returns ~24 mapped findings across pod security context, RBAC, network policy, secrets and
 > resource limits. Kubernetes checks live in the separate `CKV_K8S_*` namespace, mapped in
 > `registry-kubernetes.yaml`.
@@ -131,17 +157,18 @@ terraform show -json tfplan.binary &gt; plan.json
 ### Use Pre-Generated Checkov JSON
 
 If you already run Checkov in CI or with custom checks, feed tf-eu-guard the
-**Checkov output** JSON directly (not a raw Terraform plan file — that's what
-`--iac-type terraform_plan` is for):
+**Checkov output** JSON directly (not a raw Terraform plan file; use
+`--iac-type terraform_plan` for that):
 
-<pre><code># From a file
-checkov -d ./terraform --output json --framework terraform --quiet &gt; checkov.json
-<span style="color: orange;">tf-eu-guard scan --checkov-json checkov.json --output security</span>
+```bash
+# From a file
+checkov -d ./terraform --output json --framework terraform --quiet > checkov.json
+tf-eu-guard scan --checkov-json checkov.json --output security
 
 # From stdin
 checkov -d ./terraform --output json --framework terraform --quiet \
-  | <span style="color: orange;">tf-eu-guard scan --checkov-json - --output auditor</span>
-</code></pre>
+  | tf-eu-guard scan --checkov-json - --output auditor
+```
 
 > **Limits of pre-generated JSON.** tf-eu-guard cannot re-run what Checkov did, so it checks the file instead:
 >
@@ -171,12 +198,28 @@ checkov -d ./terraform --output json --framework terraform --quiet \
 
 This repo includes a Claude Code skill at `.claude/skills/tf-eu-guard/`. In Claude Code:
 
-<pre><code><span style="color: orange;">/tf-eu-guard ./terraform</span>
-</code></pre>
+```
+/tf-eu-guard ./terraform
+```
 
 Or just ask: *"Check my Terraform for NIS2 and GDPR compliance"* — Claude runs the scan and summarizes findings by framework and severity.
 
 ---
+
+
+### Evidence bundle and provenance
+
+`--evidence-dir DIR` writes `dev.html`, `security.html`, `auditor.html`, `report.json` (object
+format), `report.sarif`, `summary.md` and `manifest.json` into a new or empty `DIR` (otherwise
+exit 2), in addition to the normal `--output`. `manifest.json` holds `created`, `provenance` and
+the SHA-256 of every other file. `provenance` (also in the JSON object and the auditor report)
+has `tool_version`, `checkov_version`, `registry_sha256` and `registry_files` (overlays by full
+path), `commit` (the HEAD sha; uncommitted changes are not detected; null outside git), the effective `options`
+(no environment variables), `resources_scanned` and `checks` (`passed`, `failed`, `skipped`).
+The `python:3.12-slim` image the Action runs in has no git, so `provenance.commit` is null in the Action.
+
+To attest the bundle in CI, use GitHub artifact attestations on it, for example
+`actions/attest-build-provenance` with `subject-path: evidence/*`.
 
 ## Documentation
 
@@ -197,8 +240,9 @@ Or just ask: *"Check my Terraform for NIS2 and GDPR compliance"* — Claude runs
 
 Quick terminal output for engineers fixing issues:
 
-<pre><code><span style="color: orange;">tf-eu-guard scan ./terraform --output dev</span>
-</code></pre>
+```bash
+tf-eu-guard scan ./terraform --output dev
+```
 
 ![Dev report terminal output](https://raw.githubusercontent.com/44aayush/tf-eu-guard/main/docs/screenshots/vulnerable-scan.png)
 
@@ -206,8 +250,9 @@ Quick terminal output for engineers fixing issues:
 
 HTML report with severity breakdown and compliance tags:
 
-<pre><code><span style="color: orange;">tf-eu-guard scan ./terraform --output security</span>
-</code></pre>
+```bash
+tf-eu-guard scan ./terraform --output security
+```
 
 ![Security dashboard](https://raw.githubusercontent.com/44aayush/tf-eu-guard/main/docs/screenshots/security-dashboard.png)
 
@@ -217,8 +262,9 @@ HTML report with severity breakdown and compliance tags:
 
 Article-by-article view for audit preparation:
 
-<pre><code><span style="color: orange;">tf-eu-guard scan ./terraform --output auditor</span>
-</code></pre>
+```bash
+tf-eu-guard scan ./terraform --output auditor
+```
 
 ![Auditor report](https://raw.githubusercontent.com/44aayush/tf-eu-guard/main/docs/screenshots/auditor-report.png)
 
@@ -228,16 +274,18 @@ Article-by-article view for audit preparation:
 
 Machine-readable output for pipelines:
 
-<pre><code><span style="color: orange;">tf-eu-guard scan ./terraform --output json --framework nis2</span>
-</code></pre>
+```bash
+tf-eu-guard scan ./terraform --output json --framework nis2
+```
 
 ### SARIF (GitHub Code Scanning)
 
-<pre><code><span style="color: orange;">tf-eu-guard scan ./terraform --output sarif &gt; tf-eu-guard.sarif</span>
-</code></pre>
+```bash
+tf-eu-guard scan ./terraform --output sarif > tf-eu-guard.sarif
+```
 
 Emits a [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html)
-document — the format GitHub Code Scanning ingests directly. Each finding
+document, the format GitHub Code Scanning ingests directly. Each finding
 becomes a `result` with `ruleId` = Checkov check ID, `level` derived from
 severity (CRITICAL/HIGH → `error`, MEDIUM → `warning`, LOW/INFO → `note`),
 and a `physicalLocation` from the finding's file and line range. For mapped
@@ -262,23 +310,27 @@ schema in the test suite (`tests/test_sarif_report.py`). Use
 `--output-file results.sarif` to write the file directly instead of stdout.
 
 `--output json` honours `--output-file` too (UTF-8). `--json-format object`
-selects a versioned document with `schema_version: "1"`, `tool`,
+selects a versioned document with `schema_version: "2"`, `tool`,
 `checkov_version`, `scan`, `summary`, `findings` (check name, line range, risk
-text, remediation, articles with titles, suppression) and `unmapped`; its JSON
-Schema is `tests/schemas/report.schema.json`. The default `--json-format array`
+text, remediation, articles with titles, suppression), `unmapped`,
+`requirements` (15 rows with `--framework all`, otherwise only that framework's rows, of passed/failed/suppressed/waived check-result counts
+per NIS2/GDPR requirement), `registry` (loaded overlays and overridden check IDs)
+and `waived`; its JSON Schema ships in the package as
+`tf_eu_guard/schemas/report.schema.json` (`tf_eu_guard.REPORT_SCHEMA_PATH`). The default `--json-format array`
 keeps the legacy bare array and is deprecated: the default will change to
 `object` in a future release.
 
 ### Generate All Reports at Once
 
-<pre><code><span style="color: orange;">tf-eu-guard scan ./terraform --output all</span>
-</code></pre>
+```bash
+tf-eu-guard scan ./terraform --output all
+```
 
 ### CI/CD Gating
 
 Exit codes make tf-eu-guard usable as a pipeline gate. They distinguish
 "the scan ran and found blocking issues" from "the tool itself failed to
-run" — so a pipeline can fail the build on findings while paging someone
+run", so a pipeline can fail the build on findings while paging someone
 when the scanner is broken:
 
 | Exit code | Meaning |
@@ -288,26 +340,33 @@ when the scanner is broken:
 | `2` | Invalid invocation or configuration — bad flags, unusable or undecodable `--checkov-json` input, missing target path, a report destination that cannot be written or encoded (`--output-file`, `--output-dir`, terminal encoding) |
 | `3` | Scanner/runtime failure — Checkov crashed or exceeded `--timeout` (default 600 s, `0` disables), the mapping registry failed to load |
 
-<pre><code><span style="color: orange;">tf-eu-guard scan ./terraform --fail-on-severity HIGH   # exit 1 on HIGH or CRITICAL
+```bash
+tf-eu-guard scan ./terraform --fail-on-severity HIGH   # exit 1 on HIGH or CRITICAL
 tf-eu-guard scan ./terraform --fail-on-any             # exit 1 on any finding
 tf-eu-guard scan ./terraform --fail-on-suppressed      # exit 1 if a mapped finding is suppressed inline
+tf-eu-guard scan ./terraform --waivers waivers.yaml    # accepted findings leave the gate but stay listed (docs/waivers.md)
+tf-eu-guard scan ./terraform --baseline old.json --fail-on-any  # only findings absent from old.json fail
+tf-eu-guard diff old.json new.json                     # new / fixed / unchanged between two JSON reports
+tf-eu-guard scan ./terraform --show-unmapped          # list unmapped Checkov findings in dev/HTML reports
+tf-eu-guard scan ./terraform --fail-on-unmapped         # exit 1 if any active unmapped finding exists
 tf-eu-guard scan ./terraform --residency-policy eusc   # Sovereign Cloud only (default: eu-eea)
-tf-eu-guard scan ./terraform --residency-policy custom --allowed-regions eu-central-1,eu-west-1</span>
-</code></pre>
+tf-eu-guard scan ./terraform --residency-policy custom --allowed-regions eu-central-1,eu-west-1
+```
 
 A pipeline can gate on findings while treating tool failure separately:
 
-<pre><code><span style="color: orange;">tf-eu-guard scan ./terraform --fail-on-severity HIGH</span>
+```bash
+tf-eu-guard scan ./terraform --fail-on-severity HIGH
 case $? in
   0) echo "clean" ;;
   1) echo "blocking findings — failing the build"; exit 1 ;;
   2|3) echo "tf-eu-guard itself failed — tooling problem, not a findings verdict"; exit 2 ;;
 esac
-</code></pre>
+```
 
 > **Gating considers only mapped findings.** Severity is authored in the mapping
 > registry, so an unmapped Checkov finding has no severity to compare and never
-> trips `--fail-on-severity` / `--fail-on-any` — it is reported for visibility
+> trips `--fail-on-severity` / `--fail-on-any`. It is reported for visibility
 > instead (a note is printed to stderr whenever unmapped findings exist during
 > a gated run).
 
@@ -319,9 +378,50 @@ esac
 > `--fail-on-suppressed` to exit 1 when any *mapped* finding is suppressed.
 > See [`docs/limitations.md`](docs/limitations.md#inline-suppressions).
 
+### Waivers (`--waivers`)
+
+> **Waivers are reviewed acceptances, still visible.** `--waivers FILE` (default:
+> `.tf-eu-guard-waivers.yaml` in a source scan's root) takes YAML entries with
+> `check_id`, `resource`, optional `file` glob, `owner`, `reason` and `expires`. A waived
+> mapped finding does not count toward any `--fail-on-*` gate (an inline-suppressed one
+> no longer trips `--fail-on-suppressed`) but is listed in every report, and expired
+> waivers stop applying with a warning. Unmapped findings cannot be waived. See
+> [`docs/waivers.md`](docs/waivers.md).
+
+### Baseline (`--baseline`) and `diff`
+
+> `--baseline FILE` takes an earlier JSON report (`--output json`, either format; also
+> works with `--checkov-json`). Active mapped findings with the same check ID, resource
+> and file path (line numbers ignored) become "Known (in baseline)": listed in every
+> report (JSON `baselined[]`, SARIF `baselineState: unchanged`) but outside the
+> `--fail-on-severity` / `--fail-on-any` gate, so CI fails only on new findings. The
+> baseline's date and match count appear under "Scan settings that reduce findings".
+> `tf-eu-guard diff OLD.json NEW.json [--json]` prints new, fixed and unchanged counts
+> and lists the new and fixed findings; it exits 1 when there are new findings, 2 on
+> unreadable input. Suppressed and waived entries are not compared; baselined ones count as present (they still fail).
+
+### Changed-only mode (`--changed-since REF`)
+
+> `tf-eu-guard scan ./terraform --changed-since origin/main` reports only findings in files
+> that differ from `REF` (committed `REF...HEAD` and staged; unstaged and untracked changes
+> are not included). It filters active, suppressed, waived, baselined and unmapped findings, but
+> not the passed checks, so the requirement matrix still reflects everything evaluated. The
+> count of hidden findings is printed on stderr and listed under "Scan settings that reduce
+> findings". An unknown ref, a missing `git` or a non-repository exits 2, as do
+> `--checkov-json` and `--iac-type terraform_plan`. It is a flag only, not a config key.
+
+### Project configuration (`.tf-eu-guard.yaml`)
+
+> Put defaults in `.tf-eu-guard.yaml` in the scan root (or pass `--config FILE`;
+> `--no-config` ignores it). Keys are the flag names in snake_case; CLI flags win and
+> `exclude` / `registry_dirs` concatenate. `severity_overrides` re-grades mapped checks.
+> Anything that reduces findings (excludes, waivers, severity overrides, overlays, the
+> config file) is listed under "Scan settings that reduce findings" in every report.
+> See [`docs/configuration.md`](docs/configuration.md).
+
 ### Unmapped findings
 
-Across all four registries, **257 Checkov check IDs are mapped**: **AWS: 186 | Azure: 23 | GCP: 22 | Kubernetes: 26**. With 186 of Checkov's ~700 AWS checks mapped,
+Across all registries, **276 Checkov check IDs are mapped**: **AWS: 186 | Azure: 23 | GCP: 22 | Kubernetes: 26 | Secrets: 19** (the secrets entries apply only with `--secrets`). With 186 of Checkov's ~700 AWS checks mapped,
 a scan can produce Checkov failures that have no current EU regulatory mapping.
 These are **not** silently dropped: every report format surfaces them as
 "present-but-unmapped" — a count in the dev/security/auditor reports, a
@@ -332,14 +432,14 @@ report's caveats. Unmapped checks are those with no honest compliance link
 methodology); if you believe a check deserves a mapping,
 [contribute one](CONTRIBUTING.md).
 
-Try it: <span style="color: orange;"><code>tf-eu-guard scan examples/unmapped-aws/ --output dev</code></span> — a fixture that
+Try it: `tf-eu-guard scan examples/unmapped-aws/ --output dev` — a fixture that
 deliberately mixes mapped S3 findings with the unmapped password-policy check
 family (`CKV_AWS_10`–`15`).
 
 ### GitHub Action
 
 ```yaml
-- uses: 44aayush/tf-eu-guard@v0.8.1
+- uses: 44aayush/tf-eu-guard@v0.9.0
   with:
     path: './infra'
     iac-type: 'terraform'        # terraform | terraform_plan | kubernetes
@@ -377,6 +477,38 @@ Action inputs mirror the scan options:
 | `category` | Code Scanning category | empty |
 | `artifact-name` | name of the `upload-reports` artifact | `tf-eu-guard-reports` |
 | `timeout` | `--timeout` (seconds, `0` disables) | empty (CLI default) |
+| `config` | `--config` (workspace-relative path) | empty |
+| `trusted-config` | `--config` (absolute path outside the checkout) | empty |
+| `waivers` | `--waivers` (workspace-relative path) | empty |
+| `baseline` | `--baseline` (workspace-relative path) | empty |
+| `job-summary` | append the Markdown summary to the job summary | `true` |
+
+`trusted-config` exists so that a pull request cannot change the settings in the config: a `config`
+file (or `.tf-eu-guard.yaml`) in the scanned checkout is controlled by the code under
+review, whereas `trusted-config` points at a file outside the workspace, mounted read-only
+into the container, and the checkout's `.tf-eu-guard.yaml` and `.tf-eu-guard-waivers.yaml` are ignored.
+Keep a trusted config self-contained: inline settings and `severity_overrides` only. Only the file
+itself is mounted, at `/trusted/config.yaml`, so any file it references (`waivers`, `registry_dirs`,
+`var_files`) must be in the workspace, which means the pull request controls that file. The same
+holds for the `waivers` and `baseline` inputs. Inline `checkov:skip` comments in the pull request
+still remove findings from the gate unless `fail-on-suppressed` is set.
+`trusted-config` must be outside the workspace (it is resolved with `readlink -f`), so a separate
+checkout of the protected branch does not work. Copy the base-branch config out instead.
+Set only one of `config` and `trusted-config`.
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0
+- run: git show origin/main:.tf-eu-guard.yaml > "$RUNNER_TEMP/tf-eu-guard.yaml"
+- uses: 44aayush/tf-eu-guard@v0.9.0
+  with:
+    trusted-config: ${{ runner.temp }}/tf-eu-guard.yaml
+```
+
+Outputs: `exit-code`, plus the finding counts `critical`, `high`, `medium`, `low`,
+`info`, `unmapped`, `suppressed`, `waived`, `baselined` and `total`. They are
+written even when the severity gate fails the step (the step still ends non-zero).
 
 Two optional extras:
 
@@ -396,6 +528,10 @@ Two optional extras:
   action more than once with SARIF uploads, provide a different `category` for
   each invocation so GitHub Code Scanning can keep the results separate.
 
+A committed symlink or non-regular file at an upload target (`<output-dir>/*.html`, the `output-file`,
+`tf-eu-guard.sarif`), or anywhere in a report's destination path, makes the step exit 2 with
+uploads disabled.
+
 ```yaml
 jobs:
   compliance:
@@ -404,7 +540,7 @@ jobs:
       security-events: write   # for upload-sarif
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: 44aayush/tf-eu-guard@v0.8.1
+      - uses: 44aayush/tf-eu-guard@v0.9.0
         with:
           path: './infra'
           output: sarif
@@ -427,12 +563,12 @@ through the `image` input (a pull failure then fails the step instead of
 falling back to a local build):
 
 ```bash
-docker buildx imagetools inspect ghcr.io/44aayush/tf-eu-guard:v0.8.1 | grep Digest
+docker buildx imagetools inspect ghcr.io/44aayush/tf-eu-guard:v0.9.0 | grep Digest
 gh attestation verify oci://ghcr.io/44aayush/tf-eu-guard@sha256:<digest> --owner 44aayush
 ```
 
 ```yaml
-- uses: 44aayush/tf-eu-guard@v0.8.1
+- uses: 44aayush/tf-eu-guard@v0.9.0
   with:
     image: ghcr.io/44aayush/tf-eu-guard@sha256:<digest>
 ```
@@ -441,7 +577,7 @@ For HTML artifacts, select an HTML-producing output and optionally choose a
 directory for the generated reports:
 
 ```yaml
-- uses: 44aayush/tf-eu-guard@v0.8.1
+- uses: 44aayush/tf-eu-guard@v0.9.0
   with:
     path: './infra'
     output: all
@@ -454,13 +590,13 @@ directory for the generated reports:
 ```yaml
 repos:
   - repo: https://github.com/44aayush/tf-eu-guard
-    rev: v0.8.1
+    rev: v0.9.0
     hooks:
       - id: tf-eu-guard
 ```
 
 The hook runs with `pass_filenames: false` — it invokes
-<span style="color: orange;"><code>tf-eu-guard scan --output dev --fail-on-severity HIGH</code></span> once with no file
+`tf-eu-guard scan --output dev --fail-on-severity HIGH` once with no file
 arguments, and the CLI scans the repository root (its default target). The
 configured `HIGH` threshold fails on HIGH or CRITICAL mapped findings; MEDIUM,
 LOW, and INFO mapped findings, plus unmapped findings, do not trip the gate.
@@ -477,6 +613,25 @@ repeat them:
 ```
 
 ---
+
+## Python API
+
+```python
+from tf_eu_guard import scan
+
+result = scan("infra/", framework="gdpr", waivers="waivers.yaml")
+for finding in result.findings:
+    print(finding.check_id, finding.resource)
+```
+
+`scan()` takes the CLI options as keywords (`iac_type`, `checkov_json`, `framework`,
+`residency_policy`, `allowed_regions`, `exclude`, `var_files`, `registry_dirs`, `waivers`,
+`baseline`, `config`, `no_config`, `secrets`, `timeout`), validates them exactly like the CLI, and returns a
+`ScanResult` with `findings`, `unmapped`, `suppressed`, `waived`, `baselined`, `requirements` and
+`provenance`. It never prints to stdout or exits: bad arguments raise `ValueError`, other failures
+raise the exceptions the CLI maps to exit codes. Keywords left at their default yield to a config
+file (`config=`, or `.tf-eu-guard.yaml` discovered in the scan root); pass `no_config=True` to make
+the keywords authoritative. The package ships `py.typed`.
 
 ## Scope
 
@@ -533,7 +688,7 @@ repeat them:
 
 ### Current Registry
 
-**257 Checkov check IDs mapped** — **AWS: 186 mappings | Azure: 23 | GCP: 22 | Kubernetes: 26** — covering
+**276 Checkov check IDs mapped** — **AWS: 186 mappings | Azure: 23 | GCP: 22 | Kubernetes: 26 | Secrets: 19** — covering
 encryption at rest/in transit, logging & detection, backup & recovery,
 secure development/supply chain, secrets in code, IAM/access control, network
 segmentation, pod security context, RBAC, and resource limits:
@@ -608,7 +763,7 @@ The registry is split per namespace — `registry-aws.yaml`, `registry-azure.yam
 └──────────────────────────────────────────┘
 ```
 
-**Key differentiator**: The EU compliance mapping registry. Without it, this is just another Checkov wrapper. With it, it's the bridge from "S3 bucket not encrypted" to the NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) controls that may be relevant.
+The EU compliance mapping registry is the core of the tool. It links "S3 bucket not encrypted" to the NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) controls that may be relevant.
 
 > A prose walkthrough of the pipeline (including where the unmapped-findings
 > split happens and why Checkov is a swappable, pinned detection backend):

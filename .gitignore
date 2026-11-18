@@ -28,6 +28,7 @@ wheels/
 htmlcov/
 .tox/
 .mypy_cache/
+.superpowers/
 
 # Virtual environments
 .venv/
@@ -60,5 +61,6 @@ Thumbs.db
 .ruff_cache/
 
 # Local task tracking (not part of the shipped repo)
-TASKS.md
+TASKS*.md
 PLAN.md
+HANDOVER.md

@@ -27,5 +27,7 @@ ARTICLE_KEYS = frozenset({"framework", "article", "title"})
 
 #: Shape of a check ID: stock Checkov (``CKV_AWS_21``, ``CKV2_AWS_6``,
 #: ``CKV_TF_1``, ``CKV_K8S_16``, ``CKV2_K8S_6``) or a tf-eu-guard custom check
-#: (``EUGUARD_<NIS2|GDPR|POLICY>_<NNN>``).
-CHECK_ID_RE = re.compile(r"^(CKV\d?_(AWS|AZURE|GCP|K8S|TF)_\d+|EUGUARD_(NIS2|GDPR|POLICY)_\d{3})$")
+#: (``EUGUARD_<NIS2|GDPR|POLICY>_<NNN>``), or a Checkov secrets check (``CKV_SECRET_<N>``).
+CHECK_ID_RE = re.compile(
+    r"^(CKV\d?_(AWS|AZURE|GCP|K8S|TF)_\d+|CKV_SECRET_\d+|EUGUARD_(NIS2|GDPR|POLICY)_\d{3})$"
+)

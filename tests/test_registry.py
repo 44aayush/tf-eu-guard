@@ -39,7 +39,9 @@ ARTICLE_RE = re.compile(r"^(?:Art\. \d+(\(\d+\))?(\([a-z]\))?|Policy [A-Za-z0-9_
 # Stock Checkov ids ("CKV_AWS_18", "CKV2_AWS_6", "CKV_K8S_16", "CKV2_K8S_6")
 # plus tf-eu-guard's custom EU-compliance checks ("EUGUARD_GDPR_001",
 # "EUGUARD_GDPR_002", "EUGUARD_NIS2_001").
-CHECK_ID_RE = re.compile(r"^(CKV2?_(AWS|AZURE|GCP|K8S|TF)_\d+|EUGUARD_[A-Z0-9]+_\d+)$")
+CHECK_ID_RE = re.compile(
+    r"^(CKV2?_(AWS|AZURE|GCP|K8S|TF)_\d+|CKV_SECRET_\d+|EUGUARD_[A-Z0-9]+_\d+)$"
+)
 
 
 def test_registry_loads_nonempty(registry):
@@ -473,6 +475,11 @@ def test_registry_ids_exist_in_checkov(repo_root):
     registry_ids = set()
     for rf in mapping_dir.glob("registry-*.yaml"):
         registry_ids.update(yaml.safe_load(rf.read_text()))
+
+    # Secrets checks are generated from Checkov's own type-to-ID table.
+    from checkov.secrets.runner import SECRET_TYPE_TO_ID
+
+    checkov_ids.update(SECRET_TYPE_TO_ID.values())
 
     ckv_ids = {cid for cid in registry_ids if cid.startswith("CKV")}
     missing = sorted(ckv_ids - checkov_ids)

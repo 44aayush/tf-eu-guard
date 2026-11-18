@@ -14,11 +14,13 @@ from pathlib import Path
 from typing import Any
 
 from tf_eu_guard.models import EnrichedFinding
+from tf_eu_guard.reporting.baselined import baselined_html
 from tf_eu_guard.reporting.html_common import (
     distinct_files,
     esc,
     finding_card,
     severity_counts,
+    unmapped_html,
 )
 from tf_eu_guard.reporting.sorting import finding_sort_key, sort_findings
 from tf_eu_guard.reporting.styles import (
@@ -29,6 +31,8 @@ from tf_eu_guard.reporting.styles import (
     SUPPRESSED_CSS,
 )
 from tf_eu_guard.reporting.suppressed import SuppressedItem, suppressed_html, suppressed_items
+from tf_eu_guard.reporting.waived import waived_html
+from tf_eu_guard.reporting.weakening import weakening_html
 
 
 def _severity_rank(finding: EnrichedFinding) -> int:
@@ -78,12 +82,20 @@ def _render(
     timestamp: str,
     version: str,
     unmapped_count: int = 0,
+    unmapped: list[dict[str, Any]] | None = None,
     suppressed: list[SuppressedItem] | None = None,
+    waived: list[EnrichedFinding] | None = None,
+    weakening_settings: list[str] | None = None,
+    baselined: list[EnrichedFinding] | None = None,
 ) -> str:
     """Assemble the complete HTML document."""
     findings = sort_findings(findings)
     suppressed = suppressed or []
+    waived = waived or []
+    baselined = baselined or []
     suppressed_span = f"<span>Suppressed: {len(suppressed)}</span>" if suppressed else ""
+    suppressed_span += f"<span>Waived: {len(waived)}</span>" if waived else ""
+    suppressed_span += f"<span>Known (in baseline): {len(baselined)}</span>" if baselined else ""
     unmapped_span = (
         f"<span>Unmapped Checkov findings: {unmapped_count}</span>" if unmapped_count else ""
     )
@@ -96,10 +108,11 @@ def _render(
         f"<span>Findings: {len(findings)}</span>"
         f"{unmapped_span}{suppressed_span}"
         "</div>\n"
+        f"{weakening_html(weakening_settings)}"
         "</header>"
     )
 
-    if not findings and not unmapped_count and not suppressed:
+    if not findings and not unmapped_count and not suppressed and not waived and not baselined:
         body = (
             '<div class="empty"><h2 style="margin-top:0">No compliance findings</h2>'
             "<p>Checkov reported no failed checks that map to a compliance control "
@@ -108,10 +121,11 @@ def _render(
     elif not findings and not unmapped_count:
         body = (
             '<div class="attention"><h2 style="margin-top:0">No active findings &mdash; '
-            f"{len(suppressed)} suppressed</h2>"
-            "<p>Every failed check was suppressed by an inline comment in the scanned "
-            "code. This scan is not a clean bill of health &mdash; review the "
-            "suppressed checks below.</p></div>\n" + suppressed_html(suppressed)
+            f"{len(suppressed)} suppressed, {len(waived)} waived, "
+            f"{len(baselined)} known in baseline</h2>"
+            "<p>Every failed check was suppressed by an inline comment or accepted by a "
+            "waiver, or is already known from the baseline. This scan is not a clean bill of health &mdash; review the "
+            "suppressed and waived checks below.</p></div>\n" + suppressed_html(suppressed)
         )
     elif not findings:
         body = (
@@ -140,8 +154,17 @@ def _render(
         sections.extend(_file_section(path, by_file[path]) for path in sorted(by_file))
         body = "\n".join(sections)
 
+    if unmapped:
+        body = f"{body}\n{unmapped_html(unmapped)}"
+
     if suppressed and (findings or unmapped_count):
         body = f"{body}\n{suppressed_html(suppressed)}"
+
+    if waived:
+        body = f"{body}\n{waived_html(waived)}"
+
+    if baselined:
+        body = f"{body}\n{baselined_html(baselined)}"
 
     unmapped_note = (
         f"{unmapped_count} unmapped Checkov finding(s) were reported separately; "
@@ -154,7 +177,8 @@ def _render(
         f"{' on ' + esc(timestamp) if timestamp else ''}. "
         "Only failed checks that map to a NIS2, GDPR, or project-policy control are shown; "
         f"{unmapped_note}"
-        f"{len(suppressed)} finding(s) suppressed by inline comments are listed separately; "
+        f"{len(suppressed)} finding(s) suppressed by inline comments, {len(waived)} "
+        f"waived and {len(baselined)} known from the baseline are listed separately; "
         "this report is not legal advice and is not a certification; "
         "absence of a finding is not evidence of compliance.</footer>"
     )
@@ -181,8 +205,12 @@ def generate_dev_html_report(
     version: str = "",
     output_path: Path | None = None,
     unmapped_count: int = 0,
+    unmapped: list[dict[str, Any]] | None = None,
     suppressed: list[EnrichedFinding] | None = None,
     suppressed_unmapped: list[dict[str, Any]] | None = None,
+    waived: list[EnrichedFinding] | None = None,
+    weakening_settings: list[str] | None = None,
+    baselined: list[EnrichedFinding] | None = None,
 ) -> str:
     """Generate the self-contained developer HTML report (findings grouped by file).
 
@@ -192,6 +220,8 @@ def generate_dev_html_report(
         timestamp: Human-readable scan time (shown in the header/footer).
         version: tf-eu-guard version (shown in the footer).
         output_path: If given, the HTML is also written to this path (UTF-8).
+        unmapped: Raw unmapped Checkov dicts; when given, listed in full
+            (``--show-unmapped``).
         unmapped_count: Checkov findings with no registry mapping — shown as a
             count so they are present-but-unmapped, not absent.
         suppressed: Mapped findings suppressed by inline ``checkov:skip``
@@ -207,7 +237,11 @@ def generate_dev_html_report(
         timestamp=timestamp,
         version=version,
         unmapped_count=unmapped_count,
+        unmapped=unmapped,
         suppressed=suppressed_items(suppressed, suppressed_unmapped),
+        waived=waived,
+        weakening_settings=weakening_settings,
+        baselined=baselined,
     )
     if output_path is not None:
         Path(output_path).write_text(document, encoding="utf-8")

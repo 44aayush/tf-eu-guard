@@ -38,6 +38,7 @@ CHECKOV_CONFIG_ENV_VARS = (
     "CKV_VAR_FILE",
     "DOWNLOAD_EXTERNAL_MODULES",
     "EXTERNAL_MODULES_DIR",
+    "LOG_LEVEL",
 )
 
 # Whole families of variables are removed: ``BC_*`` / ``PRISMA_*`` switch
@@ -93,12 +94,13 @@ def checkov_environment(extra: Mapping[str, str] | None = None) -> dict[str, str
     """Return an environment without Checkov's user-configurable scan filters.
 
     The residency-policy variables are dropped from the ambient environment
-    too, so only the values passed explicitly in *extra* reach the checks.
+    too, so only the values passed explicitly in *extra* reach the checks. ``GIT_*``
+    is dropped as well so Checkov's git clones cannot be redirected.
     """
     environment = os.environ.copy()
     scrubbed = {*CHECKOV_CONFIG_ENV_VARS, *RESIDENCY_ENV_VARS}
     for name in list(environment):
-        if name in scrubbed or name.startswith(CHECKOV_ENV_PREFIXES):
+        if name in scrubbed or name.startswith((*CHECKOV_ENV_PREFIXES, "GIT_")):
             del environment[name]
     if extra:
         environment.update(extra)
@@ -298,6 +300,9 @@ def run_checkov(
     exclude: Sequence[str] = (),
     online: bool = False,
     timeout: float | None = DEFAULT_CHECKOV_TIMEOUT,
+    var_files: Sequence[Path] = (),
+    download_external_modules: bool = False,
+    secrets: bool = False,
 ) -> dict[str, Any]:
     """Run Checkov against a directory or plan file and return parsed JSON.
 
@@ -312,6 +317,14 @@ def run_checkov(
 
     *timeout* (seconds, default 600; ``0`` or ``None`` disables) bounds the
     Checkov subprocess; exceeding it raises :class:`CheckovRuntimeError`.
+
+    *var_files* are passed as ``--var-file`` (Terraform variable definitions);
+    *download_external_modules* lets Checkov fetch registry and Git modules
+    (network access, third-party code).
+
+    *secrets* adds Checkov's ``secrets`` framework; its results are merged into
+    the *iac_type* result and never carry secret values (see
+    :func:`tf_eu_guard.checkov.json.normalize_checkov_output`).
     """
     if iac_type not in SUPPORTED_IAC_TYPES:
         raise ValueError(
@@ -320,6 +333,11 @@ def run_checkov(
     target = Path(target).resolve()
     if not target.exists():
         raise FileNotFoundError(f"Scan target does not exist: {target}")
+
+    resolved_vars = [Path(v).resolve() for v in var_files]
+    for var_file in resolved_vars:
+        if not var_file.is_file():
+            raise ValueError(f"var file does not exist or is not a file: {var_file}")
 
     # The custom EU-compliance checks live beside the runner package.
     checks_dir = Path(__file__).resolve().parent.parent / "checks"
@@ -353,11 +371,16 @@ def run_checkov(
         "json",
         "--framework",
         iac_type,
+        *(["secrets"] if secrets else []),
     ]
     if not online:
         cmd.append("--skip-download")
     for pattern in exclude:
         cmd.extend(["--skip-path", pattern])
+    for var_file in resolved_vars:
+        cmd.extend(["--var-file", str(var_file)])
+    if download_external_modules:
+        cmd.extend(["--download-external-modules", "true"])
 
     try:
         result = subprocess.run(
@@ -391,8 +414,14 @@ def run_checkov(
             f"Last stderr lines:\n{stderr_tail(result.stderr)}"
         ) from exc
 
-    validated = validate_scan_output(checkov_output, iac_type)
-    if iac_type == "terraform":
+    validated = validate_scan_output(checkov_output, iac_type, ("secrets",) if secrets else ())
+    if download_external_modules:
+        print(
+            "Note: --download-external-modules fetched third-party module code "
+            "from the network; the modules' resources were evaluated.",
+            file=sys.stderr,
+        )
+    elif iac_type == "terraform":
         remote = find_remote_modules(target, exclude)
         if remote:
             print(remote_modules_warning(remote), file=sys.stderr)

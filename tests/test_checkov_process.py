@@ -638,3 +638,97 @@ def test_run_checkov_timeout_raises_runtime_error(tmp_path, monkeypatch):
     (tmp_path / "main.tf").write_text('resource "aws_x" "y" {}\n')
     with pytest.raises(CheckovRuntimeError, match="did not finish within 5 seconds"):
         run_checkov(tmp_path, timeout=5)
+
+
+def test_var_files_passed_to_checkov(tmp_path, monkeypatch):
+    captured = _capture_cmd(monkeypatch)
+    _tf_dir(tmp_path)
+    (tmp_path / "a.tfvars").write_text("x = 1\n")
+    (tmp_path / "b.tfvars").write_text("y = 2\n")
+    run_checkov(tmp_path, var_files=[tmp_path / "a.tfvars", tmp_path / "b.tfvars"])
+    cmd = captured["cmd"]
+    pairs = [cmd[i + 1] for i, c in enumerate(cmd) if c == "--var-file"]
+    assert pairs == [str((tmp_path / "a.tfvars").resolve()), str((tmp_path / "b.tfvars").resolve())]
+
+
+def test_download_external_modules_flag(tmp_path, monkeypatch):
+    captured = _capture_cmd(monkeypatch)
+    _tf_dir(tmp_path)
+    run_checkov(tmp_path, download_external_modules=True)
+    cmd = captured["cmd"]
+    assert cmd[cmd.index("--download-external-modules") + 1] == "true"
+    run_checkov(tmp_path)
+    assert "--download-external-modules" not in captured["cmd"]
+
+
+def test_remote_module_warning_suppressed_when_downloading(tmp_path, capsys, monkeypatch):
+    _capture_cmd(monkeypatch)
+    _tf_dir(tmp_path, 'module "reg" {\n  source = "terraform-aws-modules/s3-bucket/aws"\n}\n')
+    run_checkov(tmp_path, download_external_modules=True)
+    err = capsys.readouterr().err
+    assert "not analysed" not in err
+    assert "third-party module code" in err
+
+
+@pytest.mark.parametrize("kind", ["missing", "directory"])
+def test_var_file_missing_or_directory_rejected(tmp_path, monkeypatch, kind):
+    _capture_cmd(monkeypatch)
+    _tf_dir(tmp_path)
+    bad = tmp_path / "nope.tfvars"
+    if kind == "directory":
+        bad.mkdir()
+    with pytest.raises(ValueError, match="var file"):
+        run_checkov(tmp_path, var_files=[bad])
+
+
+def test_var_file_missing_exits_2(monkeypatch, tmp_path, capsys):
+    from tests.cli_helpers import run_cli
+
+    _tf_dir(tmp_path)
+    rc = run_cli(monkeypatch, tmp_path, str(tmp_path), "--var-file", "nope.tfvars")
+    assert rc == 2
+    assert "var file" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("flag", [["--var-file", "x.tfvars"], ["--download-external-modules"]])
+@pytest.mark.parametrize(
+    "extra",
+    [["--iac-type", "kubernetes"], ["--checkov-json", "tests/fixtures/checkov-vulnerable-tf.json"]],
+)
+def test_terraform_only_flags_rejected(monkeypatch, tmp_path, capsys, repo_root, flag, extra):
+    from tests.cli_helpers import run_cli
+
+    (tmp_path / "x.tfvars").write_text("")
+    extra = [str(repo_root / e) if e.endswith(".json") else e for e in extra]
+    assert run_cli(monkeypatch, tmp_path, str(tmp_path), *extra, *flag) == 2
+    assert "only valid with --iac-type terraform" in capsys.readouterr().err
+
+
+def test_tfvars_region_resolved_end_to_end(monkeypatch, tmp_path, repo_root, capsys):
+    pytest.importorskip("checkov")
+    from tests.cli_helpers import run_cli
+
+    fixture = repo_root / "tests/fixtures/var-file-region"
+
+    def policy_hits(*extra):
+        assert run_cli(monkeypatch, tmp_path, str(fixture), "--output", "json", *extra) == 0
+        return [
+            f for f in json.loads(capsys.readouterr().out) if f["check_id"] == "EUGUARD_POLICY_001"
+        ]
+
+    assert policy_hits()
+    assert not policy_hits("--var-file", str(fixture / "prod.tfvars"))
+
+
+def test_log_level_never_reaches_checkov(monkeypatch):
+    from tf_eu_guard.checkov.process import checkov_environment
+
+    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+    assert "LOG_LEVEL" not in checkov_environment()
+
+
+def test_checkov_environment_drops_git_variables(monkeypatch):
+    from tf_eu_guard.checkov.process import checkov_environment
+
+    monkeypatch.setenv("GIT_DIR", "/elsewhere")
+    assert "GIT_DIR" not in checkov_environment()

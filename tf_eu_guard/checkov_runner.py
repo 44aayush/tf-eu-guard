@@ -21,6 +21,7 @@ _validate_failed_check = _checkov_json.validate_failed_check
 _validate_scan_output = _checkov_json.validate_scan_output
 _validate_scan_root_symlinks = _checkov_process.validate_scan_root_symlinks
 extract_failed_checks = _checkov_json.extract_failed_checks
+extract_passed_checks = _checkov_json.extract_passed_checks
 extract_skipped_checks = _checkov_json.extract_skipped_checks
 load_checkov_json = _checkov_json.load_checkov_json
 run_checkov = _checkov_process.run_checkov
@@ -30,6 +31,7 @@ __all__ = [
     "CheckovInputError",
     "CheckovRuntimeError",
     "extract_failed_checks",
+    "extract_passed_checks",
     "extract_skipped_checks",
     "load_checkov_json",
     "run_checkov",

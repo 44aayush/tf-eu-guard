@@ -24,7 +24,7 @@ from pathlib import Path, PureWindowsPath
 from typing import Any, cast
 from urllib.parse import quote
 
-from tf_eu_guard.models import EnrichedFinding, Severity
+from tf_eu_guard.models import EnrichedFinding, Severity, Waiver
 from tf_eu_guard.reporting.html_common import safe_guideline
 from tf_eu_guard.reporting.sorting import (
     finding_sort_key,
@@ -147,14 +147,26 @@ def _rule_tags(finding: EnrichedFinding) -> list[str]:
     return tags
 
 
-def _suppressions(suppressed: bool, reason: str | None) -> dict[str, Any]:
-    """Return the ``suppressions`` result member for an inline-skipped check."""
-    if not suppressed:
-        return {}
-    suppression: dict[str, Any] = {"kind": "inSource"}
-    if reason:
-        suppression["justification"] = reason
-    return {"suppressions": [suppression]}
+def _suppressions(
+    suppressed: bool, reason: str | None, waiver: Waiver | None = None
+) -> dict[str, Any]:
+    """Return the ``suppressions`` result member for an inline-skipped or waived check."""
+    entries: list[dict[str, Any]] = []
+    if suppressed:
+        suppression: dict[str, Any] = {"kind": "inSource"}
+        if reason:
+            suppression["justification"] = reason
+        entries.append(suppression)
+    if waiver:
+        entries.append(
+            {
+                "kind": "external",
+                "status": "accepted",
+                "justification": f"{waiver.reason} (owner {waiver.owner}, "
+                f"expires {waiver.expires.isoformat()})",
+            }
+        )
+    return {"suppressions": entries} if entries else {}
 
 
 def _articles_property(finding: EnrichedFinding) -> list[str]:
@@ -389,6 +401,9 @@ def build_sarif(
     repository_root: object | None = None,
     suppressed: list[EnrichedFinding] | None = None,
     suppressed_unmapped: list[dict[str, Any]] | None = None,
+    waived: list[EnrichedFinding] | None = None,
+    weakening_settings: list[str] | None = None,
+    baselined: list[EnrichedFinding] | None = None,
 ) -> dict[str, Any]:
     """Build a SARIF 2.1.0 document from enriched (and unmapped) findings.
 
@@ -412,11 +427,18 @@ def build_sarif(
             ``justification`` when one was given).
         suppressed_unmapped: Raw Checkov dicts for suppressed unmapped checks,
             handled the same way.
+        waived: Mapped findings accepted by the waiver file. They become
+            results carrying an ``external`` / ``accepted`` suppression whose
+            justification names the reason, owner and expiry.
+        baselined: Mapped findings already in the ``--baseline`` report
+            (``baselineState: "unchanged"``). ``None`` means no baseline was
+            used; otherwise active mapped results are ``baselineState: "new"``.
 
     Returns:
         A SARIF 2.1.0 document as a plain dict, ready to serialize.
     """
-    enriched = sort_findings([*enriched, *(suppressed or [])])
+    known = {id(f) for f in baselined or []}
+    enriched = sort_findings([*enriched, *(suppressed or []), *(waived or []), *(baselined or [])])
     unmapped = sort_unmapped_findings([*(unmapped or []), *(suppressed_unmapped or [])])
 
     rules: list[dict[str, Any]] = []
@@ -506,7 +528,12 @@ def build_sarif(
                     "partialFingerprints": {
                         FINGERPRINT_KEY: _fingerprint(check_id, finding.resource, artifact_uri)
                     },
-                    **_suppressions(finding.suppressed, finding.suppression_reason),
+                    **_suppressions(finding.suppressed, finding.suppression_reason, finding.waiver),
+                    **(
+                        {"baselineState": "unchanged" if id(finding) in known else "new"}
+                        if baselined is not None and not (finding.suppressed or finding.waiver)
+                        else {}
+                    ),
                     "properties": {
                         "mapped": True,
                         "resource": finding.resource,
@@ -576,6 +603,7 @@ def build_sarif(
                 },
                 "invocations": [invocation],
                 "results": results,
+                "properties": {"weakeningSettings": list(weakening_settings or [])},
             }
         ],
     }

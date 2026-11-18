@@ -1,25 +1,25 @@
 # Contributing to tf-eu-guard
 
-Thanks for your interest in improving EU infrastructure compliance tooling!
+Thanks for helping improve tf-eu-guard.
 
 For suspected vulnerabilities, use the private process in
 [SECURITY.md](SECURITY.md) rather than opening a public issue or pull request.
 
 ## Ways to contribute
 
-1. **Registry expansion** — map more Checkov checks to NIS2/GDPR articles (the highest-value contribution)
-2. **New custom checks** — EU-specific patterns upstream Checkov doesn't cover
-3. **Report improvements** — better visualizations, export formats
-4. **Bug fixes & docs**
+1. Registry expansion: map more Checkov checks to NIS2/GDPR articles (the most useful contribution)
+2. New custom checks for EU-specific patterns upstream Checkov doesn't cover
+3. Report improvements, such as better visualizations and export formats
+4. Bug fixes and docs
 
-For registry expansion, please **open an issue first** describing the checks you
-want to map — this avoids duplicate work and lets us discuss article choices
-before you invest time in a PR.
+For registry expansion, please open an issue first describing the checks you
+want to map. That avoids duplicate work and lets us settle article choices
+before you spend time on a PR.
 
 ## Proposing a new mapping
 
-The registry is split per *namespace* in `tf_eu_guard/mapping/` — which today
-means cloud provider for Terraform checks, plus a separate file for the
+The registry is split per *namespace* in `tf_eu_guard/mapping/`. Today that
+means one file per cloud provider for Terraform checks, plus a separate file for the
 Kubernetes check namespace:
 
 | File | Namespace |
@@ -37,8 +37,8 @@ against the registry and author only the gap (see
 
 > The mapping counts in this table, the README and `docs/` are verified
 > against the registry files by `tools/check_doc_counts.py` (CI runs it, and
-> so does the test suite). Don't hand-type counts anywhere else — if you need
-> to cite one, expect the check to enforce it.
+> so does the test suite). Don't hand-type counts anywhere else. If you need
+> to cite one, the check will enforce it.
 
 ### Schema
 
@@ -65,15 +65,15 @@ CKV_AWS_18:
 
 ### Quality bar
 
-- **Risk explanations must cite specific legal text.** Name the article and the
-  requirement it imposes; don't just restate the check. Cross-check sub-point
+- Risk explanations must cite specific legal text. Name the article and the
+  requirement it imposes instead of restating the check. Cross-check sub-point
   letters against the directive/regulation (see `docs/nis2-mapping.md` and
   `docs/gdpr-mapping.md` for verified citations).
-- **Remediation must be copy-paste Terraform code**, not a prose description.
-- **Verify the Checkov ID against a real scan.** Run
+- Remediation must be copy-paste Terraform code, not a prose description.
+- Verify the Checkov ID against a real scan. Run
   `checkov -d <dir> --framework terraform --quiet -o json` against a stack that
-  triggers the check and confirm the ID appears. A mispredicted ID means a
-  silent miss — the finding will never be enriched. (The test suite enforces
+  triggers the check and confirm the ID appears. A mispredicted ID is a
+  silent miss: the finding will never be enriched. (The test suite enforces
   that every registry ID exists in the installed Checkov.)
 
 ### Test requirements
@@ -131,11 +131,11 @@ committing a dependency change.
 ## Smoke checks (regression guard)
 
 A past bug (commit `c7e68f6`) shipped a broken `terraform_plan` scan path that
-silently returned 0 findings while unit tests and CI both stayed green — the
+silently returned 0 findings while unit tests and CI both stayed green. The
 CI smoke test scanned a hand-shaped fixture instead of the real example. To
-keep that class of silent failure from recurring, the expected mapped-finding
+prevent that, the expected mapped-finding
 counts for every vulnerable/compliant example pair live in
-**`tools/smoke_baselines.json`** — a single source of truth read by CI
+`tools/smoke_baselines.json`, the single source of truth read by CI
 (`.github/workflows/ci.yml`), by `tools/smoke_check.py`, and by the local
 Claude Code hook (below).
 
@@ -160,10 +160,9 @@ When adding a new IaC type or example fixture:
 2. extend the path→iac-type mapping in `tools/hook_smoke_dispatch.py`
    (examples are mapped by their directory name; registries and custom
    checks by their file location),
-3. wire it into the CI smoke steps —
+3. wire it into the CI smoke steps.
 
-— all in the same commit. The failure mode of skipping this is the same
-silent-0 the guard exists to catch.
+Do all three in the same commit. Skipping them brings back the silent 0 the guard exists to catch.
 
 ### Claude Code hook (for contributors using Claude Code)
 
@@ -175,12 +174,11 @@ all types; `registry-kubernetes.yaml` →
 kubernetes only; `examples/vulnerable-aws-plan/**` → terraform_plan; etc.)
 and runs only those smoke checks. A failing check exits `2`, which surfaces
 the failure message in the Claude Code session even though the edit already
-landed. Unrelated edits (README, tests, docs) trigger nothing, keeping the
-hook fast enough to not train you to ignore it.
+landed. Unrelated edits (README, tests, docs) trigger nothing, so the
+hook stays fast.
 
 If you don't use Claude Code, running `tools/smoke_check.py` by hand (or
-relying on CI) gives you the same guard — the hook is just automation around
-the same script.
+relying on CI) gives you the same guard. The hook only automates that script.
 
 ## Release settings (maintainer action)
 
