@@ -31,7 +31,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 def test_runtime_version_comes_from_distribution_metadata():
     """The import-time version must not be a second hand-maintained constant."""
     assert __version__ == installed_version("tf-eu-guard")
-    assert __version__ == "0.8.1"
+    assert __version__ == "0.9.0"
 
 
 #: The registry data files that must ship inside the wheel, verbatim.
@@ -148,6 +148,12 @@ def _build_wheel(tmp_path: Path) -> Path:
     return wheels[0]
 
 
+def test_py_typed_in_wheel(tmp_path):
+    """PEP 561 marker must ship so consumers type-check the public API."""
+    with zipfile.ZipFile(_build_wheel(tmp_path)) as zf:
+        assert "tf_eu_guard/py.typed" in zf.namelist()
+
+
 def test_wheel_ships_all_registry_yaml(tmp_path):
     """Every registry-*.yaml must be present inside the built wheel, non-empty
     and parseable — a packaging change that drops them fails here, in CI,
@@ -183,6 +189,12 @@ def test_wheel_ships_the_custom_checks(tmp_path):
             "tf_eu_guard/checks/__init__.py",
         ):
             assert inner in names, f"{inner} missing from the wheel"
+
+
+def test_wheel_ships_the_report_schema(tmp_path):
+    wheel = _build_wheel(tmp_path)
+    with zipfile.ZipFile(wheel) as zf:
+        assert "tf_eu_guard/schemas/report.schema.json" in zf.namelist()
 
 
 def test_sdist_excludes_docs_examples_and_workflows(tmp_path):

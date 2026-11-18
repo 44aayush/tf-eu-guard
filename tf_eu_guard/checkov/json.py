@@ -3,7 +3,7 @@
 import codecs
 import json
 import sys
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from importlib import metadata
@@ -67,8 +67,20 @@ def parsing_error_message(checkov_output: dict[str, Any]) -> str | None:
     return f"Checkov reported {max(parsing_errors, len(details))} parsing error(s){suffix}"
 
 
-def validate_scan_output(checkov_output: Any, iac_type: str) -> dict[str, Any]:
-    """Validate the trusted runner's output before it reaches report mapping."""
+def validate_scan_output(
+    checkov_output: Any, iac_type: str, extra_check_types: Sequence[str] = ()
+) -> dict[str, Any]:
+    """Validate the trusted runner's output before it reaches report mapping.
+
+    With *extra_check_types* the runner returns an array; the extra elements
+    are merged first (see :func:`normalize_checkov_output`), so their parsing
+    errors count toward the fail-closed rule.
+    """
+    if extra_check_types and isinstance(checkov_output, list):
+        try:
+            checkov_output = normalize_checkov_output(checkov_output, iac_type, extra_check_types)
+        except ValueError as exc:
+            raise CheckovRuntimeError(str(exc)) from exc
     if not isinstance(checkov_output, dict):
         raise CheckovRuntimeError(
             "Checkov returned a JSON value that is not an object; "
@@ -124,7 +136,9 @@ def decode_json_bytes(raw: bytes, source: str = "input") -> str:
         ) from exc
 
 
-def load_checkov_json(json_source: Path, iac_type: str = "terraform") -> dict[str, Any]:
+def load_checkov_json(
+    json_source: Path, iac_type: str = "terraform", extra_check_types: Sequence[str] = ()
+) -> dict[str, Any]:
     """Load and normalize a pre-generated Checkov JSON result."""
     if str(json_source) == "-":
         buffer = getattr(sys.stdin, "buffer", None)
@@ -142,7 +156,7 @@ def load_checkov_json(json_source: Path, iac_type: str = "terraform") -> dict[st
 
     data = json.loads(text)
     _check_parsing_errors(data)
-    output = normalize_checkov_output(data, iac_type)
+    output = normalize_checkov_output(data, iac_type, extra_check_types)
     _warn_installed_version_mismatch(output)
     _warn_missing_custom_checks(output)
     return output
@@ -225,8 +239,70 @@ def _warn_missing_custom_checks(output: dict[str, Any]) -> None:
     )
 
 
-def normalize_checkov_output(data: Any, iac_type: str = "terraform") -> dict[str, Any]:
-    """Normalize Checkov JSON into the single-object form used by extraction."""
+#: The only fields copied from an extra (secrets) result. Checkov's secrets
+#: records also carry ``code_block``, ``details`` and a hash in ``resource``,
+#: all derived from the secret value, so anything not listed here is dropped.
+_EXTRA_CHECK_FIELDS = ("check_id", "check_name", "file_path", "file_line_range", "guideline")
+
+
+def _sanitize_extra_check(check: Any) -> Any:
+    """Return *check* reduced to non-secret fields (non-dicts pass through to validation)."""
+    if not isinstance(check, dict):
+        return check
+    clean = {k: check[k] for k in _EXTRA_CHECK_FIELDS if k in check}
+    if "resource" in check:
+        # Checkov's secrets ``resource`` is a hash of the secret; use the location.
+        line_range = check.get("file_line_range")
+        line = line_range[0] if isinstance(line_range, list) and line_range else 0
+        clean["resource"] = f"secret@{check.get('file_path')}:{line}"
+    result = check.get("check_result")
+    if isinstance(result, dict) and "suppress_comment" in result:
+        clean["check_result"] = {"suppress_comment": result["suppress_comment"]}
+    return clean
+
+
+def _merge_extra_element(merged: dict[str, Any], extra: dict[str, Any]) -> None:
+    results = extra.get("results")
+    if isinstance(results, dict):
+        for section in ("failed_checks", "passed_checks", "skipped_checks"):
+            items = results.get(section)
+            if isinstance(items, list):
+                merged["results"].setdefault(section, [])
+                merged["results"][section] = [
+                    *merged["results"][section],
+                    *map(_sanitize_extra_check, items),
+                ]
+        errors = results.get("parsing_errors")
+        if isinstance(errors, list) and errors:
+            merged["results"]["parsing_errors"] = [
+                *(merged["results"].get("parsing_errors") or []),
+                *errors,
+            ]
+    extra_summary = extra.get("summary")
+    if not isinstance(extra_summary, dict) or not isinstance(merged.get("summary"), dict):
+        return
+
+    def count(summary: dict[str, Any], key: str) -> int:
+        value = summary.get(key)
+        return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+    summary = merged["summary"]
+    # Keep the totals (provenance) in step with the merged findings.
+    for key in ("parsing_errors", "passed", "failed", "skipped", "resource_count"):
+        if key == "parsing_errors" and not count(extra_summary, key):
+            continue
+        summary[key] = count(summary, key) + count(extra_summary, key)
+
+
+def normalize_checkov_output(
+    data: Any, iac_type: str = "terraform", extra_check_types: Sequence[str] = ()
+) -> dict[str, Any]:
+    """Normalize Checkov JSON into the single-object form used by extraction.
+
+    Elements whose ``check_type`` is in *extra_check_types* (for example
+    ``secrets``) are merged into the *iac_type* element; an absent extra element
+    means zero results, because Checkov omits frameworks with nothing to report.
+    """
     if isinstance(data, dict):
         if "check_type" in data and data["check_type"] != iac_type:
             raise ValueError(
@@ -238,7 +314,22 @@ def normalize_checkov_output(data: Any, iac_type: str = "terraform") -> dict[str
     if isinstance(data, list):
         for element in data:
             if isinstance(element, dict) and element.get("check_type") == iac_type:
-                return element
+                if not extra_check_types:
+                    return element
+                merged = {
+                    **element,
+                    "results": dict(element["results"])
+                    if isinstance(element.get("results"), dict)
+                    else element.get("results"),
+                    "summary": dict(element["summary"])
+                    if isinstance(element.get("summary"), dict)
+                    else element.get("summary"),
+                }
+                if isinstance(merged["results"], dict):
+                    for extra in data:
+                        if isinstance(extra, dict) and extra.get("check_type") in extra_check_types:
+                            _merge_extra_element(merged, extra)
+                return merged
         raise ValueError(
             f"Checkov JSON array contained no result object with "
             f"check_type {iac_type!r}; refusing to use a result for another "
@@ -286,21 +377,23 @@ def validate_checkov_output(checkov_output: dict[str, Any]) -> None:
     # ``skipped_checks`` holds findings suppressed by inline comments. Older
     # outputs and fixtures omit it, so a missing key is accepted; a present
     # one is validated as strictly as ``failed_checks``.
-    skipped_checks = results.get("skipped_checks")
-    if skipped_checks is None:
-        return
-    if not isinstance(skipped_checks, list):
-        raise ValueError(
-            "Input does not look like Checkov output: "
-            "'results.skipped_checks' must be a list of objects"
-        )
-    for index, check in enumerate(skipped_checks):
-        if not isinstance(check, dict):
+    # ``passed_checks`` (the requirement evidence matrix) is validated the same way.
+    for section in ("skipped_checks", "passed_checks"):
+        checks = results.get(section)
+        if checks is None:
+            continue
+        if not isinstance(checks, list):
             raise ValueError(
-                "Input does not look like Checkov output: "
-                f"'results.skipped_checks[{index}]' must be an object"
+                f"Input does not look like Checkov output: 'results.{section}' "
+                "must be a list of objects"
             )
-        validate_failed_check(check, index, section="skipped_checks")
+        for index, check in enumerate(checks):
+            if not isinstance(check, dict):
+                raise ValueError(
+                    "Input does not look like Checkov output: "
+                    f"'results.{section}[{index}]' must be an object"
+                )
+            validate_failed_check(check, index, section=section)
 
 
 def validate_failed_check(
@@ -389,6 +482,22 @@ def suppression_reason(check: dict[str, Any]) -> str | None:
     if not comment or comment == _NO_COMMENT_PLACEHOLDER:
         return None
     return comment
+
+
+def extract_passed_checks(checkov_output: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract passed checks; entries have the shape of :func:`extract_failed_checks`."""
+    validate_checkov_output(checkov_output)
+    return [
+        {
+            "check_id": check.get("check_id"),
+            "check_name": check.get("check_name"),
+            "resource": check.get("resource"),
+            "file_path": check.get("file_path"),
+            "file_line_range": check.get("file_line_range", [0, 0]),
+            "guideline": check.get("guideline"),
+        }
+        for check in checkov_output.get("results", {}).get("passed_checks") or []
+    ]
 
 
 def extract_skipped_checks(checkov_output: dict[str, Any]) -> list[dict[str, Any]]:

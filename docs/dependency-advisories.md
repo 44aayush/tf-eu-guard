@@ -63,7 +63,7 @@ the two asteval advisories, but that version cannot be substituted while
 retaining Checkov's exact dependency contract. The latest available `ecdsa`
 is `0.19.2`, and pip-audit reports no fix version for `PYSEC-2026-1325`.
 
-The exception is therefore intentionally bounded rather than hidden: the lock
+The exception is bounded: the lock
 and the generated CycloneDX SBOM both retain the actual Checkov dependency
 versions, CI names each ignored advisory explicitly, and the expiry check
 requires a deliberate refresh or removal before 2027-01-17.

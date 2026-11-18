@@ -1,6 +1,6 @@
 # Architecture & Design Decisions
 
-Key technical decisions behind tf-eu-guard, extracted from the project's
+Key technical decisions behind tf-eu-guard, taken from the project's
 implementation history.
 
 ## 1. Wrap Checkov; don't reimplement scanning
@@ -25,8 +25,8 @@ count and caveat; JSON keeps its mapped-findings-only contract and writes the
 unmapped count to stderr; SARIF includes each unmapped result with its Checkov
 identity, resource, and location. Unmapped SARIF rules/results carry
 `properties.mapped: false` and no registry-authored severity, articles, or
-remediation. An empty mapped result therefore means "no mapped compliance
-gaps," not "no Checkov findings."
+remediation. An empty mapped result means "no mapped compliance
+gaps", and says nothing about whether Checkov found anything.
 
 ## 4. Article citations are verified against the legal text
 
@@ -64,8 +64,8 @@ checks.
 **Decision (2026-09):** `CKV_K8S_*` check IDs live in a dedicated
 `registry-kubernetes.yaml` rather than folding into the provider files. The
 K8s namespace has zero ID overlap with the AWS/Azure/GCP-keyed registries,
-so a separate file costs nothing and makes the (largest single chunk of)
-net-new mapping work visible on its own. `loader.py` glob-loads
+so a separate file costs nothing and shows the net-new mapping work
+(the largest single chunk) on its own. `loader.py` glob-loads
 `registry-*.yaml` with a duplicate-key guard, so no loader change was needed.
 
 ## 9. Provider-region checks are Terraform-only by design
@@ -75,7 +75,7 @@ GDPR Chapter V review apply only to Terraform targets. Kubernetes manifests are
 cloud-agnostic: a manifest doesn't declare where the cluster runs, and region
 context lives at the cluster/cloud-provider level (node labels,
 `topology.kubernetes.io/region`), not per-resource in the manifest. Any
-in-manifest heuristic would be trivially bypassable and mostly noise.
+in-manifest heuristic would be easy to bypass and mostly noise.
 
 **What to do instead:** enforce data residency for Kubernetes at the cluster
 boundary — cluster placement policy, cloud-provider constraints (e.g. an SCP
@@ -85,7 +85,7 @@ node-selector labels for the rare topology-pinned workload.
 **Consequence:** the README's scope table claims GDPR Art. 44 coverage for
 Terraform only through `EUGUARD_GDPR_002`; the separate `EUGUARD_GDPR_001`
 sovereignty policy is not presented as a GDPR transfer citation. The
-Kubernetes gap is documented rather than silently implied.
+Kubernetes gap is documented, not left implicit.
 
 ## 10. EUGUARD_GDPR_001 accepts only EU Sovereign Cloud regions
 
@@ -93,9 +93,9 @@ Kubernetes gap is documented rather than silently implied.
 Cloud, so the residency check's allowlist contains only EUSC region codes
 (`eusc-de-east-1` — verified against botocore's `aws-eusc` partition data).
 Commercial EU regions (`eu-central-1` Frankfurt et al.) fail
-`EUGUARD_GDPR_001` even though GDPR's geographic baseline would permit them:
-this is a sovereignty *policy gate* stricter than the legal baseline, and the
-finding text says so rather than claiming a violation. They do not receive a
+`EUGUARD_GDPR_001` even though GDPR's geographic baseline would permit them.
+The check is a sovereignty *policy gate* stricter than the legal baseline, and the
+finding text says so instead of claiming a violation. They do not receive a
 GDPR Chapter V citation. A separate `EUGUARD_GDPR_002` check flags known
 regions outside the EU/EEA (for example `us-east-1`) with a hedged Art. 44
 review signal; it does not decide whether a transfer occurs or is lawful. This

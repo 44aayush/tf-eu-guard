@@ -11,20 +11,24 @@ so every article shown here has open findings. The report never claims a control
 compliance. See ``docs/DECISIONS.md`` §11.
 """
 
+import json
 import re
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
 from tf_eu_guard import __version__
+from tf_eu_guard.mapping.coverage import RequirementResult
 from tf_eu_guard.mapping.requirements import canonical_article_title
 from tf_eu_guard.models import EnrichedFinding, Framework
+from tf_eu_guard.reporting.baselined import baselined_html
 from tf_eu_guard.reporting.html_common import (
     badge_style,
     distinct_files,
     esc,
     file_location,
     severity_class,
+    unmapped_html,
 )
 from tf_eu_guard.reporting.sorting import finding_sort_key, sort_findings
 from tf_eu_guard.reporting.styles import (
@@ -35,6 +39,8 @@ from tf_eu_guard.reporting.styles import (
     SUPPRESSED_CSS,
 )
 from tf_eu_guard.reporting.suppressed import SuppressedItem, suppressed_html, suppressed_items
+from tf_eu_guard.reporting.waived import waived_html
+from tf_eu_guard.reporting.weakening import weakening_html
 
 
 def _anchor(framework: Framework, article: str) -> str:
@@ -95,6 +101,32 @@ def _executive_summary(
         "<table>\n<thead><tr><th>Framework</th>"
         "<th>Articles with open findings</th><th>Total findings</th></tr></thead>\n"
         "<tbody>\n" + "\n".join(rows) + "\n</tbody>\n</table>"
+    )
+
+
+def _requirement_table(rows: list[RequirementResult]) -> str:
+    """Per-requirement counts of check results; counts only, no score."""
+    body = []
+    for row in rows:
+        req = row.requirement
+        note = "" if row.ran else " <em>No mapped check was evaluated.</em>"
+        body.append(
+            f"<tr><td>{esc(req.framework.value)} Art. {esc(req.article)} &mdash; "
+            f"{esc(req.title)}</td><td>{esc(req.category.value)}</td>"
+            f'<td class="num">{req.check_count}</td><td class="num">{row.ran}</td>'
+            f'<td class="num">{row.passed}</td><td class="num">{row.failed}</td>'
+            f'<td class="num">{row.suppressed}</td><td class="num">{row.waived}</td>'
+            f"<td>{note}</td></tr>"
+        )
+    return (
+        "<h2>Requirement evidence</h2>\n"
+        "<p>Check results (resource &times; check) per requirement. Counts only: "
+        "a passed check is evidence for its requirement, not a compliance score.</p>\n"
+        "<table>\n<thead><tr><th>Requirement</th><th>Coverage label</th>"
+        "<th>Mapped checks</th><th>Ran</th><th>Passed</th><th>Failed</th>"
+        "<th>Suppressed</th><th>Waived</th><th>Note</th></tr></thead>\n<tbody>\n"
+        + "\n".join(body)
+        + "\n</tbody>\n</table>"
     )
 
 
@@ -160,6 +192,26 @@ def _article_section(framework: Framework, article: str, entry: dict, version: s
     )
 
 
+def _provenance_html(provenance: dict[str, Any]) -> str:
+    """Provenance table; every value is escaped (options come from user input)."""
+    checks = provenance.get("checks") or {}
+    rows = [
+        ("Tool version", provenance.get("tool_version")),
+        ("Checkov version", provenance.get("checkov_version")),
+        ("Registry SHA-256", provenance.get("registry_sha256")),
+        ("Registry files", ", ".join(provenance.get("registry_files") or [])),
+        ("Commit", provenance.get("commit")),
+        ("Resources scanned", provenance.get("resources_scanned")),
+        ("Checks", ", ".join(f"{k}: {v}" for k, v in checks.items())),
+        ("Options", json.dumps(provenance.get("options"), sort_keys=True)),
+    ]
+    body = "".join(
+        f"<tr><th>{esc(label)}</th><td><code>{esc('' if v is None else str(v))}</code></td></tr>"
+        for label, v in rows
+    )
+    return f'<h2 id="provenance">Provenance</h2>\n<table>{body}</table>'
+
+
 def _render(
     findings: list[EnrichedFinding],
     *,
@@ -167,11 +219,19 @@ def _render(
     timestamp: str,
     version: str,
     unmapped_count: int = 0,
+    unmapped: list[dict[str, Any]] | None = None,
     suppressed: list[SuppressedItem] | None = None,
+    waived: list[EnrichedFinding] | None = None,
+    weakening_settings: list[str] | None = None,
+    requirements: list[RequirementResult] | None = None,
+    baselined: list[EnrichedFinding] | None = None,
+    provenance: dict[str, Any] | None = None,
 ) -> str:
     """Assemble the complete auditor HTML document."""
     findings = sort_findings(findings)
     suppressed = suppressed or []
+    waived = waived or []
+    baselined = baselined or []
     header = (
         '<a id="top"></a>\n<header>\n'
         "  <h1>tf-eu-guard &mdash; Compliance Audit Report</h1>\n"
@@ -181,7 +241,9 @@ def _render(
         '  <div class="meta">'
         f"<span>Target: <code>{esc(target) or '&mdash;'}</code></span>"
         f"<span>Generated: {esc(timestamp) or '&mdash;'}</span>"
-        "</div>\n</header>"
+        "</div>\n"
+        f"{weakening_html(weakening_settings)}"
+        "</header>"
     )
 
     scope = (
@@ -207,6 +269,21 @@ def _render(
             if suppressed
             else ""
         )
+        + (
+            f" <strong>{len(waived)}</strong> finding(s) are covered by a reviewed waiver; "
+            "they are listed in a separate section below with owner, reason and expiry, "
+            "are not counted as open findings, and are not evidence that the underlying "
+            "control is met."
+            if waived
+            else ""
+        )
+        + (
+            f" <strong>{len(baselined)}</strong> finding(s) are already known from the "
+            "baseline report; they are listed in a separate section below, do not "
+            "affect the CI gate, and are still open."
+            if baselined
+            else ""
+        )
         + "</div>"
     )
 
@@ -226,18 +303,26 @@ def _render(
                 "have no current EU regulatory mapping and are not shown here. "
                 "This does not by itself demonstrate compliance.</p></div>"
             )
-        if suppressed and not unmapped_count:
+        if (suppressed or waived or baselined) and not unmapped_count:
             empty_body = (
                 '<div class="empty"><h2 style="margin-top:0;border:none">'
-                f"No active mapped findings &mdash; {len(suppressed)} suppressed</h2>"
+                f"No active mapped findings &mdash; {len(suppressed)} suppressed, "
+                f"{len(waived)} waived, {len(baselined)} known in baseline</h2>"
                 "<p>Every failed check that maps to a compliance control was suppressed "
-                "by an inline comment. This does not by itself demonstrate "
+                "by an inline comment, covered by a waiver or already known from the "
+                "baseline. This does not by itself demonstrate "
                 "compliance.</p></div>"
             )
-        body = f"{header}\n{scope}\n{empty_body}"
+        parts = [header, scope, empty_body]
+        if requirements:
+            parts.append(_requirement_table(requirements))
+        body = "\n".join(parts)
     else:
         index = _build_index(findings)
-        sections: list[str] = [header, scope, _executive_summary(findings, index), _toc(index)]
+        sections: list[str] = [header, scope, _executive_summary(findings, index)]
+        if requirements:
+            sections.append(_requirement_table(requirements))
+        sections.append(_toc(index))
         for fw in FRAMEWORK_ORDER:
             articles = index.get(fw) or {}
             if not articles:
@@ -247,8 +332,20 @@ def _render(
                 sections.append(_article_section(fw, article, articles[article], version))
         body = "\n".join(sections)
 
+    if unmapped:
+        body = f"{body}\n{unmapped_html(unmapped)}"
+
     if suppressed:
         body = f"{body}\n{suppressed_html(suppressed)}"
+
+    if waived:
+        body = f"{body}\n{waived_html(waived)}"
+
+    if baselined:
+        body = f"{body}\n{baselined_html(baselined)}"
+
+    if provenance:
+        body = f"{body}\n{_provenance_html(provenance)}"
 
     footer = (
         "<footer>Generated by tf-eu-guard"
@@ -278,8 +375,14 @@ def generate_auditor_report(
     version: str = "",
     output_path: Path | None = None,
     unmapped_count: int = 0,
+    unmapped: list[dict[str, Any]] | None = None,
     suppressed: list[EnrichedFinding] | None = None,
     suppressed_unmapped: list[dict[str, Any]] | None = None,
+    waived: list[EnrichedFinding] | None = None,
+    weakening_settings: list[str] | None = None,
+    requirements: list[RequirementResult] | None = None,
+    baselined: list[EnrichedFinding] | None = None,
+    provenance: dict[str, Any] | None = None,
 ) -> str:
     """Generate the self-contained HTML auditor / compliance-matrix report.
 
@@ -289,11 +392,14 @@ def generate_auditor_report(
         timestamp: Human-readable scan time (shown in the header/footer).
         version: tf-eu-guard version (shown in the footer).
         output_path: If given, the HTML is also written to this path (UTF-8).
+        unmapped: Raw unmapped Checkov dicts; when given, listed in full
+            (``--show-unmapped``).
         unmapped_count: Checkov findings with no registry mapping — called out
             in the scope note so they are present-but-unmapped, not absent.
         suppressed: Mapped findings suppressed by inline ``checkov:skip``
             comments — listed in their own section, never counted as open.
         suppressed_unmapped: Raw Checkov dicts for suppressed unmapped checks.
+        requirements: Per-requirement evidence rows; ``None`` omits the table.
 
     Returns:
         The complete HTML document as a string.
@@ -304,7 +410,13 @@ def generate_auditor_report(
         timestamp=timestamp,
         version=version,
         unmapped_count=unmapped_count,
+        unmapped=unmapped,
         suppressed=suppressed_items(suppressed, suppressed_unmapped),
+        waived=waived,
+        requirements=requirements,
+        weakening_settings=weakening_settings,
+        baselined=baselined,
+        provenance=provenance,
     )
     if output_path is not None:
         Path(output_path).write_text(document, encoding="utf-8")

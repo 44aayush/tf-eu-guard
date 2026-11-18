@@ -41,7 +41,7 @@ Each entry in `results.failed_checks[]` contains:
 
 ## Schema Compatibility with tf_eu_guard
 
-### ✅ Compatible Fields (Used)
+### Compatible fields (used)
 Our `checkov_runner.extract_failed_checks()` function expects:
 ```python
 {
@@ -58,13 +58,13 @@ Missing or incorrectly typed required fields are rejected before enrichment.
 This is invalid `--checkov-json` input and the CLI exits `2`; in particular,
 it cannot create a SARIF result with a null `ruleId`.
 
-### ⚠️ Severity Handling
+### Severity handling
 
 **Observation**: The `severity` field is often `null` in Checkov output (observed in 3.3.29 and 3.4.5).
 
-**Impact**: We must define severity in our `registry-aws.yaml` mappings, not rely on Checkov's severity.
+**Impact**: Severity has to come from our `registry-aws.yaml` mappings, not from Checkov.
 
-**Action**: Our mapping format already includes a `severity` field:
+**Action**: The mapping format already has a `severity` field:
 ```yaml
 CKV_AWS_273:
   severity: HIGH  # ✓ We define this ourselves
@@ -93,27 +93,16 @@ CKV_AWS_273:
 | Severity field | ⚠️ Unreliable | Often null, define in registry |
 | Schema stability | ✅ Stable | Matches Checkov documentation |
 
-## Next Steps (Phase 1.4)
-
-1. ✅ Schema verified - matches `checkov_runner.py` expectations
-2. 🔄 Update `extract_failed_checks()` if needed (likely no changes required)
-3. 🔄 Test end-to-end pipeline with one registry mapping
-4. 🔄 Document any schema quirks discovered during testing
-
 ## Statistics from Scan
 
-*To be populated after running count query on checkov-raw-output.json*
+Counted from `tests/fixtures/checkov-raw-output.json` (Checkov 3.3.13):
 
-- Total failed checks: [TBD]
-- Total passed checks: [TBD]
-- Total skipped checks: [TBD]
-- Unique check IDs found: [TBD]
+- Failed checks: 74 (`results.failed_checks` and `summary.failed` agree)
+- Passed checks: 39 per `summary.passed`; the fixture's `passed_checks` list is stripped to 0 entries
+- Skipped checks: 0
+- Unique check IDs among failed checks: 48
 
----
-
-**Status**: Schema verification complete ✓  
-**Blockers**: None  
-**Ready for**: Phase 1.4 - End-to-end pipeline test
+The schema was verified against these counts. `extract_failed_checks()` in `tf_eu_guard/checkov/json.py` consumes it, and later work extended it to `passed_checks` and `skipped_checks`.
 
 ## Framework and completeness rules
 

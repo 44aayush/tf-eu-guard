@@ -139,3 +139,115 @@ def test_unmapped_fixture_regression(monkeypatch, tmp_path, repo_root, capsys):
     unmapped_family = {f"CKV_AWS_{number}" for number in range(10, 16)}
     assert not unmapped_family & {finding["check_id"] for finding in data}
     assert "6 unmapped Checkov finding(s)" in captured.err
+
+
+def _write_mixed(tmp_path, skipped=False):
+    document = _mixed_doc()
+    if skipped:
+        document["results"]["failed_checks"] = [
+            {**check, "check_result": {"result": "SKIPPED"}}
+            for check in document["results"]["failed_checks"][1:]
+        ]
+        document["results"]["skipped_checks"] = document["results"]["failed_checks"]
+        document["results"]["failed_checks"] = []
+    path = tmp_path / "mixed.json"
+    path.write_text(json.dumps(document))
+    return path
+
+
+def test_show_unmapped_lists_them_in_dev_output(monkeypatch, tmp_path, capsys):
+    path = _write_mixed(tmp_path)
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(path), "--show-unmapped")
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "CKV_AWS_10" in out and "CKV_AWS_11" in out
+
+
+def test_without_show_unmapped_only_count(monkeypatch, tmp_path, capsys):
+    path = _write_mixed(tmp_path)
+    run_cli(monkeypatch, tmp_path, "--checkov-json", str(path))
+    out = capsys.readouterr().out
+    assert "CKV_AWS_10" not in out
+    assert "2 " in out and "nmapped" in out
+
+
+@pytest.mark.parametrize("kind", ["security", "auditor"])
+def test_show_unmapped_in_html(monkeypatch, tmp_path, kind):
+    path = _write_mixed(tmp_path)
+    out_file = tmp_path / "r.html"
+    run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(path),
+        "--output",
+        kind,
+        "--output-file",
+        str(out_file),
+        "--show-unmapped",
+    )
+    assert "CKV_AWS_10" in out_file.read_text()
+
+
+def test_show_unmapped_in_dev_html(monkeypatch, tmp_path):
+    """The dev HTML report is only written through ``--output all``."""
+    path = _write_mixed(tmp_path)
+    out_dir = tmp_path / "out"
+    run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(path),
+        "--output",
+        "all",
+        "--output-dir",
+        str(out_dir),
+        "--show-unmapped",
+    )
+    dev = next(out_dir.glob("dev_report_*.html"))
+    assert "CKV_AWS_10" in dev.read_text()
+
+
+def test_html_without_show_unmapped_omits_list(monkeypatch, tmp_path):
+    path = _write_mixed(tmp_path)
+    out_file = tmp_path / "r.html"
+    run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(path),
+        "--output",
+        "security",
+        "--output-file",
+        str(out_file),
+    )
+    assert "CKV_AWS_10" not in out_file.read_text()
+
+
+def test_fail_on_unmapped_trips_gate(monkeypatch, tmp_path, capsys):
+    path = _write_mixed(tmp_path)
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(path), "--fail-on-unmapped")
+    err = capsys.readouterr().err
+    assert rc == 1
+    assert "Fail: 2 unmapped Checkov finding(s) (--fail-on-unmapped)" in err
+    assert "do not affect this gate" not in err
+
+
+def test_fail_on_unmapped_ignores_suppressed_unmapped(monkeypatch, tmp_path):
+    path = _write_mixed(tmp_path, skipped=True)
+    rc = run_cli(monkeypatch, tmp_path, "--checkov-json", str(path), "--fail-on-unmapped")
+    assert rc == 0
+
+
+def test_show_unmapped_html_escapes_values(monkeypatch, tmp_path):
+    document = _mixed_doc()
+    document["results"]["failed_checks"][1]["check_name"] = "<script>alert(1)</script>"
+    path = tmp_path / "x.json"
+    path.write_text(json.dumps(document))
+    out_file = tmp_path / "r.html"
+    run_cli(
+        monkeypatch, tmp_path, "--checkov-json", str(path), "--output", "security",
+        "--output-file", str(out_file), "--show-unmapped",
+    )  # fmt: skip
+    text = out_file.read_text()
+    assert "<script>alert(1)" not in text and "&lt;script&gt;" in text

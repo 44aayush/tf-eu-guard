@@ -7,6 +7,7 @@ import pytest
 from jsonschema import Draft202012Validator
 
 from tests.cli_helpers import FIXTURE, run_cli
+from tf_eu_guard import REPORT_SCHEMA_PATH
 from tf_eu_guard.checkov.json import CUSTOM_CHECKS_DIR, installed_checkov_version
 from tf_eu_guard.constants import EXIT_OK, EXIT_RUNTIME_FAILURE
 
@@ -15,7 +16,7 @@ UNMAPPED_FIXTURE = "tests/fixtures/checkov-unmapped-tf.json"
 ABS_FIXTURE = str(Path(FIXTURE).resolve())
 ABS_SKIPPED = str(Path(SKIPPED_FIXTURE).resolve())
 ABS_UNMAPPED = str(Path(UNMAPPED_FIXTURE).resolve())
-SCHEMA = json.loads(Path("tests/schemas/report.schema.json").read_text(encoding="utf-8"))
+SCHEMA = json.loads(REPORT_SCHEMA_PATH.read_text(encoding="utf-8"))
 EUGUARD_CHECK = {
     "check_id": "EUGUARD_GDPR_001",
     "check_name": "Ensure resources stay in EU regions",
@@ -173,6 +174,8 @@ def test_array_format_keys_unchanged(monkeypatch, tmp_path, capsys):
         assert set(entry) == {
             "check_id",
             "suppressed",
+            "waived",
+            "baselined",
             "suppression_reason",
             "severity",
             "resource",
@@ -201,7 +204,7 @@ def _object_report(monkeypatch, tmp_path, capsys, fixture, *extra):
 def test_object_format_validates_against_schema(monkeypatch, tmp_path, capsys, fixture):
     report = _object_report(monkeypatch, tmp_path, capsys, fixture)
     Draft202012Validator(SCHEMA).validate(report)
-    assert report["schema_version"] == "1"
+    assert report["schema_version"] == "2"
     assert report["tool"]["name"] == "tf-eu-guard"
     assert report["scan"]["iac_type"] == "terraform"
     assert report["scan"]["target"].startswith("checkov-json:")
@@ -265,4 +268,4 @@ def test_object_format_output_file(monkeypatch, tmp_path, capsys):
 def test_schema_rejects_bad_documents():
     validator = Draft202012Validator(SCHEMA)
     assert list(validator.iter_errors([]))
-    assert list(validator.iter_errors({"schema_version": "2"}))
+    assert list(validator.iter_errors({"schema_version": "1"}))

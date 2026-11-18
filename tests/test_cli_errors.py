@@ -70,7 +70,7 @@ def test_malformed_registry_exits_3(monkeypatch, tmp_path, capsys, registry_text
     mapping_dir = fake_package / "mapping"
     mapping_dir.mkdir(parents=True)
     (mapping_dir / "registry-broken.yaml").write_text(registry_text)
-    monkeypatch.setattr("tf_eu_guard.cli._default_registry_path", lambda: mapping_dir)
+    monkeypatch.setattr("tf_eu_guard.cli.pipeline.default_registry_dir", lambda: mapping_dir)
 
     source = tmp_path / "empty.json"
     source.write_text(json.dumps({"results": {"failed_checks": []}}))

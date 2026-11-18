@@ -126,9 +126,9 @@ def test_default_output_still_creates_reports_dir(monkeypatch, tmp_path, repo_ro
 
 
 def test_default_registry_path_is_the_packaged_mapping_directory():
-    from tf_eu_guard.cli import _default_registry_path
+    from tf_eu_guard.cli.pipeline import default_registry_dir
 
-    path = _default_registry_path()
+    path = default_registry_dir()
     assert path.name == "mapping" and path.parent.name == "tf_eu_guard"
     assert list(path.glob("registry-*.yaml"))
 

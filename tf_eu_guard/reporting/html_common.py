@@ -8,10 +8,11 @@ the severity palette, orderings, and per-report stylesheets live in
 """
 
 import html
+from typing import Any
 from urllib.parse import urlparse
 
 from tf_eu_guard.models import EnrichedFinding, Severity
-from tf_eu_guard.reporting.sorting import sorted_articles
+from tf_eu_guard.reporting.sorting import sort_unmapped_findings, sorted_articles
 from tf_eu_guard.reporting.styles import BADGE_TEXT_COLOR, SEVERITY_COLOR, SEVERITY_ORDER
 
 
@@ -147,3 +148,34 @@ def finding_card(finding: EnrichedFinding) -> str:
         )
     parts.append("</article>")
     return "\n".join(parts)
+
+
+def unmapped_rows(unmapped: list[dict[str, Any]]) -> list[tuple[str, str, str, str, str]]:
+    """Return sorted plain-text rows: check ID, name, resource, file, lines."""
+    rows = []
+    for check in sort_unmapped_findings(unmapped):
+        lines = check.get("file_line_range") or [0, 0]
+        rows.append(
+            (
+                str(check.get("check_id") or ""),
+                str(check.get("check_name") or ""),
+                str(check.get("resource") or ""),
+                str(check.get("file_path") or ""),
+                "-".join(str(n) for n in lines),
+            )
+        )
+    return rows
+
+
+def unmapped_html(unmapped: list[dict[str, Any]]) -> str:
+    """Render the ``--show-unmapped`` list; every value goes through ``esc``."""
+    items = "\n".join(
+        f"<tr><td><code>{esc(cid)}</code></td><td>{esc(name)}</td><td>{esc(res)}</td>"
+        f"<td>{esc(path)}</td><td>{esc(lines)}</td></tr>"
+        for cid, name, res, path, lines in unmapped_rows(unmapped)
+    )
+    return (
+        f"<h2>Unmapped Checkov findings ({len(unmapped)})</h2>\n"
+        "<table>\n<thead><tr><th>Check</th><th>Name</th><th>Resource</th>"
+        f"<th>File</th><th>Lines</th></tr></thead>\n<tbody>\n{items}\n</tbody>\n</table>"
+    )

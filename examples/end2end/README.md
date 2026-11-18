@@ -2,11 +2,11 @@
 
 ## Provenance
 
-These 14 Terraform files are **verbatim copies** from the [bridgecrewio/terragoat](https://github.com/bridgecrewio/terragoat) repository's `terraform/aws/` directory — a deliberately vulnerable AWS infrastructure configuration maintained by Bridgecrew (now part of Palo Alto Networks) for security scanning demonstration and education.
+These 14 Terraform files are verbatim copies from the [bridgecrewio/terragoat](https://github.com/bridgecrewio/terragoat) repository's `terraform/aws/` directory — a deliberately vulnerable AWS infrastructure configuration maintained by Bridgecrew (now part of Palo Alto Networks) for security scanning demonstration and education.
 
 ## Purpose
 
-This directory serves as a realistic, comprehensive compliance scanning test case for `tf-eu-guard`. The files intentionally contain dozens of security and compliance violations spanning:
+This directory is a realistic compliance scanning test case for `tf-eu-guard`. The files intentionally contain dozens of security and compliance violations spanning:
 
 - **IAM**: overpermissive policies, inline policies, hardcoded credentials in provider config
 - **S3**: unencrypted buckets, public access, missing logging/versioning
@@ -31,7 +31,7 @@ This will:
    - `reports/scan_report_<timestamp>.html` — dashboard sorted by severity (CRITICAL/HIGH/MEDIUM/LOW)
    - `reports/auditor_report_<timestamp>.html` — article-by-article compliance view for auditors
 
-**Expected finding count**: 30+ mapped violations (the exact count depends on the current registry coverage).
+Expected finding count: 30+ mapped violations (the exact count depends on the current registry coverage).
 
 ## Note on AWS Credentials
 
@@ -40,7 +40,7 @@ Several files (`providers.tf`, `ec2.tf`, `lambda.tf`) contain AWS access keys li
 - `AKIAIOSFODNN7EXAMPLE`
 - `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMAAAKEY`
 
-These are **intentional public test fixtures** from AWS documentation examples, not real secrets. They appear in the official [AWS SDK examples](https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/loading-node-credentials-shared.html) and are safe to commit. The provider, EC2 `user_data`, and Lambda environment shapes are intentionally outside `EUGUARD_NIS2_001`; the independently mapped stock checks `CKV_AWS_41`, `CKV_AWS_46`, and `CKV_AWS_45` cover those locations respectively. A live CLI fixture test verifies both the stock findings and the absence of a duplicate `EUGUARD_NIS2_001` finding for these shapes.
+These are public test fixtures from AWS documentation examples, not real secrets. They appear in the official [AWS SDK examples](https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/loading-node-credentials-shared.html) and are safe to commit. The provider, EC2 `user_data`, and Lambda environment shapes are intentionally outside `EUGUARD_NIS2_001`; the independently mapped stock checks `CKV_AWS_41`, `CKV_AWS_46`, and `CKV_AWS_45` cover those locations respectively. A live CLI fixture test verifies both the stock findings and the absence of a duplicate `EUGUARD_NIS2_001` finding for these shapes.
 
 ## Files
 
@@ -61,6 +61,6 @@ These are **intentional public test fixtures** from AWS documentation examples, 
 
 ## Maintenance
 
-Do not edit these files to "fix" vulnerabilities — their purpose is to remain vulnerable for testing. For a **compliant** reference implementation, see `examples/compliant-aws/` instead.
+Do not edit these files to "fix" vulnerabilities, because they exist to stay vulnerable for testing. For a compliant reference implementation, see `examples/compliant-aws/` instead.
 
 Last synchronized: 2026-08-26 from terragoat commit history (git tags in each resource reflect original authorship).

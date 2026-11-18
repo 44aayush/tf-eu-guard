@@ -23,6 +23,7 @@ registries at run time, never hand-typed — see
 ``docs/regulatory-coverage.md`` from this module.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from tf_eu_guard.mapping.requirements import (
@@ -31,7 +32,7 @@ from tf_eu_guard.mapping.requirements import (
     REQUIREMENTS,
     CoverageCategory,
 )
-from tf_eu_guard.models import ComplianceMapping, Framework
+from tf_eu_guard.models import ComplianceMapping, EnrichedFinding, Framework
 
 
 @dataclass(frozen=True)
@@ -122,3 +123,45 @@ def coverage_summary(coverage: list[RequirementCoverage]) -> dict[str, int]:
     for requirement in coverage:
         summary[requirement.category.value] += 1
     return summary
+
+
+@dataclass(frozen=True)
+class RequirementResult:
+    """Evidence counts for one requirement: check results (resource x check)."""
+
+    requirement: RequirementCoverage
+    ran: int
+    passed: int
+    failed: int
+    suppressed: int
+    waived: int = 0
+
+
+def evaluate_requirements(
+    registry: dict[str, ComplianceMapping],
+    passed: Sequence[EnrichedFinding],
+    failed: Sequence[EnrichedFinding],
+    suppressed: Sequence[EnrichedFinding],
+    waived: Sequence[EnrichedFinding] = (),
+) -> list[RequirementResult]:
+    """One row per requirement; each result counts for every requirement its mapping cites.
+
+    Always returns all rows; the CLI filters them by ``--framework``. Articles
+    come from ``registry`` (not the findings), so the in-place ``--framework``
+    filtering of finding objects cannot change the counts.
+    """
+    buckets = (passed, failed, suppressed, waived)
+    counts: dict[tuple[str, str], list[int]] = {}
+    for index, results in enumerate(buckets):
+        for finding in results:
+            mapping = registry.get(finding.check_id)
+            keys = {
+                _article_key(a.framework, a.article) for a in (mapping.articles if mapping else [])
+            }
+            for key in keys:
+                counts.setdefault(key, [0, 0, 0, 0])[index] += 1
+    rows = []
+    for requirement in compute_coverage(registry):
+        p, f, s, w = counts.get((requirement.framework.value, requirement.letter), [0, 0, 0, 0])
+        rows.append(RequirementResult(requirement, p + f + s + w, p, f, s, w))
+    return rows

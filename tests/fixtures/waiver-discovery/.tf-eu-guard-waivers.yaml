@@ -1,0 +1,7 @@
+schema_version: 1
+waivers:
+  - check_id: CKV_AWS_18
+    resource: aws_s3_bucket.logs
+    owner: platform-team
+    reason: Access logs bucket; logging it would recurse.
+    expires: 2099-01-01

@@ -3,15 +3,15 @@
 How a tf-eu-guard scan actually works: what runs, in what order, and
 where the compliance layer sits relative to Checkov. This complements
 [`DECISIONS.md`](DECISIONS.md) (which records *why* the key choices were
-made) — this document is the *how*, and stays descriptive of the code in
-`tf_eu_guard/` rather than aspirational.
+made). This document is the *how*, and describes the code in
+`tf_eu_guard/` as it is.
 
 ## The one-sentence version
 
 tf-eu-guard runs Checkov against your infrastructure code, joins every
 **failed** check to a curated NIS2/GDPR mapping registry entry, and
 renders the enriched findings as developer, security, auditor, JSON, and SARIF
-reports. Checkov detects; the registry and the reports are the product.
+reports. Checkov detects; the registry and the reports are what tf-eu-guard adds.
 
 ## Pipeline
 
@@ -55,7 +55,6 @@ Two entry paths, same output shape:
 read in the same pass and shown by every report as suppressed findings; they do
 not count as active findings. See `tf_eu_guard/reporting/suppressed.py`.)
 
-
 Checkov reports passed *and* failed checks; only failures become
 findings. Each finding carries the identity the registry joins on:
 `check_id`, resource address, file path, and line range. Plan-mode
@@ -66,17 +65,17 @@ detect this and omit the line reference rather than printing a bogus
 ### 3. Load the registry — `tf_eu_guard/mapping/loader.py`
 
 All `registry-*.yaml` files in `tf_eu_guard/mapping/` (AWS, Azure, GCP,
-Kubernetes — split by check-ID namespace, merged at runtime) are
+Kubernetes, split by check-ID namespace and merged at runtime) are
 glob-loaded. The four expected namespace files must all be present and
 non-empty; missing or empty registry data raises `RegistryValidationError`.
 Every entry is schema-validated on load (required fields,
-severity/framework enums, duplicate-key guard); the CLI exits 3 — the
-registry ships with the tool, so this is a runtime failure, not your
-invocation's fault.
+severity/framework enums, duplicate-key guard); the CLI exits 3. The
+registry ships with the tool, so this is a runtime failure, not a mistake in your
+invocation.
 
 ### 4. Enrich and split — `split_findings()`
 
-The join step, and the one that decides what the tool is: findings with
+This is the join step. Findings with
 a registry mapping get severity (authored in the registry — Checkov
 emits `severity: null` for most checks), the NIS2/GDPR article
 citations, a risk explanation, and copy-paste remediation. Findings
@@ -84,7 +83,7 @@ with no mapping go to a separate *unmapped* list. HTML and terminal reports
 surface its count, JSON writes the count to stderr, and SARIF retains the
 Checkov identity/resource/location with `properties.mapped: false` but no
 registry-authored severity, articles, or remediation. Unmapped findings never
-gate a build — visibility without false authority (see
+gate a build: they stay visible without claiming regulatory authority (see
 [`limitations.md`](limitations.md)).
 
 ### 5. Filter — `--framework nis2|gdpr`
@@ -110,8 +109,8 @@ contract.
 active findings meet the threshold; `--fail-on-suppressed` sets it when any
 mapped finding was suppressed by an inline Checkov comment. The other exit codes are documented in the
 README's CI/CD Gating section: 0 clean, 1 findings, 2 invalid
-input/configuration, 3 scanner/runtime failure — so a pipeline can fail
-the build on findings while paging someone different when the tool
+input/configuration, 3 scanner/runtime failure. A pipeline can then fail
+the build on findings and page someone different when the tool
 itself is broken.
 
 ## Module layout
@@ -134,22 +133,22 @@ itself is broken.
 
 ## Checkov as a swappable detection backend
 
-The compliance layer never parses Terraform or Kubernetes directly —
-step 1 is the *only* place Checkov is invoked, and steps 2–7 operate on
-its JSON. That boundary is what makes the backend swappable:
+The compliance layer never parses Terraform or Kubernetes directly.
+Step 1 is the only place Checkov is invoked, and steps 2–7 operate on
+its JSON, so the backend can be swapped:
 
 - The registry keys on Checkov's check IDs, so a different detection
-  engine would mean new IDs and a registry remap — not a new pipeline.
+  engine would need new IDs and a registry remap, but not a new pipeline.
 - `--checkov-json` already exercises the seam: it feeds step 2 from
-  Checkov output produced outside this process, proving steps 3–7 work
+  Checkov output produced outside this process, so steps 3–7 already run
   on raw JSON without Checkov present.
 - Custom `EUGUARD_*` checks load *through* Checkov's external-check
-  mechanism rather than a parallel scanner, so even tool-specific
+  mechanism rather than a parallel scanner, so tool-specific
   detection keeps a single result shape.
 
-The cost of the pin: the Checkov version in `pyproject.toml` is held fixed so registry IDs
+The cost of the pin is that the Checkov version in `pyproject.toml` is held fixed so registry IDs
 reproduce scan-to-scan. A backend upgrade is therefore a deliberate,
-registry-reviewed event, not a floating dependency.
+registry-reviewed change.
 
 ### Source-root symlink boundary
 
@@ -169,5 +168,4 @@ check_doc_counts.py` for raw counts, `tools/generate_coverage_doc.py`
 for the requirement-level classification (`docs/
 regulatory-coverage.md`). Both run in CI with drift checks, the same
 way the smoke baselines in `tools/smoke_baselines.json` pin expected
-finding counts per example. Hand-typed numbers drift; generated ones
-are checked.
+finding counts per example.
