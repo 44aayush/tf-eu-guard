@@ -325,10 +325,6 @@ exit 0
 
 def _run_action(tmp_path, bash, **extra):
     """Run the real scan script with a stub `docker` first on PATH."""
-    if sys.platform == "win32":
-        # The scan script targets Linux runners only (Linux Docker); Git Bash on
-        # Windows mangles the -c script, ':'-joined PATH, drive paths and symlinks.
-        pytest.skip("action scan script runs only on Linux runners")
     ws = tmp_path / "ws"
     ws.mkdir(exist_ok=True)
     stub_dir = tmp_path / "bin"
@@ -375,6 +371,10 @@ needs_gnu_cp = pytest.mark.skipif(
 
 
 def _bash_or_skip() -> str:
+    if sys.platform == "win32":
+        # The scan script targets Linux runners only (Linux Docker); Git Bash on
+        # Windows mangles the -c script, ':'-joined PATH, drive paths and symlinks.
+        pytest.skip("action scan script runs only on Linux runners")
     bash = _find_bash()
     if bash is None:
         pytest.skip("bash not available")
