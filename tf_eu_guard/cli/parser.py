@@ -3,8 +3,10 @@
 import argparse
 import math
 from pathlib import Path
+from typing import Any
 
 from tf_eu_guard import __version__
+from tf_eu_guard.config import find_config, load_config
 from tf_eu_guard.constants import (
     DEFAULT_CHECKOV_TIMEOUT,
     FRAMEWORK_FILTERS,
@@ -90,7 +92,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="Report format (default: dev). 'all' writes the dev, security and "
         "auditor HTML files together (see --output-dir). 'sarif' writes a "
         "SARIF 2.1.0 document (GitHub Code Scanning format) to stdout, or "
-        "to --output-file when given.",
+        "to --output-file when given. 'markdown' writes a summary and 'csv' one "
+        "row per finding and article, to stdout or --output-file.",
+    )
+    parser.add_argument(
+        "--summary-file",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Also write the Markdown summary here, whatever --output is "
+        "(UTF-8; parent directory created).",
+    )
+    parser.add_argument(
+        "--counts-file",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Also write key=value counts (critical, high, medium, low, info, "
+        "unmapped, suppressed, waived, baselined, total), one per line in "
+        "GitHub $GITHUB_OUTPUT format.",
+    )
+    parser.add_argument(
+        "--evidence-dir",
+        type=Path,
+        default=None,
+        metavar="DIR",
+        help="Also write an evidence bundle to DIR (must not exist or be empty): "
+        "dev.html, security.html, auditor.html, report.json (object format), "
+        "report.sarif, summary.md and manifest.json (provenance plus a SHA-256 "
+        "per file). Independent of --output.",
     )
     parser.add_argument(
         "--framework",
@@ -146,7 +176,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         metavar="FILE",
-        help="For --output security|auditor|sarif|json, write the single report "
+        help="For --output security|auditor|sarif|json|markdown|csv, write the single report "
         "here (UTF-8; HTML defaults to reports/scan_report_<timestamp>.html or "
         "reports/auditor_report_<timestamp>.html; sarif and json: stdout by "
         "default). Ignored for dev and all.",
@@ -198,6 +228,89 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
+        "--var-file",
+        dest="var_files",
+        action="append",
+        type=Path,
+        default=[],
+        metavar="FILE",
+        help="Terraform variable definitions file passed to Checkov (repeatable, in "
+        "order), so values such as a provider region set through var.* resolve. "
+        "Only valid with --iac-type terraform; a missing file exits 2.",
+    )
+    parser.add_argument(
+        "--download-external-modules",
+        action="store_true",
+        help="Let Checkov download registry and Git modules so their resources are "
+        "evaluated. Needs network access and fetches third-party code (it does not "
+        "work in the GitHub Action, which runs with --network none). Only valid "
+        "with --iac-type terraform.",
+    )
+    parser.add_argument(
+        "--secrets",
+        action="store_true",
+        help="Also run Checkov's secrets framework (hard-coded credentials, CKV_SECRET_*). "
+        "Findings are reported by location only; secret values never appear in any report. "
+        "With --checkov-json, a secrets element in the file is merged in.",
+    )
+    parser.add_argument(
+        "--registry-dir",
+        dest="registry_dirs",
+        action="append",
+        type=Path,
+        default=[],
+        metavar="DIR",
+        help="Overlay registry directory (repeatable). Every *.yaml file in it is "
+        "merged over the bundled registry, sorted by name; later definitions win "
+        "per check ID. Overlays may add checks or override bundled severity, "
+        "articles and text; each loaded file is reported on stderr.",
+    )
+    parser.add_argument(
+        "--waivers",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Reviewed waiver file (YAML). Waived mapped findings leave the gate but "
+        "stay listed in every report with owner, reason and expiry; expired waivers "
+        "are ignored with a warning. Default: .tf-eu-guard-waivers.yaml in the scan "
+        "root (source scans only; not used with --checkov-json). See docs/waivers.md.",
+    )
+    parser.add_argument(
+        "--baseline",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Previous JSON report (object or array format). Active mapped findings "
+        "already in it (same check, resource and file; line numbers ignored) are "
+        "reported as 'Known (in baseline)' and do not trip --fail-on-severity / "
+        "--fail-on-any, so only new findings fail CI. Valid with --checkov-json. "
+        "Compare two reports with 'tf-eu-guard diff OLD.json NEW.json'.",
+    )
+    parser.add_argument(
+        "--changed-since",
+        default=None,
+        metavar="REF",
+        help="Report only findings in files changed since the Git ref REF (committed "
+        "REF...HEAD and staged changes; unstaged and untracked changes are not included), "
+        "e.g. origin/main. Findings in other files are hidden and counted on stderr and "
+        "in the scan settings; the requirement matrix still reflects every check "
+        "evaluated. Not valid with --checkov-json or --iac-type terraform_plan.",
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Project configuration file (YAML). Default: .tf-eu-guard.yaml in the scan "
+        "root (not searched with --checkov-json). CLI flags override it; list keys "
+        "(exclude, registry_dirs, var_files) are concatenated. See docs/configuration.md.",
+    )
+    parser.add_argument(
+        "--no-config",
+        action="store_true",
+        help="Ignore any project configuration file, discovered or given with --config.",
+    )
+    parser.add_argument(
         "--fail-on-severity",
         type=fail_on_severity_arg,
         default=None,
@@ -230,4 +343,44 @@ def build_parser() -> argparse.ArgumentParser:
         "--fail-on-severity / --fail-on-any. Honors --framework. Unmapped "
         "suppressed checks are reported but do not trip this gate.",
     )
+    parser.add_argument(
+        "--show-unmapped",
+        action="store_true",
+        help="List unmapped Checkov findings (check ID, name, resource, file, "
+        "lines) in the dev terminal report and the dev, security and auditor "
+        "HTML reports instead of only counting them. JSON (object format) and "
+        "SARIF always include them.",
+    )
+    parser.add_argument(
+        "--fail-on-unmapped",
+        action="store_true",
+        help="Exit with code 1 if any active (not inline-suppressed) unmapped "
+        "Checkov finding exists. Unmapped findings otherwise never trip the gate.",
+    )
     return parser
+
+
+def apply_config(
+    parser: argparse.ArgumentParser, argv: list[str] | None = None
+) -> dict[str, list[Any]]:
+    """Load the project config and install it as parser defaults (CLI still wins).
+
+    Returns the list-valued settings, which the caller prepends to the CLI's own
+    lists after the real parse. ``config_path`` and ``severity_overrides`` become
+    attributes of the parsed namespace.
+    """
+    known, _ = parser.parse_known_args(argv)
+    parser.set_defaults(config_path=None, severity_overrides={})
+    if known.command != "scan" or known.no_config:
+        return {}
+    path = known.config
+    if path is None and not known.checkov_json:
+        path = find_config(known.path or Path("."))
+    if path is None:
+        return {}
+    values = load_config(path)
+    lists: dict[str, list[Any]] = {
+        k: values.pop(k) for k in ("exclude", "registry_dirs", "var_files") if k in values
+    }
+    parser.set_defaults(config_path=path, **values)
+    return lists

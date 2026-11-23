@@ -1,16 +1,16 @@
 # Regulatory Coverage — NIS2 Art. 21(2) & GDPR Art. 32(1)/44
 
-> **Generated file** — rendered by `tools/generate_coverage_doc.py` from the mapping registries and the requirement inventory in `tf_eu_guard/mapping/coverage.py`. Do not edit by hand; CI (via `--check`) fails if this file drifts from the registries.
+> Generated file. `tools/generate_coverage_doc.py` renders it from the mapping registries and the requirement inventory in `tf_eu_guard/mapping/coverage.py`. Do not edit it by hand; CI (via `--check`) fails if it drifts from the registries.
 
-Coverage here is classified **by requirement, not by mapped-check count**. Every unaddressed requirement otherwise looks identical — silently absent — to a covered one. Five categories:
+Coverage is classified per requirement, not by mapped-check count. Counting checks would make a requirement with no checks look the same as one that was never considered. Each requirement falls into one of five categories:
 
-- ✅ **Automated** — The tool can directly evaluate this from IaC input today.
-- ◐ **Partial** — The technical config provides evidence for only part of the requirement; the rest needs non-IaC evidence.
-- 🧾 **Process evidence** — No resource check evidences it directly. Running the tool repeatably (for example in CI) produces records an assessment process can cite, but that is evidence of process, not an evaluated control.
-- 👤 **Manual** — Needs non-IaC evidence (policy, governance, staff training, incident-response process) that Terraform/Kubernetes manifests structurally can never show. Listed here so it is visibly *not ignored* — an explicit 'we cannot see this' is more credible than silence.
-- ❌ **Not covered** — No current mapping.
+- ✅ **Automated**: The tool can directly evaluate this from IaC input today.
+- ◐ **Partial**: The technical config provides evidence for only part of the requirement; the rest needs non-IaC evidence.
+- 🧾 **Process evidence**: No resource check evidences it directly. Running the tool repeatably (for example in CI) produces records an assessment process can cite, but that is evidence of process, not an evaluated control.
+- 👤 **Manual**: Needs non-IaC evidence (policy, governance, staff training, incident-response process) that Terraform/Kubernetes manifests structurally can never show. It is listed so that the gap is stated explicitly instead of left out.
+- ❌ **Not covered**: No current mapping.
 
-**Summary: 15 requirements inventoried — 12 partial · 2 process evidence · 1 manual.**
+**Summary: 15 requirements inventoried: 12 partial · 2 process evidence · 1 manual.**
 
 ## NIS2 — Directive (EU) 2022/2555, Art. 21(2)
 
@@ -20,7 +20,7 @@ Coverage here is classified **by requirement, not by mapped-check count**. Every
 | **Art. 21(2)(b)** — Incident handling | ◐ **Partial** | **44** |
 | **Art. 21(2)(c)** — Business continuity, backup management and disaster recovery | ◐ **Partial** | **36** |
 | **Art. 21(2)(d)** — Supply chain security | ◐ **Partial** | **8** |
-| **Art. 21(2)(e)** — Security in network and information systems acquisition, development and maintenance | ◐ **Partial** | **26** |
+| **Art. 21(2)(e)** — Security in network and information systems acquisition, development and maintenance | ◐ **Partial** | **45** |
 | **Art. 21(2)(f)** — Policies and procedures to assess the effectiveness of risk-management measures | 🧾 **Process evidence** | — |
 | **Art. 21(2)(g)** — Basic cyber hygiene practices and cybersecurity training | ◐ **Partial** | **14** |
 | **Art. 21(2)(h)** — Policies and procedures on the use of cryptography and encryption | ◐ **Partial** | **49** |
@@ -31,7 +31,7 @@ Coverage here is classified **by requirement, not by mapped-check count**. Every
 
 👤 **Manual**
 
-Risk analysis is an organisational process (registering risks, weighing likelihood and impact, documenting decisions). Terraform/Kubernetes manifests structurally cannot show it — it requires non-IaC evidence such as a risk register and management sign-off.
+Risk analysis is an organisational process (registering risks, weighing likelihood and impact, documenting decisions). Terraform/Kubernetes manifests structurally cannot show it. It requires non-IaC evidence such as a risk register and management sign-off.
 
 ### NIS2 Art. 21(2)(b) — Incident handling
 
@@ -63,7 +63,7 @@ Mapped checks (8): `CKV_AZURE_103`, `CKV_AZURE_50`, `CKV_GCP_22`, `CKV_GCP_68`, 
 
 No hardcoded secrets, up-to-date versions and secure defaults are evaluable. SDLC process, dependency/vulnerability management and disclosure handling are not.
 
-Mapped checks (26): `CKV2_AWS_32`, `CKV2_AWS_57`, `CKV_AWS_131`, `CKV_AWS_163`, `CKV_AWS_226`, `CKV_AWS_272`, `CKV_AWS_305`, `CKV_AWS_316`, `CKV_AWS_328`, `CKV_AWS_332`, `CKV_AWS_336`, `CKV_AWS_363`, `CKV_AWS_41`, `CKV_AWS_45`, `CKV_AWS_46`, `CKV_AWS_51`, `CKV_AZURE_45`, `CKV_AZURE_82`, `CKV_GCP_10`, `CKV_K8S_22`, `CKV_K8S_29`, `CKV_K8S_31`, `CKV_K8S_35`, `EUGUARD_NIS2_001`, `EUGUARD_NIS2_002`, `EUGUARD_NIS2_003`.
+Mapped checks (45): `CKV2_AWS_32`, `CKV2_AWS_57`, `CKV_AWS_131`, `CKV_AWS_163`, `CKV_AWS_226`, `CKV_AWS_272`, `CKV_AWS_305`, `CKV_AWS_316`, `CKV_AWS_328`, `CKV_AWS_332`, `CKV_AWS_336`, `CKV_AWS_363`, `CKV_AWS_41`, `CKV_AWS_45`, `CKV_AWS_46`, `CKV_AWS_51`, `CKV_AZURE_45`, `CKV_AZURE_82`, `CKV_GCP_10`, `CKV_K8S_22`, `CKV_K8S_29`, `CKV_K8S_31`, `CKV_K8S_35`, `CKV_SECRET_1`, `CKV_SECRET_10`, `CKV_SECRET_11`, `CKV_SECRET_12`, `CKV_SECRET_13`, `CKV_SECRET_14`, `CKV_SECRET_15`, `CKV_SECRET_16`, `CKV_SECRET_17`, `CKV_SECRET_18`, `CKV_SECRET_19`, `CKV_SECRET_2`, `CKV_SECRET_3`, `CKV_SECRET_4`, `CKV_SECRET_5`, `CKV_SECRET_6`, `CKV_SECRET_7`, `CKV_SECRET_8`, `CKV_SECRET_9`, `EUGUARD_NIS2_001`, `EUGUARD_NIS2_002`, `EUGUARD_NIS2_003`.
 
 ### NIS2 Art. 21(2)(f) — Policies and procedures to assess the effectiveness of risk-management measures
 
@@ -108,7 +108,7 @@ Mapped checks (4): `CKV2_AWS_51`, `CKV_AZURE_17`, `CKV_AZURE_49`, `CKV_GCP_13`.
 | Requirement | Coverage | Mapped checks |
 |-------------|----------|---------------|
 | **Art. 32(1)(a)** — Pseudonymisation and encryption of personal data | ◐ **Partial** | **48** |
-| **Art. 32(1)(b)** — Confidentiality, integrity, availability and resilience of processing systems | ◐ **Partial** | **122** |
+| **Art. 32(1)(b)** — Confidentiality, integrity, availability and resilience of processing systems | ◐ **Partial** | **141** |
 | **Art. 32(1)(c)** — Ability to restore availability and access to personal data in a timely manner | ◐ **Partial** | **20** |
 | **Art. 32(1)(d)** — Regularly testing, assessing and evaluating effectiveness | 🧾 **Process evidence** | **2** |
 | **Art. 44** — General principle for transfers of personal data to third countries | ◐ **Partial** | **2** |
@@ -127,13 +127,13 @@ Mapped checks (48): `CKV2_AWS_2`, `CKV2_AWS_20`, `CKV2_AWS_42`, `CKV2_AWS_69`, `
 
 Broadly covered: access control, network isolation, logging, encryption and resilience settings are evaluable. Overall CIA also depends on runtime posture no static manifest shows.
 
-Mapped checks (122): `CKV2_AWS_28`, `CKV2_AWS_29`, `CKV2_AWS_30`, `CKV2_AWS_31`, `CKV2_AWS_32`, `CKV2_AWS_40`, `CKV2_AWS_47`, `CKV2_AWS_51`, `CKV2_AWS_52`, `CKV2_AWS_57`, `CKV2_AWS_58`, `CKV2_AWS_6`, `CKV2_AWS_64`, `CKV2_K8S_6`, `CKV_AWS_109`, `CKV_AWS_111`, `CKV_AWS_115`, `CKV_AWS_120`, `CKV_AWS_130`, `CKV_AWS_131`, `CKV_AWS_135`, `CKV_AWS_137`, `CKV_AWS_139`, `CKV_AWS_154`, `CKV_AWS_161`, `CKV_AWS_163`, `CKV_AWS_17`, `CKV_AWS_175`, `CKV_AWS_192`, `CKV_AWS_20`, `CKV_AWS_225`, `CKV_AWS_24`, `CKV_AWS_25`, `CKV_AWS_261`, `CKV_AWS_276`, `CKV_AWS_283`, `CKV_AWS_286`, `CKV_AWS_287`, `CKV_AWS_288`, `CKV_AWS_289`, `CKV_AWS_290`, `CKV_AWS_31`, `CKV_AWS_316`, `CKV_AWS_317`, `CKV_AWS_318`, `CKV_AWS_324`, `CKV_AWS_325`, `CKV_AWS_328`, `CKV_AWS_333`, `CKV_AWS_336`, `CKV_AWS_338`, `CKV_AWS_355`, `CKV_AWS_356`, `CKV_AWS_36`, `CKV_AWS_363`, `CKV_AWS_374`, `CKV_AWS_38`, `CKV_AWS_391`, `CKV_AWS_41`, `CKV_AWS_45`, `CKV_AWS_46`, `CKV_AWS_51`, `CKV_AWS_53`, `CKV_AWS_54`, `CKV_AWS_55`, `CKV_AWS_56`, `CKV_AWS_62`, `CKV_AWS_63`, `CKV_AWS_68`, `CKV_AWS_70`, `CKV_AWS_76`, `CKV_AWS_79`, `CKV_AWS_86`, `CKV_AWS_87`, `CKV_AWS_91`, `CKV_AZURE_11`, `CKV_AZURE_139`, `CKV_AZURE_160`, `CKV_AZURE_17`, `CKV_AZURE_35`, `CKV_AZURE_36`, `CKV_AZURE_37`, `CKV_AZURE_38`, `CKV_AZURE_41`, `CKV_AZURE_45`, `CKV_AZURE_48`, `CKV_AZURE_49`, `CKV_AZURE_50`, `CKV_AZURE_53`, `CKV_AZURE_59`, `CKV_AZURE_66`, `CKV_AZURE_82`, `CKV_GCP_10`, `CKV_GCP_11`, `CKV_GCP_13`, `CKV_GCP_18`, `CKV_GCP_20`, `CKV_GCP_22`, `CKV_GCP_23`, `CKV_GCP_25`, `CKV_GCP_26`, `CKV_GCP_27`, `CKV_GCP_28`, `CKV_GCP_30`, `CKV_GCP_33`, `CKV_GCP_49`, `CKV_GCP_51`, `CKV_GCP_62`, `CKV_GCP_68`, `CKV_GCP_88`, `CKV_K8S_16`, `CKV_K8S_17`, `CKV_K8S_19`, `CKV_K8S_20`, `CKV_K8S_22`, `CKV_K8S_23`, `CKV_K8S_31`, `CKV_K8S_35`, `CKV_K8S_39`, `EUGUARD_NIS2_001`, `EUGUARD_NIS2_002`, `EUGUARD_NIS2_003`.
+Mapped checks (141): `CKV2_AWS_28`, `CKV2_AWS_29`, `CKV2_AWS_30`, `CKV2_AWS_31`, `CKV2_AWS_32`, `CKV2_AWS_40`, `CKV2_AWS_47`, `CKV2_AWS_51`, `CKV2_AWS_52`, `CKV2_AWS_57`, `CKV2_AWS_58`, `CKV2_AWS_6`, `CKV2_AWS_64`, `CKV2_K8S_6`, `CKV_AWS_109`, `CKV_AWS_111`, `CKV_AWS_115`, `CKV_AWS_120`, `CKV_AWS_130`, `CKV_AWS_131`, `CKV_AWS_135`, `CKV_AWS_137`, `CKV_AWS_139`, `CKV_AWS_154`, `CKV_AWS_161`, `CKV_AWS_163`, `CKV_AWS_17`, `CKV_AWS_175`, `CKV_AWS_192`, `CKV_AWS_20`, `CKV_AWS_225`, `CKV_AWS_24`, `CKV_AWS_25`, `CKV_AWS_261`, `CKV_AWS_276`, `CKV_AWS_283`, `CKV_AWS_286`, `CKV_AWS_287`, `CKV_AWS_288`, `CKV_AWS_289`, `CKV_AWS_290`, `CKV_AWS_31`, `CKV_AWS_316`, `CKV_AWS_317`, `CKV_AWS_318`, `CKV_AWS_324`, `CKV_AWS_325`, `CKV_AWS_328`, `CKV_AWS_333`, `CKV_AWS_336`, `CKV_AWS_338`, `CKV_AWS_355`, `CKV_AWS_356`, `CKV_AWS_36`, `CKV_AWS_363`, `CKV_AWS_374`, `CKV_AWS_38`, `CKV_AWS_391`, `CKV_AWS_41`, `CKV_AWS_45`, `CKV_AWS_46`, `CKV_AWS_51`, `CKV_AWS_53`, `CKV_AWS_54`, `CKV_AWS_55`, `CKV_AWS_56`, `CKV_AWS_62`, `CKV_AWS_63`, `CKV_AWS_68`, `CKV_AWS_70`, `CKV_AWS_76`, `CKV_AWS_79`, `CKV_AWS_86`, `CKV_AWS_87`, `CKV_AWS_91`, `CKV_AZURE_11`, `CKV_AZURE_139`, `CKV_AZURE_160`, `CKV_AZURE_17`, `CKV_AZURE_35`, `CKV_AZURE_36`, `CKV_AZURE_37`, `CKV_AZURE_38`, `CKV_AZURE_41`, `CKV_AZURE_45`, `CKV_AZURE_48`, `CKV_AZURE_49`, `CKV_AZURE_50`, `CKV_AZURE_53`, `CKV_AZURE_59`, `CKV_AZURE_66`, `CKV_AZURE_82`, `CKV_GCP_10`, `CKV_GCP_11`, `CKV_GCP_13`, `CKV_GCP_18`, `CKV_GCP_20`, `CKV_GCP_22`, `CKV_GCP_23`, `CKV_GCP_25`, `CKV_GCP_26`, `CKV_GCP_27`, `CKV_GCP_28`, `CKV_GCP_30`, `CKV_GCP_33`, `CKV_GCP_49`, `CKV_GCP_51`, `CKV_GCP_62`, `CKV_GCP_68`, `CKV_GCP_88`, `CKV_K8S_16`, `CKV_K8S_17`, `CKV_K8S_19`, `CKV_K8S_20`, `CKV_K8S_22`, `CKV_K8S_23`, `CKV_K8S_31`, `CKV_K8S_35`, `CKV_K8S_39`, `CKV_SECRET_1`, `CKV_SECRET_10`, `CKV_SECRET_11`, `CKV_SECRET_12`, `CKV_SECRET_13`, `CKV_SECRET_14`, `CKV_SECRET_15`, `CKV_SECRET_16`, `CKV_SECRET_17`, `CKV_SECRET_18`, `CKV_SECRET_19`, `CKV_SECRET_2`, `CKV_SECRET_3`, `CKV_SECRET_4`, `CKV_SECRET_5`, `CKV_SECRET_6`, `CKV_SECRET_7`, `CKV_SECRET_8`, `CKV_SECRET_9`, `EUGUARD_NIS2_001`, `EUGUARD_NIS2_002`, `EUGUARD_NIS2_003`.
 
 ### GDPR Art. 32(1)(c) — Ability to restore availability and access to personal data in a timely manner
 
 ◐ **Partial**
 
-Backup, versioning, multi-AZ and retention — the ability to restore — are evaluable. Whether restores actually happen in a timely manner (tested RTO) is operational evidence, not IaC.
+Backup, versioning, multi-AZ and retention (the ability to restore) are evaluable. Whether restores actually happen in a timely manner (tested RTO) is operational evidence, not IaC.
 
 Mapped checks (20): `CKV2_AWS_50`, `CKV2_AWS_8`, `CKV_AWS_133`, `CKV_AWS_144`, `CKV_AWS_150`, `CKV_AWS_157`, `CKV_AWS_21`, `CKV_AWS_217`, `CKV_AWS_237`, `CKV_AWS_28`, `CKV_AWS_293`, `CKV_AWS_310`, `CKV_AWS_326`, `CKV_AWS_361`, `CKV_AZURE_110`, `CKV_GCP_78`, `CKV_K8S_10`, `CKV_K8S_12`, `CKV_K8S_8`, `CKV_K8S_9`.
 
@@ -149,10 +149,10 @@ Mapped checks (2): `CKV_AZURE_103`, `CKV_AZURE_84`.
 
 ◐ **Partial**
 
-The custom EUGUARD_GDPR_002 and EUGUARD_GDPR_003 checks flag known AWS provider and resource-level regions outside the EU/EEA for Chapter V review. The adequacy/SCC analysis itself is legal, not technical — a third-country signal is a prompt for review, not a violation or definitive legal conclusion.
+The custom EUGUARD_GDPR_002 and EUGUARD_GDPR_003 checks flag known AWS provider and resource-level regions outside the EU/EEA for Chapter V review. The adequacy/SCC analysis itself is legal, not technical. A third-country signal is a prompt for review, not a violation or definitive legal conclusion.
 
 Mapped checks (2): `EUGUARD_GDPR_002`, `EUGUARD_GDPR_003`.
 
 ---
 
-Related: [`docs/nis2-mapping.md`](nis2-mapping.md) and [`docs/gdpr-mapping.md`](gdpr-mapping.md) give the per-check evidence and limitations; [`docs/check-mapping-table.md`](check-mapping-table.md) is the full check-level matrix. Guiding principle: this project is measured by mapping *quality*, tracked honestly here — automated vs. partial vs. manual vs. not covered — not by a single 'N checks mapped' headline number.
+Related: [`docs/nis2-mapping.md`](nis2-mapping.md) and [`docs/gdpr-mapping.md`](gdpr-mapping.md) give the per-check evidence and limitations; [`docs/check-mapping-table.md`](check-mapping-table.md) is the full check-level matrix. This project is judged on mapping quality (automated, partial, manual or not covered), which this page tracks, and not on a single 'N checks mapped' number.

@@ -10,7 +10,7 @@ the repo root on `sys.path` so tests import `tf_eu_guard` without an install.
 
 ## Quick start
 
-One-time environment setup (creates `venv/`, installs the package **and** dev
+One-time environment setup (creates `venv/`, installs the package and dev
 extras, runs an initial Checkov scan):
 
 ```bash

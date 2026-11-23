@@ -3,35 +3,35 @@
 What tf-eu-guard can and cannot tell you, consolidated in one place.
 The same points appear in narrower form throughout
 [`gdpr-mapping.md`](gdpr-mapping.md),
-[`nis2-mapping.md`](nis2-mapping.md) and the reports themselves — this
+[`nis2-mapping.md`](nis2-mapping.md) and the reports themselves. This
 document is where to send anyone who needs the full picture, especially
 an auditor or security reviewer evaluating whether the tool's output
 counts as evidence.
 
 ## Technical evidence, not legal determination
 
-tf-eu-guard verifies **infrastructure configuration**. A clean scan is
-technical evidence that the mapped controls are configured correctly —
-it is not a determination that you are NIS2- or GDPR-compliant. Both
+tf-eu-guard verifies infrastructure configuration. A clean scan is
+technical evidence that the mapped controls are configured correctly,
+but it does not make you NIS2- or GDPR-compliant. Both
 frameworks are judged on organizational measures, processes and
 documentation that no configuration linter can inspect; the
 requirement-level classification in
-[`regulatory-coverage.md`](regulatory-coverage.md) exists precisely so
+[`regulatory-coverage.md`](regulatory-coverage.md) exists so
 this is visible per-requirement rather than implied.
 
 ## Mapping confidence varies by article
 
 Not all mappings carry the same weight:
 
-- **High confidence** — the requirement names the control explicitly
+- **High confidence**: the requirement names the control explicitly
   (e.g. GDPR Art. 32(1)(a) encryption; NIS2 Art. 21(2)(h) cryptography
   and encryption). A finding here is close to a direct citation.
-- **Partial** — the requirement spans technical and organisational
+- **Partial**: the requirement spans technical and organisational
   halves, and only the technical slice is evaluable from IaC (e.g.
   Art. 21(2)(b): logging is visible; alerting, triage and response
   playbooks are not). The mapped checks speak to the slice, and
   passing them says nothing about the other half.
-- **Process-as-evidence** — some requirements are evidenced by *running
+- **Process-as-evidence**: some requirements are evidenced by *running
   this tool* (NIS2 Art. 21(2)(f), GDPR Art. 32(1)(d)): a repeatable,
   timestamped CI assessment. That is one component of the requirement,
   not the whole of it — pen tests, DPIAs and review cadence remain
@@ -75,8 +75,8 @@ are deliberately unmapped (methodology in
 count in terminal/HTML reports and as a stderr count beside JSON; SARIF also
 preserves each unmapped identity, resource, and location with
 `properties.mapped: false` but no registry remediation. They never gate a
-build — but their absence from the compliance view is a statement about *mapping
-coverage*, not about their security relevance. A scan that shows "53
+build. Their absence from the compliance view reflects mapping coverage and says
+nothing about their security relevance. A scan that shows "53
 mapped, 9 unmapped" is reporting 62 real Checkov failures, not 53.
 
 ## Inline suppressions
@@ -110,8 +110,9 @@ reads `skipped_checks` and never lets a suppression disappear:
 What this does not do: it does not verify that a stated reason is true or
 approved, and it does not expire suppressions. Without `--fail-on-suppressed`
 a suppression is visible but does not fail the build; a reviewed waiver file
-with owners and expiry dates is a separate, planned feature (N-01 in
-`NEW_FUNC.md`). Suppressions made outside the scanned code (for example a
+with owners and expiry dates (`--waivers`, see `docs/waivers.md`) is how to
+accept a finding with a recorded justification.
+Suppressions made outside the scanned code (for example a
 `.checkov.yml` skip list) are blocked by the runner, not reported.
 
 ## Network access and platform mode
@@ -157,8 +158,13 @@ module sources", listing each such module call. The module-pinning checks
 `CKV_TF_1` (commit hash) and `CKV_TF_2` (version tag) run on the call itself
 and are mapped to NIS2 Art. 21(2)(d), supply chain security. Scan a
 `terraform show -json` plan (`--iac-type terraform_plan`) to cover module
-contents, because a plan contains the expanded resources. An opt-in module
-download is planned (N-14).
+contents, because a plan contains the expanded resources. Alternatively,
+`--download-external-modules` lets Checkov fetch the modules (Terraform source
+scans only). That needs network access and runs third-party module code through
+the parser, and tf-eu-guard prints a stderr note when it is used. The GitHub
+Action runs with `--network none`, so the flag does not work there. Variables
+set only in a `.tfvars` file are unresolved unless the file is passed with
+`--var-file FILE`.
 
 ## Assumptions worth knowing about
 
@@ -169,11 +175,11 @@ download is planned (N-14).
 - **Severity is authored, not detected.** Checkov 3.4.5 emits
   `severity: null` for most checks, so severities come from the
   registry, weighted by regulatory impact. Two people could defensibly
-  disagree with a given rating — the registry is versioned and
-  reviewable for exactly that reason.
+  disagree with a given rating, which is why the registry is versioned and
+  reviewable.
 - **Checkov 3.4.5 is pinned.** Check IDs (the registry's join keys)
   are stable within that pin; upgrading the backend is a deliberate,
-  registry-reviewed event, not a floating dependency.
+  registry-reviewed event.
 
 ## NIS2 is a directive, not a single rulebook
 
@@ -187,8 +193,17 @@ across the EU, but it is not a per-jurisdiction compliance verdict.
 ## Out of scope entirely
 
 CRA (product lifecycle) and DORA (financial-sector operational
-resilience) — different regulatory targets, not cloud-infrastructure
-configuration checks. GDPR obligations beyond security of processing
+resilience) regulate other things than cloud-infrastructure
+configuration. GDPR obligations beyond security of processing
 (lawful basis Art. 6, data-subject rights Arts. 12–23, records of
 processing Art. 30, DPIA Art. 35) are likewise not evaluable from IaC
 and are not claimed.
+
+## Waivers live in the scanned checkout
+
+A waiver file found in the scanned checkout (`.tf-eu-guard-waivers.yaml`) can be edited
+by whoever can edit the code, so it is a convenience for reviewed acceptances and is not
+tamper-proof. Every waived finding stays listed in the reports so a reviewer can
+see it. In the GitHub Action, use the `trusted-config` input to take settings from a file outside the checkout.
+
+tf-eu-guard runs only `git rev-parse` and `git diff --name-only` (committed/staged), with fsmonitor and hooks disabled, and never runs commands that compare working-tree file contents, because a hostile repo config can attach commands to those. Provenance therefore records the commit but cannot detect uncommitted changes, and `--changed-since` ignores unstaged changes.

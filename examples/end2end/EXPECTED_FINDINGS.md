@@ -1,6 +1,6 @@
 # Expected Findings — Predicted Enrichment
 
-> **Note**: This is a **predicted** list of findings traced from the tf-eu-guard registry against the Terraform files in this directory. It is NOT the output of an actual scan. Line numbers and resource identifiers are illustrative. To see real findings with precise line numbers, run:
+> Note: this is a predicted list of findings traced from the tf-eu-guard registry against the Terraform files in this directory. It is NOT the output of an actual scan. Line numbers and resource identifiers are illustrative. For real findings with exact line numbers, run:
 > ```bash
 > tf-eu-guard scan examples/end2end --output all
 > ```
@@ -208,7 +208,7 @@
 
 ## Additional Service Coverage
 
-The files below exercise registry coverage beyond the core resource set. Every check that fires across this directory is mapped, so a scan produces **zero unmapped findings** (measured: 297 mapped).
+The files below exercise registry coverage beyond the core resource set. Every check that fires across this directory is mapped, so a scan produces zero unmapped findings (measured: 297 mapped).
 
 ### DynamoDB
 
@@ -279,8 +279,8 @@ The files below exercise registry coverage beyond the core resource set. Every c
 **Mapped to**: NIS2 Art. 21(2)(b); GDPR Art. 32(1)(b)
 **Severity**: HIGH
 **Expected instances**: `aws_api_gateway_method_settings.prod`
-**Note**: This is *not* a logging gap — logging is on. Data trace logs full
-request/response bodies, which is the exposure.
+**Note**: Logging is on here. The exposure is that data trace logs full
+request/response bodies.
 
 **CKV_AWS_76** — API Gateway stage does not have access logging enabled
 **Mapped to**: NIS2 Art. 21(2)(b); GDPR Art. 32(1)(b)
@@ -335,8 +335,8 @@ request/response bodies, which is the exposure.
 **Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)
 **Severity**: HIGH
 **Expected instances**: `aws_secretsmanager_secret.db_password`
-**Note**: Cross-references `EUGUARD_NIS2_001` — the value is already stored as a
-literal in `db-app.tf`, so this gap compounds the hardcoded-secret finding.
+**Note**: Related to `EUGUARD_NIS2_001`. The value is already stored as a
+literal in `db-app.tf`, so this gap adds to the hardcoded-secret finding.
 
 **CKV2_AWS_57** — Secrets Manager secret does not have automatic rotation enabled *(graph check)*
 **Mapped to**: NIS2 Art. 21(2)(e); GDPR Art. 32(1)(b)
@@ -638,13 +638,13 @@ finding.
 
 ## Summary
 
-**Predicted total mapped findings**: 290–300 across this directory — roughly 50 from the core resource set (12 IAM, 19 S3, 9 RDS, 11 networking), 34 from the additional service coverage (DynamoDB, CloudFront, API Gateway, SNS, Secrets Manager, and Application Load Balancer), 16 from CloudTrail, CodeBuild, and ECS, and 26 from ElastiCache, Aurora, Redshift, and WAFv2. Every check that fires in this directory is mapped, so a scan produces **zero unmapped findings** (measured: 297 mapped).
+Predicted total mapped findings: 290–300 across this directory — roughly 50 from the core resource set (12 IAM, 19 S3, 9 RDS, 11 networking), 34 from the additional service coverage (DynamoDB, CloudFront, API Gateway, SNS, Secrets Manager, and Application Load Balancer), 16 from CloudTrail, CodeBuild, and ECS, and 26 from ElastiCache, Aurora, Redshift, and WAFv2. Every check that fires in this directory is mapped, so a scan produces zero unmapped findings (measured: 297 mapped).
 
-The actual scan will produce:
-1. **`--output dev`**: Terminal rich-table grouped by severity
-2. **`--output json`**: Machine-readable findings array
-3. **`--output security`**: HTML dashboard with severity breakdown
-4. **`--output auditor`**: HTML article-by-article view (NIS2 21(2) and GDPR 32/44 sections)
-5. **`--output all`**: Writes all three HTML reports
+A real scan produces:
+1. `--output dev`: terminal rich-table grouped by severity
+2. `--output json`: machine-readable findings array
+3. `--output security`: HTML dashboard with severity breakdown
+4. `--output auditor`: HTML article-by-article view (NIS2 21(2) and GDPR 32/44 sections)
+5. `--output all`: writes all three HTML reports
 
-Run the scan to generate real findings with precise line numbers, resource names, and remediation guidance.
+The real scan adds exact line numbers, resource names and remediation guidance.

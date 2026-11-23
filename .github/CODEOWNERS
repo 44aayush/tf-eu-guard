@@ -5,6 +5,7 @@
 /tf_eu_guard/mapping/registry-azure.yaml    @44aayush
 /tf_eu_guard/mapping/registry-gcp.yaml      @44aayush
 /tf_eu_guard/mapping/registry-kubernetes.yaml @44aayush
+/tf_eu_guard/mapping/registry-secrets.yaml   @44aayush
 /docs/nis2-mapping.md                       @44aayush
 /docs/gdpr-mapping.md                       @44aayush
 # Supply chain: workflows, the Action, the container image and the locks.

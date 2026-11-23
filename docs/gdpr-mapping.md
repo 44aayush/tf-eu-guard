@@ -41,7 +41,7 @@ data at rest is protected by managed-key encryption.
 
 **Limitations**: Covers encryption at rest for the primary data stores only. Does not
 cover pseudonymisation (an application-layer design choice), encryption in transit,
-or key-management governance. This pairs with **NIS2 Art. 21(2)(h)** — the same
+or key-management governance. This pairs with **NIS2 Art. 21(2)(h)**; the same
 checks satisfy both frameworks.
 
 ---
@@ -68,8 +68,8 @@ personal data (the *confidentiality* limb, primarily):
 | CKV_AWS_286 | IAM policy does not allow privilege escalation |
 | CKV_AWS_62 | No `*:*` full-admin IAM policy |
 
-**Evidence**: Each finding is a concrete confidentiality risk — a way personal data
-could be read by an unauthorised party — with a file/line reference for remediation.
+**Evidence**: Each finding is a concrete confidentiality risk, a way personal data
+could be read by an unauthorised party, with a file/line reference for remediation.
 
 **Limitations**: The *availability* and *resilience* limbs of (b) overlap with (c)
 below; here we map (b) mainly to the confidentiality controls. Network-layer controls
@@ -94,7 +94,7 @@ below; here we map (b) mainly to the confidentiality controls. Network-layer con
 **Evidence**: Backups and versioning provide the restore points (c) demands;
 deletion protection prevents a single action from destroying the ability to restore.
 
-**Limitations**: "In a timely manner" implies tested restores meeting an RTO — the
+**Limitations**: "In a timely manner" implies tested restores meeting an RTO. The
 checks confirm backups *exist*, not that restore *works within target time*. Pairs
 with **NIS2 Art. 21(2)(c)**.
 
@@ -106,8 +106,8 @@ with **NIS2 Art. 21(2)(c)**.
 > "a process for regularly testing, assessing and evaluating the effectiveness of
 > technical and organisational measures for ensuring the security of the processing"
 
-**Infrastructure controls**: No single resource check maps here. Instead, **running
-tf-eu-guard in CI is itself (d) evidence** — it is a repeatable, automated process
+**Infrastructure controls**: No single resource check maps here. Instead, running
+tf-eu-guard in CI is itself (d) evidence. It is a repeatable, automated process
 that regularly assesses the effectiveness of the technical measures above and
 produces a timestamped audit trail on every change. This mirrors NIS2 Art. 21(2)(f).
 
@@ -120,7 +120,7 @@ replace penetration testing, DPIAs, or periodic organisational review.
 
 **Legal requirement** (Art. 44, paraphrased):
 > Any transfer of personal data to a third country (outside the EU/EEA) may take
-> place only subject to the conditions of Chapter V (Art. 44–49) — an adequacy
+> place only subject to the conditions of Chapter V (Art. 44–49): an adequacy
 > decision, appropriate safeguards such as Standard Contractual Clauses or Binding
 > Corporate Rules, or a specific derogation. Recital 83 additionally ties security
 > measures to the risks of processing.
@@ -177,8 +177,8 @@ a DynamoDB replica in `us-east-1` therefore produces the policy finding and a
 hedged Art. 44 review signal for the table.
 
 **Why Art. 44, not Art. 32**: a known third-country transfer review is a
-*lawful-transfer* question (Chapter V), not a *security-of-processing* control
-(Art. 32). Mapping only `EUGUARD_GDPR_002` / `EUGUARD_GDPR_003` to Art. 44 keeps the legal citation
+*lawful-transfer* question (Chapter V) and falls outside the *security-of-processing* controls
+of Art. 32. Mapping only `EUGUARD_GDPR_002` / `EUGUARD_GDPR_003` to Art. 44 keeps the legal citation
 honest: `EUGUARD_POLICY_001` / `_002` enforce a separate policy that can be *stricter* than the Art. 44
 baseline (under `eusc`, which rejects commercial EU/EEA regions), so such a finding is
 a policy deviation, not a legal violation. The Art. 44 finding is likewise a
@@ -186,7 +186,7 @@ review signal, not a definitive conclusion about whether a transfer occurs or
 which Chapter V mechanism applies.
 
 **Limitations**: Region of deployment is a strong signal but not dispositive of a
-lawful transfer analysis — adequacy decisions, SCCs, and BCRs can permit transfers to
+lawful transfer analysis, because adequacy decisions, SCCs, and BCRs can permit transfers to
 non-EU regions. The check flags out-of-policy regions for review; it does not adjudicate
 legality, and it cannot see transfers made by application code or downstream services.
 

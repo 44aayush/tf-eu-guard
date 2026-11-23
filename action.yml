@@ -77,11 +77,61 @@ inputs:
     description: 'Optional container image to run instead of the default ghcr.io/44aayush/tf-eu-guard:<action ref>. Pin by digest for a verifiable supply chain (ghcr.io/44aayush/tf-eu-guard@sha256:...). When set, a failed pull fails the step; there is no fallback to a local build'
     required: false
     default: ''
+  config:
+    description: 'Workspace-relative path to a tf-eu-guard config file, passed as --config. It lives in the scanned checkout, so a pull request can change it; use trusted-config to prevent that. Cannot be combined with trusted-config'
+    required: false
+    default: ''
+  trusted-config:
+    description: 'Absolute path, outside the scanned checkout and the workspace (resolved with readlink -f), to a config file, for example a copy of the base-branch config in RUNNER_TEMP. It is mounted read-only and passed as --config, so a .tf-eu-guard.yaml or .tf-eu-guard-waivers.yaml in the scanned code is ignored. Keep it self-contained (inline settings and severity_overrides): only this file is mounted, at /trusted/config.yaml, so any file it references (waivers, registry_dirs, var_files) must be in the workspace and is controlled by the pull request. Inline checkov:skip comments in the pull request still remove findings from the gate unless fail-on-suppressed is set. Cannot be combined with config'
+    required: false
+    default: ''
+  waivers:
+    description: 'Workspace-relative path to a waivers file, passed as --waivers'
+    required: false
+    default: ''
+  baseline:
+    description: 'Workspace-relative path to a baseline file, passed as --baseline'
+    required: false
+    default: ''
+  job-summary:
+    description: 'Append a Markdown summary of the scan to the job summary (true, 1 or yes, any case)'
+    required: false
+    default: 'true'
 
 outputs:
   exit-code:
     description: 'Exit code returned by the tf-eu-guard scan (0, 1, 2, or 3)'
     value: ${{ steps.scan.outputs.exit-code }}
+  critical:
+    description: 'Number of critical findings (critical)'
+    value: ${{ steps.scan.outputs.critical }}
+  high:
+    description: 'Number of high findings (high)'
+    value: ${{ steps.scan.outputs.high }}
+  medium:
+    description: 'Number of medium findings (medium)'
+    value: ${{ steps.scan.outputs.medium }}
+  low:
+    description: 'Number of low findings (low)'
+    value: ${{ steps.scan.outputs.low }}
+  info:
+    description: 'Number of info findings (info)'
+    value: ${{ steps.scan.outputs.info }}
+  unmapped:
+    description: 'Number of unmapped findings (unmapped)'
+    value: ${{ steps.scan.outputs.unmapped }}
+  suppressed:
+    description: 'Number of suppressed findings (suppressed)'
+    value: ${{ steps.scan.outputs.suppressed }}
+  waived:
+    description: 'Number of waived findings (waived)'
+    value: ${{ steps.scan.outputs.waived }}
+  baselined:
+    description: 'Number of baselined findings (baselined)'
+    value: ${{ steps.scan.outputs.baselined }}
+  total:
+    description: 'Number of total findings (all findings)'
+    value: ${{ steps.scan.outputs.total }}
 
 runs:
   using: 'composite'
@@ -106,6 +156,11 @@ runs:
         INPUT_TIMEOUT: ${{ inputs.timeout }}
         INPUT_UPLOAD_REPORTS: ${{ inputs.upload-reports }}
         INPUT_UPLOAD_SARIF: ${{ inputs.upload-sarif }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_TRUSTED_CONFIG: ${{ inputs.trusted-config }}
+        INPUT_WAIVERS: ${{ inputs.waivers }}
+        INPUT_BASELINE: ${{ inputs.baseline }}
+        INPUT_JOB_SUMMARY: ${{ inputs.job-summary }}
         ACTION_PATH: ${{ github.action_path }}
         ACTION_REF: ${{ github.action_ref }}
         RUNNER_TEMP_DIR: ${{ runner.temp }}
@@ -119,21 +174,18 @@ runs:
             *) return 1 ;;
           esac
         }
-        # Normalised values for the upload steps' `if:` conditions. Written
-        # first so they exist even when the scan fails.
-        if is_true "$INPUT_UPLOAD_REPORTS"; then
-          echo "upload-reports=true" >> "$GITHUB_OUTPUT"
-        else
-          echo "upload-reports=false" >> "$GITHUB_OUTPUT"
-        fi
-        if is_true "$INPUT_UPLOAD_SARIF"; then
-          echo "upload-sarif=true" >> "$GITHUB_OUTPUT"
-        else
-          echo "upload-sarif=false" >> "$GITHUB_OUTPUT"
-        fi
+        # Normalised values for the upload steps' `if:` conditions. Both start
+        # false so every early exit leaves uploads disabled; the real values
+        # are written after the scan, once the upload targets are checked.
+        echo "upload-reports=false" >> "$GITHUB_OUTPUT"
+        echo "upload-sarif=false" >> "$GITHUB_OUTPUT"
+        upload_reports=false
+        upload_sarif=false
+        if is_true "$INPUT_UPLOAD_REPORTS"; then upload_reports=true; fi
+        if is_true "$INPUT_UPLOAD_SARIF"; then upload_sarif=true; fi
 
         # Prefer the release image published to GHCR by release-image.yml
-        # (tagged with the action ref, e.g. v0.8.1). If the pull fails (ref is
+        # (tagged with the action ref, e.g. v0.9.0). If the pull fails (ref is
         # a branch or SHA, image not published yet, registry unreachable) fall
         # back to building the image from the action's own source. An explicit
         # `image` input (for example a @sha256 digest) never falls back.
@@ -157,6 +209,18 @@ runs:
           fi
         fi
 
+        # Refusal: also disable the always() upload steps so a symlink target
+        # is never published.
+        refuse_symlink() {
+          echo "upload-reports=false" >> "$GITHUB_OUTPUT"
+          echo "upload-sarif=false" >> "$GITHUB_OUTPUT"
+          echo "exit-code=2" >> "$GITHUB_OUTPUT"
+          # Encode like @actions/core so a newline in the name cannot start a command.
+          msg=${1//'%'/%25}; msg=${msg//$'\r'/%0D}; msg=${msg//$'\n'/%0A}
+          echo "::error::refusing to copy reports through a symlink in the workspace: $msg"
+          exit 2
+        }
+
         # Writable output area. The workspace is mounted read-only (the scanned
         # code is untrusted); every report is written under /out and copied
         # back into the workspace after the scan, so later steps (artifact and
@@ -174,12 +238,20 @@ runs:
           value="${value#/workspace/}"
           case "$value" in
             /*|..|../*|*/..|*/../*)
-              echo "::error::output paths must be inside the workspace and must not contain '..': $1" >&2
+              echo "::error::paths must be inside the workspace and must not contain '..': $1" >&2
               exit 2
               ;;
           esac
           value="${value#./}"
           printf '/out/%s' "$value"
+        }
+
+        # Same validation for inputs that read from the (read-only) workspace
+        # mount: map to the host path, which is also the container path.
+        ws_rel() {
+          local value
+          value="$(out_rel "$1")" || exit 2
+          printf '%s/%s' "$GITHUB_WORKSPACE" "${value#/out/}"
         }
 
         args=()
@@ -221,6 +293,58 @@ runs:
         fi
         out_dir_path="$(out_rel "$output_dir")" || exit 2
         args+=(--output-dir "$out_dir_path")
+        # Machine-readable summary and counts go to a scratch dir under /out.
+        args+=(
+          --summary-file /out/.tf-eu-guard/summary.md
+          --counts-file /out/.tf-eu-guard/counts.txt
+        )
+        mounts=()
+        if [ -n "$INPUT_CONFIG" ] && [ -n "$INPUT_TRUSTED_CONFIG" ]; then
+          echo "::error::set only one of config and trusted-config" >&2
+          exit 2
+        fi
+        if [ -n "$INPUT_CONFIG" ]; then
+          config_path="$(ws_rel "$INPUT_CONFIG")" || exit 2
+          args+=(--config "$config_path")
+        fi
+        if [ -n "$INPUT_TRUSTED_CONFIG" ]; then
+          case "$INPUT_TRUSTED_CONFIG" in
+            /*:*|*,*) trusted_ok=false ;;
+            /*) trusted_ok=true ;;
+            *) trusted_ok=false ;;
+          esac
+          if [ "$trusted_ok" != true ] || [ ! -f "$INPUT_TRUSTED_CONFIG" ]; then
+            echo "::error::trusted-config must be an absolute path to an existing file (no ':' or ','): $INPUT_TRUSTED_CONFIG" >&2
+            exit 2
+          fi
+          # Resolve symlinks first: a link outside the checkout can point into it.
+          trusted_real="$(readlink -f "$INPUT_TRUSTED_CONFIG")"
+          case "$trusted_real" in
+            *:*|*,*) trusted_real="" ;;
+          esac
+          if [ -z "$trusted_real" ] || [ ! -f "$trusted_real" ]; then
+            echo "::error::trusted-config must resolve to an existing file (no ':' or ','): $INPUT_TRUSTED_CONFIG" >&2
+            exit 2
+          fi
+          # A file inside the checkout is controlled by the pull request.
+          ws_phys="$(cd "$GITHUB_WORKSPACE" && pwd -P)"
+          case "$trusted_real" in
+            "$ws_phys"/*)
+              echo "::error::trusted-config must be outside the workspace (the checkout is attacker-controlled in pull requests): $INPUT_TRUSTED_CONFIG" >&2
+              exit 2
+              ;;
+          esac
+          mounts+=(-v "$trusted_real:/trusted/config.yaml:ro")
+          args+=(--config /trusted/config.yaml)
+        fi
+        if [ -n "$INPUT_WAIVERS" ]; then
+          waivers_path="$(ws_rel "$INPUT_WAIVERS")" || exit 2
+          args+=(--waivers "$waivers_path")
+        fi
+        if [ -n "$INPUT_BASELINE" ]; then
+          baseline_path="$(ws_rel "$INPUT_BASELINE")" || exit 2
+          args+=(--baseline "$baseline_path")
+        fi
         # SARIF always lands in the workspace (not just stdout) so later
         # steps — and the Code Scanning upload below — can consume it.
         if [ -n "$INPUT_OUTPUT_FILE" ]; then
@@ -256,15 +380,87 @@ runs:
           -e XDG_CACHE_HOME=/tmp/.cache \
           -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE:ro" \
           -v "$out_host:/out" \
+          ${mounts[@]+"${mounts[@]}"} \
           -w "$GITHUB_WORKSPACE" \
           "$image" "${args[@]}"
         status=$?
         set -e
 
+        # Publish the summary and counts. The container processed untrusted
+        # input, so only well-formed count lines reach $GITHUB_OUTPUT. Files
+        # are absent when the scan failed before writing them.
+        # The container can plant symlinks; never follow them on the host.
+        meta="$out_host/.tf-eu-guard"
+        if [ ! -L "$meta" ] && [ -d "$meta" ]; then
+          if is_true "$INPUT_JOB_SUMMARY" && [ ! -L "$meta/summary.md" ] && [ -f "$meta/summary.md" ] && [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            head -c 1048576 "$meta/summary.md" >> "$GITHUB_STEP_SUMMARY" || true
+          fi
+          if [ ! -L "$meta/counts.txt" ] && [ -f "$meta/counts.txt" ]; then
+            LC_ALL=C grep -a -E '^[a-z]+=[0-9]+$' "$meta/counts.txt" >> "$GITHUB_OUTPUT" || true
+          fi
+        fi
+        rm -rf "$meta"
+        if [ -n "$(find "$out_host" -type l 2>/dev/null | head -n 1)" ]; then
+          echo "::warning::removed symlinks created by the scan container; they are not copied into the workspace"
+          find "$out_host" -type l -exec rm -f {} +
+        fi
+
+        # The upload steps follow symlinks and include every descendant of a
+        # matched directory, so each upload target must be absent or a regular
+        # file. Runs even when nothing was written or the scan failed.
+        not_regular() {
+          [ -L "$1" ] || { [ -e "$1" ] && [ ! -f "$1" ]; }
+        }
+        # Refuse when any segment of a workspace-relative path is a symlink.
+        # Empty segments (repeated or trailing slashes) are skipped.
+        refuse_symlink_in_path() {
+          local rest="$1" seg walk="$GITHUB_WORKSPACE"
+          while [ -n "$rest" ]; do
+            seg="${rest%%/*}"
+            case "$rest" in
+              */*) rest="${rest#*/}" ;;
+              *) rest="" ;;
+            esac
+            [ -n "$seg" ] || continue
+            walk="$walk/$seg"
+            if [ -L "$walk" ]; then
+              refuse_symlink "${walk#"$GITHUB_WORKSPACE"/}"
+            fi
+          done
+        }
+        upload_dir="${out_dir_path#/out/}"
+        refuse_symlink_in_path "$upload_dir"
+        for target in "$GITHUB_WORKSPACE/$upload_dir"/*.html; do
+          if not_regular "$target"; then
+            refuse_symlink "${target#"$GITHUB_WORKSPACE"/}"
+          fi
+        done
+        if [ -n "$INPUT_OUTPUT_FILE" ]; then
+          upload_file="${out_file_path#/out/}"
+        elif [ "$INPUT_OUTPUT" = "sarif" ]; then
+          upload_file="tf-eu-guard.sarif"
+        else
+          upload_file=""
+        fi
+        if [ -n "$upload_file" ]; then
+          refuse_symlink_in_path "$upload_file"
+        fi
+        if [ -n "$upload_file" ] && not_regular "$GITHUB_WORKSPACE/$upload_file"; then
+          refuse_symlink "$upload_file"
+        fi
+
         # Copy generated reports into the workspace for later steps.
         if [ -n "$(ls -A "$out_host")" ]; then
-          cp -R "$out_host"/. "$GITHUB_WORKSPACE"/
+          # The checkout is attacker-controlled: a committed symlink at any
+          # destination (directory or file) would redirect the copy elsewhere.
+          while IFS= read -r -d '' src; do
+            rel="${src#"$out_host"/}"
+            refuse_symlink_in_path "$rel"
+          done < <(find "$out_host" -mindepth 1 -print0)
+          cp -R --remove-destination "$out_host"/. "$GITHUB_WORKSPACE"/
         fi
+        echo "upload-reports=$upload_reports" >> "$GITHUB_OUTPUT"
+        echo "upload-sarif=$upload_sarif" >> "$GITHUB_OUTPUT"
         echo "exit-code=$status" >> "$GITHUB_OUTPUT"
         exit "$status"
 

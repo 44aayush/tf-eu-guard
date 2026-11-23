@@ -14,10 +14,10 @@ Terraform infrastructure configuration** to the Checkov checks in
 [`check-mapping-table.md`](check-mapping-table.md) for the full matrix.
 
 > **Scope & honesty.** tf-eu-guard verifies *infrastructure configuration only*.
-> NIS2 Article 21 is largely about **policies and procedures** — governance,
-> training, supply-chain contracts, incident-response playbooks — which no linter
-> can assess. Passing every check below is necessary evidence, not sufficient proof
-> of compliance. Points (a) risk analysis, (d) supply-chain security, and (g) cyber
+> NIS2 Article 21 is largely about **policies and procedures**: governance,
+> training, supply-chain contracts, incident-response playbooks. No linter
+> can assess these. Passing every check below is necessary evidence but does not
+> prove compliance. Points (a) risk analysis, (d) supply-chain security, and (g) cyber
 > hygiene/training are organisational and are intentionally out of scope here.
 
 ---
@@ -38,7 +38,7 @@ The linter checks that the telemetry needed for detection and forensics exists:
 | CKV2_AWS_11 | VPC flow logging enabled on all VPCs |
 
 **Evidence**: A green result demonstrates that object-access, database, and
-network-flow telemetry is being captured — the raw material for detecting and
+network-flow telemetry is being captured, the raw material for detecting and
 reconstructing an incident.
 
 **Limitations**: Logging ≠ monitoring. NIS2 (b) also expects alerting, triage, and a
@@ -70,7 +70,7 @@ causing irreversible data loss.
 **Limitations**: The checks confirm that backups/versioning are *enabled*, not that
 restores are *tested*, that RPO/RTO targets are met, or that backups are stored in a
 separate failure domain. Multi-AZ (CKV_AWS_157) and cross-region replication
-(CKV_AWS_144) are strong (c) candidates not yet in the registry — see the mapping
+(CKV_AWS_144) are strong (c) candidates not yet in the registry; see the mapping
 table's expansion list.
 
 ---
@@ -137,13 +137,13 @@ from a secrets manager or a `sensitive` variable resolved at apply time. The
 shared predicate recognises both Terraform's `${...}` interpolation form and
 normalised traversals such as `data.*`, `var.*`, and managed resource references.
 Committing secrets to code is a canonical insecure-development failure; keeping
-them out of the IaC is precisely the "security in ... development" that (e)
+them out of the IaC is the "security in ... development" that (e)
 requires. The live CodeBuild reference and literal fixtures exercise both sides
 of this boundary. `CKV_AWS_226` is also mapped for RDS patch maintenance; its
 registry remediation enables `auto_minor_version_upgrade` on the DB instance.
 
-**Evidence / limitations**: Running tf-eu-guard *is itself* part of secure
-development — it is a security gate in the IaC pipeline. But (e) also covers SDLC
+**Evidence / limitations**: Running tf-eu-guard is itself part of secure
+development, because it is a security gate in the IaC pipeline. But (e) also covers SDLC
 process, dependency/vulnerability management, and disclosure handling, which are out
 of scope for a configuration linter.
 
@@ -155,8 +155,8 @@ of scope for a configuration linter.
 > Policies and procedures to assess the effectiveness of cybersecurity
 > risk-management measures.
 
-**Infrastructure controls**: No single resource check maps here. Instead, **the tool
-itself provides (f) evidence**: running tf-eu-guard on every pull request and in CI
+**Infrastructure controls**: No single resource check maps here. Instead, the tool
+itself provides (f) evidence: running tf-eu-guard on every pull request and in CI
 produces a repeatable, timestamped assessment of the effectiveness of the controls
 above. This mirrors GDPR Art. 32(1)(d) ("regularly testing, assessing and
 evaluating"). See `.github/workflows/ci.yml`.
@@ -184,7 +184,7 @@ green result shows data at rest is encrypted with managed keys.
 
 **Limitations**: These checks cover encryption *at rest* for S3/RDS. Encryption *in
 transit* (TLS enforcement), EBS volume encryption, and key-rotation policy are not
-yet represented. (h) also expects a documented cryptography policy — an
+yet represented. (h) also expects a documented cryptography policy, which is an
 organisational artefact.
 
 ---
@@ -213,7 +213,7 @@ privilege, no standing over-permissive identities, and no public exposure of ass
 | CKV_AWS_130 | Subnets do not auto-assign public IPs |
 
 **Evidence**: Each finding is a concrete, least-privilege or exposure violation with a
-file/line reference — an auditable access-control inventory.
+file/line reference, which gives an auditable access-control inventory.
 
 **Limitations**: Access control also depends on *who* the principals are and *how*
 joiners/movers/leavers are managed (HR security), which the configuration cannot show.

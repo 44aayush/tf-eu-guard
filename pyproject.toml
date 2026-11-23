@@ -1,6 +1,6 @@
 [project]
 name = "tf-eu-guard"
-version = "0.8.1"
+version = "0.9.0"
 description = "EU compliance security linter for Terraform and Kubernetes — NIS2 and GDPR mapping"
 authors = [
     {name = "44aayush", email = "k44aayush.official@gmail.com"}

@@ -62,9 +62,8 @@ CATEGORY_BLURBS = {
     CoverageCategory.MANUAL: (
         "Needs non-IaC evidence (policy, governance, staff training, "
         "incident-response process) that Terraform/Kubernetes manifests "
-        "structurally can never show. Listed here so it is visibly *not "
-        "ignored* — an explicit 'we cannot see this' is more credible than "
-        "silence."
+        "structurally can never show. It is listed so that the gap is "
+        "stated explicitly instead of left out."
     ),
     CoverageCategory.NOT_COVERED: "No current mapping.",
 }
@@ -87,20 +86,21 @@ def render_doc() -> str:
     lines.append("# Regulatory Coverage — NIS2 Art. 21(2) & GDPR Art. 32(1)/44")
     lines.append("")
     lines.append(
-        "> **Generated file** — rendered by `tools/generate_coverage_doc.py` from "
+        "> Generated file. `tools/generate_coverage_doc.py` renders it from "
         "the mapping registries and the requirement inventory in "
-        "`tf_eu_guard/mapping/coverage.py`. Do not edit by hand; CI "
-        "(via `--check`) fails if this file drifts from the registries."
+        "`tf_eu_guard/mapping/coverage.py`. Do not edit it by hand; CI "
+        "(via `--check`) fails if it drifts from the registries."
     )
     lines.append("")
     lines.append(
-        "Coverage here is classified **by requirement, not by mapped-check "
-        "count**. Every unaddressed requirement otherwise looks identical — "
-        "silently absent — to a covered one. Five categories:"
+        "Coverage is classified per requirement, not by mapped-check count. "
+        "Counting checks would make a requirement with no checks look the "
+        "same as one that was never considered. Each requirement falls into "
+        "one of five categories:"
     )
     lines.append("")
     for category in CoverageCategory:
-        lines.append(f"- {CATEGORY_BADGES[category]} — {CATEGORY_BLURBS[category]}")
+        lines.append(f"- {CATEGORY_BADGES[category]}: {CATEGORY_BLURBS[category]}")
     lines.append("")
 
     summary_bits = []
@@ -115,7 +115,7 @@ def render_doc() -> str:
     if summary[CoverageCategory.NOT_COVERED.value]:
         summary_bits.append(f"{summary[CoverageCategory.NOT_COVERED.value]} not covered")
     lines.append(
-        f"**Summary: {len(coverage)} requirements inventoried — {' · '.join(summary_bits)}.**"
+        f"**Summary: {len(coverage)} requirements inventoried: {' · '.join(summary_bits)}.**"
     )
     lines.append("")
 
@@ -159,10 +159,9 @@ def render_doc() -> str:
         "Related: [`docs/nis2-mapping.md`](nis2-mapping.md) and "
         "[`docs/gdpr-mapping.md`](gdpr-mapping.md) give the per-check "
         "evidence and limitations; [`docs/check-mapping-table.md`](check-mapping-table.md) "
-        "is the full check-level matrix. Guiding principle: this project is "
-        "measured by mapping *quality*, tracked honestly here — automated vs. "
-        "partial vs. manual vs. not covered — not by a single 'N checks mapped' "
-        "headline number."
+        "is the full check-level matrix. This project is judged on mapping "
+        "quality (automated, partial, manual or not covered), which this "
+        "page tracks, and not on a single 'N checks mapped' number."
     )
     lines.append("")
     return "\n".join(lines)

@@ -82,7 +82,9 @@ def test_id_pattern_accepts_known_shapes(good_id):
 
 def test_all_shipped_registries_load():
     counts = validate_all()
-    assert set(counts) == {f"registry-{n}.yaml" for n in ("aws", "azure", "gcp", "kubernetes")}
+    assert set(counts) == {
+        f"registry-{n}.yaml" for n in ("aws", "azure", "gcp", "kubernetes", "secrets")
+    }
     mapping_dir = Path(__file__).parent.parent / "tf_eu_guard" / "mapping"
     registry = load_registry(mapping_dir)
     assert len(registry) == sum(counts.values())

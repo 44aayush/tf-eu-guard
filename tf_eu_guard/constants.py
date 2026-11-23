@@ -37,7 +37,7 @@ DEFAULT_CHECKOV_TIMEOUT = 600
 #: Report formats the CLI's ``--output`` accepts. ``all`` writes the dev,
 #: security and auditor HTML files together (see ``--output-dir``); ``sarif``
 #: emits a SARIF 2.1.0 document to stdout for GitHub Code Scanning.
-OUTPUT_FORMATS = ("dev", "security", "auditor", "json", "sarif", "all")
+OUTPUT_FORMATS = ("dev", "security", "auditor", "json", "sarif", "markdown", "csv", "all")
 
 #: Compliance-regime filters for the CLI's ``--framework`` — which regulatory
 #: regime to *report* on. Unrelated to ``--iac-type`` (what to scan).

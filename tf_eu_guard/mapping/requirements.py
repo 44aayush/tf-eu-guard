@@ -91,7 +91,7 @@ REQUIREMENTS: tuple[dict, ...] = (
         rationale=(
             "Risk analysis is an organisational process (registering risks, "
             "weighing likelihood and impact, documenting decisions). Terraform/"
-            "Kubernetes manifests structurally cannot show it — it requires "
+            "Kubernetes manifests structurally cannot show it. It requires "
             "non-IaC evidence such as a risk register and management sign-off."
         ),
     ),
@@ -226,8 +226,8 @@ REQUIREMENTS: tuple[dict, ...] = (
         letter="32(1)(c)",
         category=CoverageCategory.PARTIAL,
         rationale=(
-            "Backup, versioning, multi-AZ and retention — the ability to "
-            "restore — are evaluable. Whether restores actually happen in a "
+            "Backup, versioning, multi-AZ and retention (the ability to "
+            "restore) are evaluable. Whether restores actually happen in a "
             "timely manner (tested RTO) is operational evidence, not IaC."
         ),
     ),
@@ -256,7 +256,7 @@ REQUIREMENTS: tuple[dict, ...] = (
         rationale=(
             "The custom EUGUARD_GDPR_002 and EUGUARD_GDPR_003 checks flag known AWS "
             "provider and resource-level regions outside the EU/EEA for Chapter V review. The adequacy/SCC analysis "
-            "itself is legal, not technical — a third-country signal is a prompt "
+            "itself is legal, not technical. A third-country signal is a prompt "
             "for review, not a violation or definitive legal conclusion."
         ),
     ),

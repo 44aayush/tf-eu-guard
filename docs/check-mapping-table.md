@@ -1,29 +1,29 @@
 # Check Mapping Table: Checkov → NIS2 / GDPR
 
-**Reference stack**: the vulnerable Terraform under [`examples/vulnerable-aws/`](../examples/vulnerable-aws/)
+Reference stack: the vulnerable Terraform under [`examples/vulnerable-aws/`](../examples/vulnerable-aws/)
 (`iam.tf`, `s3.tf`, `rds.tf`, `network.tf`, plus `outputs.tf`).
-**Mapped in `registry-aws.yaml`**: **186 check IDs** — 180 stock Checkov policies plus
+Mapped in `registry-aws.yaml`: **186 check IDs**, made up of 180 stock Checkov policies plus
 6 custom tf-eu-guard checks (**§**, added in Phase 3). The original 38-mapping core
-covered the original vulnerable Terraform reference stack; subsequent extensions (from
-2026-08-30 on) grew the registry so that *every* Checkov check firing across the
-in-repo stacks (`examples/vulnerable-aws/`, `examples/end2end/`) enriches.
+covered the vulnerable Terraform reference stack. Later extensions (from
+2026-08-30 on) grew the registry until every Checkov check that fires on the
+in-repo stacks (`examples/vulnerable-aws/`, `examples/end2end/`) is enriched.
 Mapping counts in the docs are verified against the registries in CI
 (`tools/check_doc_counts.py`), so they cannot drift.
 
-Article letters are verified against **Directive (EU) 2022/2555 (NIS2) Art. 21(2)**
-and **Regulation (EU) 2016/679 (GDPR) Art. 32(1)**. The table also includes the
+Article letters are verified against Directive (EU) 2022/2555 (NIS2) Art. 21(2)
+and Regulation (EU) 2016/679 (GDPR) Art. 32(1). The table also includes the
 project's non-regulatory region residency policy reference. Full legal text and reasoning
 live in [`nis2-mapping.md`](nis2-mapping.md) and [`gdpr-mapping.md`](gdpr-mapping.md).
 
-> **Provenance / verification status.** The mappings were originally assembled from
-> a **historical Checkov 3.3.13 capture** (`tests/fixtures/checkov-raw-output.json`)
+> Provenance and verification status: the mappings were originally assembled from
+> a historical Checkov 3.3.13 capture (`tests/fixtures/checkov-raw-output.json`)
 > plus the Checkov policy index, at a time when Checkov could not be executed in
 > the development environment. That capture remains a parser/enrichment fixture;
 > current runtime scans use pinned Checkov 3.4.5. Checkov now runs in CI and
 > locally, so every ID has been re-verified against live scans of both in-repo stacks:
 > `examples/vulnerable-aws/`
 > (50 stock Checkov failing checks, all mapped) and `examples/end2end/` (295 stock
-> Checkov failing checks, all mapped — zero unmapped). The registry is kept in sync with
+> Checkov failing checks, all mapped, zero unmapped). The registry is kept in sync with
 > the fixture stacks, and `tools/check_doc_counts.py` verifies the documented counts
 > against the registries on every commit.
 
@@ -31,7 +31,7 @@ live in [`nis2-mapping.md`](nis2-mapping.md) and [`gdpr-mapping.md`](gdpr-mappin
 
 ## Legend
 
-**NIS2 Art. 21(2)** — cybersecurity risk-management measures:
+**NIS2 Art. 21(2)**: cybersecurity risk-management measures:
 
 | Letter | Measure (short) |
 |--------|-----------------|
@@ -39,22 +39,22 @@ live in [`nis2-mapping.md`](nis2-mapping.md) and [`gdpr-mapping.md`](gdpr-mappin
 | (c) | Business continuity, backup management and disaster recovery |
 | (e) | Security in network & information systems acquisition, development and maintenance |
 | (h) | Policies and procedures on the use of cryptography and encryption |
-| (i) | Human resources security, **access control** policies and asset management |
+| (i) | Human resources security, access control policies and asset management |
 | (j) | Multi-factor authentication and secured communications |
 
-**GDPR Art. 32(1)** — security of processing:
+**GDPR Art. 32(1)**: security of processing:
 
 | Letter | Measure (short) |
 |--------|-----------------|
-| (a) | Pseudonymisation and **encryption** of personal data |
+| (a) | Pseudonymisation and encryption of personal data |
 | (b) | Confidentiality, integrity, availability and resilience of processing systems |
-| (c) | Ability to **restore** availability and access in a timely manner |
+| (c) | Ability to restore availability and access in a timely manner |
 
-> One custom check cites **GDPR Art. 44** (Chapter V — *transfers of personal data to
+> One custom check cites GDPR Art. 44 (Chapter V, *transfers of personal data to
 > third countries*), which sits outside Art. 32(1): EU data residency is a lawful-transfer
 > question, not a "security of processing" control.
 
-**Symbols**: **‡** mapped but does not fire on the current stacks (no triggering
+Symbols: **‡** mapped but does not fire on the current stacks (no triggering
 resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; loaded via `--external-checks-dir`).
 
 ---
@@ -108,11 +108,11 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 
 ### Coverage summary
 
-- **By severity** (original 38): 9 CRITICAL · 15 HIGH · 14 MEDIUM — plus the
+- By severity (original 38): 9 CRITICAL · 15 HIGH · 14 MEDIUM. With the
   extension above (186 total: 23 CRITICAL · 70 HIGH · 67 MEDIUM · 26 LOW).
-- **By framework** (original 38): 21 map to **both** NIS2 and GDPR, 11 NIS2-only, 6 GDPR-only.
-- **By file**: iam.tf (12), s3.tf (9), rds.tf (9), network.tf (7), main.tf (1).
-- **By theme**: access control / least privilege (20), public exposure (7),
+- By framework (original 38): 21 map to both NIS2 and GDPR, 11 NIS2-only, 6 GDPR-only.
+- By file: iam.tf (12), s3.tf (9), rds.tf (9), network.tf (7), main.tf (1).
+- By theme: access control / least privilege (20), public exposure (7),
   encryption at rest (2), logging & detection (4), backup / resilience (4),
   authentication (1), data residency / international transfers (1), secrets in
   code (1). *(Some checks count in more than one theme.)*
@@ -122,8 +122,8 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 ## Verification status (live scans)
 
 The mappings were originally authored from a captured scan plus the Checkov policy
-index because Checkov could not run in the development environment at the time.
-That is no longer the case: Checkov 3.4.5 now executes in CI and locally, and every
+index, because Checkov could not run in the development environment at the time.
+Checkov 3.4.5 now runs in CI and locally, and every
 ID above has been re-verified against live scans of both in-repo stacks:
 
 ```bash
@@ -139,22 +139,23 @@ Measured results:
 | `examples/end2end/` | 295 stock + 2 custom | 297 | **0** |
 
 Every check that fires on either stack enriches, so a scan of either produces
-**zero unmapped findings**. The `‡` markers in the table above are the only
-dormant mappings — they are forward-looking and cost nothing at runtime:
+zero unmapped findings. The `‡` markers in the table above are the only
+dormant mappings. They cost nothing at runtime and are there for stacks that
+contain a triggering resource:
 
-- `CKV_AWS_274` — needs an `aws_iam_policy_attachment` using `AdministratorAccess`.
-- `CKV_AWS_9` — needs an `aws_iam_account_password_policy` resource to evaluate.
-- `CKV_AWS_25` — needs a security group with ingress on port 3389 (RDP).
+- `CKV_AWS_274`: needs an `aws_iam_policy_attachment` using `AdministratorAccess`.
+- `CKV_AWS_9`: needs an `aws_iam_account_password_policy` resource to evaluate.
+- `CKV_AWS_25`: needs a security group with ingress on port 3389 (RDP).
 
 `tools/check_doc_counts.py` verifies the documented counts against the registries
 in CI, and `tools/smoke_check.py` re-scans the fixture stacks on every commit, so
-the table cannot silently drift from what a real scan produces.
+drift between the table and a real scan is caught.
 
 ---
 
 ## Registry extension: beyond the original core
 
-Every Checkov AWS check that fires against any in-repo stack is now mapped. The
+Every Checkov AWS check that fires against any in-repo stack is mapped. The
 extension is grouped by theme in `registry-aws.yaml` (check IDs below; full risk /
 remediation text lives in the registry):
 
@@ -171,37 +172,37 @@ remediation text lives in the registry):
 | Terraform module pinning (cloud-agnostic) | 21(2)(d) | – | CKV_TF_1, CKV_TF_2 |
 
 Severity distribution after the extension: **23 CRITICAL · 70 HIGH · 67 MEDIUM ·
-26 LOW** (186 total; article refs: NIS2 176, GDPR 135). An *article ref* is one
+26 LOW** (186 total; article refs: NIS2 176, GDPR 135). An article ref is one
 entry in a check's `articles` list in `registry-aws.yaml`, counted per framework, so a
 check citing two NIS2 letters counts twice; the 3 `POLICY` refs are not included.
 
 ### Checks still intentionally unmapped
 
 Unmapped findings are excluded from the mapped-findings reports but are surfaced
-as a count in every format — they no longer vanish silently (see the CLI's
+as a count in every format (see the CLI's
 unmapped-findings handling and `examples/unmapped-aws/`, a fixture that
 deliberately fails the password-policy family). Remaining unmapped checks are
-those with **no honest compliance link** (e.g. the password-policy family
+those with no honest compliance link (e.g. the password-policy family
 `CKV_AWS_10`/`11`/`12`/`13`/`14`/`15`, already represented by the mapped
 `CKV_AWS_9` account-level check) or that simply do not fire on any in-repo
-stack. Mapping the *entire* Checkov AWS catalogue (~700 checks) was rejected
-deliberately: entries exist to explain real findings, not to paint every
-conceivable check with an article reference the code doesn't justify.
+stack. Mapping the entire Checkov AWS catalogue (~700 checks) was rejected
+on purpose. Entries exist to explain real findings, and an article reference
+on every check would claim more than the check shows.
 
 ---
 
 ## Methodology notes
 
-1. **Scan-backed.** Every non-‡ ID above has been observed failing in a live
+1. Scan-backed. Every non-‡ ID above has been observed failing in a live
    Checkov 3.3.29 scan of the in-repo stacks (`examples/vulnerable-aws/`,
    `examples/end2end/`); the remaining ‡ IDs are authored from the Checkov policy
    index and are dormant only because no fixture yet holds a triggering resource.
-   The registry stays honest about what has actually been reproduced.
-2. **Severity is authored here.** Checkov 3.4.5 returns `severity: null`, so the
+   The registry records only what has been reproduced.
+2. Severity is authored here. Checkov 3.4.5 returns `severity: null`, so the
    registry is the source of truth for severity (see `docs/checkov-schema.md`).
-3. **Conservative dual-mapping.** A check maps to *both* frameworks only where both
-   articles genuinely apply (e.g. encryption → GDPR 32(1)(a) *and* NIS2 21(2)(h)).
+3. Conservative dual-mapping. A check maps to both frameworks only where both
+   articles apply (e.g. encryption → GDPR 32(1)(a) *and* NIS2 21(2)(h)).
    Logging/detection maps to NIS2 21(2)(b) only, not stretched to GDPR.
-4. **No overclaiming.** These checks assess *infrastructure configuration*. Full
+4. No overclaiming. These checks assess *infrastructure configuration*. Full
    NIS2/GDPR compliance also requires documented processes, DPIAs, and organisational
    measures a linter cannot verify.

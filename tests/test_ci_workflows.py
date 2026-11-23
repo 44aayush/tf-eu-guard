@@ -62,7 +62,7 @@ def test_action_writes_reports_outside_the_workspace_mount():
     assert '--output-dir "$out_dir_path"' in run
     assert "/out/tf-eu-guard.sarif" in run
     assert "--output-file /workspace/" not in run
-    assert 'cp -R "$out_host"/. "$GITHUB_WORKSPACE"/' in run
+    assert 'cp -R --remove-destination "$out_host"/. "$GITHUB_WORKSPACE"/' in run
 
 
 def test_action_pulls_ghcr_image_then_falls_back_to_local_build():
@@ -476,7 +476,7 @@ def test_pull_request_and_issue_templates_exist():
 
 def test_gitignore_covers_generated_artifacts_and_keeps_local_tracking():
     lines = set((ROOT / ".gitignore").read_text(encoding="utf-8").splitlines())
-    assert {".venv/", "uv.lock", "*.sarif", "sbom.json", "coverage.xml", "TASKS.md"} <= lines
+    assert {".venv/", "uv.lock", "*.sarif", "sbom.json", "coverage.xml", "TASKS*.md"} <= lines
 
 
 def test_obsolete_test_scripts_are_gone_and_unreferenced():

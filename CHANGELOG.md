@@ -10,6 +10,99 @@ release point.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-18
+
+### Added
+
+- Python API: `tf_eu_guard.scan(...)` returns a typed `ScanResult` (findings, requirements,
+  provenance) without printing to stdout or exiting; the package ships `py.typed`. The CLI and the API share
+  one argument and scan pipeline (`prepare_scan_args`, `run_scan`).
+- Provenance: the JSON object gains `provenance` (tool and Checkov versions, registry SHA-256 and
+  files, git commit (HEAD; uncommitted changes are not detected), effective options, resources scanned, check counts) and the
+  auditor report a "Provenance" section. New `--evidence-dir DIR` writes `dev.html`,
+  `security.html`, `auditor.html`, `report.json`, `report.sarif`, `summary.md` and a
+  `manifest.json` with a SHA-256 per file; it refuses an existing non-empty directory (exit 2).
+- GitHub Action: new inputs `config`, `trusted-config` (read-only mount from outside the checkout,
+  so a pull request cannot change the settings in it; keep it self-contained, because files it references must be in the workspace and are controlled by the pull request, and inline `checkov:skip` comments still remove findings unless `fail-on-suppressed` is set), `waivers`, `baseline` and `job-summary` (default
+  `true`, appends the Markdown summary to the job summary); new outputs `critical`, `high`,
+  `medium`, `low`, `info`, `unmapped`, `suppressed`, `waived`, `baselined` and `total`.
+  `trusted-config` must be outside the workspace. Symlinks planted by the scan container are
+  never followed or copied back.
+- An explicit `--config FILE` now disables `.tf-eu-guard-waivers.yaml` auto-discovery, so a
+  trusted config cannot be undercut by a waiver file in the scanned code (`--waivers` and the
+  config's `waivers:` key still apply).
+- `--output markdown` (summary) and `--output csv` (one row per finding and article; formula-like
+  cells are prefixed with `'`), to stdout or `--output-file`. `--summary-file FILE` writes the
+  Markdown summary and `--counts-file FILE` writes `key=value` counts (critical..info, unmapped,
+  suppressed, waived, baselined, total) in addition to any `--output`, without changing stdout.
+- `--secrets` adds Checkov's `secrets` framework (Terraform, Terraform plan, Kubernetes and
+  `--checkov-json`). New `registry-secrets.yaml` maps the 19 `CKV_SECRET_*` checks Checkov 3.4.5
+  names to NIS2 Art. 21(2)(e) and GDPR Art. 32(1)(b), HIGH. Secret values, code excerpts and
+  Checkov's secret hash are dropped on load and never reach any report; parsing errors in the
+  secrets scan fail closed.
+- `--var-file FILE` (repeatable; config key `var_files`) passes Terraform variable files to
+  Checkov so `var.*` values resolve. `--download-external-modules` lets Checkov fetch remote
+  modules (stderr note; not available in the GitHub Action's `--network none` container).
+  Both are Terraform source scans only; a missing var file exits 2.
+- `--changed-since REF`: report only findings in files changed since a Git ref (committed
+  and staged; unstaged and untracked changes are not included); hidden findings are counted on stderr and in the scan settings. Not
+  valid with `--checkov-json` or `terraform_plan`.
+- `.tf-eu-guard.yaml` project configuration (discovered in the scan root, or `--config FILE`;
+  `--no-config` ignores it). Keys mirror the flags; CLI overrides config, list keys
+  concatenate; new `severity_overrides` map re-grades mapped findings. See
+  `docs/configuration.md`.
+- "Scan settings that reduce findings": excludes, the loaded waiver file, severity
+  overrides, registry overlays, the baseline, `--changed-since` and the config file are listed in the dev terminal header,
+  all three HTML headers, JSON `scan.weakening_settings` and SARIF
+  `run.properties.weakeningSettings`.
+- `--waivers FILE` (default `.tf-eu-guard-waivers.yaml` in a source scan's root): reviewed,
+  expiring waivers (owner, reason, expiry) for mapped findings. Waived findings leave the
+  gate, including `--fail-on-suppressed`, but are listed in every report (JSON `waived[]`,
+  SARIF `external` suppression, requirement matrix). See `docs/waivers.md`.
+- `--baseline FILE`: findings already in an earlier JSON report (matched by check ID,
+  resource and file, not line) are shown as "Known (in baseline)" in every report (JSON
+  `baselined[]`, SARIF `baselineState`) and leave the `--fail-on-*` gate; the baseline's age
+  is printed on stderr and recorded in the scan settings.
+- `tf-eu-guard diff OLD.json NEW.json [--json]` lists new, fixed and unchanged findings (baselined findings count as present);
+  exit 1 when new findings exist.
+- JSON array entries carry a `baselined` flag; the object format gains a required
+  `baselined` array.
+- `--show-unmapped` lists unmapped Checkov findings (check ID, name, resource, file,
+  lines) in the dev terminal report and the dev, security and auditor HTML reports.
+- `--fail-on-unmapped` exits 1 when any active (not inline-suppressed) unmapped
+  Checkov finding exists.
+- `tf-eu-guard explain CHECK_ID` prints the registry entry (severity, articles,
+  risk, remediation) for a check; unknown IDs exit 2.
+- `--registry-dir DIR` (repeatable) overlays your own `*.yaml` registry files on
+  the bundled registry; later definitions win per check ID, and each loaded
+  overlay is reported on stderr. Overlay `POLICY` articles may use any title.
+- `tf-eu-guard registry validate [DIR ...]` validates overlay directories, or
+  the bundled registry when no directory is given.
+- Requirement evidence matrix: passed checks are now read from Checkov output and
+  counted per NIS2/GDPR requirement (15 rows with `--framework all`, otherwise only that framework's rows: ran, passed, failed, suppressed,
+  waived; check results, no score). It appears in the auditor report ("Requirement
+  evidence") and in the JSON object as `requirements`.
+- JSON object schema v2 (`schema_version: "2"`): adds `requirements`, `registry`
+  (`overlays`, `overridden`) and `waived`. The schema now ships inside the package
+  at `tf_eu_guard/schemas/report.schema.json` (`tf_eu_guard.REPORT_SCHEMA_PATH`);
+  it moved from `tests/schemas/`.
+
+### Changed
+
+- README code examples use plain fenced Markdown blocks.
+- The legacy `--output json` array now also contains waived and baselined entries, flagged `waived: true` / `baselined: true`; consumers that treat every unsuppressed entry as active must check these flags.
+
+### Fixed
+
+- `--output csv` now prints the `Scan settings that reduce findings:` block on stderr when excludes, waivers, severity overrides or similar settings are active (stdout stays pure CSV)
+- The stderr lines `N finding(s) waived by ...` and `N finding(s) match the baseline ...` now count findings after the `--framework` filter
+- Git hardening: git runs with `core.fsmonitor` and hooks disabled, a scrubbed `GIT_*` environment and a 10 s timeout, so scanning a repository with a hostile `.git/config` no longer runs its commands; tf-eu-guard runs only `git rev-parse` and `git diff --name-only` (committed/staged), and never runs commands that compare working-tree file contents, because a hostile repo config can attach commands (filter drivers) to those; provenance's git call now runs only when an output needs it
+- `LOG_LEVEL` is no longer passed to Checkov, so it always runs at its default WARNING level
+- GitHub Action: reports are no longer copied through symlinks committed into the workspace
+  (directory or file destinations exit 2), a committed symlink at an upload target (`*.html` in
+  the output directory, `output-file`, the SARIF file) exits 2 with uploads disabled, and `trusted-config` is resolved with `readlink -f`
+  so a symlink into the checkout is rejected.
+
 ## [0.8.1] - 2026-11-17
 
 ### Fixed
@@ -440,7 +533,8 @@ registries.**
 - `--checkov-json` for pre-generated Checkov output, `--framework`
   filter, `--fail-on-severity` / `--fail-on-any` CI gating.
 
-[Unreleased]: https://github.com/44aayush/tf-eu-guard/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/44aayush/tf-eu-guard/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/44aayush/tf-eu-guard/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/44aayush/tf-eu-guard/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/44aayush/tf-eu-guard/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/44aayush/tf-eu-guard/compare/v0.7.0...v0.7.1

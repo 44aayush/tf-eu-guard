@@ -22,7 +22,10 @@ def test_computed_counts_match_current_registries():
     assert counts["azure"] == 23
     assert counts["gcp"] == 22
     assert counts["kubernetes"] == 26
-    assert counts["total"] == counts["aws"] + counts["azure"] + counts["gcp"] + counts["kubernetes"]
+    assert counts["secrets"] == 19
+    assert counts["total"] == (
+        counts["aws"] + counts["azure"] + counts["gcp"] + counts["kubernetes"] + counts["secrets"]
+    )
 
 
 def test_all_documented_counts_match_the_registries():
