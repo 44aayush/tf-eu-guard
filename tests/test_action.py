@@ -325,6 +325,10 @@ exit 0
 
 def _run_action(tmp_path, bash, **extra):
     """Run the real scan script with a stub `docker` first on PATH."""
+    if sys.platform == "win32":
+        # The scan script targets Linux runners only (Linux Docker); Git Bash on
+        # Windows mangles the -c script, ':'-joined PATH, drive paths and symlinks.
+        pytest.skip("action scan script runs only on Linux runners")
     ws = tmp_path / "ws"
     ws.mkdir(exist_ok=True)
     stub_dir = tmp_path / "bin"
@@ -362,6 +366,12 @@ def _run_action(tmp_path, bash, **extra):
     argv = argv_file.read_text(encoding="utf-8").splitlines() if argv_file.exists() else []
     out = tmp_path / "gh_output"
     return result, argv, out.read_text(encoding="utf-8") if out.exists() else ""
+
+
+# The copy-back step uses GNU `cp --remove-destination`; the Action supports Linux runners only.
+needs_gnu_cp = pytest.mark.skipif(
+    sys.platform == "darwin", reason="copy-back needs GNU cp (Linux runners only)"
+)
 
 
 def _bash_or_skip() -> str:
@@ -489,6 +499,7 @@ def test_readme_documents_config_inputs_and_outputs():
     assert "`baselined`" in readme
 
 
+@needs_gnu_cp
 def test_action_ignores_symlinked_summary_and_strips_symlinks_from_copy_back(tmp_path):
     bash = _bash_or_skip()
     secret = tmp_path / "secret.txt"
@@ -563,6 +574,7 @@ def test_action_refuses_copy_back_onto_workspace_file_symlink(tmp_path):
     assert victim.read_text(encoding="utf-8") == "ORIGINAL"
 
 
+@needs_gnu_cp
 def test_action_copy_back_still_works_for_plain_directories(tmp_path):
     bash = _bash_or_skip()
     (tmp_path / "ws" / "reports").mkdir(parents=True)
@@ -742,6 +754,7 @@ def test_action_refuses_symlinked_output_dir_with_repeated_trailing_slashes(tmp_
     assert _last(gh_output, "upload-reports") == "upload-reports=false"
 
 
+@needs_gnu_cp
 def test_action_plain_nested_output_dir_still_uploads(tmp_path):
     bash = _bash_or_skip()
     (tmp_path / "ws" / "out" / "reports").mkdir(parents=True)

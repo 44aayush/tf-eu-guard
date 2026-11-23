@@ -189,7 +189,7 @@ def _git_repo(tmp_path, marker):
         capture_output=True,
     )
     subprocess.run(
-        ["git", "-C", str(repo), "config", "core.fsmonitor", f"touch {marker}; false"],
+        ["git", "-C", str(repo), "config", "core.fsmonitor", f"touch '{marker.as_posix()}'; false"],
         check=True,
         capture_output=True,
     )
@@ -272,7 +272,7 @@ def _filter_repo(tmp_path, marker):
     (repo / ".gitattributes").write_text("* filter=evil\n")
     git("add", ".")
     git("commit", "-q", "-m", "x")
-    git("config", "filter.evil.clean", f"touch {marker}; cat")
+    git("config", "filter.evil.clean", f"touch '{marker.as_posix()}'; cat")
     (repo / "a.tf").write_text("bbbb\n")
     os.utime(repo / ".git" / "index", (1, 1))  # nonzero: git treats mtime 0 as "not racy"
     return repo

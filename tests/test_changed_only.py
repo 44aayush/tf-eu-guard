@@ -167,7 +167,7 @@ def test_changed_since_keeps_requirement_matrix(monkeypatch, repo, capsys):
 
 def test_changed_files_does_not_run_repo_fsmonitor(repo, tmp_path_factory):
     marker = tmp_path_factory.mktemp("marker") / "PWNED"
-    _git(repo, "config", "core.fsmonitor", f"touch {marker}; false")
+    _git(repo, "config", "core.fsmonitor", f"touch '{marker.as_posix()}'; false")
     subprocess.run(["git", "-C", str(repo), "status"], capture_output=True, check=False)
     assert marker.exists(), "fixture must be exploitable without the safe flags"
     marker.unlink()
