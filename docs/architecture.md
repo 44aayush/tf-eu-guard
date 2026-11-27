@@ -106,7 +106,7 @@ contract.
 ### 7. Gate — `tf_eu_guard/cli/gating.py`
 
 `--fail-on-severity` / `--fail-on-any` set exit code 1 when mapped
-active findings meet the threshold; `--fail-on-suppressed` sets it when any
+active findings meet the threshold (unmapped findings count only when `--unmapped-severity` sets a severity for them); `--fail-on-suppressed` sets it when any
 mapped finding was suppressed by an inline Checkov comment. The other exit codes are documented in the
 README's CI/CD Gating section: 0 clean, 1 findings, 2 invalid
 input/configuration, 3 scanner/runtime failure. A pipeline can then fail

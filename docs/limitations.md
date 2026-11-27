@@ -88,8 +88,8 @@ are deliberately unmapped (methodology in
 [`check-mapping-table.md`](check-mapping-table.md)). They are surfaced as a
 count in terminal/HTML reports and as a stderr count beside JSON; SARIF also
 preserves each unmapped identity, resource, and location with
-`properties.mapped: false` but no registry remediation. They never gate a
-build. Their absence from the compliance view reflects mapping coverage and says
+`properties.mapped: false` but no registry remediation. By default they never gate a
+build (see `--unmapped-severity` and `--fail-on-unmapped`). Their absence from the compliance view reflects mapping coverage and says
 nothing about their security relevance. A scan that shows "53
 mapped, 9 unmapped" is reporting 62 real Checkov failures, not 53.
 
@@ -111,7 +111,7 @@ reads `skipped_checks` and never lets a suppression disappear:
   suppressed is reported as "No active findings; N suppressed", never as a
   clean result.
 - `--fail-on-suppressed` exits 1 when any *mapped* suppressed finding exists
-  (unmapped ones never gate, as with the other gates). `--framework` filters
+  (unmapped ones never trip it; `--unmapped-severity` only affects `--fail-on-severity` / `--fail-on-any`). `--framework` filters
   suppressed findings exactly as it filters active ones, so the gate follows
   the selected framework.
 - JSON entries carry `"suppressed"` and `"suppression_reason"` (`false`/`null`

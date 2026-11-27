@@ -352,18 +352,18 @@ def build_parser() -> argparse.ArgumentParser:
         "disabled (exit 0 unless an error occurs). An empty value also "
         "disables gating (the GitHub Action passes its cleared input "
         "through verbatim). "
-        "Only MAPPED findings are considered: severity is authored in the "
-        "mapping registry, so unmapped Checkov findings have no severity "
-        "to compare and never trip the gate (they are reported for "
-        "visibility instead).",
+        "Only MAPPED findings are considered unless --unmapped-severity is set: "
+        "severity is authored in the mapping registry, so unmapped Checkov "
+        "findings have no severity of their own and otherwise never trip "
+        "the gate (they are reported for visibility instead).",
     )
     parser.add_argument(
         "--fail-on-any",
         action="store_true",
         help="Exit with code 1 if any finding exists, regardless of severity. "
-        "Like --fail-on-severity, considers only MAPPED findings "
-        "(unmapped Checkov findings are surfaced in reports but do not "
-        "fail the gate).",
+        "Like --fail-on-severity, considers only MAPPED findings unless "
+        "--unmapped-severity is set (otherwise unmapped Checkov findings are "
+        "surfaced in reports but do not fail the gate).",
     )
     parser.add_argument(
         "--fail-on-suppressed",
@@ -384,7 +384,9 @@ def build_parser() -> argparse.ArgumentParser:
         "finding of this severity (CRITICAL, HIGH, MEDIUM, LOW, INFO, case-insensitive) for "
         "--fail-on-severity and --fail-on-any. Reports are unchanged: unmapped findings "
         "stay unmapped and carry no severity. Has no effect without one of those gates. "
-        "Default: unset. An empty value also leaves it unset.",
+        "Unmapped findings are never baselined or waived, so every active unmapped finding "
+        "counts, including ones present in a --baseline file; use an inline checkov:skip "
+        "to exempt one. Default: unset. An empty value also leaves it unset.",
     )
     parser.add_argument(
         "--show-unmapped",
@@ -398,7 +400,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--fail-on-unmapped",
         action="store_true",
         help="Exit with code 1 if any active (not inline-suppressed) unmapped "
-        "Checkov finding exists. Unmapped findings otherwise never trip the gate.",
+        "Checkov finding exists. Unmapped findings otherwise trip no gate unless "
+        "--unmapped-severity is set.",
     )
     return parser
 

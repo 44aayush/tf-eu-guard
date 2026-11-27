@@ -17,7 +17,14 @@ release point.
   credentials files pointed at `/dev/null`. The Azure/GCP region snapshot loader rejects non-list or non-string entries (T-29).
 - `--unmapped-severity SEVERITY` (config key `unmapped_severity`, Action input `unmapped-severity`) counts every
   active unmapped Checkov finding as a finding of that severity for `--fail-on-severity` and `--fail-on-any`.
-  Reports are unchanged and the default gate is unchanged (TEG-10).
+  Reports are unchanged and the default gate is unchanged (TEG-10). Unmapped findings are never baselined or waived,
+  so every active unmapped finding counts, including ones present in a `--baseline` file; use an inline
+  `checkov:skip` to exempt one.
+- Action input `json-format` (`array` or `object`, default empty) passes `--json-format`, so Action users can silence the
+  implicit-default deprecation warning.
+- The gate "Fail:" line names the threshold as `ANY` whenever `--fail-on-any` is set, also together with `--fail-on-severity`.
+- `--fail-on-severity`, `--fail-on-any` and `--fail-on-unmapped` help, the README, limitations and architecture docs now
+  mention `--unmapped-severity`.
 - A Terraform scan warns on stderr when `google_*` resources were scanned but no `EUGUARD_POLICY_004` result
   appeared, because the region then comes from the environment (for example `GOOGLE_REGION`) or the provider at apply
   time; same semantics as the AWS region-unset warning.

@@ -339,7 +339,8 @@ per NIS2/GDPR requirement), `registry` (loaded overlays and overridden check IDs
 and `waived`; its JSON Schema ships in the package as
 `tf_eu_guard/schemas/report.schema.json` (`tf_eu_guard.REPORT_SCHEMA_PATH`). The default `--json-format array`
 keeps the legacy bare array and is deprecated: the default will change to
-`object` in a future release.
+`object` in a future release, and an implicit `--json-format` (flag omitted) now prints a
+warning on stderr. Pass `--json-format array` or `object` explicitly to silence it (Action input `json-format`).
 
 ### Generate All Reports at Once
 
@@ -385,11 +386,20 @@ case $? in
 esac
 ```
 
-> **Gating considers only mapped findings.** Severity is authored in the mapping
-> registry, so an unmapped Checkov finding has no severity to compare and never
-> trips `--fail-on-severity` / `--fail-on-any`. It is reported for visibility
-> instead (a note is printed to stderr whenever unmapped findings exist during
-> a gated run).
+> **Gating considers only mapped findings by default.** Severity is authored in the mapping
+> registry, so an unmapped Checkov finding has no severity to compare and, unless
+> `--unmapped-severity` is set, never trips `--fail-on-severity` / `--fail-on-any`.
+> It is reported for visibility instead (a note is printed to stderr whenever
+> unmapped findings exist during a gated run). To gate on them, count each active
+> unmapped finding at a severity you choose:
+>
+> ```bash
+> tf-eu-guard scan . --fail-on-severity HIGH --unmapped-severity HIGH
+> ```
+>
+> Unmapped findings are never baselined or waived, so with `--unmapped-severity`
+> every active unmapped finding counts, including ones present in a `--baseline`
+> file; use an inline `checkov:skip` to exempt one.
 
 > **Inline suppressions are reported, not gated by default.** Findings that
 > Checkov moved to `skipped_checks` because of `#checkov:skip=ID:reason`
@@ -417,7 +427,8 @@ esac
 > and file path (line numbers ignored) become "Known (in baseline)": listed in every
 > report (JSON `baselined[]`, SARIF `baselineState: unchanged`) but outside the
 > `--fail-on-severity` / `--fail-on-any` gate, so CI fails only on new findings. The
-> baseline's date and match count appear under "Scan settings that reduce findings".
+> Unmapped findings are never baselined, so `--unmapped-severity` still counts every active unmapped finding, including ones present in the baseline.
+> The baseline's date and match count appear under "Scan settings that reduce findings".
 > `tf-eu-guard diff OLD.json NEW.json [--json]` prints new, fixed and unchanged counts
 > and lists the new and fixed findings; it exits 1 when there are new findings, 2 on
 > unreadable input. Suppressed and waived entries are not compared; baselined ones count as present (they still fail).
@@ -494,6 +505,7 @@ Action inputs mirror the scan options:
 | `fail-on-suppressed` | `--fail-on-suppressed` | `false` |
 | `fail-on-unmapped` | `--fail-on-unmapped` | `false` |
 | `unmapped-severity` | `--unmapped-severity` | empty |
+| `json-format` | `--json-format` (`array` or `object`) | empty |
 | `residency-policy` | `--residency-policy` | `eu-eea` |
 | `allowed-regions` | `--allowed-regions` | empty |
 | `checkov-json` | `--checkov-json` (workspace-relative path; same rules as `path`) | empty |
