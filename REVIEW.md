@@ -503,3 +503,21 @@ These results are from a fresh `--no-cache` build (`tf-eu-guard:ci4`) at `66fa0b
 Two more problems turned up and were fixed during the iteration:
 - **Host-side `git rev-parse` could be redirected.** A first version could be pointed at another repository by a planted bare repository or by `GIT_DIR`, which would have let a PR forge `provenance.commit`.
 - **Test helpers wrote to the real repository.** The test suite's git helpers inherited an exported `GIT_DIR`. They now clear all `GIT_*` variables.
+
+### After iteration 3 (2026-11-27, `version_0.10.0`)
+
+These results are from a fresh `--no-cache` build (`tf-eu-guard:ci6`) at `5e2ea16`. 1402 tests pass (`TFEG_RUN_CHECKOV=1`); ruff, mypy, the doc-count check and the coverage-doc check are clean (278 mappings); the trivy gate exits 0.
+
+| Finding | After iteration 3 | Status |
+| --- | --- | --- |
+| TEG-08 local module escape | A stderr warning names every local module source that resolves outside the scan root (lab E4) | Fixed (warning) |
+| TEG-10 unmapped gate | New Action input `fail-on-unmapped` | Fixed (the per-release triage table is still open) |
+| TEG-11 registry | `CKV_AWS_288` no longer cites GDPR Art. 4(12)/33. The data-store encryption-at-rest checks (`CKV_AWS_16/3/96/5/44`) are all HIGH. `CKV2_AWS_27` and `CKV2_AWS_34` are mapped. The `CKV2_AWS_27/30` remediations now clear Checkov, which a live test proves | Partly fixed (a written cross-family severity rubric is still open) |
+| TEG-14 hcl2 collision | The Checkov bootstrap probes `hcl2` for every IaC type and exits 97, which tf-eu-guard turns into an actionable message instead of a traceback | Fixed |
+| TEG-16 environment | Checkov now receives an allowlisted environment. Module-download restrictions always pass through; download credentials and `PROXY_*` pass only with `--download-external-modules` | Fixed |
+| TEG-17 code health | Framework filtering no longer mutates the caller's findings | Partly fixed (other TEG-17 items still open) |
+
+Found and fixed during the iteration:
+- The first `hcl2` check skipped Kubernetes, and Kubernetes scans break the same way.
+- The first allowlist dropped Checkov's module-download restrictions and proxy settings.
+- A regenerated HTML sample recorded a local scratch path. The committed plans also contained that path; it is now scrubbed from the current files.
