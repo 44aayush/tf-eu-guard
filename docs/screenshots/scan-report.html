@@ -83,14 +83,14 @@
 <body>
 <header>
   <h1>tf-eu-guard &mdash; Security Report</h1>
-  <div class="meta"><span>Target: <code>examples/vulnerable-aws</code></span><span>Generated: 2026-11-27 10:15 UTC</span><span>Findings: 53</span></div>
+  <div class="meta"><span>Target: <code>examples/vulnerable-aws</code></span><span>Generated: 2026-11-27 14:53 UTC</span><span>Findings: 53</span></div>
 </header>
 <section class="summary">
 <div class="stat"><div class="num">53</div><div class="label">Findings</div></div>
 <div class="stat"><div class="num">5</div><div class="label">Files</div></div>
 <div class="stat"><div class="num" style="color:#c0392b">7</div><div class="label">CRITICAL</div></div>
-<div class="stat"><div class="num" style="color:#e67e22">17</div><div class="label">HIGH</div></div>
-<div class="stat"><div class="num" style="color:#d4ac0d">21</div><div class="label">MEDIUM</div></div>
+<div class="stat"><div class="num" style="color:#e67e22">15</div><div class="label">HIGH</div></div>
+<div class="stat"><div class="num" style="color:#d4ac0d">23</div><div class="label">MEDIUM</div></div>
 <div class="stat"><div class="num" style="color:#2471a3">8</div><div class="label">LOW</div></div>
 <div class="stat"><div class="num">45</div><div class="label">NIS2</div></div>
 <div class="stat"><div class="num">32</div><div class="label">GDPR</div></div>
@@ -98,10 +98,10 @@
 </section>
 <h2>Finding distribution</h2>
 <section class="chart">
-<div class="row"><span class="rlabel">CRITICAL</span><span class="track"><span class="bar" style="width:33%;background:#c0392b"></span></span><span class="rcount">7</span></div>
-<div class="row"><span class="rlabel">HIGH</span><span class="track"><span class="bar" style="width:81%;background:#e67e22"></span></span><span class="rcount">17</span></div>
-<div class="row"><span class="rlabel">MEDIUM</span><span class="track"><span class="bar" style="width:100%;background:#d4ac0d"></span></span><span class="rcount">21</span></div>
-<div class="row"><span class="rlabel">LOW</span><span class="track"><span class="bar" style="width:38%;background:#2471a3"></span></span><span class="rcount">8</span></div>
+<div class="row"><span class="rlabel">CRITICAL</span><span class="track"><span class="bar" style="width:30%;background:#c0392b"></span></span><span class="rcount">7</span></div>
+<div class="row"><span class="rlabel">HIGH</span><span class="track"><span class="bar" style="width:65%;background:#e67e22"></span></span><span class="rcount">15</span></div>
+<div class="row"><span class="rlabel">MEDIUM</span><span class="track"><span class="bar" style="width:100%;background:#d4ac0d"></span></span><span class="rcount">23</span></div>
+<div class="row"><span class="rlabel">LOW</span><span class="track"><span class="bar" style="width:35%;background:#2471a3"></span></span><span class="rcount">8</span></div>
 </section>
 <h2>Findings by severity</h2>
 <h3 style="color:#c0392b">CRITICAL (7)</h3>
@@ -245,7 +245,7 @@ manager or a sensitive variable injected at apply time:
   password = data.aws_secretsmanager_secret_version.db.secret_string
   # or a variable marked `sensitive` and sourced from the environment/a vault.</pre></div>
 </article>
-<h3 style="color:#e67e22">HIGH (17)</h3>
+<h3 style="color:#e67e22">HIGH (15)</h3>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
     <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
@@ -435,30 +435,6 @@ full resource); at minimum:
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
     <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
-    <span class="cid">CKV_AWS_145</span>
-    <span class="cname">Ensure that S3 buckets are encrypted with KMS by default</span>
-  </div>
-  <dl class="meta">
-    <dt>Resource</dt><dd><code>aws_s3_bucket.data</code></dd>
-    <dt>File</dt><dd><code>/s3.tf:2-9</code></dd>
-    <dt>Compliance</dt><dd><span class="art">GDPR Art. 32(1)(a)</span> <span class="art">NIS2 Art. 21(2)(h)</span></dd>
-  </dl>
-  <p class="risk">Buckets without KMS-managed encryption at rest lack the auditable key control and key-rotation guarantees expected of encrypted personal data. GDPR Art. 32(1)(a) names encryption explicitly; NIS2 Art. 21(2)(h) requires cryptography policies.
-</p>
-  <div class="remediation"><h4>Remediation</h4><pre>Configure default SSE-KMS on the bucket:
-  resource &quot;aws_s3_bucket_server_side_encryption_configuration&quot; &quot;this&quot; {
-    bucket = aws_s3_bucket.data.id
-    rule {
-      apply_server_side_encryption_by_default {
-        sse_algorithm     = &quot;aws:kms&quot;
-        kms_master_key_id = aws_kms_key.s3.arn
-      }
-    }
-  }</pre></div>
-</article>
-<article class="finding sev-high" style="border-left-color:#e67e22">
-  <div class="finding-head">
-    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
     <span class="cid">CKV_AWS_53</span>
     <span class="cname">Ensure S3 bucket has block public ACLS enabled</span>
   </div>
@@ -546,31 +522,7 @@ full resource); at minimum:
   ignore_public_acls      = true
   restrict_public_buckets = true</pre></div>
 </article>
-<article class="finding sev-high" style="border-left-color:#e67e22">
-  <div class="finding-head">
-    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
-    <span class="cid">CKV_AWS_145</span>
-    <span class="cname">Ensure that S3 buckets are encrypted with KMS by default</span>
-  </div>
-  <dl class="meta">
-    <dt>Resource</dt><dd><code>aws_s3_bucket.logs</code></dd>
-    <dt>File</dt><dd><code>/s3.tf:22-28</code></dd>
-    <dt>Compliance</dt><dd><span class="art">GDPR Art. 32(1)(a)</span> <span class="art">NIS2 Art. 21(2)(h)</span></dd>
-  </dl>
-  <p class="risk">Buckets without KMS-managed encryption at rest lack the auditable key control and key-rotation guarantees expected of encrypted personal data. GDPR Art. 32(1)(a) names encryption explicitly; NIS2 Art. 21(2)(h) requires cryptography policies.
-</p>
-  <div class="remediation"><h4>Remediation</h4><pre>Configure default SSE-KMS on the bucket:
-  resource &quot;aws_s3_bucket_server_side_encryption_configuration&quot; &quot;this&quot; {
-    bucket = aws_s3_bucket.data.id
-    rule {
-      apply_server_side_encryption_by_default {
-        sse_algorithm     = &quot;aws:kms&quot;
-        kms_master_key_id = aws_kms_key.s3.arn
-      }
-    }
-  }</pre></div>
-</article>
-<h3 style="color:#d4ac0d">MEDIUM (21)</h3>
+<h3 style="color:#d4ac0d">MEDIUM (23)</h3>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
     <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
@@ -898,6 +850,30 @@ residency policy (an in-policy region, when available):
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
   <div class="finding-head">
     <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
+    <span class="cid">CKV_AWS_145</span>
+    <span class="cname">Ensure that S3 buckets are encrypted with KMS by default</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket.data</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:2-9</code></dd>
+    <dt>Compliance</dt><dd><span class="art">GDPR Art. 32(1)(a)</span> <span class="art">NIS2 Art. 21(2)(h)</span></dd>
+  </dl>
+  <p class="risk">New objects in a bucket without default SSE-KMS are already encrypted at rest with S3-managed keys (SSE-S3). A KMS key adds key-policy, rotation and access-grant control over that data, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for buckets that hold personal data.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Configure default SSE-KMS on the bucket:
+  resource &quot;aws_s3_bucket_server_side_encryption_configuration&quot; &quot;this&quot; {
+    bucket = aws_s3_bucket.data.id
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm     = &quot;aws:kms&quot;
+        kms_master_key_id = aws_kms_key.s3.arn
+      }
+    }
+  }</pre></div>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
     <span class="cid">CKV_AWS_18</span>
     <span class="cname">Ensure the S3 bucket has access logging enabled</span>
   </div>
@@ -953,6 +929,30 @@ residency policy (an in-policy region, when available):
     role   = aws_iam_role.replication.arn
     bucket = aws_s3_bucket.data.id
     rule { destination { bucket = aws_s3_bucket.replica.arn } }
+  }</pre></div>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
+    <span class="cid">CKV_AWS_145</span>
+    <span class="cname">Ensure that S3 buckets are encrypted with KMS by default</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket.logs</code></dd>
+    <dt>File</dt><dd><code>/s3.tf:22-28</code></dd>
+    <dt>Compliance</dt><dd><span class="art">GDPR Art. 32(1)(a)</span> <span class="art">NIS2 Art. 21(2)(h)</span></dd>
+  </dl>
+  <p class="risk">New objects in a bucket without default SSE-KMS are already encrypted at rest with S3-managed keys (SSE-S3). A KMS key adds key-policy, rotation and access-grant control over that data, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for buckets that hold personal data.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Configure default SSE-KMS on the bucket:
+  resource &quot;aws_s3_bucket_server_side_encryption_configuration&quot; &quot;this&quot; {
+    bucket = aws_s3_bucket.data.id
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm     = &quot;aws:kms&quot;
+        kms_master_key_id = aws_kms_key.s3.arn
+      }
+    }
   }</pre></div>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
@@ -1157,6 +1157,6 @@ residency policy (an in-policy region, when available):
                       events = [&quot;s3:ObjectCreated:*&quot;] }
   }</pre></div>
 </article>
-<footer>Generated by tf-eu-guard v0.9.0 on 2026-11-27 10:15 UTC. Only failed checks that map to a NIS2, GDPR, or project-policy control are shown; 0 finding(s) suppressed by inline comments, 0 waived and 0 known from the baseline are listed separately; this report is not legal advice and is not a certification; absence of a finding is not evidence of compliance.</footer>
+<footer>Generated by tf-eu-guard v0.9.0 on 2026-11-27 14:53 UTC. Only failed checks that map to a NIS2, GDPR, or project-policy control are shown; 0 finding(s) suppressed by inline comments, 0 waived and 0 known from the baseline are listed separately; this report is not legal advice and is not a certification; absence of a finding is not evidence of compliance.</footer>
 </body>
 </html>

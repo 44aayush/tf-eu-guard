@@ -64,7 +64,7 @@
 <header>
   <h1>tf-eu-guard &mdash; Compliance Audit Report</h1>
   <p style="margin:4px 0 8px;font-family:system-ui,sans-serif">NIS2 (Directive 2022/2555, Art. 21), GDPR (Reg. 2016/679, Art. 32 &amp; 44), and project policy</p>
-  <div class="meta"><span>Target: <code>examples/vulnerable-aws</code></span><span>Generated: 2026-11-27 10:15 UTC</span></div>
+  <div class="meta"><span>Target: <code>examples/vulnerable-aws</code></span><span>Generated: 2026-11-27 14:53 UTC</span></div>
 </header>
 <div class="scope"><strong>Scope &amp; limitations.</strong> This report lists only Checkov control failures that map to a NIS2, GDPR, or project-policy reference. It is an evidence aid for an auditor, not legal advice and is not a certification. An article not listed here was not exercised by a failing check &mdash; that is <em>not</em> evidence of compliance. Absence of a finding is not evidence of compliance.</div>
 <h2>Executive summary</h2>
@@ -179,8 +179,8 @@
 <thead><tr><th>Severity</th><th>Resource</th><th>Location</th><th>Failed control</th></tr></thead>
 <tbody>
 <tr><td><span class="badge sev-high" style="background:#e67e22;color:#1a1a1a">HIGH</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_16</code><br>Ensure all data stored in the RDS is securely encrypted at rest</td></tr>
-<tr><td><span class="badge sev-high" style="background:#e67e22;color:#1a1a1a">HIGH</span></td><td><code>aws_s3_bucket.data</code></td><td><code>/s3.tf:2-9</code></td><td><code>CKV_AWS_145</code><br>Ensure that S3 buckets are encrypted with KMS by default</td></tr>
-<tr><td><span class="badge sev-high" style="background:#e67e22;color:#1a1a1a">HIGH</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV_AWS_145</code><br>Ensure that S3 buckets are encrypted with KMS by default</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span></td><td><code>aws_s3_bucket.data</code></td><td><code>/s3.tf:2-9</code></td><td><code>CKV_AWS_145</code><br>Ensure that S3 buckets are encrypted with KMS by default</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV_AWS_145</code><br>Ensure that S3 buckets are encrypted with KMS by default</td></tr>
 </tbody>
 </table>
 <p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/nis2-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/nis2-mapping.md</code></a></p>
@@ -224,8 +224,8 @@
 <thead><tr><th>Severity</th><th>Resource</th><th>Location</th><th>Failed control</th></tr></thead>
 <tbody>
 <tr><td><span class="badge sev-high" style="background:#e67e22;color:#1a1a1a">HIGH</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_16</code><br>Ensure all data stored in the RDS is securely encrypted at rest</td></tr>
-<tr><td><span class="badge sev-high" style="background:#e67e22;color:#1a1a1a">HIGH</span></td><td><code>aws_s3_bucket.data</code></td><td><code>/s3.tf:2-9</code></td><td><code>CKV_AWS_145</code><br>Ensure that S3 buckets are encrypted with KMS by default</td></tr>
-<tr><td><span class="badge sev-high" style="background:#e67e22;color:#1a1a1a">HIGH</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV_AWS_145</code><br>Ensure that S3 buckets are encrypted with KMS by default</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span></td><td><code>aws_s3_bucket.data</code></td><td><code>/s3.tf:2-9</code></td><td><code>CKV_AWS_145</code><br>Ensure that S3 buckets are encrypted with KMS by default</td></tr>
+<tr><td><span class="badge sev-medium" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV_AWS_145</code><br>Ensure that S3 buckets are encrypted with KMS by default</td></tr>
 </tbody>
 </table>
 <p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/gdpr-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/gdpr-mapping.md</code></a></p>
@@ -302,7 +302,7 @@
 <p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/DECISIONS.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/DECISIONS.md</code></a></p>
 </div>
 <h2 id="provenance">Provenance</h2>
-<table><tr><th>Tool version</th><td><code>0.9.0</code></td></tr><tr><th>Checkov version</th><td><code>3.4.5</code></td></tr><tr><th>Registry SHA-256</th><td><code>70c20f6774f16c2e2f4861b2ead382fbdcd9c929fbf8414383f1b015228ec3f0</code></td></tr><tr><th>Registry files</th><td><code>registry-aws.yaml, registry-azure.yaml, registry-gcp.yaml, registry-kubernetes.yaml, registry-secrets.yaml</code></td></tr><tr><th>Commit</th><td><code>0ff624b1a6af2e4d612d2597084e04973079f878</code></td></tr><tr><th>Resources scanned</th><td><code>17</code></td></tr><tr><th>Checks</th><td><code>passed: 39, failed: 53, skipped: 0</code></td></tr><tr><th>Options</th><td><code>{&quot;allow_partial&quot;: false, &quot;download_external_modules&quot;: false, &quot;exclude&quot;: [], &quot;fail_on_any&quot;: false, &quot;fail_on_suppressed&quot;: false, &quot;fail_on_unmapped&quot;: false, &quot;framework&quot;: &quot;all&quot;, &quot;iac_type&quot;: &quot;terraform&quot;, &quot;json_format&quot;: &quot;array&quot;, &quot;no_config&quot;: false, &quot;no_discovery&quot;: false, &quot;online&quot;: false, &quot;output&quot;: &quot;auditor&quot;, &quot;output_file&quot;: &quot;docs/screenshots/auditor-report.html&quot;, &quot;path&quot;: &quot;examples/vulnerable-aws&quot;, &quot;registry_dirs&quot;: [], &quot;residency_policy&quot;: &quot;eu-eea&quot;, &quot;secrets&quot;: false, &quot;severity_overrides&quot;: {}, &quot;show_unmapped&quot;: false, &quot;timeout&quot;: 600, &quot;var_files&quot;: []}</code></td></tr></table>
-<footer>Generated by tf-eu-guard v0.9.0 on 2026-11-27 10:15 UTC.</footer>
+<table><tr><th>Tool version</th><td><code>0.9.0</code></td></tr><tr><th>Checkov version</th><td><code>3.4.5</code></td></tr><tr><th>Registry SHA-256</th><td><code>c19eb76ce8fea76d0a0036cf3002e2274613a4e965ab95a86080ecb47c84d9a4</code></td></tr><tr><th>Registry files</th><td><code>registry-aws.yaml, registry-azure.yaml, registry-gcp.yaml, registry-kubernetes.yaml, registry-secrets.yaml</code></td></tr><tr><th>Commit</th><td><code>46b20638cd18ecd36011958abca64c58983616c4</code></td></tr><tr><th>Resources scanned</th><td><code>17</code></td></tr><tr><th>Checks</th><td><code>passed: 39, failed: 53, skipped: 0</code></td></tr><tr><th>Options</th><td><code>{&quot;allow_partial&quot;: false, &quot;download_external_modules&quot;: false, &quot;exclude&quot;: [], &quot;fail_on_any&quot;: false, &quot;fail_on_suppressed&quot;: false, &quot;fail_on_unmapped&quot;: false, &quot;framework&quot;: &quot;all&quot;, &quot;iac_type&quot;: &quot;terraform&quot;, &quot;json_format&quot;: &quot;array&quot;, &quot;no_config&quot;: false, &quot;no_discovery&quot;: false, &quot;online&quot;: false, &quot;output&quot;: &quot;auditor&quot;, &quot;output_file&quot;: &quot;docs/screenshots/auditor-report.html&quot;, &quot;path&quot;: &quot;examples/vulnerable-aws&quot;, &quot;registry_dirs&quot;: [], &quot;residency_policy&quot;: &quot;eu-eea&quot;, &quot;secrets&quot;: false, &quot;severity_overrides&quot;: {}, &quot;show_unmapped&quot;: false, &quot;timeout&quot;: 600, &quot;var_files&quot;: []}</code></td></tr></table>
+<footer>Generated by tf-eu-guard v0.9.0 on 2026-11-27 14:53 UTC.</footer>
 </body>
 </html>
