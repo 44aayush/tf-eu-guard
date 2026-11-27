@@ -12,6 +12,9 @@ release point.
 
 ### Added
 
+- Tests and docs pin that the Azure (`EUGUARD_POLICY_003`, `EUGUARD_GDPR_004`) and GCP (`EUGUARD_POLICY_004`,
+  `EUGUARD_GDPR_005`) resource-level residency checks run in plan mode, while the provider-block checks, including the
+  no-region findings `EUGUARD_POLICY_005` and `EUGUARD_POLICY_006`, do not (TEG-05).
 - `tools/generate_checkov_coverage.py --check` also fails on an `intentionally_unmapped` or `known_stale` triage ID that
   Checkov no longer defines (a `known_stale` ID a registry still maps stays allowed), and takes `--doc PATH`. New report
   goldens cover a second input (mapped, unmapped and inline-suppressed findings) with `--show-unmapped` and with an object

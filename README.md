@@ -705,7 +705,7 @@ the keywords authoritative. The package ships `py.typed`.
 |------------|-----------------|----------------|------------|
 | **NIS2 Article 21(2)** | ✅ 223 cloud check mappings | ✅ same checks apply | ✅ 26 `CKV_K8S_*` mappings |
 | **GDPR Article 32(1)** | ✅ 178 cloud check mappings | ✅ same checks apply | ✅ 16 `CKV_K8S_*` mappings |
-| **GDPR Art. 44 (third-country transfer review)** | ✅ Custom checks `EUGUARD_GDPR_002` (provider), `EUGUARD_GDPR_003` (resource `region`, replicas), `EUGUARD_GDPR_004` (Azure resource `location`) and `EUGUARD_GDPR_005` (GCP provider region, resource `region`/`location`/`zone`) | ⚠️ Partial: resource-level only. The resource-level checks (`EUGUARD_POLICY_002`, `EUGUARD_GDPR_003` for AWS) run in plan mode; the provider-block checks do not, so also scan Terraform source | ❌ Out of scope — see note |
+| **GDPR Art. 44 (third-country transfer review)** | ✅ Custom checks `EUGUARD_GDPR_002` (provider), `EUGUARD_GDPR_003` (resource `region`, replicas), `EUGUARD_GDPR_004` (Azure resource `location`) and `EUGUARD_GDPR_005` (GCP provider region, resource `region`/`location`/`zone`) | ⚠️ Partial: resource-level only. The resource-level checks (`EUGUARD_POLICY_002`, `EUGUARD_GDPR_003` for AWS; `EUGUARD_POLICY_003`, `EUGUARD_GDPR_004` for Azure; `EUGUARD_POLICY_004`, `EUGUARD_GDPR_005` for GCP) run in plan mode; the provider-block checks do not, so also scan Terraform source | ❌ Out of scope — see note |
 
 > Mapping counts above are generated from the registry files and verified in CI
 > (`tools/check_doc_counts.py`) — they cannot drift from the registries.
