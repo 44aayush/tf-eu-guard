@@ -1,5 +1,7 @@
 """Golden-output guard for the report layer, plus ReportContext field copying."""
 
+import argparse
+import dataclasses
 import os
 import re
 import shutil
@@ -9,6 +11,8 @@ import pytest
 
 from tests.cli_helpers import FIXTURE, run_cli
 from tf_eu_guard import __version__
+from tf_eu_guard.cli.pipeline import ScanFindings
+from tf_eu_guard.cli.report_context import ReportContext
 
 GOLDEN_DIR = Path(__file__).parent / "fixtures" / "report-golden"
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -87,3 +91,29 @@ def test_stdout_reports_are_byte_identical(monkeypatch, tmp_path, capsys, name, 
     )
     assert rc in (0, 1)
     _check_golden(f"stdout-{name}", extension, capsys.readouterr().out)
+
+
+def test_report_context_from_result_copies_fields(registry):
+    args = argparse.Namespace(path=None, checkov_json="x.json", baseline=None)
+    result = ScanFindings(
+        findings=[object()],
+        unmapped=[{"check_id": "CKV_X"}],
+        suppressed=[object()],
+        suppressed_unmapped=[{"check_id": "CKV_Y"}],
+        checkov_version="3.0.0",
+        registry=registry,
+        waived=[object()],
+        weakening_settings=["--secrets off"],
+        baselined=[object()],
+        requirements=[object()],
+        provenance={"commit": "abc"},
+    )
+    ctx = ReportContext.from_result(args, result)
+    assert ctx.args is args
+    for name in (f.name for f in dataclasses.fields(ReportContext) if f.name != "args"):
+        assert getattr(ctx, name) is getattr(result, name), name
+    assert ctx.target == "checkov-json:x.json"
+    assert ctx.known_findings is None  # no --baseline given
+    assert ctx.suppressed_total == 2
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        ctx.findings = []  # type: ignore[misc]

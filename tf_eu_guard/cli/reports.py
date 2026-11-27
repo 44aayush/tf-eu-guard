@@ -11,9 +11,8 @@ from uuid import uuid4
 
 from tf_eu_guard import __version__
 from tf_eu_guard.cli.paths import find_repository_root, sarif_scan_root
+from tf_eu_guard.cli.report_context import ReportContext
 from tf_eu_guard.json_layout import resolve_json_format
-from tf_eu_guard.mapping.coverage import RequirementResult
-from tf_eu_guard.mapping.loader import LoadedRegistry
 from tf_eu_guard.models import EnrichedFinding
 from tf_eu_guard.reporting.auditor_report import generate_auditor_report
 from tf_eu_guard.reporting.csv_report import render_csv
@@ -94,20 +93,7 @@ def _finding_entry(finding: EnrichedFinding) -> dict[str, Any]:
     }
 
 
-def build_json_object(
-    args: argparse.Namespace,
-    findings: list[EnrichedFinding],
-    unmapped: list[dict[str, Any]],
-    suppressed: list[EnrichedFinding] | None = None,
-    suppressed_unmapped: list[dict[str, Any]] | None = None,
-    checkov_version: str | None = None,
-    requirements: list[RequirementResult] | None = None,
-    registry: LoadedRegistry | None = None,
-    waived: list[EnrichedFinding] | None = None,
-    weakening_settings: list[str] | None = None,
-    baselined: list[EnrichedFinding] | None = None,
-    provenance: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+def build_json_object(ctx: ReportContext) -> dict[str, Any]:
     """Build the versioned object format (schema: ``tf_eu_guard/schemas/report.schema.json``).
 
     ``summary.by_severity`` counts active (unsuppressed) mapped findings.
@@ -115,10 +101,11 @@ def build_json_object(
     ``unmapped`` list and the suppressed entries across both lists;
     ``summary.total`` is ``len(findings) + len(unmapped)``.
     """
-    mapped = sort_findings([*findings, *(suppressed or [])])
-    raw_unmapped = sort_unmapped_findings([*unmapped, *(suppressed_unmapped or [])])
+    args = ctx.args
+    mapped = sort_findings([*ctx.findings, *ctx.suppressed])
+    raw_unmapped = sort_unmapped_findings([*ctx.unmapped, *ctx.suppressed_unmapped])
     by_severity = dict.fromkeys(_SEVERITY_ORDER, 0)
-    for finding in findings:
+    for finding in ctx.findings:
         by_severity[finding.severity.value] += 1
 
     finding_entries = [_finding_entry(finding) for finding in mapped]
@@ -139,18 +126,18 @@ def build_json_object(
     document: dict[str, Any] = {
         "schema_version": JSON_SCHEMA_VERSION,
         "tool": {"name": "tf-eu-guard", "version": __version__},
-        "checkov_version": checkov_version,
+        "checkov_version": ctx.checkov_version,
         "scan": {
-            "target": str(args.path) if args.path else f"checkov-json:{args.checkov_json}",
+            "target": ctx.target,
             "iac_type": args.iac_type,
             "timestamp": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "weakening_settings": list(weakening_settings or []),
+            "weakening_settings": list(ctx.weakening_settings),
         },
         "summary": {
             "by_severity": by_severity,
             "unmapped": len(unmapped_entries),
             "suppressed": suppressed_total,
-            "total": len(findings) + len(unmapped),
+            "total": len(ctx.findings) + len(ctx.unmapped),
         },
         "findings": finding_entries,
         "unmapped": unmapped_entries,
@@ -167,13 +154,13 @@ def build_json_object(
                 "suppressed": row.suppressed,
                 "waived": row.waived,
             }
-            for row in requirements or []
+            for row in ctx.requirements
         ],
         "registry": {
-            "overlays": [str(path) for path in registry.overlay_files] if registry else [],
-            "overridden": list(registry.overridden) if registry else [],
+            "overlays": [str(path) for path in ctx.registry.overlay_files] if ctx.registry else [],
+            "overridden": list(ctx.registry.overridden) if ctx.registry else [],
         },
-        "baselined": [_finding_entry(finding) for finding in sort_findings(baselined or [])],
+        "baselined": [_finding_entry(finding) for finding in sort_findings(ctx.baselined)],
         "waived": [
             {
                 **_finding_entry(finding),
@@ -184,131 +171,79 @@ def build_json_object(
                     "file": finding.waiver.file,
                 },
             }
-            for finding in sort_findings(waived or [])
+            for finding in sort_findings(ctx.waived)
             if finding.waiver
         ],
     }
-    if provenance is not None:
-        document["provenance"] = provenance
+    if ctx.provenance is not None:
+        document["provenance"] = ctx.provenance
     return document
 
 
-def render_json_report(
-    findings: list[EnrichedFinding],
-    unmapped: list[dict[str, Any]],
-    suppressed: list[EnrichedFinding] | None = None,
-    suppressed_unmapped: list[dict[str, Any]] | None = None,
-    args: argparse.Namespace | None = None,
-    checkov_version: str | None = None,
-    requirements: list[RequirementResult] | None = None,
-    registry: LoadedRegistry | None = None,
-    waived: list[EnrichedFinding] | None = None,
-    weakening_settings: list[str] | None = None,
-    baselined: list[EnrichedFinding] | None = None,
-    provenance: dict[str, Any] | None = None,
-) -> None:
+def render_json_report(ctx: ReportContext) -> None:
     """Print the JSON report, or write it to ``--output-file`` (UTF-8)."""
+    args = ctx.args
     output_file = getattr(args, "output_file", None)
-    if args is not None and getattr(args, "json_format", None) is None:
+    if getattr(args, "json_format", None) is None:
         print(_IMPLICIT_JSON_FORMAT_WARNING, file=sys.stderr)
-    if args is not None and resolve_json_format(args) == "object":
-        document: Any = build_json_object(
-            args,
-            findings,
-            unmapped,
-            suppressed,
-            suppressed_unmapped,
-            checkov_version,
-            requirements,
-            registry,
-            waived,
-            weakening_settings,
-            baselined,
-            provenance,
-        )
+    if resolve_json_format(args) == "object":
+        document: Any = build_json_object(ctx)
     else:
-        document = _json_array(findings, suppressed, waived, baselined)
+        document = _json_array(ctx.findings, ctx.suppressed, ctx.waived, ctx.baselined)
         # The bare array has no room for metadata; stdout must stay pure.
-        print_weakening_to_stderr(weakening_settings or [])
+        print_weakening_to_stderr(ctx.weakening_settings)
     text = json.dumps(document, indent=2, sort_keys=True, ensure_ascii=False)
     if output_file:
         output_file.parent.mkdir(parents=True, exist_ok=True)
         output_file.write_text(text + "\n", encoding="utf-8")
         print(
             f"JSON report written to {output_file} "
-            f"({len(findings)} mapped, {len(unmapped)} unmapped findings; "
-            f"{len(suppressed or []) + len(suppressed_unmapped or [])} suppressed)."
+            f"({len(ctx.findings)} mapped, {len(ctx.unmapped)} unmapped findings; "
+            f"{ctx.suppressed_total} suppressed)."
         )
         return
     print(text)
-    if args is not None and resolve_json_format(args) == "object":
+    if resolve_json_format(args) == "object":
         return  # the object carries unmapped findings itself
     # Machine-readable stdout stays a pure findings array; the unmapped count
     # goes to stderr so pipelines parsing stdout are unaffected while humans
     # still see it.
-    if unmapped:
+    if ctx.unmapped:
         print(
-            f"Note: {len(unmapped)} unmapped Checkov finding(s) not shown above "
+            f"Note: {len(ctx.unmapped)} unmapped Checkov finding(s) not shown above "
             f"(no current EU regulatory mapping).",
             file=sys.stderr,
         )
-    if suppressed_unmapped:
+    if ctx.suppressed_unmapped:
         print(
-            f"Note: {len(suppressed_unmapped)} unmapped Checkov finding(s) suppressed by "
+            f"Note: {len(ctx.suppressed_unmapped)} unmapped Checkov finding(s) suppressed by "
             f"inline comments not shown above (no current EU regulatory mapping).",
             file=sys.stderr,
         )
 
 
-def sarif_document(
-    args: argparse.Namespace,
-    findings: list[EnrichedFinding],
-    unmapped: list[dict[str, Any]],
-    suppressed: list[EnrichedFinding] | None = None,
-    suppressed_unmapped: list[dict[str, Any]] | None = None,
-    waived: list[EnrichedFinding] | None = None,
-    weakening_settings: list[str] | None = None,
-    baselined: list[EnrichedFinding] | None = None,
-) -> dict[str, Any]:
+def sarif_document(ctx: ReportContext) -> dict[str, Any]:
     """Build the SARIF document for a scan."""
-    target = str(args.path) if args.path else f"checkov-json:{args.checkov_json}"
-    scan_root = sarif_scan_root(args.path, args.iac_type)
+    scan_root = sarif_scan_root(ctx.args.path, ctx.args.iac_type)
     return build_sarif(
-        findings,
-        unmapped=unmapped,
+        ctx.findings,
+        unmapped=ctx.unmapped,
         version=__version__,
-        target=target,
+        target=ctx.target,
         scan_root=scan_root,
         repository_root=find_repository_root(scan_root),
-        suppressed=suppressed,
-        suppressed_unmapped=suppressed_unmapped,
-        waived=waived,
-        weakening_settings=weakening_settings,
-        baselined=baselined,
+        suppressed=ctx.suppressed,
+        suppressed_unmapped=ctx.suppressed_unmapped,
+        waived=ctx.waived,
+        weakening_settings=ctx.weakening_settings,
+        baselined=ctx.known_findings,
     )
 
 
-def render_sarif_report(
-    args: argparse.Namespace,
-    findings: list[EnrichedFinding],
-    unmapped: list[dict[str, Any]],
-    suppressed: list[EnrichedFinding] | None = None,
-    suppressed_unmapped: list[dict[str, Any]] | None = None,
-    waived: list[EnrichedFinding] | None = None,
-    weakening_settings: list[str] | None = None,
-    baselined: list[EnrichedFinding] | None = None,
-) -> None:
+def render_sarif_report(ctx: ReportContext) -> None:
     """Render SARIF to stdout or the requested output file."""
-    document = sarif_document(
-        args,
-        findings,
-        unmapped,
-        suppressed,
-        suppressed_unmapped,
-        waived,
-        weakening_settings,
-        baselined,
-    )
+    args = ctx.args
+    document = sarif_document(ctx)
     if args.output_file:
         args.output_file.parent.mkdir(parents=True, exist_ok=True)
         args.output_file.write_text(
@@ -317,41 +252,30 @@ def render_sarif_report(
         )
         print(
             f"SARIF report written to {args.output_file} "
-            f"({len(findings)} mapped, {len(unmapped)} unmapped findings; "
-            f"{len(suppressed or []) + len(suppressed_unmapped or [])} suppressed)."
+            f"({len(ctx.findings)} mapped, {len(ctx.unmapped)} unmapped findings; "
+            f"{ctx.suppressed_total} suppressed)."
         )
         return
 
     print(json.dumps(document, indent=2, sort_keys=True))
     # Same stdout-purity policy as --output json: the unmapped note goes to
     # stderr.
-    if unmapped:
+    if ctx.unmapped:
         print(
-            f"Note: {len(unmapped)} unmapped Checkov finding(s) included "
+            f"Note: {len(ctx.unmapped)} unmapped Checkov finding(s) included "
             f"as note-level results with mapped=false.",
             file=sys.stderr,
         )
 
 
-def render_html_reports(
-    args: argparse.Namespace,
-    findings: list[EnrichedFinding],
-    unmapped: list[dict[str, Any]],
-    suppressed: list[EnrichedFinding] | None = None,
-    suppressed_unmapped: list[dict[str, Any]] | None = None,
-    requirements: list[RequirementResult] | None = None,
-    waived: list[EnrichedFinding] | None = None,
-    weakening_settings: list[str] | None = None,
-    baselined: list[EnrichedFinding] | None = None,
-    provenance: dict[str, Any] | None = None,
-) -> None:
+def render_html_reports(ctx: ReportContext) -> None:
     """Render one or all HTML report formats."""
+    args = ctx.args
     now = datetime.now(UTC)
     timestamp = now.strftime("%Y-%m-%d %H:%M UTC")
     # Microseconds sort chronologically; the random suffix prevents concurrent
     # scans in the same clock tick from sharing a name.
     timestamp_suffix = f"{now:%Y%m%dT%H%M%S%fZ}_{uuid4().hex}"
-    target = str(args.path) if args.path else f"checkov-json:{args.checkov_json}"
 
     # Default to reports/ directory. Unique names prevent scans running
     # concurrently from overwriting one another.
@@ -378,31 +302,30 @@ def render_html_reports(
         # HTML destinations may point into a directory that does not exist yet.
         output_path.parent.mkdir(parents=True, exist_ok=True)
         extra = (
-            {"requirements": requirements, "provenance": provenance}
+            {"requirements": ctx.requirements or None, "provenance": ctx.provenance}
             if report_kind == "auditor"
             else {}
         )
         generator(
-            findings,
-            target=target,
+            ctx.findings,
+            target=ctx.target,
             timestamp=timestamp,
             version=__version__,
             output_path=output_path,
-            unmapped_count=len(unmapped),
-            unmapped=unmapped if getattr(args, "show_unmapped", False) else None,
-            suppressed=suppressed,
-            suppressed_unmapped=suppressed_unmapped,
-            waived=waived,
-            weakening_settings=weakening_settings,
-            baselined=baselined,
+            unmapped_count=len(ctx.unmapped),
+            unmapped=ctx.shown_unmapped,
+            suppressed=ctx.suppressed,
+            suppressed_unmapped=ctx.suppressed_unmapped,
+            waived=ctx.waived,
+            weakening_settings=ctx.weakening_settings,
+            baselined=ctx.known_findings,
             **extra,
         )
         written_paths.append(output_path)
 
     label = "Reports" if len(written_paths) > 1 else f"{args.output.capitalize()} report"
-    suppressed_total = len(suppressed or []) + len(suppressed_unmapped or [])
-    suppressed_note = f", {suppressed_total} suppressed" if suppressed_total else ""
-    print(f"{label} written ({len(findings)} findings{suppressed_note}):")
+    suppressed_note = f", {ctx.suppressed_total} suppressed" if ctx.suppressed_total else ""
+    print(f"{label} written ({len(ctx.findings)} findings{suppressed_note}):")
     for output_path in written_paths:
         print(f"  {output_path}")
 
@@ -432,71 +355,26 @@ def render_markdown_csv_outputs(args: argparse.Namespace, result: "ScanFindings"
             print_weakening_to_stderr(result.weakening_settings)
 
 
-def render_scan_output(
-    args: argparse.Namespace,
-    findings: list[EnrichedFinding],
-    unmapped: list[dict[str, Any]],
-    suppressed: list[EnrichedFinding] | None = None,
-    suppressed_unmapped: list[dict[str, Any]] | None = None,
-    checkov_version: str | None = None,
-    requirements: list[RequirementResult] | None = None,
-    registry: LoadedRegistry | None = None,
-    waived: list[EnrichedFinding] | None = None,
-    weakening_settings: list[str] | None = None,
-    baselined: list[EnrichedFinding] | None = None,
-    provenance: dict[str, Any] | None = None,
-) -> None:
+def render_scan_output(ctx: ReportContext) -> None:
     """Dispatch a scan result to the selected report format."""
-    if args.output == "dev":
+    output = ctx.args.output
+    if output == "dev":
         generate_dev_report(
-            findings,
-            unmapped_count=len(unmapped),
-            suppressed=suppressed,
-            suppressed_unmapped=suppressed_unmapped,
-            unmapped=unmapped if getattr(args, "show_unmapped", False) else None,
-            waived=waived,
-            weakening_settings=weakening_settings,
-            baselined=baselined,
+            ctx.findings,
+            unmapped_count=len(ctx.unmapped),
+            suppressed=ctx.suppressed,
+            suppressed_unmapped=ctx.suppressed_unmapped,
+            unmapped=ctx.shown_unmapped,
+            waived=ctx.waived,
+            weakening_settings=ctx.weakening_settings,
+            baselined=ctx.known_findings,
         )
-    elif args.output == "json":
-        render_json_report(
-            findings,
-            unmapped,
-            suppressed,
-            suppressed_unmapped,
-            args,
-            checkov_version,
-            requirements,
-            registry,
-            waived,
-            weakening_settings,
-            baselined,
-            provenance,
-        )
-    elif args.output == "sarif":
-        render_sarif_report(
-            args,
-            findings,
-            unmapped,
-            suppressed,
-            suppressed_unmapped,
-            waived,
-            weakening_settings,
-            baselined,
-        )
-    elif args.output in ("security", "auditor", "all"):
-        render_html_reports(
-            args,
-            findings,
-            unmapped,
-            suppressed,
-            suppressed_unmapped,
-            requirements,
-            waived,
-            weakening_settings,
-            baselined,
-            provenance,
-        )
+    elif output == "json":
+        render_json_report(ctx)
+    elif output == "sarif":
+        render_sarif_report(ctx)
+    elif output in ("security", "auditor", "all"):
+        render_html_reports(ctx)
 
 
 def check_evidence_dir(directory: Path) -> None:
@@ -505,70 +383,43 @@ def check_evidence_dir(directory: Path) -> None:
         raise ValueError(f"--evidence-dir {directory} must not exist or must be an empty directory")
 
 
-def write_evidence_bundle(
-    args: argparse.Namespace,
-    result: "ScanFindings",
-    requirements: list[RequirementResult] | None,
-    provenance: dict[str, Any],
-) -> None:
+def write_evidence_bundle(ctx: ReportContext, result: "ScanFindings") -> None:
     """Write the reports plus ``manifest.json`` (SHA-256 of every file) to ``--evidence-dir``."""
-    directory: Path = args.evidence_dir
+    directory: Path = ctx.args.evidence_dir
     check_evidence_dir(directory)
     directory.mkdir(parents=True, exist_ok=True)
-    target = str(args.path) if args.path else f"checkov-json:{args.checkov_json}"
+    provenance = ctx.provenance
     common: dict[str, Any] = {
-        "target": target,
+        "target": ctx.target,
         "timestamp": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
         "version": __version__,
-        "unmapped_count": len(result.unmapped),
-        "unmapped": result.unmapped if getattr(args, "show_unmapped", False) else None,
-        "suppressed": result.suppressed,
-        "suppressed_unmapped": result.suppressed_unmapped,
-        "waived": result.waived,
-        "weakening_settings": result.weakening_settings,
-        "baselined": result.baselined if args.baseline else None,
+        "unmapped_count": len(ctx.unmapped),
+        "unmapped": ctx.shown_unmapped,
+        "suppressed": ctx.suppressed,
+        "suppressed_unmapped": ctx.suppressed_unmapped,
+        "waived": ctx.waived,
+        "weakening_settings": ctx.weakening_settings,
+        "baselined": ctx.known_findings,
     }
     generate_dev_html_report(result.findings, output_path=directory / "dev.html", **common)
     generate_security_report(result.findings, output_path=directory / "security.html", **common)
     generate_auditor_report(
         result.findings,
         output_path=directory / "auditor.html",
-        requirements=requirements,
+        requirements=ctx.requirements or None,
         provenance=provenance,
         **common,
     )
-    report = build_json_object(
-        args,
-        result.findings,
-        result.unmapped,
-        result.suppressed,
-        result.suppressed_unmapped,
-        result.checkov_version,
-        requirements,
-        result.registry,
-        result.waived,
-        result.weakening_settings,
-        result.baselined if args.baseline else None,
-        provenance,
-    )
+    report = build_json_object(ctx)
     (directory / "report.json").write_text(
         json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8"
     )
-    sarif = sarif_document(
-        args,
-        result.findings,
-        result.unmapped,
-        result.suppressed,
-        result.suppressed_unmapped,
-        result.waived,
-        result.weakening_settings,
-        result.baselined if args.baseline else None,
-    )
+    sarif = sarif_document(ctx)
     (directory / "report.sarif").write_text(
         json.dumps(sarif, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     (directory / "summary.md").write_text(
-        render_markdown(result, target=target, version=__version__), encoding="utf-8"
+        render_markdown(result, target=ctx.target, version=__version__), encoding="utf-8"
     )
     files = {
         path.name: hashlib.sha256(path.read_bytes()).hexdigest()
