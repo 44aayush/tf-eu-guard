@@ -83,13 +83,13 @@
 <body>
 <header>
   <h1>tf-eu-guard &mdash; Security Report</h1>
-  <div class="meta"><span>Target: <code>examples/vulnerable-aws</code></span><span>Generated: 2026-11-27 06:02 UTC</span><span>Findings: 53</span></div>
+  <div class="meta"><span>Target: <code>examples/vulnerable-aws</code></span><span>Generated: 2026-11-27 09:25 UTC</span><span>Findings: 53</span></div>
 </header>
 <section class="summary">
 <div class="stat"><div class="num">53</div><div class="label">Findings</div></div>
 <div class="stat"><div class="num">5</div><div class="label">Files</div></div>
-<div class="stat"><div class="num" style="color:#c0392b">6</div><div class="label">CRITICAL</div></div>
-<div class="stat"><div class="num" style="color:#e67e22">18</div><div class="label">HIGH</div></div>
+<div class="stat"><div class="num" style="color:#c0392b">7</div><div class="label">CRITICAL</div></div>
+<div class="stat"><div class="num" style="color:#e67e22">17</div><div class="label">HIGH</div></div>
 <div class="stat"><div class="num" style="color:#d4ac0d">21</div><div class="label">MEDIUM</div></div>
 <div class="stat"><div class="num" style="color:#2471a3">8</div><div class="label">LOW</div></div>
 <div class="stat"><div class="num">45</div><div class="label">NIS2</div></div>
@@ -98,13 +98,13 @@
 </section>
 <h2>Finding distribution</h2>
 <section class="chart">
-<div class="row"><span class="rlabel">CRITICAL</span><span class="track"><span class="bar" style="width:29%;background:#c0392b"></span></span><span class="rcount">6</span></div>
-<div class="row"><span class="rlabel">HIGH</span><span class="track"><span class="bar" style="width:86%;background:#e67e22"></span></span><span class="rcount">18</span></div>
+<div class="row"><span class="rlabel">CRITICAL</span><span class="track"><span class="bar" style="width:33%;background:#c0392b"></span></span><span class="rcount">7</span></div>
+<div class="row"><span class="rlabel">HIGH</span><span class="track"><span class="bar" style="width:81%;background:#e67e22"></span></span><span class="rcount">17</span></div>
 <div class="row"><span class="rlabel">MEDIUM</span><span class="track"><span class="bar" style="width:100%;background:#d4ac0d"></span></span><span class="rcount">21</span></div>
 <div class="row"><span class="rlabel">LOW</span><span class="track"><span class="bar" style="width:38%;background:#2471a3"></span></span><span class="rcount">8</span></div>
 </section>
 <h2>Findings by severity</h2>
-<h3 style="color:#c0392b">CRITICAL (6)</h3>
+<h3 style="color:#c0392b">CRITICAL (7)</h3>
 <article class="finding sev-critical" style="border-left-color:#c0392b">
   <div class="finding-head">
     <span class="badge" style="background:#c0392b;color:#ffffff">CRITICAL</span>
@@ -181,6 +181,34 @@ with a permissions boundary and explicit resource ARNs:
 <article class="finding sev-critical" style="border-left-color:#c0392b">
   <div class="finding-head">
     <span class="badge" style="background:#c0392b;color:#ffffff">CRITICAL</span>
+    <span class="cid">CKV_AWS_24</span>
+    <span class="cname">Ensure no security groups allow ingress from 0.0.0.0:0 to port 22</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_security_group.web</code></dd>
+    <dt>File</dt><dd><code>/network.tf:61-93</code></dd>
+    <dt>Compliance</dt><dd><span class="art">GDPR Art. 32(1)(b)</span> <span class="art">NIS2 Art. 21(2)(i)</span></dd>
+  </dl>
+  <p class="risk">SSH (port 22) open to 0.0.0.0/0 exposes administrative shell access to the entire internet, inviting brute-force and exploitation of any host that may process personal data. This may weaken the network access-control measures relevant to NIS2 Art. 21(2)(i) and the confidentiality safeguards expected by GDPR Art. 32(1)(b).
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Restrict SSH to a bastion or corporate CIDR, never the internet. Remove the
+wildcard in both address families when both attributes are present:
+  resource &quot;aws_security_group&quot; &quot;admin&quot; {
+    ingress {
+      from_port        = 22
+      to_port          = 22
+      protocol         = &quot;tcp&quot;
+      # Before: cidr_blocks = [&quot;0.0.0.0/0&quot;]
+      cidr_blocks      = [&quot;10.0.0.0/8&quot;]       # or a specific admin IPv4 range
+      # Before: ipv6_cidr_blocks = [&quot;::/0&quot;]
+      ipv6_cidr_blocks = [&quot;2001:db8:1234::/48&quot;] # or remove IPv6 ingress
+    }
+  }
+Use SSM Session Manager instead of exposing an administrative port where possible.</pre></div>
+</article>
+<article class="finding sev-critical" style="border-left-color:#c0392b">
+  <div class="finding-head">
+    <span class="badge" style="background:#c0392b;color:#ffffff">CRITICAL</span>
     <span class="cid">CKV_AWS_17</span>
     <span class="cname">Ensure all data stored in RDS is not publicly accessible</span>
   </div>
@@ -217,7 +245,7 @@ manager or a sensitive variable injected at apply time:
   password = data.aws_secretsmanager_secret_version.db.secret_string
   # or a variable marked `sensitive` and sourced from the environment/a vault.</pre></div>
 </article>
-<h3 style="color:#e67e22">HIGH (18)</h3>
+<h3 style="color:#e67e22">HIGH (17)</h3>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
     <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
@@ -346,34 +374,6 @@ or pin the provider to an EU/EEA region:
   provider &quot;aws&quot; { region = &quot;eu-central-1&quot; }
 Under --residency-policy eusc use region = &quot;eusc-de-east-1&quot;. An unresolved
 variable region needs a literal value in the scanned configuration.</pre></div>
-</article>
-<article class="finding sev-high" style="border-left-color:#e67e22">
-  <div class="finding-head">
-    <span class="badge" style="background:#e67e22;color:#1a1a1a">HIGH</span>
-    <span class="cid">CKV_AWS_24</span>
-    <span class="cname">Ensure no security groups allow ingress from 0.0.0.0:0 to port 22</span>
-  </div>
-  <dl class="meta">
-    <dt>Resource</dt><dd><code>aws_security_group.web</code></dd>
-    <dt>File</dt><dd><code>/network.tf:61-93</code></dd>
-    <dt>Compliance</dt><dd><span class="art">GDPR Art. 32(1)(b)</span> <span class="art">NIS2 Art. 21(2)(i)</span></dd>
-  </dl>
-  <p class="risk">SSH (port 22) open to 0.0.0.0/0 exposes administrative shell access to the entire internet, inviting brute-force and exploitation of any host that may process personal data. This may weaken the network access-control measures relevant to NIS2 Art. 21(2)(i) and the confidentiality safeguards expected by GDPR Art. 32(1)(b).
-</p>
-  <div class="remediation"><h4>Remediation</h4><pre>Restrict SSH to a bastion or corporate CIDR, never the internet. Remove the
-wildcard in both address families when both attributes are present:
-  resource &quot;aws_security_group&quot; &quot;admin&quot; {
-    ingress {
-      from_port        = 22
-      to_port          = 22
-      protocol         = &quot;tcp&quot;
-      # Before: cidr_blocks = [&quot;0.0.0.0/0&quot;]
-      cidr_blocks      = [&quot;10.0.0.0/8&quot;]       # or a specific admin IPv4 range
-      # Before: ipv6_cidr_blocks = [&quot;::/0&quot;]
-      ipv6_cidr_blocks = [&quot;2001:db8:1234::/48&quot;] # or remove IPv6 ingress
-    }
-  }
-Use SSM Session Manager instead of exposing an administrative port where possible.</pre></div>
 </article>
 <article class="finding sev-high" style="border-left-color:#e67e22">
   <div class="finding-head">
@@ -1157,6 +1157,6 @@ residency policy (an in-policy region, when available):
                       events = [&quot;s3:ObjectCreated:*&quot;] }
   }</pre></div>
 </article>
-<footer>Generated by tf-eu-guard v0.9.0 on 2026-11-27 06:02 UTC. Only failed checks that map to a NIS2, GDPR, or project-policy control are shown; 0 finding(s) suppressed by inline comments, 0 waived and 0 known from the baseline are listed separately; this report is not legal advice and is not a certification; absence of a finding is not evidence of compliance.</footer>
+<footer>Generated by tf-eu-guard v0.9.0 on 2026-11-27 09:25 UTC. Only failed checks that map to a NIS2, GDPR, or project-policy control are shown; 0 finding(s) suppressed by inline comments, 0 waived and 0 known from the baseline are listed separately; this report is not legal advice and is not a certification; absence of a finding is not evidence of compliance.</footer>
 </body>
 </html>
