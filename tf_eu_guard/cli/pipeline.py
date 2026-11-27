@@ -207,7 +207,9 @@ def load_scan_findings(
             )
     findings = checkov_runner.extract_failed_checks(checkov_output)  # also validates the shape
     if args.iac_type == "terraform":
-        region_warning = aws_region_unset_warning(checkov_output)
+        region_warning = aws_region_unset_warning(
+            checkov_output, custom_checks_loaded=not args.checkov_json
+        )
         if region_warning:
             print(region_warning, file=sys.stderr)
     skipped = checkov_runner.extract_skipped_checks(checkov_output)

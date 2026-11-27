@@ -626,6 +626,37 @@ def test_region_unset_warning_printed_for_terraform_checkov_json(monkeypatch, tm
     assert 'no provider "aws" block sets a region' in capsys.readouterr().err
 
 
+def test_region_unset_warning_printed_for_live_scan_without_euguard_results(
+    monkeypatch, tmp_path, capsys
+):
+    """No provider block: every EUGUARD check is UNKNOWN, so a live scan has no EUGUARD result."""
+    (tmp_path / "main.tf").write_text('resource "aws_sqs_queue" "q" {}\n')
+
+    def fake_run_checkov(target, iac_type="terraform", residency_env=None, **_kw):
+        return {
+            "check_type": "terraform",
+            "results": {
+                "passed_checks": [],
+                "failed_checks": [
+                    {
+                        "check_id": "CKV_AWS_27",
+                        "check_name": "Ensure all data stored in the SQS queue is encrypted",
+                        "resource": "aws_sqs_queue.q",
+                        "file_path": "/main.tf",
+                        "file_line_range": [1, 1],
+                        "check_result": {"result": "FAILED"},
+                    }
+                ],
+                "skipped_checks": [],
+            },
+            "summary": {"failed": 1, "passed": 0, "skipped": 0, "parsing_errors": 0},
+        }
+
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", fake_run_checkov)
+    run_cli(monkeypatch, tmp_path, str(tmp_path), "--output", "json")
+    assert 'no provider "aws" block sets a region' in capsys.readouterr().err
+
+
 def test_region_unset_warning_not_printed_for_kubernetes(monkeypatch, tmp_path, capsys):
     document = _aws_checkov_json(tmp_path, "kubernetes")
     run_cli(

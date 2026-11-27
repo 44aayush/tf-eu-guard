@@ -23,6 +23,8 @@ release point.
 - A Terraform scan warns on stderr when AWS resources were scanned but no `provider "aws"` block sets a
   region (the residency checks cannot tell where they deploy), and a directory scan warns when hidden
   directories such as `.prod/` hold source files that Checkov skips (TEG-05). Exit codes are unchanged.
+  The region warning also fires on a live scan with no `provider "aws"` block, where every EUGUARD check is
+  UNKNOWN and no EUGUARD result exists; only `--checkov-json` input stays silent without one.
 - `provenance.commit` is no longer null in the Action: the Action resolves the scanned checkout's HEAD on the
   runner (`git rev-parse HEAD` in the scanned directory; on `pull_request` that is the merge commit) and
   passes it as `TF_EU_GUARD_COMMIT`, falling back to `GITHUB_SHA` when that directory is not a repository.

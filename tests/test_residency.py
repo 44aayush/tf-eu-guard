@@ -343,7 +343,25 @@ def test_aws_region_unset_warning_silent_when_policy_001_ran(bucket):
 def test_aws_region_unset_warning_silent_when_no_euguard_check_ran():
     output = _aws_output()
     output["results"]["passed_checks"] = []
-    assert aws_region_unset_warning(output) is None
+    assert aws_region_unset_warning(output, custom_checks_loaded=False) is None
+
+
+def test_region_warning_live_scan_without_any_euguard_result_fires():
+    # No provider block: every EUGUARD check is UNKNOWN and omitted, so a live scan (which
+    # loads the custom checks itself) legitimately has no EUGUARD_* result.
+    output = _aws_output()
+    output["results"]["passed_checks"] = []
+    warning = aws_region_unset_warning(output, custom_checks_loaded=True)
+    assert warning is not None
+    assert 'no provider "aws" block sets a region' in warning
+
+
+def test_region_warning_live_scan_silent_when_policy_001_ran():
+    output = _aws_output()
+    output["results"]["passed_checks"].append(
+        {"check_id": "EUGUARD_POLICY_001", "resource": "aws.default"}
+    )
+    assert aws_region_unset_warning(output, custom_checks_loaded=True) is None
 
 
 def test_aws_region_unset_warning_silent_when_policy_001_is_skipped():

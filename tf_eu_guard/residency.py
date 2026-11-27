@@ -72,13 +72,18 @@ def allowed_regions_from_env(environ: Mapping[str, str]) -> frozenset[str]:
     return EUSC_REGIONS
 
 
-def aws_region_unset_warning(checkov_output: dict[str, Any]) -> str | None:
+def aws_region_unset_warning(
+    checkov_output: dict[str, Any], *, custom_checks_loaded: bool = False
+) -> str | None:
     """Return a warning when AWS resources were scanned but no region was ever evaluated.
 
     EUGUARD_POLICY_001 produces a result only for a ``provider "aws"`` block that sets a
     region. AWS resources without any such result, while other EUGUARD_* checks did run, mean
     the region comes from the environment at apply time, which a source scan cannot see. With no
-    EUGUARD_* result at all the custom checks did not run and the claim cannot be made.
+    provider block every EUGUARD check is UNKNOWN and omitted, so a live scan (which passes its own
+    --external-checks-dir, ``custom_checks_loaded=True``) may legitimately have no EUGUARD_*
+    result. For --checkov-json input tf-eu-guard cannot know whether the custom checks were
+    loaded, so with no EUGUARD_* result at all the claim cannot be made.
     """
     results = checkov_output.get("results") or {}
     checks = [
@@ -89,7 +94,7 @@ def aws_region_unset_warning(checkov_output: dict[str, Any]) -> str | None:
     ids = {str(check.get("check_id") or "") for check in checks}
     if _POLICY_CHECK_ID in ids:
         return None
-    if not any(check_id.startswith("EUGUARD_") for check_id in ids):
+    if not custom_checks_loaded and not any(check_id.startswith("EUGUARD_") for check_id in ids):
         # The custom checks did not run (or were not part of this file): the absence of a
         # policy result says nothing about the region.
         return None
