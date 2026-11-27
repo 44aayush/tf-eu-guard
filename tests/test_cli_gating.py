@@ -261,7 +261,8 @@ def _unmapped_doc(section):
         "file_line_range": [1, 2],
     }
     euguard = dict(check, check_id="EUGUARD_GDPR_001", resource="aws_s3_bucket.x")
-    results = {"passed_checks": [euguard], "failed_checks": [], "skipped_checks": []}
+    region = dict(check, check_id="EUGUARD_POLICY_001", resource="aws.default")
+    results = {"passed_checks": [euguard, region], "failed_checks": [], "skipped_checks": []}
     results[section] = [check]
     return {
         "check_type": "terraform",

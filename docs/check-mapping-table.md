@@ -2,8 +2,8 @@
 
 Reference stack: the vulnerable Terraform under [`examples/vulnerable-aws/`](../examples/vulnerable-aws/)
 (`iam.tf`, `s3.tf`, `rds.tf`, `network.tf`, plus `outputs.tf`).
-Mapped in `registry-aws.yaml`: **188 check IDs**, made up of 182 stock Checkov policies plus
-6 custom tf-eu-guard checks (**§**, added in Phase 3). The original 38-mapping core
+Mapped in `registry-aws.yaml`: **189 check IDs**, made up of 182 stock Checkov policies plus
+7 custom tf-eu-guard checks (**§**, added in Phase 3). The original 38-mapping core
 covered the vulnerable Terraform reference stack. Later extensions (from
 2026-08-30 on) grew the registry until every Checkov check that fires on the
 in-repo stacks (`examples/vulnerable-aws/`, `examples/end2end/`) is enriched.
@@ -102,6 +102,7 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 | EUGUARD_POLICY_001 § | main.tf | aws provider | Provider region outside the configured residency policy | – | Policy RESIDENCY-001 | HIGH |
 | EUGUARD_GDPR_001 § | main.tf | aws provider | Deprecated alias of EUGUARD_POLICY_001 (removed next release) | – | Policy RESIDENCY-001 | HIGH |
 | EUGUARD_POLICY_002 § | main.tf | aws_* resources | Resource `region`, replica or copy-destination outside the residency policy | – | Policy RESIDENCY-001 | HIGH |
+| EUGUARD_POLICY_005 § | main.tf | aws_* resources | No `provider "aws"` block sets a region (source scans only; injected by the pipeline) | – | Policy RESIDENCY-001 | MEDIUM |
 | EUGUARD_GDPR_002 § | main.tf | aws provider | Known provider region outside the EU/EEA requires Chapter V review | – | 44 | HIGH |
 | EUGUARD_GDPR_003 § | main.tf | aws_* resources | Known resource-level region outside the EU/EEA requires Chapter V review | – | 44 | HIGH |
 | EUGUARD_POLICY_003 § | main.tf | azurerm_* resources | Resource `location` outside the residency policy | – | Policy RESIDENCY-001 | HIGH |
@@ -113,7 +114,7 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 ### Coverage summary
 
 - By severity (original 38): 11 CRITICAL · 13 HIGH · 14 MEDIUM. With the
-  extension above (188 total: 23 CRITICAL · 59 HIGH · 80 MEDIUM · 26 LOW).
+  extension above (189 total: 23 CRITICAL · 59 HIGH · 81 MEDIUM · 26 LOW).
 - By framework (original 38): 21 map to both NIS2 and GDPR, 11 NIS2-only, 6 GDPR-only.
 - By file: iam.tf (12), s3.tf (9), rds.tf (9), network.tf (7), main.tf (1).
 - By theme: access control / least privilege (20), public exposure (7),
@@ -175,10 +176,10 @@ remediation text lives in the registry):
 | Network segmentation | 21(2)(i) | 32(1)(b) | CKV_AWS_137, 248, 38, 39, 117, CKV2_AWS_5, 23 |
 | Terraform module pinning (cloud-agnostic) | 21(2)(d) | – | CKV_TF_1, CKV_TF_2 |
 
-Severity distribution after the extension: **23 CRITICAL · 59 HIGH · 80 MEDIUM ·
-26 LOW** (188 total; article refs: NIS2 178, GDPR 135). An article ref is one
+Severity distribution after the extension: **23 CRITICAL · 59 HIGH · 81 MEDIUM ·
+26 LOW** (189 total; article refs: NIS2 178, GDPR 135). An article ref is one
 entry in a check's `articles` list in `registry-aws.yaml`, counted per framework, so a
-check citing two NIS2 letters counts twice; the 3 `POLICY` refs are not included.
+check citing two NIS2 letters counts twice; the 4 `POLICY` refs are not included.
 
 ### Checks still intentionally unmapped
 

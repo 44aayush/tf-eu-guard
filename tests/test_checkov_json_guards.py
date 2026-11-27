@@ -37,6 +37,10 @@ def _doc(*, parsing_errors=0, version=None, euguard=True, failed=None, skipped=N
     }
     if euguard:
         results["passed_checks"].append(EUGUARD_CHECK)
+        # A provider region result, so the no-region finding (EUGUARD_POLICY_005) stays silent.
+        results["passed_checks"].append(
+            dict(EUGUARD_CHECK, check_id="EUGUARD_POLICY_001", resource="aws.default")
+        )
     return {"check_type": "terraform", "results": results, "summary": summary}
 
 

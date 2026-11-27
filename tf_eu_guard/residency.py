@@ -47,6 +47,7 @@ _CLOUDS = ("aws", "azure", "gcp")
 _EU_EEA_BY_CLOUD = {"azure": AZURE_EU_EEA_LOCATIONS, "gcp": GCP_EU_EEA_LOCATIONS}
 _POLICY_CHECK_ID = "EUGUARD_POLICY_001"
 _GCP_POLICY_CHECK_ID = "EUGUARD_POLICY_004"
+_REGION_UNSET_CHECK_ID = "EUGUARD_POLICY_005"
 
 
 def parse_allowed_regions(text: str) -> tuple[str, ...]:
@@ -97,15 +98,14 @@ def allowed_regions_from_env(environ: Mapping[str, str], cloud: str = "aws") -> 
     return strictest
 
 
-def _region_unset_warning(
+def _unset_region_resources(
     checkov_output: dict[str, Any],
     *,
     custom_checks_loaded: bool,
     policy_check_id: str,
     resource_re: re.Pattern[str],
-    message: str,
-) -> str | None:
-    """Return *message* when matching resources were scanned but no policy result appeared.
+) -> list[dict[str, Any]]:
+    """Return the scanned resources of a cloud whose region was never evaluated, else ``[]``.
 
     A provider-region policy check (``policy_check_id``) produces a result only when a region
     was set in the source. Resources of the cloud without any such result, while other EUGUARD_*
@@ -114,7 +114,7 @@ def _region_unset_warning(
     live scan (which passes its own --external-checks-dir, ``custom_checks_loaded=True``) may
     legitimately have no EUGUARD_* result. For --checkov-json input tf-eu-guard cannot know
     whether the custom checks were loaded, so with no EUGUARD_* result at all the claim cannot be
-    made.
+    made. Both the warning and the finding derive from this one predicate.
     """
     results = checkov_output.get("results") or {}
     checks = [
@@ -124,14 +124,30 @@ def _region_unset_warning(
     ]
     ids = {str(check.get("check_id") or "") for check in checks}
     if policy_check_id in ids:
-        return None
+        return []
     if not custom_checks_loaded and not any(check_id.startswith("EUGUARD_") for check_id in ids):
         # The custom checks did not run (or were not part of this file): the absence of a
         # policy result says nothing about the region.
-        return None
-    if not any(resource_re.search(str(check.get("resource") or "")) for check in checks):
-        return None
-    return message
+        return []
+    return [check for check in checks if resource_re.search(str(check.get("resource") or ""))]
+
+
+def _region_unset_warning(
+    checkov_output: dict[str, Any],
+    *,
+    custom_checks_loaded: bool,
+    policy_check_id: str,
+    resource_re: re.Pattern[str],
+    message: str,
+) -> str | None:
+    """Return *message* when matching resources were scanned but no policy result appeared."""
+    resources = _unset_region_resources(
+        checkov_output,
+        custom_checks_loaded=custom_checks_loaded,
+        policy_check_id=policy_check_id,
+        resource_re=resource_re,
+    )
+    return message if resources else None
 
 
 def aws_region_unset_warning(
@@ -150,6 +166,44 @@ def aws_region_unset_warning(
             "check the real region."
         ),
     )
+
+
+def _location_key(check: dict[str, Any]) -> tuple[str, int]:
+    line_range = check.get("file_line_range")
+    line = line_range[0] if isinstance(line_range, list) and line_range else 0
+    return (str(check.get("file_path") or ""), line if isinstance(line, int) else 0)
+
+
+def aws_region_unset_finding(
+    checkov_output: dict[str, Any], *, custom_checks_loaded: bool = False
+) -> dict[str, Any] | None:
+    """Return a failed-check dict for ``EUGUARD_POLICY_005`` exactly when the warning fires.
+
+    The finding is anchored at the first AWS resource by sorted (file path, line), because the
+    missing provider region has no source location of its own.
+    """
+    resources = _unset_region_resources(
+        checkov_output,
+        custom_checks_loaded=custom_checks_loaded,
+        policy_check_id=_POLICY_CHECK_ID,
+        resource_re=_AWS_RESOURCE_RE,
+    )
+    if not resources:
+        return None
+    anchor = min(resources, key=_location_key)
+    line_range = anchor.get("file_line_range")
+    finding: dict[str, Any] = {
+        "check_id": _REGION_UNSET_CHECK_ID,
+        "check_name": "Ensure an AWS provider block sets a region",
+        "check_result": {"result": "FAILED"},
+        "resource": "provider.aws",
+        "file_path": anchor.get("file_path") or "",
+        "file_line_range": list(line_range) if isinstance(line_range, list) else [0, 0],
+        "guideline": None,
+    }
+    if anchor.get("file_abs_path"):
+        finding["file_abs_path"] = anchor["file_abs_path"]
+    return finding
 
 
 def gcp_region_unset_warning(

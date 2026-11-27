@@ -23,6 +23,7 @@ from tf_eu_guard.models import EnrichedFinding, Framework, Severity
 from tf_eu_guard.reporting.untrusted import sanitize
 from tf_eu_guard.residency import (
     DEFAULT_POLICY,
+    aws_region_unset_finding,
     aws_region_unset_warning,
     gcp_region_unset_warning,
     residency_env,
@@ -222,6 +223,14 @@ def load_scan_findings(
             )
             if region_warning:
                 print(region_warning, file=sys.stderr)
+        # The warning stays for the CI log (it carries the plan-mode hint); the same condition
+        # also becomes one registry-backed finding, so a gate can act on it.
+        region_finding = aws_region_unset_finding(
+            checkov_output, custom_checks_loaded=not args.checkov_json
+        )
+        if region_finding:
+            checkov_output["results"].setdefault("failed_checks", []).append(region_finding)
+            findings = checkov_runner.extract_failed_checks(checkov_output)
     skipped = checkov_runner.extract_skipped_checks(checkov_output)
     passed_checks = checkov_runner.extract_passed_checks(checkov_output)
 

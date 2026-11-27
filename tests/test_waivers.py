@@ -361,7 +361,21 @@ def test_waived_stderr_count_follows_framework(monkeypatch, tmp_path, capsys):
 
 
 def _source_root(monkeypatch, tmp_path):
-    monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", lambda *a, **k: _doc([LOGS]))
+    def fake_run_checkov(*_a, **_k):
+        doc = _doc([LOGS])
+        # A provider region result, so the no-region finding (EUGUARD_POLICY_005) stays silent.
+        doc["results"]["passed_checks"] = [
+            {
+                "check_id": "EUGUARD_POLICY_001",
+                "check_name": "region",
+                "resource": "aws.default",
+                "file_path": "/main.tf",
+                "file_line_range": [1, 2],
+            }
+        ]
+        return doc
+
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", fake_run_checkov)
     src = tmp_path / "src"
     src.mkdir()
     return src

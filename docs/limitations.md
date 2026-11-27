@@ -153,7 +153,8 @@ Checkov does not read hidden entries (names starting with `.`),
 `.terraform`, `node_modules` or `.serverless`. A directory scan warns on stderr when a hidden
 directory (other than tooling ones such as `.git` or `.github`) holds source files; pass it as the
 scan path to scan it. Likewise, when AWS resources are scanned but no `provider "aws"` block sets a
-region, a warning says the residency checks could not evaluate a region; scan a Terraform plan instead. The pre-scan guards (symlink
+region, a warning says the residency checks could not evaluate a region and one MEDIUM `EUGUARD_POLICY_005`
+finding (`provider.aws`) is reported; pin the region or scan a Terraform plan instead. The pre-scan guards (symlink
 containment and the `*.tf.json` rejection) skip the same entries, so a
 virtual environment's `bin/python` link or a Terraform plugin cache does not
 abort a scan. Elsewhere, a symlink that leaves the scan root or is broken

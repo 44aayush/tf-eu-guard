@@ -1,0 +1,232 @@
+"""EUGUARD_POLICY_005: a registry-backed finding for AWS stacks with no provider region (TEG-05)."""
+
+import importlib.util
+import json
+import os
+
+import pytest
+from cli_helpers import PLAN_FIXTURE, run_cli
+
+from tf_eu_guard.residency import aws_region_unset_finding, aws_region_unset_warning
+
+requires_checkov = pytest.mark.skipif(
+    not os.environ.get("TFEG_RUN_CHECKOV") or importlib.util.find_spec("checkov") is None,
+    reason="live Checkov test: set TFEG_RUN_CHECKOV=1 with Checkov installed",
+)
+
+NO_REGION_TF = (
+    'terraform {\n  required_providers {\n    aws = { source = "hashicorp/aws" }\n  }\n}\n'
+    'resource "aws_s3_bucket" "b" {\n  bucket = "example"\n}\n'
+)
+
+
+def _scan_json(monkeypatch, tmp_path, capsys, *extra):
+    code = run_cli(
+        monkeypatch, tmp_path, str(tmp_path), "--no-config", "--output", "json",
+        "--json-format", "object", *extra,
+    )  # fmt: skip
+    return code, json.loads(capsys.readouterr().out)
+
+
+def _policy_005(report):
+    return [f for f in report["findings"] if f["check_id"] == "EUGUARD_POLICY_005"]
+
+
+@requires_checkov
+def test_no_region_finding_on_source_scan(monkeypatch, tmp_path, capsys):
+    (tmp_path / "main.tf").write_text(NO_REGION_TF)
+    code, report = _scan_json(monkeypatch, tmp_path, capsys)
+    found = _policy_005(report)
+    assert len(found) == 1
+    assert found[0]["severity"] == "MEDIUM"
+    assert found[0]["resource"] == "provider.aws"
+    assert code in (0, 1)
+    code, _ = _scan_json(monkeypatch, tmp_path, capsys, "--fail-on-severity", "MEDIUM")
+    assert code == 1
+
+
+@requires_checkov
+def test_no_region_finding_absent_with_region(monkeypatch, tmp_path, capsys):
+    (tmp_path / "main.tf").write_text(
+        'provider "aws" {\n  region = "eu-central-1"\n}\n'
+        'resource "aws_s3_bucket" "b" {\n  bucket = "example"\n}\n'
+    )
+    _, report = _scan_json(monkeypatch, tmp_path, capsys)
+    assert _policy_005(report) == []
+
+
+@requires_checkov
+def test_no_region_finding_absent_with_aliased_provider(monkeypatch, tmp_path, capsys):
+    (tmp_path / "main.tf").write_text(
+        'provider "aws" {\n  alias  = "eu"\n  region = "eu-west-1"\n}\n'
+        'resource "aws_s3_bucket" "b" {\n  bucket = "example"\n}\n'
+    )
+    _, report = _scan_json(monkeypatch, tmp_path, capsys)
+    assert _policy_005(report) == []
+
+
+def _output(*, extra_passed=(), resources=("aws_s3_bucket.b",)):
+    return {
+        "results": {
+            "passed_checks": [
+                {
+                    "check_id": "EUGUARD_GDPR_002",
+                    "resource": "aws_s3_bucket.b",
+                    "file_path": "/z.tf",
+                    "file_line_range": [3, 4],
+                },
+                *extra_passed,
+            ],
+            "failed_checks": [
+                {
+                    "check_id": "CKV_AWS_18",
+                    "check_name": "n",
+                    "resource": r,
+                    "file_path": path,
+                    "file_line_range": [line, line + 1],
+                }
+                for r, path, line in zip(resources, ["/z.tf", "/a.tf"], [3, 9])
+            ],
+            "skipped_checks": [],
+        }
+    }
+
+
+def test_no_region_finding_absent_in_plan_mode(monkeypatch, tmp_path, capsys):
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    run_cli(
+        monkeypatch, tmp_path, "--checkov-json", os.path.join(repo, PLAN_FIXTURE),
+        "--iac-type", "terraform_plan", "--output", "json", "--json-format", "object",
+    )  # fmt: skip
+    out = capsys.readouterr().out
+    assert '"findings"' in out
+    assert "EUGUARD_POLICY_005" not in out
+
+
+@pytest.mark.parametrize(
+    "output,loaded",
+    [
+        (_output(), False),
+        (_output(), True),
+        (_output(extra_passed=[{"check_id": "EUGUARD_POLICY_001", "resource": "aws.default"}]), False),
+        (_output(extra_passed=[{"check_id": "EUGUARD_POLICY_001", "resource": "aws.default"}]), True),
+        (
+            {"results": {"passed_checks": [], "failed_checks": [
+                {"check_id": "CKV_AWS_18", "resource": "aws_s3_bucket.b"}], "skipped_checks": []}},
+            False,
+        ),
+        (
+            {"results": {"passed_checks": [], "failed_checks": [
+                {"check_id": "CKV_AWS_18", "resource": "aws_s3_bucket.b"}], "skipped_checks": []}},
+            True,
+        ),
+        ({"results": {"failed_checks": [{"check_id": "CKV_GCP_1", "resource": "google_x.b"}]}}, True),
+        ({"results": {}}, True),
+    ],
+)  # fmt: skip
+def test_no_region_finding_matches_warning(output, loaded):
+    warning = aws_region_unset_warning(output, custom_checks_loaded=loaded)
+    finding = aws_region_unset_finding(output, custom_checks_loaded=loaded)
+    assert (finding is not None) == (warning is not None)
+    if finding is not None:
+        assert finding["check_id"] == "EUGUARD_POLICY_005"
+        assert finding["resource"] == "provider.aws"
+
+
+def test_no_region_finding_anchors_at_first_resource_by_location():
+    finding = aws_region_unset_finding(_output(resources=("aws_s3_bucket.b", "aws_sqs_queue.q")))
+    assert finding is not None
+    assert finding["file_path"] == "/a.tf"
+    assert finding["file_line_range"] == [9, 10]
+
+
+def test_no_region_finding_respects_skip_check():
+    """A Checkov JSON that already carries a policy-001 result (or skip) yields no finding.
+
+    tf-eu-guard exposes no --check/--skip-check of its own: Checkov runs with a fixed check
+    selection, so the finding follows the same predicate as the warning.
+    """
+    output = _output()
+    output["results"]["skipped_checks"].append(
+        {"check_id": "EUGUARD_POLICY_001", "resource": "aws.default"}
+    )
+    assert aws_region_unset_finding(output, custom_checks_loaded=True) is None
+
+
+def _checkov_json(tmp_path):
+    document = {
+        "check_type": "terraform",
+        "results": {
+            "passed_checks": [
+                {
+                    "check_id": "EUGUARD_GDPR_002",
+                    "check_name": "n",
+                    "resource": "aws_s3_bucket.b",
+                    "file_path": "/main.tf",
+                    "file_line_range": [1, 2],
+                    "check_result": {"result": "PASSED"},
+                }
+            ],
+            "failed_checks": [
+                {
+                    "check_id": "CKV_AWS_18",
+                    "check_name": "Ensure the S3 bucket has access logging enabled",
+                    "resource": "aws_s3_bucket.b",
+                    "file_path": "/main.tf",
+                    "file_line_range": [1, 2],
+                    "check_result": {"result": "FAILED"},
+                }
+            ],
+            "skipped_checks": [],
+        },
+        "summary": {
+            "failed": 1,
+            "passed": 1,
+            "skipped": 0,
+            "parsing_errors": 0,
+            "resource_count": 1,
+        },
+    }
+    path = tmp_path / "checkov.json"
+    path.write_text(json.dumps(document))
+    return str(path)
+
+
+def test_no_region_finding_waivable_and_baselined(monkeypatch, tmp_path, capsys):
+    document = _checkov_json(tmp_path)
+    base = [
+        "--checkov-json",
+        document,
+        "--no-config",
+        "--output",
+        "json",
+        "--json-format",
+        "object",
+    ]
+    code = run_cli(monkeypatch, tmp_path, *base, "--fail-on-severity", "MEDIUM")
+    first = capsys.readouterr().out
+    assert code == 1
+    assert "EUGUARD_POLICY_005" in first
+
+    waivers = tmp_path / "w.yaml"
+    waivers.write_text(
+        "schema_version: 1\nwaivers:\n  - check_id: EUGUARD_POLICY_005\n"
+        "    resource: provider.aws\n    owner: platform\n    reason: Region set by CI env.\n"
+        "    expires: 2027-03-31\n"
+    )
+    code = run_cli(
+        monkeypatch, tmp_path, *base, "--waivers", str(waivers), "--fail-on-severity", "MEDIUM"
+    )
+    report = json.loads(capsys.readouterr().out)
+    assert [w["check_id"] for w in report["waived"]] == ["EUGUARD_POLICY_005"]
+    assert code == 1  # CKV_AWS_18 still fails; the region finding no longer does
+    assert all(f["check_id"] != "EUGUARD_POLICY_005" for f in report["findings"])
+
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(first)
+    code = run_cli(
+        monkeypatch, tmp_path, *base, "--baseline", str(baseline), "--fail-on-severity", "MEDIUM"
+    )
+    report = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert "EUGUARD_POLICY_005" in [f["check_id"] for f in report["baselined"]]

@@ -79,6 +79,9 @@ release point.
 
 ### Changed
 
+- Source scans of AWS stacks where no `provider "aws"` block sets a region now report one MEDIUM finding,
+  `EUGUARD_POLICY_005` (`provider.aws`), next to the existing stderr warning. The Action's default gate (HIGH) is
+  unaffected, while `--fail-on-severity MEDIUM` or `LOW` and `--fail-on-any` now fail. Plan scans are unchanged (TEG-05).
 - `--baseline` now matches unmapped Checkov findings (check ID, resource, file path) against the baseline's
   `unmapped[]` and `baselined_unmapped[]` (entries flagged `suppressed` and array-format baselines give none). Known
   unmapped findings move out of `unmapped` into the new JSON object array `baselined_unmapped` (same entry shape;
