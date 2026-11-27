@@ -138,6 +138,7 @@ configurable residency *policy* from the GDPR Chapter V review signal:
 | EUGUARD_POLICY_003 | Azure `azurerm_*` resource `location` is within the configured residency policy (**project policy** custom check) |
 | EUGUARD_GDPR_004 | A known Azure `location` outside the EU/EEA (including the UK and Switzerland) receives a Chapter V review signal (**custom** check) |
 | EUGUARD_POLICY_004 | GCP provider `region` and `google_*` resource `region`/`location`/`zone` are within the configured residency policy (**project policy** custom check) |
+| EUGUARD_POLICY_006 | No GCP provider region or resource location in source, so the residency policy is unverified for the stack (**project policy** finding injected by the scan pipeline, source scans only) |
 | EUGUARD_GDPR_005 | A known GCP region or location outside the EU/EEA (including London, Zurich and the `US`/`ASIA` multi-regions) receives a Chapter V review signal (**custom** check) |
 
 These are **custom tf-eu-guard checks**. The AWS ones are implemented in

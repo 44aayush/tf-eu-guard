@@ -83,6 +83,14 @@ release point.
 
 ### Changed
 
+- Source scans of GCP stacks where no `provider "google"` block and no `google_*` resource sets a region or location now
+  report one MEDIUM finding, `EUGUARD_POLICY_006` (`provider.google`), next to the existing stderr warning; `--checkov-json`
+  input that contains tf-eu-guard custom-check results gets it too. The Action's default gate (HIGH) is unaffected, while
+  `--fail-on-severity MEDIUM`, `LOW` or `INFO` and `--fail-on-any` now fail. `--framework nis2` or `gdpr` drops it (it
+  carries a POLICY article). Existing `--baseline` files do not contain it, so a MEDIUM-or-lower gate with a baseline
+  fails once on upgrade until you re-baseline or waive it. Reusable module repositories always get it: waive
+  `EUGUARD_POLICY_006` on resource `provider.google` (no file), or scan the root module or plan; an inline
+  `#checkov:skip` has no effect. Plan scans are unchanged. The AWS and GCP injections now share one loop (TEG-05).
 - Source scans of AWS stacks where no `provider "aws"` block sets a region now report one MEDIUM finding,
   `EUGUARD_POLICY_005` (`provider.aws`), next to the existing stderr warning; `--checkov-json` input that contains
   tf-eu-guard custom-check results gets it too. The Action's default gate (HIGH) is unaffected, while

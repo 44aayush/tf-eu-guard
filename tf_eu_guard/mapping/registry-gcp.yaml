@@ -441,6 +441,8 @@ CKV_GCP_23:
 # -----------------------------------------------------------------------------
 # Custom tf-eu-guard checks (checks/gdpr/gcp_residency.py)
 #   EUGUARD_POLICY_004  provider region / resource location within the residency policy
+#   EUGUARD_POLICY_006  no GCP provider region or resource location in source: injected by the
+#                       scan pipeline (residency.gcp_region_unset_finding), not a Checkov check class
 #   EUGUARD_GDPR_005    known third-country GCP location: Chapter V review
 # -----------------------------------------------------------------------------
 
@@ -468,6 +470,31 @@ EUGUARD_POLICY_004:
       resource "google_storage_bucket" "example" { location = "EU" }
     Use literal values; unresolved variables fail closed.
   severity: HIGH
+
+EUGUARD_POLICY_006:
+  check_name: "Ensure a Google provider block or the resource sets a region or location"
+  articles:
+    - framework: POLICY
+      article: "Policy RESIDENCY-001"
+      title: "Region residency policy"
+  risk: >
+    google_* resources were scanned but no provider "google" block or resource
+    sets a region or location, so the region most likely comes from the
+    environment (for example GOOGLE_REGION) or the provider at apply time. A
+    source scan cannot see it, so the residency checks cannot tell where these
+    resources deploy and the residency policy is unverified for the stack. This
+    finding is a project-policy gap, not a GDPR legal conclusion.
+  remediation: |
+    Pin the region in the configuration:
+      provider "google" { region = "europe-west3" }
+    Or scan a Terraform plan (--iac-type terraform_plan) to check the
+    authoritative location.
+    A reusable module repository should not configure providers, so it always
+    triggers this finding. Exempt it with a waiver on check_id
+    EUGUARD_POLICY_006 and resource provider.google (no file), or scan the root
+    module or its plan instead. An inline #checkov:skip=EUGUARD_POLICY_006
+    comment has no effect: the pipeline synthesizes this finding.
+  severity: MEDIUM
 
 EUGUARD_GDPR_005:
   check_name: "Review GCP regions and locations outside the EU/EEA for GDPR Chapter V transfer safeguards"

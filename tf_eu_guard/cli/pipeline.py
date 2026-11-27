@@ -25,6 +25,7 @@ from tf_eu_guard.residency import (
     DEFAULT_POLICY,
     aws_region_unset_finding,
     aws_region_unset_warning,
+    gcp_region_unset_finding,
     gcp_region_unset_warning,
     residency_env,
 )
@@ -217,19 +218,23 @@ def load_scan_findings(
             )
     findings = checkov_runner.extract_failed_checks(checkov_output)  # also validates the shape
     if args.iac_type == "terraform":
-        for region_check in (aws_region_unset_warning, gcp_region_unset_warning):
-            region_warning = region_check(
-                checkov_output, custom_checks_loaded=not args.checkov_json
-            )
+        # The warning stays for the CI log (it carries the plan-mode hint); the same condition
+        # also becomes one registry-backed finding per cloud, so a gate can act on it.
+        region_findings = []
+        for finding_fn, warning_fn in (
+            (aws_region_unset_finding, aws_region_unset_warning),
+            (gcp_region_unset_finding, gcp_region_unset_warning),
+        ):
+            loaded_flag = not args.checkov_json
+            region_warning = warning_fn(checkov_output, custom_checks_loaded=loaded_flag)
             if region_warning:
                 print(region_warning, file=sys.stderr)
-        # The warning stays for the CI log (it carries the plan-mode hint); the same condition
-        # also becomes one registry-backed finding, so a gate can act on it.
-        region_finding = aws_region_unset_finding(
-            checkov_output, custom_checks_loaded=not args.checkov_json
-        )
-        if region_finding:
-            checkov_output["results"].setdefault("failed_checks", []).append(region_finding)
+            region_finding = finding_fn(checkov_output, custom_checks_loaded=loaded_flag)
+            if region_finding:
+                region_findings.append(region_finding)
+        if region_findings:
+            # Appended after both predicates ran, so one injected finding cannot steer the other.
+            checkov_output["results"].setdefault("failed_checks", []).extend(region_findings)
             findings = checkov_runner.extract_failed_checks(checkov_output)
     skipped = checkov_runner.extract_skipped_checks(checkov_output)
     passed_checks = checkov_runner.extract_passed_checks(checkov_output)

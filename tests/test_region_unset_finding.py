@@ -13,6 +13,7 @@ from tf_eu_guard.mapping.loader import load_registry
 from tf_eu_guard.residency import (
     aws_region_unset_finding,
     aws_region_unset_warning,
+    gcp_region_unset_finding,
     gcp_region_unset_warning,
 )
 
@@ -336,3 +337,167 @@ def test_check_name_matches_registry():
     registry = load_registry(Path(__file__).resolve().parents[1] / "tf_eu_guard" / "mapping")
     finding = aws_region_unset_finding(_output(), custom_checks_loaded=True)
     assert finding["check_name"] == registry["EUGUARD_POLICY_005"].check_name
+
+
+# --- EUGUARD_POLICY_006: the GCP counterpart ---
+
+
+def _policy_006(report):
+    return [f for f in report["findings"] if f["check_id"] == "EUGUARD_POLICY_006"]
+
+
+def _gcp_resources_output(*resources, passed=("EUGUARD_GDPR_005",)):
+    output = _resources_output(*resources, passed=passed)
+    for check in output["results"]["passed_checks"] + output["results"]["failed_checks"]:
+        check.setdefault("check_name", "n")
+        check.setdefault("file_path", "/z.tf")
+        check.setdefault("file_line_range", [1, 2])
+    for check in output["results"]["passed_checks"]:
+        check["check_result"] = {"result": "PASSED"}
+    for check in output["results"]["failed_checks"]:
+        check["check_id"] = "CKV_GCP_62"  # a mapped check, so plan mode still has findings
+        check["check_result"] = {"result": "FAILED"}
+    output["check_type"] = "terraform"
+    output["summary"] = {
+        "failed": len(resources),
+        "passed": len(passed),
+        "skipped": 0,
+        "parsing_errors": 0,
+        "resource_count": len(resources),
+    }
+    return output
+
+
+def _live_scan_with_output(monkeypatch, tmp_path, capsys, output, iac_type="terraform"):
+    output["check_type"] = iac_type
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", lambda *a, **k: output)
+    run_cli(
+        monkeypatch, tmp_path, str(tmp_path), "--no-config", "--iac-type", iac_type,
+        "--output", "json", "--json-format", "object",
+    )  # fmt: skip
+    return json.loads(capsys.readouterr().out)
+
+
+@pytest.mark.parametrize(
+    "output,loaded",
+    [
+        (_gcp_resources_output("google_storage_bucket.b"), False),
+        (_gcp_resources_output("google_storage_bucket.b"), True),
+        (_gcp_resources_output("google_storage_bucket.b", passed=("EUGUARD_POLICY_004",)), False),
+        (_gcp_resources_output("google_storage_bucket.b", passed=("EUGUARD_POLICY_004",)), True),
+        (_gcp_resources_output("google_storage_bucket.b", passed=()), False),
+        (_gcp_resources_output("google_storage_bucket.b", passed=()), True),
+        (_gcp_resources_output("module.google_bridge.aws_s3_bucket.b"), True),
+        (_gcp_resources_output("module.aws_bridge.google_storage_bucket.b"), True),
+        (_gcp_resources_output("aws_s3_bucket.b"), True),
+        ({"results": {"failed_checks": [{"check_id": "CKV_AWS_1", "resource": "aws_x.b"}]}}, True),
+        ({"results": {}}, True),
+    ],
+)  # fmt: skip
+def test_gcp_no_region_finding_matches_warning(output, loaded):
+    warning = gcp_region_unset_warning(output, custom_checks_loaded=loaded)
+    finding = gcp_region_unset_finding(output, custom_checks_loaded=loaded)
+    assert (finding is not None) == (warning is not None)
+    if finding is not None:
+        assert finding["check_id"] == "EUGUARD_POLICY_006"
+        assert finding["resource"] == "provider.google"
+
+
+def test_gcp_no_region_finding_anchors_at_root_module_first_resource():
+    def check(path, line, resource="google_storage_bucket.b"):
+        return {
+            "check_id": "CKV_GCP_62",
+            "resource": resource,
+            "file_path": path,
+            "file_line_range": [line, line + 1],
+        }
+
+    output = {
+        "results": {
+            "passed_checks": [{"check_id": "EUGUARD_GDPR_005", "resource": "x.y"}],
+            "failed_checks": [
+                check("/.external_modules/github.com/o/m/main.tf", 1),
+                check("/stack/z_main.tf", 7),
+                check("/stack/a_main.tf", 9),
+                check("/stack/a_main.tf", 2, "aws_s3_bucket.b"),
+            ],
+            "skipped_checks": [],
+        }
+    }
+    finding = gcp_region_unset_finding(output, custom_checks_loaded=True)
+    assert finding is not None
+    assert finding["file_path"] == "/stack/a_main.tf"
+    assert finding["file_line_range"] == [9, 10]
+
+
+def test_gcp_no_region_finding_injected(monkeypatch, tmp_path, capsys):
+    output = _gcp_resources_output("google_storage_bucket.b")
+    report = _live_scan_with_output(monkeypatch, tmp_path, capsys, output)
+    found = _policy_006(report)
+    assert len(found) == 1
+    assert found[0]["severity"] == "MEDIUM"
+    assert found[0]["resource"] == "provider.google"
+    assert _policy_005(report) == []
+
+
+def test_gcp_no_region_finding_absent_when_resources_set_location(monkeypatch, tmp_path, capsys):
+    output = _gcp_resources_output("google_storage_bucket.b", passed=("EUGUARD_POLICY_004",))
+    report = _live_scan_with_output(monkeypatch, tmp_path, capsys, output)
+    assert _policy_006(report) == []
+
+
+def test_both_no_region_findings_once_each(monkeypatch, tmp_path, capsys):
+    output = _gcp_resources_output("google_storage_bucket.b", "aws_s3_bucket.b")
+    report = _live_scan_with_output(monkeypatch, tmp_path, capsys, output)
+    assert len(_policy_005(report)) == 1
+    assert len(_policy_006(report)) == 1
+
+
+@pytest.mark.parametrize("iac_type", ["terraform_plan", "kubernetes"])
+def test_gcp_no_region_finding_absent_in_plan_mode(monkeypatch, tmp_path, capsys, iac_type):
+    output = _gcp_resources_output("google_storage_bucket.b")
+    report = _live_scan_with_output(monkeypatch, tmp_path, capsys, output, iac_type)
+    assert report["findings"]
+    assert _policy_006(report) == []
+
+
+def test_gcp_no_region_finding_waivable(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr("tf_eu_guard.cli.pipeline._today", lambda: date(2026, 6, 1))
+    document = _checkov_json(tmp_path)
+    data = json.loads(Path(document).read_text())
+    for key in ("passed_checks", "failed_checks"):
+        for check in data["results"][key]:
+            check["resource"] = "google_storage_bucket.b"
+    data["results"]["passed_checks"][0]["check_id"] = "EUGUARD_GDPR_005"
+    Path(document).write_text(json.dumps(data))
+    waivers = tmp_path / "w.yaml"
+    waivers.write_text(
+        "schema_version: 1\nwaivers:\n  - check_id: EUGUARD_POLICY_006\n"
+        "    resource: provider.google\n    owner: platform\n    reason: Region set by CI env.\n"
+        "    expires: 2027-03-31\n"
+    )
+    base = [
+        "--checkov-json",
+        document,
+        "--no-config",
+        "--output",
+        "json",
+        "--json-format",
+        "object",
+    ]
+    run_cli(monkeypatch, tmp_path, *base)
+    assert "EUGUARD_POLICY_006" in [
+        f["check_id"] for f in json.loads(capsys.readouterr().out)["findings"]
+    ]
+    run_cli(monkeypatch, tmp_path, *base, "--waivers", str(waivers))
+    report = json.loads(capsys.readouterr().out)
+    assert [w["check_id"] for w in report["waived"]] == ["EUGUARD_POLICY_006"]
+
+
+def test_gcp_check_name_matches_registry():
+    registry = load_registry(Path(__file__).resolve().parents[1] / "tf_eu_guard" / "mapping")
+    finding = gcp_region_unset_finding(
+        _gcp_resources_output("google_x.b"), custom_checks_loaded=True
+    )
+    assert finding["check_name"] == registry["EUGUARD_POLICY_006"].check_name
+    assert registry["EUGUARD_POLICY_006"].severity.name == "MEDIUM"

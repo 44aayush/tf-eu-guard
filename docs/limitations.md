@@ -163,6 +163,12 @@ finding (`provider.aws`) is reported; pin the region or scan a Terraform plan in
   baseline key changes when an earlier-sorting file gains an AWS resource; re-baseline, or use the file-less waiver.
 - The check is scan-wide, not per root module: a scan root holding one pinned and one unpinned root directory reports
   nothing, because some provider region was evaluated.
+- GCP has the same finding: when `google_*` resources are scanned but no `provider "google"` block and no resource sets a
+  region or location (no `EUGUARD_POLICY_004` result), one MEDIUM `EUGUARD_POLICY_006` finding (`provider.google`) is
+  reported next to the stderr warning, because the region then comes from the environment (for example `GOOGLE_REGION`).
+  Source scans only; anchoring, gate effects, the baseline note and the module-repository waiver (check_id
+  `EUGUARD_POLICY_006`, resource `provider.google`, no file) are the same as for `EUGUARD_POLICY_005`; an inline
+  `#checkov:skip=EUGUARD_POLICY_006` has no effect.
 
 The pre-scan guards (symlink
 containment and the `*.tf.json` rejection) skip the same entries, so a
