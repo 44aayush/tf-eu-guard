@@ -10,6 +10,13 @@ release point.
 
 ## [Unreleased]
 
+### Added
+
+- `--no-discovery` (and `scan(no_discovery=True)`) skips `.tf-eu-guard.yaml` and
+  `.tf-eu-guard-waivers.yaml` in the scan root, so a pull request cannot weaken its own gate by
+  committing them; `--config` and `--waivers` still apply and each ignored file is named on stderr
+  (TEG-01).
+
 ### Security
 
 - Terminal and stderr output escapes control characters (newline, ESC, C1, bidi overrides) in

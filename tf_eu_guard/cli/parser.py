@@ -2,6 +2,7 @@
 
 import argparse
 import math
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,7 @@ from tf_eu_guard.constants import (
     SUPPORTED_IAC_TYPES,
 )
 from tf_eu_guard.models import Severity
+from tf_eu_guard.reporting.untrusted import sanitize
 from tf_eu_guard.residency import DEFAULT_POLICY, RESIDENCY_POLICIES, parse_allowed_regions
 
 
@@ -311,6 +313,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Ignore any project configuration file, discovered or given with --config.",
     )
     parser.add_argument(
+        "--no-discovery",
+        action="store_true",
+        help="Do not read .tf-eu-guard.yaml or .tf-eu-guard-waivers.yaml from the scan root "
+        "(files in a pull request are controlled by its author). --config and --waivers "
+        "still apply.",
+    )
+    parser.add_argument(
         "--fail-on-severity",
         type=fail_on_severity_arg,
         default=None,
@@ -375,7 +384,12 @@ def apply_config(
         return {}
     path = known.config
     if path is None and not known.checkov_json:
-        path = find_config(known.path or Path("."))
+        found = find_config(known.path or Path("."))
+        if known.no_discovery:
+            if found is not None:
+                print(f"Note: --no-discovery: ignored {sanitize(found)}", file=sys.stderr)
+            return {}
+        path = found
     if path is None:
         return {}
     values = load_config(path)

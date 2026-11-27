@@ -357,3 +357,37 @@ def test_waived_stderr_count_follows_framework(monkeypatch, tmp_path, capsys):
     assert "finding(s) waived" not in capsys.readouterr().err
     run_cli(monkeypatch, tmp_path, *args, "--framework", "gdpr", "--output", "json")
     assert "1 finding(s) waived by" in capsys.readouterr().err
+
+
+def _source_root(monkeypatch, tmp_path):
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", lambda *a, **k: _doc([LOGS]))
+    src = tmp_path / "src"
+    src.mkdir()
+    return src
+
+
+def test_no_discovery_ignores_scan_root_waivers(monkeypatch, tmp_path, capsys):
+    src = _source_root(monkeypatch, tmp_path)
+    _write(src, HEADER + GOOD, ".tf-eu-guard-waivers.yaml")
+    assert run_cli(monkeypatch, tmp_path, str(src), "--fail-on-any") == 0
+    capsys.readouterr()
+    assert run_cli(monkeypatch, tmp_path, str(src), "--fail-on-any", "--no-discovery") == 1
+    err = capsys.readouterr().err
+    assert f"Note: --no-discovery: ignored {src / '.tf-eu-guard-waivers.yaml'}" in err
+
+
+def test_no_discovery_keeps_explicit_waivers_and_config(monkeypatch, tmp_path, capsys):
+    src = _source_root(monkeypatch, tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    wfile = _write(outside, HEADER + GOOD, "w.yaml")
+    rc = run_cli(
+        monkeypatch, tmp_path, str(src), "--fail-on-any", "--no-discovery", "--waivers", str(wfile)
+    )
+    assert rc == 0
+    cfg = _write(outside, f"waivers: {wfile}\n", "c.yaml")
+    rc = run_cli(
+        monkeypatch, tmp_path, str(src), "--fail-on-any", "--no-discovery", "--config", str(cfg)
+    )
+    assert rc == 0
+    assert "ignored" not in capsys.readouterr().err

@@ -76,7 +76,12 @@ def _waiver_path(args: argparse.Namespace) -> Path | None:
         return None
     root = args.path if args.path.is_dir() else args.path.parent
     candidate = root / WAIVER_FILENAME
-    return candidate if candidate.is_file() else None
+    if not candidate.is_file():
+        return None
+    if getattr(args, "no_discovery", False):
+        print(f"Note: --no-discovery: ignored {sanitize(candidate)}", file=sys.stderr)
+        return None
+    return candidate
 
 
 def _apply_waiver_file(

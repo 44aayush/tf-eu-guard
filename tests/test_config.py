@@ -234,3 +234,17 @@ def test_json_array_discloses_settings_on_stderr(monkeypatch, tmp_path, capsys):
 def test_var_files_key_relative_and_concatenated(tmp_path):
     cfg = _cfg(tmp_path, "var_files: [prod.tfvars]\n")
     assert load_config(cfg)["var_files"] == [tmp_path / "prod.tfvars"]
+
+
+def test_no_discovery_ignores_scan_root_config(monkeypatch, tmp_path, capsys):
+    doc = json.loads(_one_finding(tmp_path).read_text())
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", lambda *a, **k: doc)
+    src = tmp_path / "src"
+    src.mkdir()
+    _cfg(src, "severity_overrides: {CKV_AWS_16: INFO}\n")
+    gate = [str(src), "--fail-on-severity", "HIGH", "--output", "json"]
+    assert run_cli(monkeypatch, tmp_path, *gate) == 0
+    capsys.readouterr()
+    assert run_cli(monkeypatch, tmp_path, *gate, "--no-discovery") == 1
+    err = capsys.readouterr().err
+    assert f"Note: --no-discovery: ignored {src / '.tf-eu-guard.yaml'}" in err

@@ -13,6 +13,8 @@ directory, or the parent directory of a Terraform plan file). Discovery happens 
 for source scans; with `--checkov-json` and no `--waivers` nothing is read. An explicit
 `--config FILE` also disables discovery (so a trusted config cannot be undercut by a
 waiver file in the scanned code); `--waivers` and the config's `waivers:` key still apply.
+`--no-discovery` also disables it, together with `.tf-eu-guard.yaml` discovery, and names the
+ignored file on stderr; use it when the scanned code comes from a pull request you do not trust.
 
 ```yaml
 schema_version: 1

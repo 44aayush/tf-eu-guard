@@ -83,6 +83,10 @@ tf-eu-guard scan ./terraform --output json --summary-file summary.md --counts-fi
 # Fail the build (exit code 1) on HIGH or worse findings — for CI/CD
 tf-eu-guard scan ./terraform --fail-on-severity HIGH
 
+# In CI on a pull request: do not read .tf-eu-guard.yaml or .tf-eu-guard-waivers.yaml from the
+# scanned tree (its author controls them); --config and --waivers still apply
+tf-eu-guard scan ./terraform --no-discovery --config ci/tf-eu-guard.yaml
+
 # Skip paths (repeatable; Checkov --skip-path semantics: regex or substring of the absolute path)
 tf-eu-guard scan . --exclude tests/fixtures --exclude vendor
 
@@ -626,7 +630,7 @@ for finding in result.findings:
 
 `scan()` takes the CLI options as keywords (`iac_type`, `checkov_json`, `framework`,
 `residency_policy`, `allowed_regions`, `exclude`, `var_files`, `registry_dirs`, `waivers`,
-`baseline`, `config`, `no_config`, `secrets`, `timeout`), validates them exactly like the CLI, and returns a
+`baseline`, `config`, `no_config`, `no_discovery`, `secrets`, `timeout`), validates them exactly like the CLI, and returns a
 `ScanResult` with `findings`, `unmapped`, `suppressed`, `waived`, `baselined`, `requirements` and
 `provenance`. It never prints to stdout or exits: bad arguments raise `ValueError`, other failures
 raise the exceptions the CLI maps to exit codes. Keywords left at their default yield to a config
