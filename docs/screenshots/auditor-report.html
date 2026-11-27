@@ -64,7 +64,7 @@
 <header>
   <h1>tf-eu-guard &mdash; Compliance Audit Report</h1>
   <p style="margin:4px 0 8px;font-family:system-ui,sans-serif">NIS2 (Directive 2022/2555, Art. 21), GDPR (Reg. 2016/679, Art. 32 &amp; 44), and project policy</p>
-  <div class="meta"><span>Target: <code>examples/vulnerable-aws</code></span><span>Generated: 2026-11-27 09:25 UTC</span></div>
+  <div class="meta"><span>Target: <code>examples/vulnerable-aws</code></span><span>Generated: 2026-11-27 10:15 UTC</span></div>
 </header>
 <div class="scope"><strong>Scope &amp; limitations.</strong> This report lists only Checkov control failures that map to a NIS2, GDPR, or project-policy reference. It is an evidence aid for an auditor, not legal advice and is not a certification. An article not listed here was not exercised by a failing check &mdash; that is <em>not</em> evidence of compliance. Absence of a finding is not evidence of compliance.</div>
 <h2>Executive summary</h2>
@@ -96,7 +96,7 @@
 <tr><td>GDPR Art. 32(1)(b) &mdash; Confidentiality, integrity, availability and resilience of processing systems</td><td>partial</td><td class="num">142</td><td class="num">39</td><td class="num">18</td><td class="num">21</td><td class="num">0</td><td class="num">0</td><td></td></tr>
 <tr><td>GDPR Art. 32(1)(c) &mdash; Ability to restore availability and access to personal data in a timely manner</td><td>partial</td><td class="num">20</td><td class="num">7</td><td class="num">0</td><td class="num">7</td><td class="num">0</td><td class="num">0</td><td></td></tr>
 <tr><td>GDPR Art. 32(1)(d) &mdash; Regularly testing, assessing and evaluating effectiveness</td><td>process evidence</td><td class="num">2</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td> <em>No mapped check was evaluated.</em></td></tr>
-<tr><td>GDPR Art. 44 &mdash; General principle for transfers of personal data to third countries</td><td>partial</td><td class="num">2</td><td class="num">1</td><td class="num">0</td><td class="num">1</td><td class="num">0</td><td class="num">0</td><td></td></tr>
+<tr><td>GDPR Art. 44 &mdash; General principle for transfers of personal data to third countries</td><td>partial</td><td class="num">4</td><td class="num">1</td><td class="num">0</td><td class="num">1</td><td class="num">0</td><td class="num">0</td><td></td></tr>
 </tbody>
 </table>
 <nav class="toc"><strong>Contents</strong>
@@ -117,7 +117,7 @@
 </ul>
 <strong>POLICY</strong>
 <ul>
-<li><a href="#policy-policy-residency-001">Policy RESIDENCY-001 &mdash; AWS region residency policy</a> (1)</li>
+<li><a href="#policy-policy-residency-001">Policy RESIDENCY-001 &mdash; Region residency policy</a> (1)</li>
 </ul>
 </nav>
 <h2>NIS2 controls</h2>
@@ -291,7 +291,7 @@
 </div>
 <h2>POLICY controls</h2>
 <div class="article" id="policy-policy-residency-001">
-<h3>POLICY Policy RESIDENCY-001 <span class="title-note">&mdash; AWS region residency policy</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
+<h3>POLICY Policy RESIDENCY-001 <span class="title-note">&mdash; Region residency policy</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
 <p><span class="status">OPEN &mdash; 1 finding(s)</span></p>
 <table>
 <thead><tr><th>Severity</th><th>Resource</th><th>Location</th><th>Failed control</th></tr></thead>
@@ -302,7 +302,7 @@
 <p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/DECISIONS.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/DECISIONS.md</code></a></p>
 </div>
 <h2 id="provenance">Provenance</h2>
-<table><tr><th>Tool version</th><td><code>0.9.0</code></td></tr><tr><th>Checkov version</th><td><code>3.4.5</code></td></tr><tr><th>Registry SHA-256</th><td><code>3b07a70d2cc29f7cc0babbee6c901090cebda24dfa3bba7a6e87cd64a7f3519b</code></td></tr><tr><th>Registry files</th><td><code>registry-aws.yaml, registry-azure.yaml, registry-gcp.yaml, registry-kubernetes.yaml, registry-secrets.yaml</code></td></tr><tr><th>Commit</th><td><code>c82cdd51760808d1768efc537bac89469569106d</code></td></tr><tr><th>Resources scanned</th><td><code>17</code></td></tr><tr><th>Checks</th><td><code>passed: 39, failed: 53, skipped: 0</code></td></tr><tr><th>Options</th><td><code>{&quot;allow_partial&quot;: false, &quot;download_external_modules&quot;: false, &quot;exclude&quot;: [], &quot;fail_on_any&quot;: false, &quot;fail_on_suppressed&quot;: false, &quot;fail_on_unmapped&quot;: false, &quot;framework&quot;: &quot;all&quot;, &quot;iac_type&quot;: &quot;terraform&quot;, &quot;json_format&quot;: &quot;array&quot;, &quot;no_config&quot;: false, &quot;no_discovery&quot;: false, &quot;online&quot;: false, &quot;output&quot;: &quot;auditor&quot;, &quot;output_file&quot;: &quot;docs/screenshots/auditor-report.html&quot;, &quot;path&quot;: &quot;examples/vulnerable-aws&quot;, &quot;registry_dirs&quot;: [], &quot;residency_policy&quot;: &quot;eu-eea&quot;, &quot;secrets&quot;: false, &quot;severity_overrides&quot;: {}, &quot;show_unmapped&quot;: false, &quot;timeout&quot;: 600, &quot;var_files&quot;: []}</code></td></tr></table>
-<footer>Generated by tf-eu-guard v0.9.0 on 2026-11-27 09:25 UTC.</footer>
+<table><tr><th>Tool version</th><td><code>0.9.0</code></td></tr><tr><th>Checkov version</th><td><code>3.4.5</code></td></tr><tr><th>Registry SHA-256</th><td><code>70c20f6774f16c2e2f4861b2ead382fbdcd9c929fbf8414383f1b015228ec3f0</code></td></tr><tr><th>Registry files</th><td><code>registry-aws.yaml, registry-azure.yaml, registry-gcp.yaml, registry-kubernetes.yaml, registry-secrets.yaml</code></td></tr><tr><th>Commit</th><td><code>0ff624b1a6af2e4d612d2597084e04973079f878</code></td></tr><tr><th>Resources scanned</th><td><code>17</code></td></tr><tr><th>Checks</th><td><code>passed: 39, failed: 53, skipped: 0</code></td></tr><tr><th>Options</th><td><code>{&quot;allow_partial&quot;: false, &quot;download_external_modules&quot;: false, &quot;exclude&quot;: [], &quot;fail_on_any&quot;: false, &quot;fail_on_suppressed&quot;: false, &quot;fail_on_unmapped&quot;: false, &quot;framework&quot;: &quot;all&quot;, &quot;iac_type&quot;: &quot;terraform&quot;, &quot;json_format&quot;: &quot;array&quot;, &quot;no_config&quot;: false, &quot;no_discovery&quot;: false, &quot;online&quot;: false, &quot;output&quot;: &quot;auditor&quot;, &quot;output_file&quot;: &quot;docs/screenshots/auditor-report.html&quot;, &quot;path&quot;: &quot;examples/vulnerable-aws&quot;, &quot;registry_dirs&quot;: [], &quot;residency_policy&quot;: &quot;eu-eea&quot;, &quot;secrets&quot;: false, &quot;severity_overrides&quot;: {}, &quot;show_unmapped&quot;: false, &quot;timeout&quot;: 600, &quot;var_files&quot;: []}</code></td></tr></table>
+<footer>Generated by tf-eu-guard v0.9.0 on 2026-11-27 10:15 UTC.</footer>
 </body>
 </html>
