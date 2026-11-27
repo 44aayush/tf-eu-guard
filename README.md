@@ -32,7 +32,7 @@ tf-eu-guard wraps Checkov, enriches each failed check with the relevant NIS2/GDP
    - **Dev report** (terminal/HTML): severity-sorted findings for engineers
    - **Security dashboard** (HTML): CRITICAL/HIGH/MEDIUM/LOW breakdown with stats
    - **Auditor report** (HTML): article-by-article view showing which NIS2/GDPR clauses and project-policy controls have open findings
-5. **Custom checks**: Adds EU-specific rules (configurable region residency policy (AWS only; Azure and GCP locations are not evaluated), third-country transfer review, and selected hardcoded secrets) not in upstream Checkov
+5. **Custom checks**: Adds EU-specific rules (configurable region residency policy, AWS only (Azure and GCP locations are not evaluated), third-country transfer review, and selected hardcoded secrets) not in upstream Checkov
 
 > **Note on flags:** `--iac-type` selects *what to scan* (terraform, terraform_plan, kubernetes);
 > `--framework` selects *which regulatory regime to report* (nis2/gdpr). `all` also retains
@@ -84,8 +84,10 @@ tf-eu-guard scan ./terraform --output json --summary-file summary.md --counts-fi
 tf-eu-guard scan ./terraform --fail-on-severity HIGH
 
 # In CI on a pull request: do not read .tf-eu-guard.yaml or .tf-eu-guard-waivers.yaml from the
-# scanned tree (its author controls them); --config and --waivers still apply
-tf-eu-guard scan ./terraform --no-discovery --config ci/tf-eu-guard.yaml
+# scanned tree (its author controls them) and read the config from outside the checkout, copied
+# from the base branch. A --config or --waivers path inside the checkout is just as PR-controlled.
+git show "origin/$GITHUB_BASE_REF:.tf-eu-guard.yaml" > "$RUNNER_TEMP/tf-eu-guard.yaml"
+tf-eu-guard scan ./terraform --no-discovery --config "$RUNNER_TEMP/tf-eu-guard.yaml"
 
 # Skip paths (repeatable; Checkov --skip-path semantics: regex or substring of the absolute path)
 tf-eu-guard scan . --exclude tests/fixtures --exclude vendor
@@ -506,7 +508,10 @@ Set only one of `config` and `trusted-config`.
 
 Since 0.10 the Action does not auto-discover `.tf-eu-guard.yaml` or `.tf-eu-guard-waivers.yaml` in the scanned
 directory: it passes `--no-discovery` unless `discover-config` is `true`, because a pull request controls those
-files. Use `config` or `trusted-config` (and `waivers`) to supply settings explicitly.
+files. In `pull_request` workflows supply settings only through `trusted-config`: the `config`, `waivers`
+and `baseline` inputs are read from the checkout and are just as pull-request-controlled. With
+`discover-config: true` plus `trusted-config`, the explicit config is used and waiver discovery is
+disabled (an explicit `--config` turns it off), so the trusted config wins.
 
 ```yaml
 - uses: actions/checkout@v4

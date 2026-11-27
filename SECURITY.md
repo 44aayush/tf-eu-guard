@@ -47,8 +47,9 @@ no results are uploaded. Scanned code is never run as a program, but Checkov
 evaluates Terraform expressions from it in a restricted interpreter (asteval),
 and remote Terraform modules are not downloaded unless
 --download-external-modules is given. Scan untrusted code, such as pull requests
-from forks, in the container image or the GitHub Action, which runs it without
-network access, with a read-only filesystem and with all capabilities dropped.
+from forks, with the GitHub Action, which runs the container without network access, with a
+read-only filesystem and with all capabilities dropped; to do the same locally, run the image with
+`docker run --rm --network none --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges -v "$PWD:/scan:ro" ghcr.io/44aayush/tf-eu-guard:<version> /scan`.
 
 ## Safe handling of credentials and live infrastructure
 

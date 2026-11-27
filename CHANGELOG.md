@@ -21,12 +21,12 @@ release point.
 
 - The Action no longer auto-discovers `.tf-eu-guard.yaml` or `.tf-eu-guard-waivers.yaml` in the scanned
   directory: it passes `--no-discovery` unless the new `discover-config` input is `true`. Use `config`
-  or `trusted-config` instead (TEG-01). Behaviour change for workflows that relied on discovery.
+  or, on pull requests, `trusted-config` instead (TEG-01). Behaviour change for workflows that relied on discovery.
 
 ### Fixed
 
 - `--changed-since` keeps Terraform findings in the module directory, parent directories and
-  subdirectories of a changed `.tf`, `.tfvars` or `.hcl` file, so changing a variable default no
+  subdirectories of a changed `.tf`, `.tfvars`, `.hcl`, `.tfvars.json` or `.tf.json` file, so changing a variable default no
   longer hides the resources it affects in untouched files; other IaC types stay file-granular (TEG-02).
 - Documentation no longer says scanned code is only read and never executed (Checkov evaluates
   Terraform expressions), that `--var-file` is unsupported, or that residency checks cover Azure and GCP;
@@ -44,7 +44,11 @@ release point.
 - Terminal and stderr output escapes control characters (newline, ESC, C1, bidi overrides) in
   resource names, file paths, check text, waiver fields, weakening lines and module sources taken
   from the scanned checkout, so a crafted name can no longer forge `::error::` annotations in a
-  GitHub Actions log or repaint the terminal (TEG-03). Values are escaped, never dropped.
+  GitHub Actions log or repaint the terminal (TEG-03). Values are escaped, never dropped. The same
+  applies to untrusted CSV columns, Markdown output, and relayed Checkov stderr (indented and escaped
+  per line); Rich no longer expands `:emoji:` codes inside names.
+- The Action fails with exit 3 if it cannot create a 32-hex stop-commands token, instead of running
+  the container unbracketed.
 
 ## [0.9.0] - 2026-11-18
 
