@@ -585,3 +585,48 @@ def test_cli_dev_report_survives_cp1252_stdout(monkeypatch, tmp_path, capsys):
     stream.flush()
     text = raw.getvalue().decode("utf-8")
     assert "●" in text or "✓" in text
+
+
+def _aws_checkov_json(tmp_path, check_type):
+    document = {
+        "check_type": check_type,
+        "results": {
+            "passed_checks": [],
+            "failed_checks": [
+                {
+                    "check_id": "CKV_AWS_18",
+                    "check_name": "Ensure the S3 bucket has access logging enabled",
+                    "resource": "aws_s3_bucket.b",
+                    "file_path": "/main.tf",
+                    "file_line_range": [1, 2],
+                    "check_result": {"result": "FAILED"},
+                }
+            ],
+            "skipped_checks": [],
+        },
+        "summary": {"failed": 1, "passed": 0, "skipped": 0, "parsing_errors": 0},
+    }
+    path = tmp_path / "checkov.json"
+    path.write_text(json.dumps(document))
+    return str(path)
+
+
+def test_region_unset_warning_printed_for_terraform_checkov_json(monkeypatch, tmp_path, capsys):
+    document = _aws_checkov_json(tmp_path, "terraform")
+    run_cli(monkeypatch, tmp_path, "--checkov-json", document, "--output", "json")
+    assert 'no provider "aws" block sets a region' in capsys.readouterr().err
+
+
+def test_region_unset_warning_not_printed_for_kubernetes(monkeypatch, tmp_path, capsys):
+    document = _aws_checkov_json(tmp_path, "kubernetes")
+    run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        document,
+        "--iac-type",
+        "kubernetes",
+        "--output",
+        "json",
+    )
+    assert 'no provider "aws" block' not in capsys.readouterr().err

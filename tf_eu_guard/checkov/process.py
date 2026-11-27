@@ -155,8 +155,33 @@ def _is_skipped(directory: str, name: str, excludes: Sequence[str]) -> bool:
 
 # Hidden directories that hold tooling, not infrastructure source.
 _TOOLING_DIRECTORIES = frozenset(
-    {".git", ".github", ".gitlab", ".terraform", ".venv", ".tox", ".cache"}
+    {
+        ".git",
+        ".github",
+        ".gitlab",
+        ".terraform",
+        ".venv",
+        ".tox",
+        ".cache",
+        ".vscode",
+        ".idea",
+        ".devcontainer",
+        ".husky",
+    }
 )
+
+
+def _has_source_file(directory: Path, suffixes: tuple[str, ...]) -> bool:
+    """Return whether *directory* holds a source file, pruned like Checkov's own walk."""
+    for _current, dirs, files in os.walk(directory):
+        dirs[:] = [
+            d
+            for d in dirs
+            if d not in CHECKOV_IGNORED_DIRECTORIES and d not in _TOOLING_DIRECTORIES
+        ]
+        if any(f.lower().endswith(suffixes) for f in files):
+            return True
+    return False
 
 
 def hidden_source_dirs(root: Path, iac_type: str, excludes: Sequence[str] = ()) -> list[Path]:
@@ -173,7 +198,7 @@ def hidden_source_dirs(root: Path, iac_type: str, excludes: Sequence[str] = ()) 
                 if (
                     name not in _TOOLING_DIRECTORIES
                     and not _is_excluded(current, name, excludes)
-                    and any(f.lower().endswith(suffixes) for _, _, fs in os.walk(path) for f in fs)
+                    and _has_source_file(path, suffixes)
                 ):
                     found.append(path)
             elif not _is_skipped(current, name, excludes):

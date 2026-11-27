@@ -773,3 +773,32 @@ def test_hidden_source_dirs_kubernetes_yaml(tmp_path):
     assert hidden_source_dirs(tmp_path, "kubernetes") == [tmp_path / "app" / ".overlays"]
     assert hidden_source_dirs(tmp_path, "terraform") == []
     assert "directories contain" in hidden_dirs_warning([Path("a"), Path("b")], "kubernetes")
+
+
+def test_hidden_dir_warning_ignores_editor_dirs(tmp_path):
+    for name, config in (
+        (".vscode", "settings.json"),
+        (".devcontainer", "devcontainer.json"),
+        (".idea", "x.json"),
+    ):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / config).write_text("{}")
+    assert hidden_source_dirs(tmp_path, "kubernetes") == []
+
+
+def test_hidden_dir_with_only_plugin_cache_is_ignored(tmp_path):
+    module = tmp_path / ".prod" / ".terraform" / "modules" / "x"
+    module.mkdir(parents=True)
+    (module / "main.tf").write_text("# cached\n")
+    assert hidden_source_dirs(tmp_path, "terraform") == []
+
+
+def test_run_checkov_prints_hidden_dir_warning(tmp_path, capsys, monkeypatch):
+    _capture_cmd(monkeypatch)
+    _tf_dir(tmp_path, "# root\n")
+    (tmp_path / ".prod").mkdir()
+    (tmp_path / ".prod" / "main.tf").write_text("# prod\n")
+    run_checkov(tmp_path)
+    err = capsys.readouterr().err
+    assert "not scanned: 1 hidden directory contains" in err
+    assert str(tmp_path.resolve() / ".prod") in err
