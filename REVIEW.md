@@ -473,3 +473,16 @@ I rebuilt the image from `HEAD` (`af9aee2`; no code change since `abc18e0`) with
 - **Task 3:** the 3.15 build fails as the plan says, and the refreshed 3.12 digest builds. **One defect in that plan:** Step 6 expects the smoke scan to exit 1. It exits 0, because the CLI enables no gate by default and the image entrypoint passes none. The step needs `--fail-on-severity HIGH` to expect 1.
 
 The remediation work runs as a loop on `version_0.10.0` and is tracked in `TASKS.md`.
+
+### After iteration 1 (2026-11-27, `version_0.10.0`)
+
+These results come from a fresh `--no-cache` build of the branch image (`tf-eu-guard:ci`) and the same harness. All 1255 tests pass (with `TFEG_RUN_CHECKOV=1`), ruff and mypy are clean, and the new trivy gate (HIGH/CRITICAL, unfixed ignored, one bounded exception) exits 0. "Fixed" means the original reproduction no longer works.
+
+| Finding | Before | After iteration 1 | Status |
+| --- | --- | --- | --- |
+| TEG-01 discovered config/waivers | gate bypassed (exit 0) | still exit 0 when discovery is on (CLI default, for backward compatibility); exit 1 with `--no-discovery`, which the Action now passes by default | Fixed in the Action; opt-in on the CLI |
+| TEG-02 `--changed-since` cross-file | exit 0 | exit 1; `terraform.tfvars.json` also covered | Fixed |
+| TEG-03 workflow commands / ANSI | 18 forged lines, 17 escape sequences | 0 and 0 in the `dev`, CSV, Markdown, JSON and SARIF output and in relayed Checkov stderr; the Action also brackets container output with a random `::stop-commands::` token | Fixed |
+| TEG-06 base image | stale digest, no gate | digest refreshed; trivy gate in CI | Fixed |
+| TEG-07, TEG-11 (typos), TEG-12 | docs drift | corrected | Fixed |
+| TEG-04, TEG-05, TEG-08, TEG-09, TEG-13 | open | unchanged | Iteration 2 and 3 (see `TASKS.md`) |
