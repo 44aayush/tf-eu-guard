@@ -12,11 +12,16 @@ import json
 import os
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import pytest
 
-from tf_eu_guard.checkov.process import hidden_dirs_warning, hidden_source_dirs
+from tf_eu_guard.checkov.process import (
+    check_hcl2_module,
+    hidden_dirs_warning,
+    hidden_source_dirs,
+)
 from tf_eu_guard.checkov_runner import (
     CheckovRuntimeError,
     extract_failed_checks,
@@ -831,3 +836,22 @@ def test_run_checkov_prints_hidden_dir_warning(tmp_path, capsys, monkeypatch):
     err = capsys.readouterr().err
     assert "not scanned: 1 hidden directory contains" in err
     assert str(tmp_path.resolve() / ".prod") in err
+
+
+def test_hcl2_self_check_passes_with_bc_fork():
+    check_hcl2_module()
+
+
+def test_hcl2_self_check_rejects_foreign_module(monkeypatch):
+    monkeypatch.setitem(sys.modules, "hcl2", types.ModuleType("hcl2"))
+    with pytest.raises(CheckovRuntimeError, match="bc-python-hcl2"):
+        check_hcl2_module()
+
+
+def test_run_checkov_reports_foreign_hcl2_before_running(monkeypatch, tmp_path):
+    monkeypatch.setitem(sys.modules, "hcl2", types.ModuleType("hcl2"))
+    calls = []
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: calls.append(a))
+    with pytest.raises(CheckovRuntimeError, match="uv tool install tf-eu-guard"):
+        run_checkov(tmp_path, "terraform")
+    assert calls == []

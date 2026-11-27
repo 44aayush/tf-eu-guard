@@ -12,6 +12,9 @@ release point.
 
 ### Added
 
+- A replaced `hcl2` module (another package such as python-hcl2 overwriting Checkov's bc-python-hcl2 in the
+  same environment) is reported as a Checkov runtime error (exit 3) that names the cause and the fix, instead
+  of a raw `ImportError` traceback from the Checkov subprocess (TEG-14).
 - `--no-discovery` (and `scan(no_discovery=True)`) skips `.tf-eu-guard.yaml` and
   `.tf-eu-guard-waivers.yaml` in the scan root, so a pull request cannot weaken its own gate by
   committing them; `--config` and `--waivers` still apply and each ignored file is named on stderr

@@ -377,6 +377,29 @@ def remote_modules_warning(modules: Sequence[tuple[Path, str, str]], limit: int 
     )
 
 
+HCL2_REPLACED_MESSAGE = (
+    "the installed 'hcl2' module is not Checkov's bc-python-hcl2 (another package, "
+    "often python-hcl2, replaced it), so Checkov cannot parse Terraform. Install "
+    "tf-eu-guard in its own environment: uv tool install tf-eu-guard "
+    "(or pipx install tf-eu-guard)."
+)
+
+
+def check_hcl2_module() -> None:
+    """Raise :class:`CheckovRuntimeError` when ``hcl2`` is not Checkov's bc-python-hcl2 fork.
+
+    Installing another package that depends on python-hcl2 into the same
+    environment overwrites the module, and every Checkov run then dies with an
+    ImportError. The fork exports ``START_LINE``; the original does not.
+    """
+    try:
+        import hcl2
+    except ImportError as exc:
+        raise CheckovRuntimeError(HCL2_REPLACED_MESSAGE) from exc
+    if not hasattr(hcl2, "START_LINE"):
+        raise CheckovRuntimeError(HCL2_REPLACED_MESSAGE)
+
+
 def run_checkov(
     target: Path,
     iac_type: str = "terraform",
@@ -414,6 +437,8 @@ def run_checkov(
         raise ValueError(
             f"Unsupported iac_type '{iac_type}' — expected one of {', '.join(SUPPORTED_IAC_TYPES)}"
         )
+    if iac_type in ("terraform", "terraform_plan"):
+        check_hcl2_module()
     target = Path(target).resolve()
     if not target.exists():
         raise FileNotFoundError(f"Scan target does not exist: {target}")
