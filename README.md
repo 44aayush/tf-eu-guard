@@ -202,7 +202,9 @@ checkov -d ./terraform --output json --framework terraform --quiet \
 > outside the requested scan root (or a broken symlink) is rejected with exit
 > code `2`. Symlinks that resolve inside the scan root are allowed; Checkov
 > scans their targets, and directory cycles are visited only once. Plan-file
-> scans are not directory traversals and do not apply this source-root check.
+> scans are not directory traversals and do not apply this source-root check. A Terraform module
+> `source` of `./` or `../` that resolves outside the scan root is not rejected: Checkov scans it, and
+> tf-eu-guard prints a warning on stderr. Scan the common parent directory instead.
 
 ### Use as a Claude Code Skill
 

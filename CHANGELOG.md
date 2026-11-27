@@ -12,6 +12,9 @@ release point.
 
 ### Added
 
+- A Terraform scan warns on stderr when a local module `source` (`./` or `../`) resolves outside the scan
+  root, where Checkov still reads and reports those files beyond the symlink boundary (TEG-08). Exit codes
+  are unchanged.
 - A replaced `hcl2` module (another package such as python-hcl2 overwriting Checkov's bc-python-hcl2 in the
   same environment) is reported as a Checkov runtime error (exit 3) that names the cause and the fix, instead
   of a raw `ImportError` traceback from the Checkov subprocess (TEG-14).

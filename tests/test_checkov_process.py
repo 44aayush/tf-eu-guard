@@ -554,7 +554,6 @@ def test_remote_module_warning(tmp_path, capsys, monkeypatch):
         'module "reg" {\n  source = "terraform-aws-modules/s3-bucket/aws"\n}\n'
         'module "git" {\n  source = "git::https://example.com/x.git?ref=v1"\n}\n'
         'module "loc" {\n  source = "./modules/local"\n}\n'
-        'module "up" {\n  source = "../shared"\n}\n'
     )
     run_checkov(tmp_path)
     err = capsys.readouterr().err
@@ -563,6 +562,41 @@ def test_remote_module_warning(tmp_path, capsys, monkeypatch):
     assert "module.git (git::https://example.com/x.git?ref=v1)" in err
     assert "module.loc" not in err
     assert "module.up" not in err
+
+
+def test_local_module_outside_root_warns(tmp_path, capsys, monkeypatch):
+    _capture_cmd(monkeypatch)
+    root = tmp_path / "root"
+    (tmp_path / "outside").mkdir()
+    (tmp_path / "outside" / "main.tf").write_text('resource "null_resource" "x" {}\n')
+    root.mkdir()
+    (root / "main.tf").write_text('module "m" {\n  source = "../outside"\n}\n')
+    run_checkov(root)
+    err = capsys.readouterr().err
+    assert "Warning: local module source(s) outside the scan root: " in err
+    assert "module.m (../outside)" in err
+    assert f"resolves to {(tmp_path / 'outside').resolve()}" in err
+    assert "scan their common parent directory instead." in err
+    assert "not analysed" not in err
+
+
+def test_local_module_inside_root_does_not_warn(tmp_path, capsys, monkeypatch):
+    _capture_cmd(monkeypatch)
+    _tf_dir(tmp_path, 'module "a" {\n  source = "./m"\n}\n')
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    (sub / "b.tf").write_text('module "b" {\n  source = "../m"\n}\n')
+    run_checkov(tmp_path)
+    assert "outside the scan root" not in capsys.readouterr().err
+
+
+def test_remote_module_not_reported_as_local(tmp_path, capsys, monkeypatch):
+    _capture_cmd(monkeypatch)
+    _tf_dir(tmp_path, 'module "reg" {\n  source = "terraform-aws-modules/s3-bucket/aws"\n}\n')
+    run_checkov(tmp_path)
+    err = capsys.readouterr().err
+    assert "module.reg" in err
+    assert "outside the scan root" not in err
 
 
 def test_no_remote_module_warning_for_local_only(tmp_path, capsys, monkeypatch):

@@ -383,14 +383,27 @@ def validate_scan_root_symlinks(
     return warnings
 
 
-def find_remote_modules(target: Path, excludes: Sequence[str] = ()) -> list[tuple[Path, str, str]]:
-    """Return ``(file, module name, source)`` for module calls with a non-local source."""
+ModuleCall = tuple[Path, str, str]
+OutsideModule = tuple[Path, str, str, Path]
+
+
+def classify_module_calls(
+    target: Path, excludes: Sequence[str] = ()
+) -> tuple[list[ModuleCall], list[OutsideModule]]:
+    """Parse the scanned ``.tf`` files once and sort their module calls.
+
+    Returns ``(remote, outside)``. ``remote`` holds ``(file, module name, source)`` for
+    non-local sources. ``outside`` holds ``(file, module name, source, resolved path)`` for
+    local sources (``./`` or ``../``) that resolve outside the scan root.
+    """
     try:
         import hcl2
     except ImportError:  # pragma: no cover - hcl2 is a Checkov dependency
-        return []
+        return [], []
 
-    found: list[tuple[Path, str, str]] = []
+    root = target.resolve()
+    found: list[ModuleCall] = []
+    outside: list[OutsideModule] = []
     for path in iter_scanned_files(target, excludes):
         if path.suffix != ".tf" or not path.is_file():
             continue
@@ -407,12 +420,46 @@ def find_remote_modules(target: Path, excludes: Sequence[str] = ()) -> list[tupl
                 if not isinstance(source, str):
                     continue
                 source = source.strip().strip('"')
+                module_name = str(name).strip('"')
                 if not source.startswith(("./", "../")):
-                    found.append((path, str(name).strip('"'), source))
-    return found
+                    found.append((path, module_name, source))
+                    continue
+                try:
+                    resolved = (path.parent / source).resolve()
+                except (OSError, RuntimeError):
+                    continue
+                if not resolved.is_relative_to(root):
+                    outside.append((path, module_name, source, resolved))
+    return found, outside
 
 
-def remote_modules_warning(modules: Sequence[tuple[Path, str, str]], limit: int = 10) -> str:
+def find_remote_modules(target: Path, excludes: Sequence[str] = ()) -> list[ModuleCall]:
+    """Return ``(file, module name, source)`` for module calls with a non-local source."""
+    return classify_module_calls(target, excludes)[0]
+
+
+def local_modules_outside_root(target: Path, excludes: Sequence[str] = ()) -> list[OutsideModule]:
+    """Return local module calls whose source resolves outside the scan root."""
+    return classify_module_calls(target, excludes)[1]
+
+
+def outside_modules_warning(modules: Sequence[OutsideModule], limit: int = 10) -> str:
+    """Format the stderr warning for :func:`local_modules_outside_root` results."""
+    listed = "; ".join(
+        f"module.{sanitize(name)} ({sanitize(source)}) in {sanitize(path)} "
+        f"resolves to {sanitize(resolved)}"
+        for path, name, source, resolved in modules[:limit]
+    )
+    if len(modules) > limit:
+        listed += f"; ... and {len(modules) - limit} more"
+    return (
+        f"Warning: local module source(s) outside the scan root: {listed}. "
+        "Checkov scans these files, but they are not covered by the scan-root "
+        "symlink boundary; scan their common parent directory instead."
+    )
+
+
+def remote_modules_warning(modules: Sequence[ModuleCall], limit: int = 10) -> str:
     """Format the stderr warning for :func:`find_remote_modules` results."""
     listed = "; ".join(
         f"module.{sanitize(name)} ({sanitize(source)}) in {sanitize(path)}"
@@ -580,10 +627,12 @@ def run_checkov(
             "from the network; the modules' resources were evaluated.",
             file=sys.stderr,
         )
-    elif iac_type == "terraform":
-        remote = find_remote_modules(target, exclude)
-        if remote:
+    if iac_type == "terraform":
+        remote, outside = classify_module_calls(target, exclude)
+        if remote and not download_external_modules:
             print(remote_modules_warning(remote), file=sys.stderr)
+        if outside:
+            print(outside_modules_warning(outside), file=sys.stderr)
     if iac_type in ("terraform", "kubernetes"):
         hidden = hidden_source_dirs(target, iac_type, exclude)
         if hidden:
