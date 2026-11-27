@@ -86,7 +86,7 @@ class GcpProviderRegionPolicy(BaseProviderCheck):
             name=POLICY_NAME,
             id=POLICY_ID,
             categories=[CheckCategories.GENERAL_SECURITY],
-            supported_provider=["google"],
+            supported_provider=["google", "google-beta"],
         )
 
     def scan_provider_conf(self, conf):
@@ -104,7 +104,7 @@ class GcpProviderRegionTransferReview(BaseProviderCheck):
             name=REVIEW_NAME,
             id=REVIEW_ID,
             categories=[CheckCategories.GENERAL_SECURITY],
-            supported_provider=["google"],
+            supported_provider=["google", "google-beta"],
         )
 
     def scan_provider_conf(self, conf):

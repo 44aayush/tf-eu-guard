@@ -42,9 +42,11 @@ DEFAULT_POLICY = POLICY_EU_EEA
 
 _REGION_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _AWS_RESOURCE_RE = re.compile(r"(^|\.)aws_[a-z0-9_]+\.")
+_GCP_RESOURCE_RE = re.compile(r"(^|\.)google_[a-z0-9_]+\.")
 _CLOUDS = ("aws", "azure", "gcp")
 _EU_EEA_BY_CLOUD = {"azure": AZURE_EU_EEA_LOCATIONS, "gcp": GCP_EU_EEA_LOCATIONS}
 _POLICY_CHECK_ID = "EUGUARD_POLICY_001"
+_GCP_POLICY_CHECK_ID = "EUGUARD_POLICY_004"
 
 
 def parse_allowed_regions(text: str) -> tuple[str, ...]:
@@ -95,18 +97,24 @@ def allowed_regions_from_env(environ: Mapping[str, str], cloud: str = "aws") -> 
     return strictest
 
 
-def aws_region_unset_warning(
-    checkov_output: dict[str, Any], *, custom_checks_loaded: bool = False
+def _region_unset_warning(
+    checkov_output: dict[str, Any],
+    *,
+    custom_checks_loaded: bool,
+    policy_check_id: str,
+    resource_re: re.Pattern[str],
+    message: str,
 ) -> str | None:
-    """Return a warning when AWS resources were scanned but no region was ever evaluated.
+    """Return *message* when matching resources were scanned but no policy result appeared.
 
-    EUGUARD_POLICY_001 produces a result only for a ``provider "aws"`` block that sets a
-    region. AWS resources without any such result, while other EUGUARD_* checks did run, mean
-    the region comes from the environment at apply time, which a source scan cannot see. With no
-    provider block every EUGUARD check is UNKNOWN and omitted, so a live scan (which passes its own
-    --external-checks-dir, ``custom_checks_loaded=True``) may legitimately have no EUGUARD_*
-    result. For --checkov-json input tf-eu-guard cannot know whether the custom checks were
-    loaded, so with no EUGUARD_* result at all the claim cannot be made.
+    A provider-region policy check (``policy_check_id``) produces a result only when a region
+    was set in the source. Resources of the cloud without any such result, while other EUGUARD_*
+    checks did run, mean the region comes from the environment at apply time, which a source
+    scan cannot see. With no provider block every EUGUARD check is UNKNOWN and omitted, so a
+    live scan (which passes its own --external-checks-dir, ``custom_checks_loaded=True``) may
+    legitimately have no EUGUARD_* result. For --checkov-json input tf-eu-guard cannot know
+    whether the custom checks were loaded, so with no EUGUARD_* result at all the claim cannot be
+    made.
     """
     results = checkov_output.get("results") or {}
     checks = [
@@ -115,16 +123,49 @@ def aws_region_unset_warning(
         for check in results.get(key) or []
     ]
     ids = {str(check.get("check_id") or "") for check in checks}
-    if _POLICY_CHECK_ID in ids:
+    if policy_check_id in ids:
         return None
     if not custom_checks_loaded and not any(check_id.startswith("EUGUARD_") for check_id in ids):
         # The custom checks did not run (or were not part of this file): the absence of a
         # policy result says nothing about the region.
         return None
-    if not any(_AWS_RESOURCE_RE.search(str(check.get("resource") or "")) for check in checks):
+    if not any(resource_re.search(str(check.get("resource") or "")) for check in checks):
         return None
-    return (
-        'Warning: AWS resources were scanned but no provider "aws" block sets a region, so the '
-        "residency checks cannot tell where they deploy (the region comes from the environment "
-        "at apply time). Scan a Terraform plan (--iac-type terraform_plan) to check the real region."
+    return message
+
+
+def aws_region_unset_warning(
+    checkov_output: dict[str, Any], *, custom_checks_loaded: bool = False
+) -> str | None:
+    """Return a warning when AWS resources were scanned but no region was ever evaluated."""
+    return _region_unset_warning(
+        checkov_output,
+        custom_checks_loaded=custom_checks_loaded,
+        policy_check_id=_POLICY_CHECK_ID,
+        resource_re=_AWS_RESOURCE_RE,
+        message=(
+            'Warning: AWS resources were scanned but no provider "aws" block sets a region, so '
+            "the residency checks cannot tell where they deploy (the region comes from the "
+            "environment at apply time). Scan a Terraform plan (--iac-type terraform_plan) to "
+            "check the real region."
+        ),
+    )
+
+
+def gcp_region_unset_warning(
+    checkov_output: dict[str, Any], *, custom_checks_loaded: bool = False
+) -> str | None:
+    """Return a warning when google_* resources were scanned but no location was evaluated."""
+    return _region_unset_warning(
+        checkov_output,
+        custom_checks_loaded=custom_checks_loaded,
+        policy_check_id=_GCP_POLICY_CHECK_ID,
+        resource_re=_GCP_RESOURCE_RE,
+        message=(
+            'Warning: google_* resources were scanned but no provider "google" block or '
+            "resource sets a region or location, so the residency checks cannot tell where they "
+            "deploy (the region comes from the environment, for example GOOGLE_REGION, or from "
+            "the provider region at apply time). Scan a Terraform plan "
+            "(--iac-type terraform_plan) to check the real location."
+        ),
     )

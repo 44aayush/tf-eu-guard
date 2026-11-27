@@ -19,6 +19,7 @@ from tf_eu_guard.residency import (
     POLICY_ENV_VAR,
     allowed_regions_from_env,
     aws_region_unset_warning,
+    gcp_region_unset_warning,
     parse_allowed_regions,
     residency_env,
 )
@@ -377,3 +378,44 @@ def test_aws_region_unset_warning_silent_without_aws_resources():
     }
     assert aws_region_unset_warning(output) is None
     assert aws_region_unset_warning({"results": {}}) is None
+
+
+def _gcp_output(*extra_checks):
+    return {
+        "results": {
+            "passed_checks": [],
+            "failed_checks": [
+                {"check_id": "CKV_GCP_62", "resource": "google_storage_bucket.b"},
+                *extra_checks,
+            ],
+            "skipped_checks": [],
+        }
+    }
+
+
+def test_gcp_region_unset_warning_fires_without_policy_result():
+    warning = gcp_region_unset_warning(_gcp_output(), custom_checks_loaded=True)
+    assert warning is not None
+    assert "GOOGLE_REGION" in warning
+    assert "--iac-type terraform_plan" in warning
+
+
+def test_gcp_region_unset_warning_silent_when_policy_004_ran():
+    output = _gcp_output({"check_id": "EUGUARD_POLICY_004", "resource": "google.default"})
+    assert gcp_region_unset_warning(output, custom_checks_loaded=True) is None
+    assert gcp_region_unset_warning(output) is None
+
+
+def test_gcp_region_unset_warning_checkov_json_semantics():
+    # --checkov-json without any EUGUARD_* result: the custom checks may not have run.
+    assert gcp_region_unset_warning(_gcp_output()) is None
+    other = _gcp_output({"check_id": "EUGUARD_POLICY_003", "resource": "azurerm_x.y"})
+    assert gcp_region_unset_warning(other) is not None
+
+
+def test_gcp_region_unset_warning_silent_without_google_resources():
+    output = {
+        "results": {"failed_checks": [{"check_id": "CKV_AWS_1", "resource": "aws_s3_bucket.b"}]}
+    }
+    assert gcp_region_unset_warning(output, custom_checks_loaded=True) is None
+    assert gcp_region_unset_warning({"results": {}}, custom_checks_loaded=True) is None

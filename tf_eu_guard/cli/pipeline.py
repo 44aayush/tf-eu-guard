@@ -21,7 +21,12 @@ from tf_eu_guard.mapping.loader import (
 )
 from tf_eu_guard.models import EnrichedFinding, Framework, Severity
 from tf_eu_guard.reporting.untrusted import sanitize
-from tf_eu_guard.residency import DEFAULT_POLICY, aws_region_unset_warning, residency_env
+from tf_eu_guard.residency import (
+    DEFAULT_POLICY,
+    aws_region_unset_warning,
+    gcp_region_unset_warning,
+    residency_env,
+)
 from tf_eu_guard.waivers import WAIVER_FILENAME, apply_waivers, load_waivers
 
 
@@ -207,11 +212,12 @@ def load_scan_findings(
             )
     findings = checkov_runner.extract_failed_checks(checkov_output)  # also validates the shape
     if args.iac_type == "terraform":
-        region_warning = aws_region_unset_warning(
-            checkov_output, custom_checks_loaded=not args.checkov_json
-        )
-        if region_warning:
-            print(region_warning, file=sys.stderr)
+        for region_check in (aws_region_unset_warning, gcp_region_unset_warning):
+            region_warning = region_check(
+                checkov_output, custom_checks_loaded=not args.checkov_json
+            )
+            if region_warning:
+                print(region_warning, file=sys.stderr)
     skipped = checkov_runner.extract_skipped_checks(checkov_output)
     passed_checks = checkov_runner.extract_passed_checks(checkov_output)
 

@@ -100,6 +100,28 @@ def test_gcp_provider_region_checked():
     assert policy.scan_provider_conf({"region": ["var.region"]}) == CheckResult.FAILED
 
 
+def test_gcp_provider_checks_cover_google_beta():
+    for check in (GcpProviderRegionPolicy(), GcpProviderRegionTransferReview()):
+        assert check.supported_provider == ["google", "google-beta"]
+
+
+def test_gcp_new_third_country_regions_get_review_signal():
+    for location in ("northamerica-south1", "asia-southeast3"):
+        assert _loc(location) == (CheckResult.FAILED, CheckResult.FAILED)
+
+
+def test_gcp_google_beta_provider_region_fails_policy_end_to_end(
+    monkeypatch, tmp_path, repo_root, capsys
+):
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "main.tf").write_text(
+        'provider "google-beta" {\n  region = "us-central1"\n}\n'
+    )
+    run_cli(monkeypatch, tmp_path, str(tmp_path / "src"), "--output", "json")
+    findings = json.loads(capsys.readouterr().out)
+    assert any(f["check_id"] == "EUGUARD_POLICY_004" for f in findings)
+
+
 def test_gcp_custom_policy(monkeypatch):
     monkeypatch.setenv(POLICY_ENV_VAR, "custom")
     monkeypatch.setenv(ALLOWED_REGIONS_ENV_VAR, "europe-west4,EU")
