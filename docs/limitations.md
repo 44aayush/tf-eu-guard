@@ -168,7 +168,8 @@ contents, because a plan contains the expanded resources. Alternatively,
 scans only). That needs network access and runs third-party module code through
 the parser, and tf-eu-guard prints a stderr note when it is used. With the flag,
 the module-download credentials (`TF_REGISTRY_TOKEN`, `TFC_TOKEN`, `TF_HOST_NAME`,
-`GITHUB_PAT`, `VCS_*`, `BITBUCKET_*`, `SSH_AUTH_SOCK`) also reach Checkov; without it
+`GITHUB_PAT`, `VCS_*`, `BITBUCKET_*`, `SSH_AUTH_SOCK`, and Checkov's own proxy settings
+`PROXY_URL`, `PROXY_CA_PATH`, `PROXY_HEADER_KEY`, `PROXY_HEADER_VALUE`) also reach Checkov; without it
 they do not. `CHECKOV_TERRAFORM_ALLOWED_MODULE_PREFIXES` and `VCS_ALLOWED_HOSTS`
 are always passed on, because they only restrict downloads. The GitHub
 Action runs with `--network none`, so the flag does not work there. Variables
