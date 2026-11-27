@@ -100,7 +100,7 @@ def test_unusable_custom_allowlist_fails_azure_closed(monkeypatch):
 
 def test_unsupported_cloud_is_rejected():
     with pytest.raises(ValueError):
-        allowed_regions_from_env({}, "gcp")
+        allowed_regions_from_env({}, "oracle")
 
 
 def test_check_identities():

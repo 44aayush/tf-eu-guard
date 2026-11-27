@@ -5,7 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![Checkov 3.4.5](https://img.shields.io/badge/checkov-3.4.5-8A2BE2)](https://www.checkov.io/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Mappings](https://img.shields.io/badge/NIS2%20%2B%20GDPR%20mappings-280-orange)](docs/check-mapping-table.md)
+[![Mappings](https://img.shields.io/badge/NIS2%20%2B%20GDPR%20mappings-282-orange)](docs/check-mapping-table.md)
 
 **Links:** [PyPI package](https://pypi.org/project/tf-eu-guard/) · [Documentation](#documentation) · [Changelog](CHANGELOG.md)
 
@@ -32,7 +32,7 @@ tf-eu-guard wraps Checkov, enriches each failed check with the relevant NIS2/GDP
    - **Dev report** (terminal/HTML): severity-sorted findings for engineers
    - **Security dashboard** (HTML): CRITICAL/HIGH/MEDIUM/LOW breakdown with stats
    - **Auditor report** (HTML): article-by-article view showing which NIS2/GDPR clauses and project-policy controls have open findings
-5. **Custom checks**: Adds EU-specific rules (configurable region residency policy for AWS and Azure (GCP locations are not evaluated), third-country transfer review, and selected hardcoded secrets) not in upstream Checkov
+5. **Custom checks**: Adds EU-specific rules (configurable region residency policy for AWS, Azure and GCP, third-country transfer review, and selected hardcoded secrets) not in upstream Checkov
 
 > **Note on flags:** `--iac-type` selects *what to scan* (terraform, terraform_plan, kubernetes);
 > `--framework` selects *which regulatory regime to report* (nis2/gdpr). `all` also retains
@@ -446,7 +446,7 @@ esac
 
 ### Unmapped findings
 
-Across all registries, **280 Checkov check IDs are mapped**: **AWS: 188 | Azure: 25 | GCP: 22 | Kubernetes: 26 | Secrets: 19** (the secrets entries apply only with `--secrets`). With 188 of Checkov's ~700 AWS checks mapped,
+Across all registries, **282 Checkov check IDs are mapped**: **AWS: 188 | Azure: 25 | GCP: 24 | Kubernetes: 26 | Secrets: 19** (the secrets entries apply only with `--secrets`). With 188 of Checkov's ~700 AWS checks mapped,
 a scan can produce Checkov failures that have no current EU regulatory mapping.
 These are **not** silently dropped: every report format surfaces them as
 "present-but-unmapped" — a count in the dev/security/auditor reports, a
@@ -680,8 +680,8 @@ the keywords authoritative. The package ships `py.typed`.
 | Regulation | Terraform source | Terraform plan | Kubernetes |
 |------------|-----------------|----------------|------------|
 | **NIS2 Article 21(2)** | ✅ 223 cloud check mappings | ✅ same checks apply | ✅ 26 `CKV_K8S_*` mappings |
-| **GDPR Article 32(1)** | ✅ 179 cloud check mappings | ✅ same checks apply | ✅ 16 `CKV_K8S_*` mappings |
-| **GDPR Art. 44 (third-country transfer review)** | ✅ Custom checks `EUGUARD_GDPR_002` (provider), `EUGUARD_GDPR_003` (resource `region`, replicas) and `EUGUARD_GDPR_004` (Azure resource `location`) | ❌ Checkov plan scans do not run provider checks; also scan Terraform source | ❌ Out of scope — see note |
+| **GDPR Article 32(1)** | ✅ 180 cloud check mappings | ✅ same checks apply | ✅ 16 `CKV_K8S_*` mappings |
+| **GDPR Art. 44 (third-country transfer review)** | ✅ Custom checks `EUGUARD_GDPR_002` (provider), `EUGUARD_GDPR_003` (resource `region`, replicas), `EUGUARD_GDPR_004` (Azure resource `location`) and `EUGUARD_GDPR_005` (GCP provider region, resource `region`/`location`/`zone`) | ❌ Checkov plan scans do not run provider checks; also scan Terraform source | ❌ Out of scope — see note |
 
 > Mapping counts above are generated from the registry files and verified in CI
 > (`tools/check_doc_counts.py`) — they cannot drift from the registries.
@@ -706,15 +706,16 @@ the keywords authoritative. The package ships `py.typed`.
 > **Residency policy is configurable and separate from Chapter V:**
 > `EUGUARD_POLICY_001` (provider block) and `EUGUARD_POLICY_002` (resource
 > `region` arguments, DynamoDB/Secrets Manager replicas, ECR replication
-> destinations, Backup copy vaults) and `EUGUARD_POLICY_003` (Azure `azurerm_*`
-> `location`) enforce `--residency-policy` (`eusc` is an AWS partition; Azure uses its EU/EEA table):
+> destinations, Backup copy vaults) `EUGUARD_POLICY_003` (Azure `azurerm_*`
+> `location`) and `EUGUARD_POLICY_004` (GCP provider `region`, `google_*` `region`/`location`/`zone`)
+> enforce `--residency-policy` (`eusc` is an AWS partition; Azure and GCP use their EU/EEA tables):
 > `eu-eea` (default: EU/EEA commercial regions plus the Sovereign Cloud),
 > `eusc` (Sovereign Cloud only, the 0.7.x behaviour) or `custom` with
 > `--allowed-regions eu-central-1,eu-west-1`. Anything outside the policy,
 > including an unresolved `var.region`, fails closed. These are project-policy
 > findings without a GDPR citation; known third-country regions such as
 > `us-east-1` additionally receive the hedged `EUGUARD_GDPR_002` /
-> `EUGUARD_GDPR_003` (Azure: `EUGUARD_GDPR_004`) Art. 44 review signal. With `--checkov-json` the policy
+> `EUGUARD_GDPR_003` (Azure: `EUGUARD_GDPR_004`, GCP: `EUGUARD_GDPR_005`) Art. 44 review signal. With `--checkov-json` the policy
 > flags are ignored (results are pre-computed) and a warning is printed.
 > `EUGUARD_GDPR_001` is a deprecated alias of `EUGUARD_POLICY_001` so 0.7.x
 > JSON still maps; it will be removed in the next release. S3 replication
@@ -731,7 +732,7 @@ the keywords authoritative. The package ships `py.typed`.
 
 ### Current Registry
 
-**280 Checkov check IDs mapped** — **AWS: 188 mappings | Azure: 25 | GCP: 22 | Kubernetes: 26 | Secrets: 19** — covering
+**282 Checkov check IDs mapped** — **AWS: 188 mappings | Azure: 25 | GCP: 24 | Kubernetes: 26 | Secrets: 19** — covering
 encryption at rest/in transit, logging & detection, backup & recovery,
 secure development/supply chain, secrets in code, IAM/access control, network
 segmentation, pod security context, RBAC, and resource limits:
@@ -742,9 +743,9 @@ segmentation, pod security context, RBAC, and resource limits:
 - **Backup / resilience**: CKV_AWS_21, 144, 326, 361, 139, 115, 116, 135, 318, 313, 362, CKV2_AWS_8, CKV2_AWS_58, CKV2_AWS_59, CKV2_AWS_60, CKV2_AWS_61
 - **Secure development / secrets**: CKV_AWS_226, 363, 272, 51, 163, 41, 45, 46
 - **S3 / RDS / network exposure**: CKV_AWS_20, 53–56, 16, 17, 133, 129, 161, 293, 118, 24, 25, 260, 382, 137, 248, 38, 39, 117, 23, CKV2_AWS_6, CKV2_AWS_12, CKV2_AWS_5
-- **Custom**: EUGUARD_POLICY_001 / EUGUARD_POLICY_002 / EUGUARD_POLICY_003 (configurable residency policy: AWS provider / resource regions, Azure resource locations), EUGUARD_GDPR_001 (deprecated alias of POLICY_001), EUGUARD_GDPR_002 / EUGUARD_GDPR_003 / EUGUARD_GDPR_004 (known third-country AWS provider / resource regions and Azure locations, Chapter V review), EUGUARD_NIS2_001 (selected Terraform database/cache and CodeBuild secrets), EUGUARD_NIS2_002 / EUGUARD_NIS2_003 (Kubernetes Secret manifests / container env vars)
+- **Custom**: EUGUARD_POLICY_001 / EUGUARD_POLICY_002 / EUGUARD_POLICY_003 / EUGUARD_POLICY_004 (configurable residency policy: AWS provider / resource regions, Azure resource locations, GCP provider regions and resource locations), EUGUARD_GDPR_001 (deprecated alias of POLICY_001), EUGUARD_GDPR_002 / EUGUARD_GDPR_003 / EUGUARD_GDPR_004 / EUGUARD_GDPR_005 (known third-country AWS provider / resource regions and Azure / GCP locations, Chapter V review), EUGUARD_NIS2_001 (selected Terraform database/cache and CodeBuild secrets), EUGUARD_NIS2_002 / EUGUARD_NIS2_003 (Kubernetes Secret manifests / container env vars)
 - **Azure** (25): `tf_eu_guard/mapping/registry-azure.yaml` — storage account encryption/public access, SQL firewall & public network access, Key Vault network rules, App Service HTTPS/auth/logging, NSG SSH rules, and more
-- **GCP** (22): `tf_eu_guard/mapping/registry-gcp.yaml` — GCS bucket CMEK/public IAM, Cloud SQL public IP/SSL/CMEK, GKE private clusters/ABAC/authorized networks, VPC flow logs, and more
+- **GCP** (24): `tf_eu_guard/mapping/registry-gcp.yaml` — GCS bucket CMEK/public IAM, Cloud SQL public IP/SSL/CMEK, GKE private clusters/ABAC/authorized networks, VPC flow logs, and more
 - **Kubernetes** (26): `tf_eu_guard/mapping/registry-kubernetes.yaml` — pod security context (privileged/root/capabilities), RBAC privilege escalation, missing NetworkPolicy, secrets as literals, resource requests/limits, image hygiene, health probes
 
 The registry is split per namespace — `registry-aws.yaml`, `registry-azure.yaml`, `registry-gcp.yaml`, `registry-kubernetes.yaml` — and every entry is schema-validated in CI. The AWS registry covers both Terraform source and Terraform plan JSON (same `CKV_AWS_*` IDs fire in both modes).

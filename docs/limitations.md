@@ -64,11 +64,16 @@ Recurring structural blind spots (each also noted in the article docs):
   Residency checks read literal values: a region supplied by a variable fails
   the policy checks closed (pass non-default variable files with `--var-file`; `terraform.tfvars` and `*.auto.tfvars` are loaded automatically), S3 replication
   destinations are not evaluated, `--checkov-json` cannot apply a policy
-  (results are pre-computed), and plan-mode and GCP residency are not
+  (results are pre-computed), and plan-mode residency is not
   covered. Azure residency (`EUGUARD_POLICY_003`, `EUGUARD_GDPR_004`) reads the literal `location` of
   `azurerm_*` resources against a maintained table; a newer EU location not yet in the table fails the
   policy check until it is added, `location = "global"` (for example on `azurerm_monitor_action_group`) also fails
   `EUGUARD_POLICY_003` (use a regional location where the resource allows one, or add a waiver), and `--residency-policy eusc` (an AWS partition) uses the Azure EU/EEA table.
+  GCP residency (`EUGUARD_POLICY_004`, `EUGUARD_GDPR_005`) reads the literal `region` of `provider "google"` blocks and
+  the `region`, `location` and `zone` of `google_*` resources (a zone maps to its region) against a maintained
+  table; a dual-region such as `EUR4` or a newer EU region not yet in the table fails the policy check until it is
+  added, `location = "global"` (for example on `google_kms_key_ring`) also fails `EUGUARD_POLICY_004`, and
+  `--residency-policy eusc` uses the GCP EU/EEA table. The `google-beta` provider block is not evaluated.
 
 ## Unmapped findings
 

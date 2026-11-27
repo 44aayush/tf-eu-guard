@@ -42,7 +42,7 @@ inputs:
     required: false
     default: 'false'
   residency-policy:
-    description: 'Region residency policy enforced by EUGUARD_POLICY_001/002 (AWS) and EUGUARD_POLICY_003 (Azure): eu-eea (default), eusc (AWS only; Azure uses its EU/EEA table), or custom (requires allowed-regions); mirrors --residency-policy. Ignored with checkov-json'
+    description: 'Region residency policy enforced by EUGUARD_POLICY_001/002 (AWS), EUGUARD_POLICY_003 (Azure) and EUGUARD_POLICY_004 (GCP): eu-eea (default), eusc (AWS only; Azure and GCP use their EU/EEA tables), or custom (requires allowed-regions); mirrors --residency-policy. Ignored with checkov-json'
     required: false
     default: 'eu-eea'
   allowed-regions:

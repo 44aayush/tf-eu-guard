@@ -106,6 +106,8 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 | EUGUARD_GDPR_003 § | main.tf | aws_* resources | Known resource-level region outside the EU/EEA requires Chapter V review | – | 44 | HIGH |
 | EUGUARD_POLICY_003 § | main.tf | azurerm_* resources | Resource `location` outside the residency policy | – | Policy RESIDENCY-001 | HIGH |
 | EUGUARD_GDPR_004 § | main.tf | azurerm_* resources | Known resource `location` outside the EU/EEA requires Chapter V review | – | 44 | HIGH |
+| EUGUARD_POLICY_004 § | main.tf | google provider, google_* resources | Provider `region` or resource `region`/`location`/`zone` outside the residency policy | – | Policy RESIDENCY-001 | HIGH |
+| EUGUARD_GDPR_005 § | main.tf | google provider, google_* resources | Known region or location outside the EU/EEA requires Chapter V review | – | 44 | HIGH |
 | EUGUARD_NIS2_001 § | rds.tf | aws_db_instance | Hardcoded DB password (literal) | 21(2)(e) | 32(1)(b) | CRITICAL |
 
 ### Coverage summary

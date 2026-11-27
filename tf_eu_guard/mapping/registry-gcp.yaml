@@ -437,3 +437,56 @@ CKV_GCP_23:
       ip_allocation_policy { }
     }
   severity: MEDIUM
+
+# -----------------------------------------------------------------------------
+# Custom tf-eu-guard checks (checks/gdpr/gcp_residency.py)
+#   EUGUARD_POLICY_004  provider region / resource location within the residency policy
+#   EUGUARD_GDPR_005    known third-country GCP location: Chapter V review
+# -----------------------------------------------------------------------------
+
+EUGUARD_POLICY_004:
+  check_name: "Ensure GCP regions and locations are within the configured residency policy"
+  articles:
+    - framework: POLICY
+      article: "Policy RESIDENCY-001"
+      title: "Region residency policy"
+  risk: >
+    A GCP provider region, or a google_* resource's region, location or zone,
+    is outside the configured residency policy (--residency-policy: eu-eea by
+    default, or a custom allowlist; eusc is an AWS partition and uses the GCP
+    EU/EEA locations here). A location that could not be verified as EU/EEA
+    (including dual-regions such as EUR4), a malformed value, or an unresolved
+    variable cannot be proven to be in policy statically and also fails. Any
+    Chapter V transfer review for a non-EU/EEA location is reported separately
+    by EUGUARD_GDPR_005. This finding is a project-policy deviation, not a GDPR
+    legal conclusion.
+  remediation: |
+    Set the region or location to one allowed by the policy:
+      # Before:
+      resource "google_storage_bucket" "example" { location = "US" }
+      # After (eu-eea policy):
+      resource "google_storage_bucket" "example" { location = "EU" }
+    Use literal values; unresolved variables fail closed.
+  severity: HIGH
+
+EUGUARD_GDPR_005:
+  check_name: "Review GCP regions and locations outside the EU/EEA for GDPR Chapter V transfer safeguards"
+  articles:
+    - framework: GDPR
+      article: "Art. 44"
+      title: "General principle for transfers of personal data to third countries"
+  risk: >
+    A GCP provider region or resource location that is a known location
+    outside the EU/EEA (including the United Kingdom and Switzerland, which
+    are GDPR third countries, and multi-regions such as US and ASIA) is a
+    technical signal that personal-data processing may involve a third-country
+    transfer. GDPR Chapter V (Art. 44-49) may require an adequacy decision,
+    Standard Contractual Clauses, Binding Corporate Rules, or another
+    safeguard, but this configuration alone cannot show whether a transfer
+    occurs or whether its mechanism is lawful. Treat this as a hedged Chapter
+    V review signal, not a definitive legal conclusion.
+  remediation: |
+    Confirm the data flows and document the applicable Chapter V mechanism,
+    or move the resource to an EU/EEA location:
+      location = "europe-west4"
+  severity: HIGH

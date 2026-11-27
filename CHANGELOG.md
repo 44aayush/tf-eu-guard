@@ -12,6 +12,12 @@ release point.
 
 ### Added
 
+- GCP residency: `EUGUARD_POLICY_004` (`provider "google"` `region` and `google_*` resource `region`, `location` and
+  `zone` within the configured residency policy) and `EUGUARD_GDPR_005` (known third-country location, a hedged
+  Chapter V review signal). The policy check is fail-closed against a maintained EU/EEA table (zones map to their
+  region; dual-regions such as `EUR4` are not yet verified and fail); the Chapter V check fails only for known
+  third-country locations, London, Zurich and the `US`/`ASIA` multi-regions included. `eusc` uses the GCP EU/EEA
+  table (TEG-05).
 - Azure residency: `EUGUARD_POLICY_003` (resource `location` within the configured residency policy) and
   `EUGUARD_GDPR_004` (known third-country location, a hedged Chapter V review signal) cover every
   `azurerm_*` resource. The policy check is fail-closed against a maintained EU/EEA location table; the
