@@ -76,10 +76,12 @@ def _commit(path: Path | None) -> tuple[str | None, str | None]:
 
 def needs_provenance(args: argparse.Namespace) -> bool:
     """True when a requested output embeds provenance (so git need not run otherwise)."""
+    from tf_eu_guard.cli.reports import resolve_json_format
+
     return bool(
         getattr(args, "evidence_dir", None)
         or args.output in ("auditor", "all")
-        or (args.output == "json" and getattr(args, "json_format", "array") == "object")
+        or (args.output == "json" and resolve_json_format(args) == "object")
     )
 
 

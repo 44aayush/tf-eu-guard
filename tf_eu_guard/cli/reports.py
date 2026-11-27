@@ -32,6 +32,11 @@ if TYPE_CHECKING:
     from tf_eu_guard.cli.pipeline import ScanFindings
 
 JSON_SCHEMA_VERSION = "3"
+_IMPLICIT_JSON_FORMAT_WARNING = (
+    "Warning: --json-format not given; using the deprecated 'array' layout. "
+    "Pass --json-format object (recommended) or --json-format array to silence "
+    "this warning; the default changes to 'object' in a future release."
+)
 _SEVERITY_ORDER = ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO")
 
 
@@ -187,6 +192,11 @@ def build_json_object(
     return document
 
 
+def resolve_json_format(args: argparse.Namespace) -> str:
+    """Return the effective ``--json-format``: ``"array"`` unless ``"object"`` was given."""
+    return "object" if getattr(args, "json_format", None) == "object" else "array"
+
+
 def render_json_report(
     findings: list[EnrichedFinding],
     unmapped: list[dict[str, Any]],
@@ -203,7 +213,9 @@ def render_json_report(
 ) -> None:
     """Print the JSON report, or write it to ``--output-file`` (UTF-8)."""
     output_file = getattr(args, "output_file", None)
-    if getattr(args, "json_format", "array") == "object" and args is not None:
+    if args is not None and getattr(args, "json_format", None) is None:
+        print(_IMPLICIT_JSON_FORMAT_WARNING, file=sys.stderr)
+    if args is not None and resolve_json_format(args) == "object":
         document: Any = build_json_object(
             args,
             findings,
@@ -233,7 +245,7 @@ def render_json_report(
         )
         return
     print(text)
-    if getattr(args, "json_format", "array") == "object":
+    if args is not None and resolve_json_format(args) == "object":
         return  # the object carries unmapped findings itself
     # Machine-readable stdout stays a pure findings array; the unmapped count
     # goes to stderr so pipelines parsing stdout are unaffected while humans

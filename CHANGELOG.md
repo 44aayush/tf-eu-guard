@@ -61,6 +61,10 @@ release point.
 
 ### Changed
 
+- `--output json` without `--json-format` now prints a one-line deprecation warning on stderr (TEG-17). The layout stays the
+  deprecated `array`, stdout is unchanged and still a bare JSON list, and the exit code is unaffected. Pass
+  `--json-format object` (recommended) or `--json-format array` to silence it; the default changes to `object` in a
+  future release. `--output all` writes no JSON report and does not warn.
 - The release workflow builds the image locally and scans it with the pinned trivy (fixable HIGH and CRITICAL,
   `.trivyignore.yaml`) before pushing to GHCR; a finding fails the job and blocks the push.
 - JSON object schema v3 (`schema_version: "3"`): adds `provenance.commit_source`. The v2 schema closed

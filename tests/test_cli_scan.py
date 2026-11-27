@@ -708,3 +708,72 @@ def test_filter_all_returns_same_findings():
 
     findings = [_two_framework_finding()]
     assert filter_findings_by_framework(findings, "all") is findings
+
+
+IMPLICIT_JSON_FORMAT_WARNING = (
+    "Warning: --json-format not given; using the deprecated 'array' layout. "
+    "Pass --json-format object (recommended) or --json-format array to silence "
+    "this warning; the default changes to 'object' in a future release."
+)
+
+
+def test_implicit_json_format_warns(monkeypatch, tmp_path, repo_root, capsys):
+    run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(repo_root / FIXTURE),
+        "--output",
+        "json",
+        "--no-config",
+    )
+    captured = capsys.readouterr()
+    assert IMPLICIT_JSON_FORMAT_WARNING in captured.err.splitlines()
+    assert isinstance(json.loads(captured.out), list)
+
+
+@pytest.mark.parametrize("layout", ["array", "object"])
+def test_explicit_json_format_does_not_warn(monkeypatch, tmp_path, repo_root, capsys, layout):
+    run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(repo_root / FIXTURE),
+        "--output",
+        "json",
+        "--json-format",
+        layout,
+        "--no-config",
+    )
+    assert "--json-format not given" not in capsys.readouterr().err
+
+
+def test_implicit_json_format_warns_once_for_all(monkeypatch, tmp_path, repo_root, capsys):
+    # --output all writes HTML reports only, never a JSON report, so it must not warn.
+    run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(repo_root / FIXTURE),
+        "--output",
+        "all",
+        "--no-config",
+    )
+    assert "--json-format not given" not in capsys.readouterr().err
+
+
+def test_implicit_json_format_with_output_file(monkeypatch, tmp_path, repo_root, capsys):
+    out = tmp_path / "report.json"
+    run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(repo_root / FIXTURE),
+        "--output",
+        "json",
+        "--output-file",
+        str(out),
+        "--no-config",
+    )
+    assert isinstance(json.loads(out.read_text(encoding="utf-8")), list)
+    assert capsys.readouterr().err.count(IMPLICIT_JSON_FORMAT_WARNING) == 1

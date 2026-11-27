@@ -197,7 +197,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--json-format",
         choices=("array", "object"),
-        default="array",
+        default=None,
         help="Layout of --output json (default: array). 'array' is the legacy "
         "bare list of findings and is deprecated: the default changes to "
         "'object' in a future release. 'object' is the versioned document "
