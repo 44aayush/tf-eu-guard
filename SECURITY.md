@@ -25,14 +25,14 @@ notify them when a fix or mitigation is available.
 ## Supported versions
 
 tf-eu-guard is a `0.x` (beta) project. Only the latest released minor line,
-currently `0.9.x`, receives security fixes, and within it only the latest
-patch release. When `0.10.0` is released it becomes the supported line and
-`0.9.x` stops receiving fixes. Please update before reporting a
+currently `0.10.x`, receives security fixes, and within it only the latest
+patch release. When `0.11.0` is released it becomes the supported line and
+`0.10.x` stops receiving fixes. Please update before reporting a
 version-specific issue when possible.
 
 | Version | Security support |
 | --- | --- |
-| Latest released minor line (`0.9.x`; latest patch release only) | Supported |
+| Latest released minor line (`0.10.x`; latest patch release only) | Supported |
 | Earlier `0.x` lines | Unsupported |
 | `main` / unreleased code | Development only; fixes may land here before a release |
 
@@ -42,7 +42,7 @@ version-specific issue when possible.
 network request by default (Checkov would otherwise call the Prisma Cloud
 platform for guideline metadata). `--online` allows that request. In both
 modes only an allowlist of variables reaches Checkov (`PATH`, `HOME`, locale,
-proxy and CA-bundle settings, and the Windows essentials), so `BC_*`, `PRISMA_*`
+proxy and CA-bundle settings, and essential system variables), so `BC_*`, `PRISMA_*`
 and `CKV_*` variables are never seen, platform API keys are never used and
 no results are uploaded. Scanned code is never run as a program, but Checkov
 evaluates Terraform expressions from it in a restricted interpreter (asteval),

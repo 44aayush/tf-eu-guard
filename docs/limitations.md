@@ -145,7 +145,7 @@ lets Checkov fetch that metadata (one HTTPS request per scan).
 
 Platform credentials are never forwarded. Only an allowlist of variables
 reaches Checkov (`PATH`, `HOME`, `USER`, locale `LANG`/`LC_*`, `TZ`, temp
-directories, proxy and CA-bundle variables, the Windows essentials such as
+directories, proxy and CA-bundle variables, essential system variables such as
 `SYSTEMROOT`, and the XDG cache/config directories), with or without
 `--online`. Every other variable, including `BC_API_KEY`, `PRISMA_API_URL`,
 `BC_CA_BUNDLE`, `CKV_*`, `CHECKOV_*`, `GIT_*` and `CKV_IGNORED_DIRECTORIES`, is

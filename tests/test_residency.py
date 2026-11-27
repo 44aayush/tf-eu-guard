@@ -7,7 +7,7 @@ from checkov.common.models.enums import CheckResult
 
 from tests.cli_helpers import run_cli
 from tf_eu_guard.checkov import process
-from tf_eu_guard.checks.gdpr.data_residency import (
+from tf_eu_guard.checks.gdpr.aws_residency import (
     EURegionEnforcement,
     ResourceRegionPolicy,
     ResourceThirdCountryTransferReview,
@@ -293,7 +293,7 @@ def test_default_policy_provider_and_clean_fixture_live(monkeypatch, tmp_path, r
 
 @pytest.mark.parametrize("region", ["ap-east-2", "ap-southeast-6", "us-isob-west-1"])
 def test_new_aws_regions_fail_gdpr_002_and_003(region):
-    from tf_eu_guard.checks.gdpr.data_residency import ThirdCountryTransferReview
+    from tf_eu_guard.checks.gdpr.aws_residency import ThirdCountryTransferReview
     from tf_eu_guard.regions import KNOWN_AWS_REGIONS
 
     assert region in KNOWN_AWS_REGIONS
@@ -304,7 +304,7 @@ def test_new_aws_regions_fail_gdpr_002_and_003(region):
 
 
 def test_eu_isoe_is_unclassified_not_third_country():
-    from tf_eu_guard.checks.gdpr.data_residency import ThirdCountryTransferReview
+    from tf_eu_guard.checks.gdpr.aws_residency import ThirdCountryTransferReview
     from tf_eu_guard.regions import KNOWN_AWS_REGIONS, UNCLASSIFIED_AWS_REGIONS
 
     region = "eu-isoe-west-1"

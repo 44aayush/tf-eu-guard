@@ -274,11 +274,11 @@ def test_dependabot_covers_docker_base_image():
     assert ecosystems["docker"]["directory"] == "/"
 
 
-def test_ci_matrix_includes_windows_and_macos():
+def test_ci_matrix_runs_on_linux_only():
     matrix = _load(WORKFLOWS / "ci.yml")["jobs"]["test"]["strategy"]["matrix"]
-    systems = {entry["os"] for entry in matrix["include"]}
-    assert "windows-latest" in systems
-    assert "macos-latest" in systems
+    assert matrix["os"] == ["ubuntu-24.04"]
+    assert "include" not in matrix
+    assert matrix["python-version"] == ["3.11", "3.12", "3.13", "3.14"]
 
 
 def test_ci_lint_runs_the_same_commands_as_the_dev_hook():

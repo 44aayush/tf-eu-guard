@@ -30,7 +30,7 @@ Run from the repo root. Install once (this also installs Checkov 3.4.5; requires
 pip install -e .
 ```
 
-Verify with `tf-eu-guard version` (prints `tf-eu-guard version 0.9.0` for this release).
+Verify with `tf-eu-guard version` (prints `tf-eu-guard version 0.10.0` for this release).
 
 ## How to run
 

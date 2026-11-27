@@ -1,7 +1,7 @@
 """
 Custom Checkov checks for Azure resource locations.
 
-Mirrors the AWS resource-level checks in :mod:`tf_eu_guard.checks.gdpr.data_residency`:
+Mirrors the AWS resource-level checks in :mod:`tf_eu_guard.checks.gdpr.aws_residency`:
 
 * ``EUGUARD_POLICY_003`` enforces the configured *residency policy* (see
   :mod:`tf_eu_guard.residency`) over the ``location`` of every ``azurerm_*``

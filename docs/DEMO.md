@@ -31,9 +31,7 @@ tf-eu-guard scan examples/vulnerable-aws/ --output dev
 ```bash
 # Generate security dashboard
 tf-eu-guard scan examples/vulnerable-aws/ --output security
-open "$(ls -t reports/scan_report_*.html | head -1)"  # macOS
-# Linux: xdg-open "$(ls -t reports/scan_report_*.html | head -1)"
-# Windows: open the latest reports/scan_report_*.html in your browser
+xdg-open "$(ls -t reports/scan_report_*.html | head -1)"
 ```
 
 **What to capture**: Browser window showing:
@@ -122,9 +120,6 @@ tf-eu-guard scan examples/end2end/ --output json | \
 ```bash
 # Ubuntu/Debian
 sudo apt-get install asciinema
-
-# macOS
-brew install asciinema
 
 # Or via pip
 pip install asciinema

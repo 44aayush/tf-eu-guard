@@ -142,7 +142,7 @@ configurable residency *policy* from the GDPR Chapter V review signal:
 | EUGUARD_GDPR_005 | A known GCP region or location outside the EU/EEA (including London, Zurich and the `US`/`ASIA` multi-regions) receives a Chapter V review signal (**custom** check) |
 
 These are **custom tf-eu-guard checks**. The AWS ones are implemented in
-[`tf_eu_guard/checks/gdpr/data_residency.py`](../tf_eu_guard/checks/gdpr/data_residency.py), the Azure ones in
+[`tf_eu_guard/checks/gdpr/aws_residency.py`](../tf_eu_guard/checks/gdpr/aws_residency.py), the Azure ones in
 [`tf_eu_guard/checks/gdpr/azure_residency.py`](../tf_eu_guard/checks/gdpr/azure_residency.py) and the GCP ones in
 [`tf_eu_guard/checks/gdpr/gcp_residency.py`](../tf_eu_guard/checks/gdpr/gcp_residency.py) (below).
 The `*_001`/`*_002` provider checks inspect each `provider "aws"` block's

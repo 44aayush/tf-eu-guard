@@ -4,8 +4,9 @@
 #
 #   requirements.lock      runtime dependencies from pyproject.toml. Universal
 #                          (platform markers), resolved from Python 3.11.5, so
-#                          one file serves the CI matrix (3.11-3.14; Linux, macOS,
-#                          Windows) and the Docker image (Python 3.12). 3.11.5 is
+#                          one file serves the CI matrix (3.11-3.14 on Linux),
+#                          installs on other platforms, and the Docker image
+#                          (Python 3.12). 3.11.5 is
 #                          the floor because soupsieve 4 needs it; resolving from
 #                          3.11.0 would also pin a vulnerable soupsieve 2.x.
 #   requirements-dev.lock  test and lint tools, constrained by requirements.lock.

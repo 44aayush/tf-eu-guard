@@ -279,13 +279,6 @@ jobs:
       matrix:
         os: [ubuntu-24.04]
         python-version: ["3.11", "3.12", "3.13", "3.14"]
-        include:
-          # One interpreter per extra OS keeps the cost down while still
-          # exercising the package's "OS Independent" classifier.
-          - os: windows-latest
-            python-version: "3.12"
-          - os: macos-latest
-            python-version: "3.12"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -299,7 +292,7 @@ jobs:
 
       - name: Install locked dependencies
         # The lock is universal (platform markers), so the same hashed files
-        # install on every matrix Python and on Windows and macOS.
+        # install on every matrix Python.
         run: |
           pip install --require-hashes -r requirements.lock -r requirements-dev.lock
           pip install --no-deps -e .

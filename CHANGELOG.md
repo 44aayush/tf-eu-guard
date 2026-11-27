@@ -10,6 +10,8 @@ release point.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-27
+
 ### Added
 
 - Tests and docs pin that the Azure (`EUGUARD_POLICY_003`, `EUGUARD_GDPR_004`) and GCP (`EUGUARD_POLICY_004`,
@@ -94,6 +96,11 @@ release point.
 
 ### Changed
 
+- The AWS residency checks module is renamed from `tf_eu_guard/checks/gdpr/data_residency.py` to
+  `tf_eu_guard/checks/gdpr/aws_residency.py`, in line with `azure_residency.py` and `gcp_residency.py`. Check IDs
+  are unchanged; code that imported `tf_eu_guard.checks.gdpr.data_residency` directly must use the new name.
+- CI runs the test matrix (Python 3.11 to 3.14) on Linux only; the jobs for other operating systems are removed. The locks stay
+  universal, so the same hashed files still install elsewhere, but only Linux is tested.
 - Upgrade note: the Azure (`EUGUARD_POLICY_003`) and GCP (`EUGUARD_POLICY_004`) residency checks are new and HIGH, so
   under the Action's default `fail-on-severity` HIGH, stacks whose location comes from a variable without a default, or
   that use a location not yet in the tables (for example `finlandcentral`, `greececentral` or dual-regions such as
@@ -257,7 +264,7 @@ release point.
 ### Security
 
 - Checkov now runs with an allowlisted environment (`PATH`, `HOME`, locale, proxy and CA-bundle variables,
-  the Windows essentials) instead of a denylist, so configuration variables added by new Checkov releases
+  essential system variables) instead of a denylist, so configuration variables added by new Checkov releases
   (`CKV_*`, `CHECKOV_*`, `BC_*`, `PRISMA_*`, `GIT_*`, `PYTHON*`) never reach it (TEG-16).
   `CHECKOV_TERRAFORM_ALLOWED_MODULE_PREFIXES` and `VCS_ALLOWED_HOSTS` are always passed on (they only
   restrict module downloads); with `--download-external-modules` the module-download credentials
@@ -817,7 +824,8 @@ registries.**
 - `--checkov-json` for pre-generated Checkov output, `--framework`
   filter, `--fail-on-severity` / `--fail-on-any` CI gating.
 
-[Unreleased]: https://github.com/44aayush/tf-eu-guard/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/44aayush/tf-eu-guard/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/44aayush/tf-eu-guard/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/44aayush/tf-eu-guard/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/44aayush/tf-eu-guard/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/44aayush/tf-eu-guard/compare/v0.7.1...v0.8.0

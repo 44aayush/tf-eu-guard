@@ -1,7 +1,7 @@
 """
 Custom Checkov checks for GCP regions and locations.
 
-Mirrors the AWS and Azure residency checks (:mod:`tf_eu_guard.checks.gdpr.data_residency`,
+Mirrors the AWS and Azure residency checks (:mod:`tf_eu_guard.checks.gdpr.aws_residency`,
 :mod:`tf_eu_guard.checks.gdpr.azure_residency`). The provider-block and resource-level
 classes share one check ID each, because they enforce one rule at two levels:
 

@@ -22,7 +22,7 @@ FROM python:3.12-slim@sha256:191083cdf6c7bda8c76158983163ead5d5cf7b77cf3033e805b
 # Links the GHCR package to the repository (Packages sidebar). publish.yml
 # overrides the version label with the release tag and adds the revision label
 # at build time; the default below keeps local builds correctly labelled.
-ARG VERSION=0.9.0
+ARG VERSION=0.10.0
 LABEL org.opencontainers.image.title="tf-eu-guard" \
       org.opencontainers.image.description="EU compliance security linter for Terraform and Kubernetes: NIS2 and GDPR mapping" \
       org.opencontainers.image.source="https://github.com/44aayush/tf-eu-guard" \

@@ -2,7 +2,7 @@
 
 The residency policies (``eu-eea``, ``eusc``, ``custom``; see
 :mod:`tf_eu_guard.residency`) and the Chapter V review checks in
-``checks/gdpr/data_residency.py`` (AWS), ``checks/gdpr/azure_residency.py`` (Azure) and
+``checks/gdpr/aws_residency.py`` (AWS), ``checks/gdpr/azure_residency.py`` (Azure) and
 ``checks/gdpr/gcp_residency.py`` (GCP) import these tables rather than defining
 them inline, so the policy is reviewable — and pin-able by tests — on its own.
 """

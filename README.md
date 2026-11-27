@@ -484,7 +484,7 @@ family (`CKV_AWS_10`–`15`).
 ### GitHub Action
 
 ```yaml
-- uses: 44aayush/tf-eu-guard@v0.9.0
+- uses: 44aayush/tf-eu-guard@v0.10.0
   with:
     path: './infra'
     iac-type: 'terraform'        # terraform | terraform_plan | kubernetes
@@ -494,7 +494,7 @@ family (`CKV_AWS_10`–`15`).
 ```
 
 The Action requires a Linux runner with Docker (for example `ubuntu-latest`);
-macOS and Windows runners are not supported. It runs the same CLI inside the repo's Docker image (pulled from
+other runners are not supported. It runs the same CLI inside the repo's Docker image (pulled from
 `ghcr.io/44aayush/tf-eu-guard:<action ref>` when published, built locally
 otherwise), so it supports
 every `--iac-type` the CLI does — pass the `terraform show -json` plan file
@@ -558,7 +558,7 @@ disabled (an explicit `--config` turns it off), so the trusted config wins.
   with:
     fetch-depth: 0
 - run: git show origin/main:.tf-eu-guard.yaml > "$RUNNER_TEMP/tf-eu-guard.yaml"
-- uses: 44aayush/tf-eu-guard@v0.9.0
+- uses: 44aayush/tf-eu-guard@v0.10.0
   with:
     trusted-config: ${{ runner.temp }}/tf-eu-guard.yaml
 ```
@@ -598,7 +598,7 @@ jobs:
       security-events: write   # for upload-sarif
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: 44aayush/tf-eu-guard@v0.9.0
+      - uses: 44aayush/tf-eu-guard@v0.10.0
         with:
           path: './infra'
           output: sarif
@@ -628,12 +628,12 @@ through the `image` input (a pull failure then fails the step instead of
 falling back to a local build):
 
 ```bash
-docker buildx imagetools inspect ghcr.io/44aayush/tf-eu-guard:v0.9.0 | grep Digest
+docker buildx imagetools inspect ghcr.io/44aayush/tf-eu-guard:v0.10.0 | grep Digest
 gh attestation verify oci://ghcr.io/44aayush/tf-eu-guard@sha256:<digest> --owner 44aayush
 ```
 
 ```yaml
-- uses: 44aayush/tf-eu-guard@v0.9.0
+- uses: 44aayush/tf-eu-guard@v0.10.0
   with:
     image: ghcr.io/44aayush/tf-eu-guard@sha256:<digest>
 ```
@@ -642,7 +642,7 @@ For HTML artifacts, select an HTML-producing output and optionally choose a
 directory for the generated reports:
 
 ```yaml
-- uses: 44aayush/tf-eu-guard@v0.9.0
+- uses: 44aayush/tf-eu-guard@v0.10.0
   with:
     path: './infra'
     output: all
@@ -655,7 +655,7 @@ directory for the generated reports:
 ```yaml
 repos:
   - repo: https://github.com/44aayush/tf-eu-guard
-    rev: v0.9.0
+    rev: v0.10.0
     hooks:
       - id: tf-eu-guard
 ```
@@ -869,7 +869,7 @@ bash tools/install-git-hooks.sh
 
 The hook uses [uv](https://docs.astral.sh/uv/) to create `.venv` and install the
 package's `dev` extra only when the environment is missing (it finds
-`.venv/bin/python` or, on Windows, `.venv/Scripts/python.exe`). It then runs
+`.venv/bin/python`). It then runs
 `ruff check .`, `ruff format --check .` and mypy, the same commands as the CI lint
 job. It does not run the test suite and does not rewrite files; run
 `ruff format .` yourself if the format check fails. Run `.githooks/pre-commit`

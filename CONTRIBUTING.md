@@ -133,8 +133,8 @@ tools/compile-locks.sh --upgrade   # moves every pin to the newest allowed versi
 
 The runtime and dev locks are universal (`uv pip compile --universal`): they
 carry platform and Python-version markers, so one file installs on Python
-3.11.5 to 3.14 on Linux, macOS and Windows. The CI tooling lock is resolved for
-Python 3.12, the Docker image's version. The `lock-check` CI job runs the same
+3.11.5 to 3.14 on any platform (CI tests Linux only). The CI
+tooling lock is resolved for Python 3.12, the Docker image's version. The `lock-check` CI job runs the same
 script and fails on `git diff --exit-code`, so commit the regenerated files.
 Keep the dev tools in `requirements-dev.in` in step with the `dev` extra in
 `pyproject.toml`. To work like CI locally:
