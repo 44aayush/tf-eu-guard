@@ -225,7 +225,10 @@ jobs:
           DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           set -euo pipefail
-          "$RUNNER_TEMP/trivy" image --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL --ignorefile .trivyignore.yaml "${IMAGE_NAME}@${DIGEST}"
+          "$RUNNER_TEMP/trivy" image --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL --ignorefile .trivyignore.yaml --image-src remote "${IMAGE_NAME}@${DIGEST}"
+      # The tag keeps the scanned digest only because sbom and provenance make
+      # the build an image index: imagetools create re-publishes a single
+      # manifest unchanged, but the next step verifies the result anyway.
       - name: Tag the scanned digest
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
@@ -233,6 +236,17 @@ jobs:
         run: |
           set -euo pipefail
           docker buildx imagetools create -t "${IMAGE_NAME}:${REF_NAME}" "${IMAGE_NAME}@${DIGEST}"
+      - name: Verify the tag resolves to the scanned digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          actual="$(docker buildx imagetools inspect "${IMAGE_NAME}:${REF_NAME}" --format '{{json .Manifest}}' | jq -r .digest)"
+          if [ "${actual}" != "${DIGEST}" ]; then
+            echo "::error::tag ${REF_NAME} resolves to ${actual}, scanned ${DIGEST}"
+            exit 1
+          fi
       - name: Attest build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:

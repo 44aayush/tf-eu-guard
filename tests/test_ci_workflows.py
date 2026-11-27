@@ -197,6 +197,44 @@ def test_publish_scans_and_tags_same_digest():
     assert attest["with"]["subject-digest"] == "${{ steps.build.outputs.digest }}"
 
 
+def test_publish_trivy_reads_registry():
+    steps = _publish_image_steps()
+    assert "--image-src remote" in steps[_trivy_scan_index(steps)]["run"]
+
+
+def _verify_index(steps: list[dict]) -> int:
+    return next(
+        i
+        for i, s in enumerate(steps)
+        if s.get("name") == "Verify the tag resolves to the scanned digest"
+    )
+
+
+def test_publish_verifies_tag_digest():
+    steps = _publish_image_steps()
+    tag_at = _step_index(steps, "imagetools create")
+    verify_at = _verify_index(steps)
+    assert tag_at < verify_at < _attest_index(steps)
+    verify = steps[verify_at]
+    assert verify["env"]["DIGEST"] == "${{ steps.build.outputs.digest }}"
+    assert verify["env"]["REF_NAME"] == "${{ github.ref_name }}"
+    assert "imagetools inspect" in verify["run"]
+    assert "exit 1" in verify["run"]
+
+
+def test_publish_order_build_scan_tag_verify_attest():
+    steps = _publish_image_steps()
+    order = [
+        next(i for i, s in enumerate(steps) if _is_build_push(s)),
+        _trivy_scan_index(steps),
+        _step_index(steps, "imagetools create"),
+        _verify_index(steps),
+        _attest_index(steps),
+    ]
+    assert order == sorted(order)
+    assert len(set(order)) == 5
+
+
 def test_publish_build_pushes_by_digest_only():
     steps = _publish_image_steps()
     builds = [s for s in steps if _is_build_push(s)]
