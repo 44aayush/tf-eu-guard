@@ -48,6 +48,8 @@ release point.
 
 ### Fixed
 
+- `--framework` filtering returns new findings instead of rewriting `articles` and `risk_explanation` on the
+  caller's objects, so findings returned by `scan()` no longer change under the caller (TEG-17).
 - The unset-AWS-region warning is no longer printed when the Checkov output holds no `EUGUARD_*` result at
   all (the custom checks did not run, so the claim cannot be made) (TEG-05).
 - The hidden-directory warning no longer follows symlinked hidden directories, also ignores

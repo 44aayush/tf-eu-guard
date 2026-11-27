@@ -670,3 +670,41 @@ def test_region_unset_warning_not_printed_for_kubernetes(monkeypatch, tmp_path, 
         "json",
     )
     assert 'no provider "aws" block' not in capsys.readouterr().err
+
+
+def _two_framework_finding():
+    from tf_eu_guard.models import ArticleReference, EnrichedFinding, Framework
+
+    return EnrichedFinding(
+        check_id="CKV_X",
+        check_name="x",
+        resource="aws_s3_bucket.b",
+        file_path="main.tf",
+        file_line_range=[1, 2],
+        guideline=None,
+        articles=[
+            ArticleReference(Framework.NIS2, "Art. 21", "Measures"),
+            ArticleReference(Framework.GDPR, "Art. 32", "Security"),
+        ],
+        risk_explanation="NIS2: a. GDPR: b.",
+    )
+
+
+def test_filter_does_not_mutate_input():
+    from tf_eu_guard.cli.pipeline import filter_findings_by_framework
+
+    original = _two_framework_finding()
+    result = filter_findings_by_framework([original], "gdpr")
+
+    assert len(result) == 1
+    assert result[0] is not original
+    assert [a.article for a in result[0].articles] == ["Art. 32"]
+    assert len(original.articles) == 2
+    assert original.risk_explanation == "NIS2: a. GDPR: b."
+
+
+def test_filter_all_returns_same_findings():
+    from tf_eu_guard.cli.pipeline import filter_findings_by_framework
+
+    findings = [_two_framework_finding()]
+    assert filter_findings_by_framework(findings, "all") is findings

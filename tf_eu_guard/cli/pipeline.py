@@ -331,12 +331,17 @@ def filter_findings_by_framework(
     target_framework = Framework(framework_name.upper())
     filtered_findings: list[EnrichedFinding] = []
     for finding in findings:
-        finding.articles = [
+        articles = [
             article for article in finding.articles if article.framework == target_framework
         ]
-        if finding.articles:
-            finding.risk_explanation = scope_risk_text(
-                finding.risk_explanation, target_framework.value
+        if articles:
+            filtered_findings.append(
+                replace(
+                    finding,
+                    articles=articles,
+                    risk_explanation=scope_risk_text(
+                        finding.risk_explanation, target_framework.value
+                    ),
+                )
             )
-            filtered_findings.append(finding)
     return filtered_findings
