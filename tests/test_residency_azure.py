@@ -63,8 +63,19 @@ def test_azure_uk_location_fails_both():
 
 
 def test_azure_unverified_eu_location_fails_policy_only():
-    assert "belgiumcentral" not in AZURE_KNOWN_LOCATIONS
-    assert _scan("belgiumcentral") == (CheckResult.FAILED, CheckResult.UNKNOWN)
+    assert "finlandcentral" not in AZURE_KNOWN_LOCATIONS
+    assert _scan("finlandcentral") == (CheckResult.FAILED, CheckResult.UNKNOWN)
+
+
+def test_azure_brussels_and_copenhagen_pass():
+    for location in ("belgiumcentral", "denmarkeast"):
+        assert location in AZURE_EU_EEA_LOCATIONS
+        assert _scan(location) == (CheckResult.PASSED, CheckResult.PASSED)
+
+
+def test_azure_newly_listed_third_country_location_fails_review():
+    assert _scan("mexicocentral") == (CheckResult.FAILED, CheckResult.FAILED)
+    assert _scan("westindia") == (CheckResult.FAILED, CheckResult.FAILED)
 
 
 def test_azure_unresolved_var_fails_policy_unknown_transfer():

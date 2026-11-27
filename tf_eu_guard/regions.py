@@ -38,9 +38,10 @@ EU_EEA_REGIONS = (
 
 # Azure locations. Azure `location` values are compared in normalised form
 # (lower case, no spaces, hyphens or underscores): "West Europe" == "westeurope".
-# Newer EU regions that could not be verified from an authoritative source
-# (belgiumcentral, denmarkeast, finlandcentral, greececentral) are deliberately
-# left out: they fail the residency policy check, the safe direction for a
+# Source: Microsoft Learn, Azure regions list
+# (https://learn.microsoft.com/en-us/azure/reliability/regions-list), verified 2026-11-27.
+# Newer EU regions that are not on that list (finlandcentral, greececentral) are
+# deliberately left out: they fail the residency policy check, the safe direction for a
 # fail-closed gate, until they are verified, and they are not classified as
 # third countries for the Chapter V review.
 AZURE_EU_EEA_LOCATIONS = frozenset(
@@ -59,6 +60,8 @@ AZURE_EU_EEA_LOCATIONS = frozenset(
         "norwayeast",
         "norwaywest",
         "austriaeast",
+        "belgiumcentral",  # Brussels
+        "denmarkeast",  # Copenhagen
     }
 )
 
@@ -94,6 +97,21 @@ AZURE_KNOWN_LOCATIONS = frozenset(
         "koreacentral",
         "uaenorth",
         "southafricanorth",
+        "australiacentral",
+        "australiacentral2",
+        "brazilsoutheast",
+        "chilecentral",
+        "indiasouthcentral",
+        "indonesiacentral",
+        "israelcentral",
+        "koreasouth",
+        "malaysiawest",
+        "mexicocentral",
+        "newzealandnorth",
+        "qatarcentral",
+        "southafricawest",
+        "uaecentral",
+        "westindia",
         *AZURE_EU_EEA_LOCATIONS,
     }
 )
@@ -104,6 +122,8 @@ def normalise_azure_location(value: str) -> str:
     return re.sub(r"[\s_-]+", "", value).lower()
 
 
+# Source: Google Cloud regions and zones
+# (https://docs.cloud.google.com/compute/docs/regions-zones), verified 2026-11-27.
 # GCP locations. Regions, zones and multi-regions are compared in normalised
 # form (lower case; a zone maps to its region; "EU" == "eu"). Dual-regions such
 # as `eur4` could not be verified, so they are left out: they fail the
@@ -162,6 +182,8 @@ GCP_KNOWN_LOCATIONS = frozenset(
         "me-central1",
         "me-central2",
         "africa-south1",
+        "northamerica-south1",
+        "asia-southeast3",
         *GCP_EU_EEA_LOCATIONS,
     }
 )
