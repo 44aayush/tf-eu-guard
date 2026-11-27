@@ -654,9 +654,10 @@ The hook runs with `pass_filenames: false` — it invokes
 `tf-eu-guard scan --output dev --fail-on-severity HIGH` once with no file
 arguments, and the CLI scans the repository root (its default target). The
 configured `HIGH` threshold fails on HIGH or CRITICAL mapped findings; MEDIUM,
-LOW, and INFO mapped findings, plus unmapped findings, do not trip the gate.
-Checkov needs directory-level context anyway (providers, variables, modules
-declared in sibling files), so per-file invocation was never going to work.
+LOW, and INFO mapped findings do not trip the gate, and neither do unmapped
+findings unless `--unmapped-severity` is set. Checkov needs directory-level
+context anyway (providers, variables, modules declared in sibling files), so
+per-file invocation was never going to work.
 
 To skip vendored code or intentionally broken fixtures, pass `--exclude`
 (repeatable) through `args`. Setting `args` replaces the hook's defaults, so

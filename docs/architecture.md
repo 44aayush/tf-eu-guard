@@ -82,9 +82,9 @@ citations, a risk explanation, and copy-paste remediation. Findings
 with no mapping go to a separate *unmapped* list. HTML and terminal reports
 surface its count, JSON writes the count to stderr, and SARIF retains the
 Checkov identity/resource/location with `properties.mapped: false` but no
-registry-authored severity, articles, or remediation. Unmapped findings never
-gate a build: they stay visible without claiming regulatory authority (see
-[`limitations.md`](limitations.md)).
+registry-authored severity, articles, or remediation. Unmapped findings do not
+gate a build unless `--unmapped-severity` is set: they stay visible without
+claiming regulatory authority (see [`limitations.md`](limitations.md)).
 
 ### 5. Filter — `--framework nis2|gdpr`
 
