@@ -1,7 +1,7 @@
 """Reviewed waiver file (N-01): loading, matching, gating and reporting."""
 
 import json
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from cli_helpers import run_cli
@@ -391,3 +391,69 @@ def test_no_discovery_keeps_explicit_waivers_and_config(monkeypatch, tmp_path, c
     )
     assert rc == 0
     assert "ignored" not in capsys.readouterr().err
+
+
+# --- bounds (TEG-01) -----------------------------------------------------------
+
+
+def test_waiver_beyond_max_days_is_not_applied():
+    waiver = _waiver(expires=TODAY + timedelta(days=400))
+    result = apply_waivers([_finding()], [waiver], TODAY, max_days=365)
+    assert len(result.active) == 1 and not result.waived
+    assert result.too_long == [waiver]
+
+
+def test_waiver_within_max_days_applies():
+    waiver = _waiver(expires=TODAY + timedelta(days=365))
+    result = apply_waivers([_finding()], [waiver], TODAY, max_days=365)
+    assert len(result.waived) == 1 and not result.active
+    assert result.too_long == []
+
+
+def test_long_waiver_applies_without_limit():
+    result = apply_waivers([_finding()], [_waiver(expires=date(9999, 12, 31))], TODAY)
+    assert len(result.waived) == 1 and result.too_long == []
+
+
+def test_cli_max_waiver_days_trips_gate(monkeypatch, tmp_path, capsys):
+    waiver = (
+        "  - check_id: CKV_AWS_16\n    resource: aws_db_instance.app_db\n    owner: o\n"
+        "    reason: r\n    expires: 9999-12-31\n    file: main.tf\n"
+    )
+    args = _setup(
+        tmp_path, failed=[("CKV_AWS_16", "aws_db_instance.app_db")], waivers=HEADER + waiver
+    )
+    rc = run_cli(
+        monkeypatch, tmp_path, *args, "--fail-on-severity", "HIGH", "--max-waiver-days", "90"
+    )
+    err = capsys.readouterr().err
+    assert rc == 1
+    assert (
+        "Warning: waiver for CKV_AWS_16 aws_db_instance.app_db expires 9999-12-31, "
+        "more than 90 days ahead (--max-waiver-days); not applied" in err
+    )
+    # Without the limit the same waiver clears the gate.
+    assert run_cli(monkeypatch, tmp_path, *args, "--fail-on-severity", "HIGH") == 0
+
+
+def test_cli_max_waiver_days_rejects_zero(monkeypatch, tmp_path):
+    args = _setup(tmp_path, failed=[LOGS])
+    with pytest.raises(SystemExit) as exc:
+        run_cli(monkeypatch, tmp_path, *args, "--max-waiver-days", "0")
+    assert exc.value.code == 2
+
+
+def test_waiver_without_file_warns(monkeypatch, tmp_path, capsys):
+    args = _setup(tmp_path, failed=[LOGS])
+    run_cli(monkeypatch, tmp_path, *args)
+    err = capsys.readouterr().err
+    assert (
+        "Warning: waiver for CKV_AWS_18 aws_s3_bucket.logs has no file pattern; "
+        "it matches that resource in every file" in err
+    )
+
+
+def test_waiver_with_file_does_not_warn_about_pattern(monkeypatch, tmp_path, capsys):
+    args = _setup(tmp_path, failed=[LOGS], waivers=HEADER + GOOD + '    file: "*.tf"\n')
+    run_cli(monkeypatch, tmp_path, *args)
+    assert "no file pattern" not in capsys.readouterr().err

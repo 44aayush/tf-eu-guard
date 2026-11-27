@@ -85,6 +85,9 @@ def test_config_lists_concatenate_with_cli(monkeypatch, tmp_path, capsys):
         ("fail_on_any: 'yes'\n", "fail_on_any"),
         ("exclude: a\n", "exclude"),
         ("timeout: -1\n", "timeout"),
+        ("max_waiver_days: 0\n", "max_waiver_days"),
+        ("max_waiver_days: x\n", "max_waiver_days"),
+        ("max_waiver_days: true\n", "max_waiver_days"),
         ("- a\n", "mapping"),
         ("a: [\n", "YAML"),
         ("exclude: [a]\nexclude: [b]\n", "duplicate"),
@@ -248,3 +251,7 @@ def test_no_discovery_ignores_scan_root_config(monkeypatch, tmp_path, capsys):
     assert run_cli(monkeypatch, tmp_path, *gate, "--no-discovery") == 1
     err = capsys.readouterr().err
     assert f"Note: --no-discovery: ignored {src / '.tf-eu-guard.yaml'}" in err
+
+
+def test_config_max_waiver_days(tmp_path):
+    assert load_config(_cfg(tmp_path, "max_waiver_days: 90\n"))["max_waiver_days"] == 90

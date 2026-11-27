@@ -89,6 +89,10 @@ inputs:
     description: 'Workspace-relative path to a waivers file, passed as --waivers'
     required: false
     default: ''
+  max-waiver-days:
+    description: 'Do not apply a waiver that expires more than this many days from today (a whole number, passed as --max-waiver-days); its findings stay active. Empty means no limit'
+    required: false
+    default: ''
   baseline:
     description: 'Workspace-relative path to a baseline file, passed as --baseline'
     required: false
@@ -163,6 +167,7 @@ runs:
         INPUT_CONFIG: ${{ inputs.config }}
         INPUT_TRUSTED_CONFIG: ${{ inputs.trusted-config }}
         INPUT_WAIVERS: ${{ inputs.waivers }}
+        INPUT_MAX_WAIVER_DAYS: ${{ inputs.max-waiver-days }}
         INPUT_BASELINE: ${{ inputs.baseline }}
         INPUT_JOB_SUMMARY: ${{ inputs.job-summary }}
         INPUT_DISCOVER_CONFIG: ${{ inputs.discover-config }}
@@ -350,6 +355,15 @@ runs:
         if [ -n "$INPUT_WAIVERS" ]; then
           waivers_path="$(ws_rel "$INPUT_WAIVERS")" || exit 2
           args+=(--waivers "$waivers_path")
+        fi
+        if [ -n "$INPUT_MAX_WAIVER_DAYS" ]; then
+          case "$INPUT_MAX_WAIVER_DAYS" in
+            ''|*[!0-9]*)
+              echo "::error::max-waiver-days must be a whole number of days" >&2
+              exit 2
+              ;;
+          esac
+          args+=(--max-waiver-days "$INPUT_MAX_WAIVER_DAYS")
         fi
         if [ -n "$INPUT_BASELINE" ]; then
           baseline_path="$(ws_rel "$INPUT_BASELINE")" || exit 2

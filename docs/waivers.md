@@ -44,6 +44,19 @@ and stderr says `Waiver expired on <date>: <check_id> <resource> (owner <owner>)
 stderr also reports `N finding(s) waived by <path>` and warns about waivers that
 matched nothing.
 
+## Bounds
+
+A waiver without `file` matches its check and resource in every file, so each one prints
+`Warning: waiver for <check_id> <resource> has no file pattern; it matches that resource in every file`
+when the file is loaded. Add a `file` glob to narrow it.
+
+`--max-waiver-days N` (config key `max_waiver_days`, Action input `max-waiver-days`, API keyword
+`max_waiver_days`; whole number, at least 1) refuses a waiver that expires more than N days from today,
+so `expires: 9999-12-31` cannot waive a finding forever. Such a waiver is not applied, its finding
+stays active and counts toward the gate, and stderr says
+`Warning: waiver for <check_id> <resource> expires <date>, more than <N> days ahead (--max-waiver-days); not applied`.
+Without the option there is no limit.
+
 ## Trust
 
 The waiver file in the scanned checkout can be edited by anyone who can edit the code.

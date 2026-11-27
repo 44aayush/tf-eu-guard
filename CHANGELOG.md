@@ -16,6 +16,10 @@ release point.
   `.tf-eu-guard-waivers.yaml` in the scan root, so a pull request cannot weaken its own gate by
   committing them; `--config` and `--waivers` still apply and each ignored file is named on stderr
   (TEG-01).
+- `--max-waiver-days N` (config `max_waiver_days`, `scan(max_waiver_days=)`, Action input `max-waiver-days`)
+  refuses waivers that expire more than N days ahead, so their findings stay active, and a waiver without a
+  `file` pattern now warns that it matches the resource in every file (TEG-01). Opt-in; exit codes are
+  unchanged unless the option is set.
 
 ### Changed
 

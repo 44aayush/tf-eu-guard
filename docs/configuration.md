@@ -37,6 +37,7 @@ root exits 2.
 | `fail_on_severity` | string | `--fail-on-severity` |
 | `fail_on_any`, `fail_on_suppressed`, `fail_on_unmapped` | boolean (`true`/`false`, not `"yes"`) | gate flags |
 | `timeout` | number | `--timeout` |
+| `max_waiver_days` | integer, at least 1 | `--max-waiver-days` |
 | `waivers` | path string | `--waivers` |
 | `registry_dirs` | list of path strings | `--registry-dir` |
 | `var_files` | list of path strings | `--var-file` |

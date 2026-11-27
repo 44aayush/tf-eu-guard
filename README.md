@@ -391,7 +391,8 @@ esac
 > `check_id`, `resource`, optional `file` glob, `owner`, `reason` and `expires`. A waived
 > mapped finding does not count toward any `--fail-on-*` gate (an inline-suppressed one
 > no longer trips `--fail-on-suppressed`) but is listed in every report, and expired
-> waivers stop applying with a warning. Unmapped findings cannot be waived. See
+> waivers stop applying with a warning, and `--max-waiver-days N` refuses waivers that expire
+> more than N days ahead. Unmapped findings cannot be waived. See
 > [`docs/waivers.md`](docs/waivers.md).
 
 ### Baseline (`--baseline`) and `diff`
@@ -489,6 +490,7 @@ Action inputs mirror the scan options:
 | `config` | `--config` (workspace-relative path) | empty |
 | `trusted-config` | `--config` (absolute path outside the checkout) | empty |
 | `waivers` | `--waivers` (workspace-relative path) | empty |
+| `max-waiver-days` | `--max-waiver-days` (whole number of days) | empty (no limit) |
 | `baseline` | `--baseline` (workspace-relative path) | empty |
 | `discover-config` | read `.tf-eu-guard.yaml` and `.tf-eu-guard-waivers.yaml` from the scanned directory (omits `--no-discovery`) | `false` |
 | `job-summary` | append the Markdown summary to the job summary | `true` |

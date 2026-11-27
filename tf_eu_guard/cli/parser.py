@@ -43,6 +43,17 @@ def timeout_arg(value: str) -> float:
     return seconds
 
 
+def max_waiver_days_arg(value: str) -> int:
+    """Parse ``--max-waiver-days`` as a whole number of days, at least 1."""
+    try:
+        days = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid number of days: {value!r}") from None
+    if days < 1:
+        raise argparse.ArgumentTypeError(f"must be an integer >= 1, got {value!r}")
+    return days
+
+
 def allowed_regions_arg(value: str) -> tuple[str, ...]:
     """Parse ``--allowed-regions`` into normalised region codes."""
     try:
@@ -276,6 +287,15 @@ def build_parser() -> argparse.ArgumentParser:
         "stay listed in every report with owner, reason and expiry; expired waivers "
         "are ignored with a warning. Default: .tf-eu-guard-waivers.yaml in the scan "
         "root (source scans only; not used with --checkov-json). See docs/waivers.md.",
+    )
+    parser.add_argument(
+        "--max-waiver-days",
+        dest="max_waiver_days",
+        type=max_waiver_days_arg,
+        default=None,
+        metavar="N",
+        help="Do not apply a waiver that expires more than N days from today (N >= 1); its "
+        "findings stay active and stderr names the waiver. Default: no limit.",
     )
     parser.add_argument(
         "--baseline",

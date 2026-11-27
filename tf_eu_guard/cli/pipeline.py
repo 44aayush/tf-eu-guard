@@ -85,11 +85,28 @@ def _waiver_path(args: argparse.Namespace) -> Path | None:
 
 
 def _apply_waiver_file(
-    path: Path, active: list[EnrichedFinding], suppressed: list[EnrichedFinding]
+    path: Path,
+    active: list[EnrichedFinding],
+    suppressed: list[EnrichedFinding],
+    max_days: int | None = None,
 ) -> tuple[list[EnrichedFinding], list[EnrichedFinding], list[EnrichedFinding], int]:
     """Return ``(active, suppressed, waived, entry count)``; warnings go to stderr."""
     waivers = load_waivers(path)
-    result = apply_waivers([*active, *suppressed], waivers, _today())
+    for w in waivers:
+        if w.file is None:
+            print(
+                f"Warning: waiver for {sanitize(w.check_id)} {sanitize(w.resource)} has no file "
+                "pattern; it matches that resource in every file",
+                file=sys.stderr,
+            )
+    result = apply_waivers([*active, *suppressed], waivers, _today(), max_days)
+    for w in result.too_long:
+        print(
+            f"Warning: waiver for {sanitize(w.check_id)} {sanitize(w.resource)} expires "
+            f"{w.expires.isoformat()}, more than {max_days} days ahead (--max-waiver-days); "
+            "not applied",
+            file=sys.stderr,
+        )
     for w in result.expired:
         print(
             f"Waiver expired on {w.expires.isoformat()}: "
@@ -202,7 +219,9 @@ def load_scan_findings(
     waiver_path = _waiver_path(args)
     waiver_line: list[str] = []
     if waiver_path:
-        active, suppressed, waived, count = _apply_waiver_file(waiver_path, active, suppressed)
+        active, suppressed, waived, count = _apply_waiver_file(
+            waiver_path, active, suppressed, getattr(args, "max_waiver_days", None)
+        )
         waiver_line = [f"waivers: {waiver_path} ({count} entries)"]
     baselined: list[EnrichedFinding] = []
     remaining: list[EnrichedFinding] = []

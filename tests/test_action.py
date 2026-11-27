@@ -356,7 +356,7 @@ def _run_action(tmp_path, bash, **extra):
             for n in (
                 "UPLOAD_REPORTS UPLOAD_SARIF FAIL_ON_SEVERITY FAIL_ON_ANY FAIL_ON_SUPPRESSED "
                 "RESIDENCY_POLICY ALLOWED_REGIONS TIMEOUT CHECKOV_JSON OUTPUT_DIR OUTPUT_FILE "
-                "CONFIG TRUSTED_CONFIG WAIVERS BASELINE DISCOVER_CONFIG"
+                "CONFIG TRUSTED_CONFIG WAIVERS MAX_WAIVER_DAYS BASELINE DISCOVER_CONFIG"
             ).split()
         },
     }
@@ -874,3 +874,26 @@ def test_action_copy_back_failure_leaves_uploads_false(tmp_path):
     )
     assert result.returncode != 0
     assert _last(gh_output, "upload-reports") == "upload-reports=false"
+
+
+def test_action_passes_max_waiver_days(tmp_path):
+    bash = _bash_or_skip()
+    result, argv, _ = _run_action(tmp_path, bash, INPUT_MAX_WAIVER_DAYS="90")
+    assert result.returncode == 0, result.stderr
+    assert argv[argv.index("--max-waiver-days") + 1] == "90"
+
+
+def test_action_omits_max_waiver_days_by_default(tmp_path):
+    bash = _bash_or_skip()
+    result, argv, _ = _run_action(tmp_path, bash)
+    assert result.returncode == 0, result.stderr
+    assert "--max-waiver-days" not in argv
+
+
+@pytest.mark.parametrize("value", ["abc", "-1", "9 0", "1.5"])
+def test_action_rejects_non_numeric_max_waiver_days(tmp_path, value):
+    bash = _bash_or_skip()
+    result, argv, _ = _run_action(tmp_path, bash, INPUT_MAX_WAIVER_DAYS=value)
+    assert result.returncode == 2
+    assert "::error::" in result.stderr
+    assert argv == []
