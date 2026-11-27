@@ -329,6 +329,12 @@ jobs:
         run: |
           python tools/check_doc_counts.py
 
+      - name: Check Azure/GCP region tables against their snapshots
+        # Offline: fails when tf_eu_guard/regions.py and tools/region_snapshots/
+        # disagree, so table edits go through a reviewed snapshot update.
+        run: |
+          python tools/check_cloud_region_tables.py
+
       - name: Check regulatory-coverage doc against the registries
         # docs/regulatory-coverage.md is generated (requirement-level
         # automated/partial/manual classification); this fails if it drifts
