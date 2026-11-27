@@ -545,3 +545,17 @@ These results are from a fresh `--no-cache` build (`tf-eu-guard:ci9`) at `8867fd
 | Section 6 emulator robustness | Apply runs inside the cleanup `try`, CI waits on a LocalStack health check, the skip count is no longer hard-coded, and ambient `AWS_*` variables are scrubbed | Done (follow-up: surface terraform stderr on failure) |
 
 Regenerated at the iteration close: the sample HTML reports, the README screenshots and the demo cast. `examples/vulnerable-aws` now gives 53 findings: 7 CRITICAL, 15 HIGH, 23 MEDIUM, 8 LOW.
+
+### After iteration 6 (2026-11-27, `version_0.10.0`)
+
+These results are from a fresh `--no-cache` build (`tf-eu-guard:ci10`) at `72f3c80`. 1567 tests pass (`TFEG_RUN_CHECKOV=1`), the emulator tier passes both tests against LocalStack 4.9, the registries and docs agree on 282 mappings, the trivy gate exits 0, and every recheck harness exits 0 with all post-fix rows FIXED.
+
+| Finding | After iteration 6 | Status |
+| --- | --- | --- |
+| TEG-06/TEG-04 release image | `publish.yml` builds the image locally and scans it with trivy before the GHCR push, using the same flags as CI (`--ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 --ignorefile .trivyignore.yaml`). The trivy version and checksum must equal ci.yml's, and a test pins that | Fixed (build-once-scan-push is a later improvement) |
+| TEG-10 gate coverage | `--unmapped-severity LEVEL` (CLI, `unmapped_severity` config key, `unmapped-severity` Action input) counts active unmapped findings toward `--fail-on-severity` and `--fail-on-any`. Unmapped findings are never baselined or waived, which is documented | Fixed (a per-release mapped/unmapped table is still open) |
+| TEG-17 `--json-format` default | An implicit layout prints a stderr deprecation warning. A new `json-format` Action input lets Action users choose. The default is still `array` | Partly fixed (flipping the default is a maintainer release decision) |
+| TEG-17 untested gate tools | `tools/check_sbom_lock.py` and `tools/check_dependency_exceptions.py` have tests (97% and 99% line coverage) | Fixed |
+| Emulator follow-up | Terraform failures raise `TerraformError` with the stderr tail, an unreachable endpoint fails with the LocalStack start command, and the AWS config and credential files point at `/dev/null`. Region snapshots validate their list fields | Done |
+
+Corrected during the iteration: the gate Fail line now says `ANY` when `--fail-on-any` tripped it, for mapped and unmapped findings alike. The help text and docs no longer claim that unmapped findings can never trip a gate.
