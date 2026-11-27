@@ -426,6 +426,19 @@ def test_action_discover_config_true_omits_flag(tmp_path):
     assert "--no-discovery" not in argv
 
 
+def test_action_fails_closed_when_stop_token_cannot_be_created(tmp_path):
+    bash = _bash_or_skip()
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir()
+    od = stub_dir / "od"
+    od.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    od.chmod(0o755)
+    result, argv, _ = _run_action(tmp_path, bash)
+    assert result.returncode == 3, result.stderr
+    assert "could not create stop-commands token" in result.stdout
+    assert argv == []  # docker run never started
+
+
 def test_action_brackets_container_output_with_stop_commands(tmp_path):
     bash = _bash_or_skip()
     result, _, _ = _run_action(tmp_path, bash, STUB_STDOUT="::error::forged")

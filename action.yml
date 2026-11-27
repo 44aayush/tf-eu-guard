@@ -94,7 +94,7 @@ inputs:
     required: false
     default: ''
   discover-config:
-    description: 'Read .tf-eu-guard.yaml and .tf-eu-guard-waivers.yaml from the scanned directory (true, 1 or yes, any case). Off by default because a pull request controls those files; use config or trusted-config instead'
+    description: 'Read .tf-eu-guard.yaml and .tf-eu-guard-waivers.yaml from the scanned directory (true, 1 or yes, any case). Off by default because a pull request controls those files; on pull requests use trusted-config for settings'
     required: false
     default: 'false'
   job-summary:
@@ -375,6 +375,13 @@ runs:
         # The container output is untrusted: stop workflow-command processing
         # until the random token is echoed back after the scan.
         stop_token="$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+        case "$stop_token" in
+          *[!0-9a-f]*|"") stop_token="" ;;
+        esac
+        if [ "${#stop_token}" -ne 32 ]; then
+          echo "::error::could not create stop-commands token"
+          exit 3
+        fi
         echo "::stop-commands::$stop_token"
         # Hardening: the scanned code is untrusted and Checkov evaluates
         # Terraform expressions from it (asteval), so the container has no
