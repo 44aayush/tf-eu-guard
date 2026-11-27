@@ -107,7 +107,7 @@ CKV_K8S_23:
       title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: >
     Containers running as UID 0 share the host root identity: a container
-    escape or filesystem flaw then grants host-level root, weakensing the least
+    escape or filesystem flaw then grants host-level root, weakening the least
     privilege NIS2 Art. 21(2)(i) expects and endangering personal data
     processed on the node under GDPR Art. 32(1)(b).
   remediation: |

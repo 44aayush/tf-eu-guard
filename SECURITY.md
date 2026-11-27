@@ -43,8 +43,12 @@ network request by default (Checkov would otherwise call the Prisma Cloud
 platform for guideline metadata). `--online` allows that request. In both
 modes every `BC_*`, `PRISMA_*` and `CKV_IGNORE*` environment variable is
 removed from Checkov's environment, so platform API keys are never used and
-no results are uploaded. Scanned code is only read, never executed, and
-remote Terraform modules are not downloaded.
+no results are uploaded. Scanned code is never run as a program, but Checkov
+evaluates Terraform expressions from it in a restricted interpreter (asteval),
+and remote Terraform modules are not downloaded unless
+--download-external-modules is given. Scan untrusted code, such as pull requests
+from forks, in the container image or the GitHub Action, which runs it without
+network access, with a read-only filesystem and with all capabilities dropped.
 
 ## Safe handling of credentials and live infrastructure
 

@@ -28,6 +28,9 @@ release point.
 - `--changed-since` keeps Terraform findings in the module directory, parent directories and
   subdirectories of a changed `.tf`, `.tfvars` or `.hcl` file, so changing a variable default no
   longer hides the resources it affects in untouched files; other IaC types stay file-granular (TEG-02).
+- Documentation no longer says scanned code is only read and never executed (Checkov evaluates
+  Terraform expressions), that `--var-file` is unsupported, or that residency checks cover Azure and GCP;
+  the registry typo "weakensing" is fixed (TEG-05, TEG-07, TEG-11, TEG-12).
 
 ### Security
 

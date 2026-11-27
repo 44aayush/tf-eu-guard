@@ -334,7 +334,7 @@ CKV_AWS_53:
       title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: >
     With block_public_acls disabled, a future ACL change can silently make objects
-    public, weakensing the confidentiality control GDPR Art. 32(1)(b) requires. The
+    public, weakening the confidentiality control GDPR Art. 32(1)(b) requires. The
     public access block is the account-level guardrail that prevents that drift.
   remediation: |
     Enable the guardrail on the bucket's public access block:
@@ -1774,7 +1774,7 @@ CKV2_AWS_30:
       title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: >
     Without Postgres log capture (log_connections, log_disconnections, log_statement)
-    there is no record of who touched personal data in the database, weakensing the
+    there is no record of who touched personal data in the database, weakening the
     incident detection and analysis NIS2 Art. 21(2)(b) requires and the accountable
     processing security of GDPR Art. 32(1)(b).
   remediation: |
@@ -2721,7 +2721,7 @@ CKV_AWS_338:
       title: "Confidentiality, integrity, availability and resilience of processing systems"
   risk: >
     Short log retention destroys the evidence trail before many incidents are
-    discovered (breaches are frequently detected months after the fact), weakensing
+    discovered (breaches are frequently detected months after the fact), weakening
     the post-incident analysis NIS2 Art. 21(2)(b) requires and the accountable
     processing security of GDPR Art. 32(1)(b).
   remediation: |

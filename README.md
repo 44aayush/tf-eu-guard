@@ -32,7 +32,7 @@ tf-eu-guard wraps Checkov, enriches each failed check with the relevant NIS2/GDP
    - **Dev report** (terminal/HTML): severity-sorted findings for engineers
    - **Security dashboard** (HTML): CRITICAL/HIGH/MEDIUM/LOW breakdown with stats
    - **Auditor report** (HTML): article-by-article view showing which NIS2/GDPR clauses and project-policy controls have open findings
-5. **Custom checks**: Adds EU-specific rules (configurable region residency policy, third-country transfer review, and selected hardcoded secrets) not in upstream Checkov
+5. **Custom checks**: Adds EU-specific rules (configurable region residency policy (AWS only; Azure and GCP locations are not evaluated), third-country transfer review, and selected hardcoded secrets) not in upstream Checkov
 
 > **Note on flags:** `--iac-type` selects *what to scan* (terraform, terraform_plan, kubernetes);
 > `--framework` selects *which regulatory regime to report* (nis2/gdpr). `all` also retains

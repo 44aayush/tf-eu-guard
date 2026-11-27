@@ -62,7 +62,7 @@ Recurring structural blind spots (each also noted in the article docs):
   services. Kubernetes is out of scope for residency entirely — manifests
   don't declare where the cluster runs (see [`DECISIONS.md`](DECISIONS.md) #9).
   Residency checks read literal values: a region supplied by a variable fails
-  the policy checks closed (there is no `--var-file` support), S3 replication
+  the policy checks closed (pass non-default variable files with `--var-file`; `terraform.tfvars` and `*.auto.tfvars` are loaded automatically), S3 replication
   destinations are not evaluated, `--checkov-json` cannot apply a policy
   (results are pre-computed), and plan-mode, Azure and GCP residency are not
   covered.
@@ -163,8 +163,8 @@ contents, because a plan contains the expanded resources. Alternatively,
 scans only). That needs network access and runs third-party module code through
 the parser, and tf-eu-guard prints a stderr note when it is used. The GitHub
 Action runs with `--network none`, so the flag does not work there. Variables
-set only in a `.tfvars` file are unresolved unless the file is passed with
-`--var-file FILE`.
+set only in a `.tfvars` file other than `terraform.tfvars` or `*.auto.tfvars` are
+unresolved unless the file is passed with `--var-file FILE`.
 
 ## Assumptions worth knowing about
 
