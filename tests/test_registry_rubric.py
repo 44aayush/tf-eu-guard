@@ -37,7 +37,6 @@ GUARDRAIL_IDS = (
     "CKV_AWS_56",
     "CKV_AZURE_59",
     "CKV_AZURE_139",
-    "CKV_AZURE_160",
     "CKV_AZURE_48",
     "CKV_AZURE_53",
 )
@@ -47,6 +46,7 @@ ENCRYPTION_AT_REST_IDS = (
     "CKV_AWS_96",
     "CKV_AWS_5",
     "CKV_AWS_44",
+    "CKV_AWS_26",
 )
 CMK_IDS = (
     "CKV_AWS_119",
@@ -61,6 +61,14 @@ CMK_IDS = (
     "CKV_AWS_327",
     "CKV_AWS_347",
     "CKV_AWS_35",
+    "CKV_AWS_173",
+    "CKV_AWS_145",
+    "CKV_AWS_136",
+    "CKV_GCP_38",
+)
+WEB_PORT_IDS = (
+    "CKV_AWS_260",
+    "CKV_AZURE_160",
 )
 RUBRIC_DOC = Path(__file__).resolve().parents[1] / "docs" / "severity-rubric.md"
 
@@ -89,8 +97,14 @@ def test_cmk_family_is_medium(registry, cid):
     assert registry[cid].severity == Severity.MEDIUM
 
 
+@pytest.mark.parametrize("cid", WEB_PORT_IDS)
+def test_web_port_family_is_medium(registry, cid):
+    """Port 80 open to the internet is often an intended public web tier: MEDIUM."""
+    assert registry[cid].severity == Severity.MEDIUM
+
+
 def test_families_do_not_overlap():
-    families = [PUBLIC_EXPOSURE_IDS, GUARDRAIL_IDS, ENCRYPTION_AT_REST_IDS, CMK_IDS]
+    families = [PUBLIC_EXPOSURE_IDS, GUARDRAIL_IDS, ENCRYPTION_AT_REST_IDS, CMK_IDS, WEB_PORT_IDS]
     all_ids = [cid for family in families for cid in family]
     assert len(all_ids) == len(set(all_ids))
 
@@ -117,6 +131,7 @@ def _doc_sections():
         ("Public-network guardrails: HIGH", GUARDRAIL_IDS),
         ("Data-store encryption at rest: HIGH", ENCRYPTION_AT_REST_IDS),
         ("Customer-managed key instead of a provider-managed key: MEDIUM", CMK_IDS),
+        ("Web port open to the internet: MEDIUM", WEB_PORT_IDS),
     ],
 )
 def test_rubric_doc_lists_every_family_id(heading, ids):

@@ -373,7 +373,7 @@ CKV_GCP_38:
     - framework: GDPR
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
-  risk: "Critical VM boot disks without a customer-supplied or customer-managed encryption key rely on provider defaults rather than a key controlled and governed by the data controller."
+  risk: "Compute Engine disks are already encrypted at rest with Google-managed keys. A customer-supplied or customer-managed key adds key-control depth (rotation, revocation, access policy), which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for critical VMs."
   remediation: |
     resource "google_compute_instance" "example" {
       boot_disk {
@@ -383,7 +383,7 @@ CKV_GCP_38:
         kms_key_self_link = google_kms_crypto_key.vm.id
       }
     }
-  severity: HIGH
+  severity: MEDIUM
 
 CKV_GCP_78:
   check_name: "Ensure Cloud storage has versioning enabled"

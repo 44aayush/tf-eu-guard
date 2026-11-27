@@ -111,6 +111,26 @@ release point.
   `--fail-on-severity critical` now also fails on `CKV_GCP_18`; restore the old level with
   `severity_overrides: {CKV_GCP_18: HIGH}`. The `CKV_AWS_173` risk text is hedged like the other CMK-family checks
   (the variables are already encrypted with a provider-managed key); its severity is unchanged.
+- Severity-rubric follow-up (TEG-11). `CKV_AWS_173` (Lambda environment variables), `CKV_AWS_145` (S3 default
+  encryption), `CKV_AWS_136` (ECR) and `CKV_GCP_38` (Compute Engine disks) move from HIGH to MEDIUM: the provider
+  documentation states each service encrypts at rest by default with a provider-managed key, so they join the
+  customer-managed-key family and their risk texts are hedged (`CKV_AWS_173`'s was already). `CKV_AWS_26` (SNS topic)
+  stays HIGH and joins the data-store encryption-at-rest family: the SNS documentation does not state that topics are
+  encrypted by default, so its risk text no longer claims an AWS-owned key. A new family, web port open to the
+  internet (MEDIUM), holds `CKV_AWS_260` (already MEDIUM) and `CKV_AZURE_160` (HIGH to MEDIUM): a public web tier
+  on port 80 is often intended, and the admin ports are already CRITICAL. Gate effect:
+  `--fail-on-severity high` no longer fails on `CKV_AWS_173`, `CKV_AWS_145`, `CKV_AWS_136`, `CKV_GCP_38` and
+  `CKV_AZURE_160`. To restore the previous levels, use `severity_overrides` in `.tf-eu-guard.yaml`:
+
+  ```yaml
+  severity_overrides:
+    CKV_AWS_173: HIGH
+    CKV_AWS_145: HIGH
+    CKV_AWS_136: HIGH
+    CKV_GCP_38: HIGH
+    CKV_AZURE_160: HIGH
+  ```
+
 - Azure residency: `belgiumcentral` (Brussels) and `denmarkeast` (Copenhagen), listed as generally available on
   Microsoft Learn (verified 2026-11-27), join the EU/EEA allowlist; `finlandcentral` and `greececentral` stay off it
   and fail the policy check until they are verified. The Chapter V tables now also classify the remaining generally

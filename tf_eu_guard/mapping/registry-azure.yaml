@@ -192,7 +192,7 @@ CKV_AZURE_160:
       source_address_prefix      = "10.0.0.0/8"
       destination_port_range     = "80"
     }
-  severity: HIGH
+  severity: MEDIUM
 
 CKV_AZURE_59:
   check_name: "Ensure that Storage accounts disallow public access"

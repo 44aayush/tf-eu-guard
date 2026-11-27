@@ -76,7 +76,7 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 | CKV_AWS_40 | iam.tf | iam user policy | Policy on user not group/role | 21(2)(i) | – | MEDIUM |
 | CKV_AWS_9 ‡ | iam.tf | password policy | No password expiry (≤90d) | 21(2)(i) | – | MEDIUM |
 | CKV_AWS_20 | s3.tf | aws_s3_bucket_acl | Public-READ ACL | 21(2)(i) | 32(1)(b) | CRITICAL |
-| CKV_AWS_145 | s3.tf | aws_s3_bucket | Not encrypted with KMS | 21(2)(h) | 32(1)(a) | HIGH |
+| CKV_AWS_145 | s3.tf | aws_s3_bucket | Not encrypted with KMS | 21(2)(h) | 32(1)(a) | MEDIUM |
 | CKV_AWS_53 | s3.tf | public access block | `block_public_acls` off | – | 32(1)(b) | HIGH |
 | CKV_AWS_54 | s3.tf | public access block | `block_public_policy` off | – | 32(1)(b) | HIGH |
 | CKV_AWS_55 | s3.tf | public access block | `ignore_public_acls` off | – | 32(1)(b) | HIGH |
@@ -113,7 +113,7 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 ### Coverage summary
 
 - By severity (original 38): 11 CRITICAL · 13 HIGH · 14 MEDIUM. With the
-  extension above (188 total: 23 CRITICAL · 63 HIGH · 76 MEDIUM · 26 LOW).
+  extension above (188 total: 23 CRITICAL · 60 HIGH · 79 MEDIUM · 26 LOW).
 - By framework (original 38): 21 map to both NIS2 and GDPR, 11 NIS2-only, 6 GDPR-only.
 - By file: iam.tf (12), s3.tf (9), rds.tf (9), network.tf (7), main.tf (1).
 - By theme: access control / least privilege (20), public exposure (7),
@@ -175,7 +175,7 @@ remediation text lives in the registry):
 | Network segmentation | 21(2)(i) | 32(1)(b) | CKV_AWS_137, 248, 38, 39, 117, CKV2_AWS_5, 23 |
 | Terraform module pinning (cloud-agnostic) | 21(2)(d) | – | CKV_TF_1, CKV_TF_2 |
 
-Severity distribution after the extension: **23 CRITICAL · 63 HIGH · 76 MEDIUM ·
+Severity distribution after the extension: **23 CRITICAL · 60 HIGH · 79 MEDIUM ·
 26 LOW** (188 total; article refs: NIS2 178, GDPR 135). An article ref is one
 entry in a check's `articles` list in `registry-aws.yaml`, counted per framework, so a
 check citing two NIS2 letters counts twice; the 3 `POLICY` refs are not included.

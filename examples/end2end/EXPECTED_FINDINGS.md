@@ -83,17 +83,17 @@
 
 ### High Severity
 
-**CKV_AWS_145** — Ensure that S3 buckets are encrypted with KMS by default  
-**Mapped to**: NIS2 Art. 21(2)(h) — Policies and procedures on the use of cryptography and encryption; GDPR Art. 32(1)(a) — Pseudonymisation and encryption of personal data  
-**Severity**: HIGH  
-**Expected instances**: `s3.tf` — `flowbucket`, `data`, `data_science`, `financials`, `operations`
-
 **CKV2_AWS_6** — Ensure that S3 bucket has a Public Access block  
 **Mapped to**: GDPR Art. 32(1)(b) — Confidentiality, integrity, availability and resilience of processing systems  
 **Severity**: HIGH  
 **Expected instances**: `s3.tf` — all six buckets (`flowbucket`, `data`, `data_science`, `financials`, `logs`, `operations`)
 
 ### Medium Severity
+
+**CKV_AWS_145** — Ensure that S3 buckets are encrypted with KMS by default  
+**Mapped to**: NIS2 Art. 21(2)(h) — Policies and procedures on the use of cryptography and encryption; GDPR Art. 32(1)(a) — Pseudonymisation and encryption of personal data  
+**Severity**: MEDIUM  
+**Expected instances**: `s3.tf` — `flowbucket`, `data`, `data_science`, `financials`, `operations`
 
 **CKV_AWS_18** — Ensure the S3 bucket has access logging enabled  
 **Mapped to**: NIS2 Art. 21(2)(b) — Incident handling  

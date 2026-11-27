@@ -281,9 +281,10 @@ CKV_AWS_145:
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
   risk: >
-    Buckets without KMS-managed encryption at rest lack the auditable key control and
-    key-rotation guarantees expected of encrypted personal data. GDPR Art. 32(1)(a)
-    names encryption explicitly; NIS2 Art. 21(2)(h) requires cryptography policies.
+    A bucket without default SSE-KMS is already encrypted at rest with S3-managed keys
+    (SSE-S3). A KMS key adds key-policy, rotation and access-grant control over that
+    data, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for
+    buckets that hold personal data.
   remediation: |
     Configure default SSE-KMS on the bucket:
       resource "aws_s3_bucket_server_side_encryption_configuration" "this" {
@@ -295,7 +296,7 @@ CKV_AWS_145:
           }
         }
       }
-  severity: HIGH
+  severity: MEDIUM
 
 CKV_AWS_20:
   check_name: "S3 Bucket has an ACL defined which allows public READ access."
@@ -1284,9 +1285,10 @@ CKV_AWS_136:
       title: "Pseudonymisation and encryption of personal data"
   risk: >
     Container images bundle application code, configuration, and sometimes embedded
-    secrets. An ECR repository on the default AES256 alias keeps that content outside
-    the organisation's key governance, which may weaken the cryptography policy of NIS2
-    Art. 21(2)(h) and the encryption safeguard of GDPR Art. 32(1)(a).
+    secrets. An ECR repository without a KMS key is already encrypted at rest with
+    S3-managed keys (AES-256). A KMS key adds key-policy, rotation and grant-revocation
+    control over that content, which can support demonstrating NIS2 Art. 21(2)(h) and
+    GDPR Art. 32(1)(a).
   remediation: |
     Set a KMS key on the repository:
       resource "aws_ecr_repository" "app" {
@@ -1295,7 +1297,7 @@ CKV_AWS_136:
           kms_key         = aws_kms_key.ecr.arn
         }
       }
-  severity: HIGH
+  severity: MEDIUM
 
 CKV_AWS_189:
   check_name: "Ensure that EBS Volume is encrypted by KMS using a customer managed Key (CMK)"
@@ -1366,7 +1368,7 @@ CKV_AWS_173:
       resource "aws_lambda_function" "app" {
         kms_key_arn = aws_kms_key.lambda.arn
       }
-  severity: HIGH
+  severity: MEDIUM
 
 CKV_AWS_58:
   check_name: "Ensure EKS Cluster has Secrets Encryption Enabled"
@@ -3310,13 +3312,12 @@ CKV_AWS_26:
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
   risk: >
-    A topic without a customer-managed KMS key is encrypted under an AWS-owned key whose
-    policy and rotation nobody in the organisation can see or control. Notification
-    payloads routinely carry personal data (order events, user activity, case updates),
-    so the auditable key governance GDPR Art. 32(1)(a) expects for encryption and the
-    cryptography policies NIS2 Art. 21(2)(h) requires cannot be demonstrated.
+    A topic without server-side encryption (no KMS key set) stores message bodies
+    unencrypted at rest. Notification payloads routinely carry personal data (order
+    events, user activity, case updates), which may weaken the encryption safeguard of
+    GDPR Art. 32(1)(a) and the cryptography policy of NIS2 Art. 21(2)(h).
   remediation: |
-    Encrypt the topic with a customer-managed KMS key:
+    Enable server-side encryption on the topic with a KMS key:
       resource "aws_sns_topic" "app_notifications" {
         name              = "app-notifications"
         kms_master_key_id = aws_kms_key.sns.arn

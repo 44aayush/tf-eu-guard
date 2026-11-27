@@ -45,7 +45,7 @@ CKV_AZURE_160:
   articles:
     - [NIS2, "Art. 21(2)(g)"]
     - [GDPR, "Art. 32(1)(b)"]
-  severity: HIGH
+  severity: MEDIUM
   remediation_contains: [destination_port_range, '"80"']
   fail_conf:
     access: [Allow]
@@ -604,7 +604,7 @@ CKV_GCP_38:
   articles:
     - [NIS2, "Art. 21(2)(h)"]
     - [GDPR, "Art. 32(1)(a)"]
-  severity: HIGH
+  severity: MEDIUM
   remediation_contains: [boot_disk, kms_key_self_link]
   fail_conf:
     boot_disk: [{}]
