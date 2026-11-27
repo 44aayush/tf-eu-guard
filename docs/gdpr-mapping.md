@@ -186,8 +186,8 @@ plus the AWS European Sovereign Cloud; `eusc` allows only `eusc-de-east-1` (the
 hands the policy to the Checkov subprocess through the
 `TF_EU_GUARD_RESIDENCY_POLICY` / `TF_EU_GUARD_ALLOWED_REGIONS` environment
 variables (ambient values are discarded); direct Checkov use without them
-defaults to `eu-eea`, and an invalid value fails closed to the EUSC-only
-allowlist. With `--checkov-json` the results are pre-computed, so the policy
+defaults to `eu-eea`, and an invalid value fails closed (on AWS to the EUSC-only
+allowlist; on Azure and GCP to an empty allowlist). With `--checkov-json` the results are pre-computed, so the policy
 flags are ignored and a warning is printed.
 
 The policy checks are **fail-closed**: a region off the allowlist fails,

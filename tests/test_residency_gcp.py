@@ -124,7 +124,9 @@ def test_allowed_regions_gcp():
 
 def test_check_identities():
     assert GcpProviderRegionPolicy().id == GcpLocationPolicy().id == "EUGUARD_POLICY_004"
-    assert GcpProviderRegionTransferReview().id == GcpLocationTransferReview().id == "EUGUARD_GDPR_005"
+    assert (
+        GcpProviderRegionTransferReview().id == GcpLocationTransferReview().id == "EUGUARD_GDPR_005"
+    )
 
 
 def test_gcp_end_to_end_live(monkeypatch, tmp_path, repo_root, capsys):

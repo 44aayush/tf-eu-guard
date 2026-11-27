@@ -74,6 +74,9 @@ Recurring structural blind spots (each also noted in the article docs):
   table; a dual-region such as `EUR4` or a newer EU region not yet in the table fails the policy check until it is
   added, `location = "global"` (for example on `google_kms_key_ring`) also fails `EUGUARD_POLICY_004`, and
   `--residency-policy eusc` uses the GCP EU/EEA table. The `google-beta` provider block is not evaluated.
+  GCP coverage gaps: the provider block's `zone` argument is not checked, nested placement settings (such as
+  `custom_placement_config.data_locations`, Secret Manager replica locations and Spanner instance configs) are not
+  evaluated, and multi-regions such as `europe` fail `EUGUARD_POLICY_004` because they are not on the allowlist.
 
 ## Unmapped findings
 

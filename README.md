@@ -680,7 +680,7 @@ the keywords authoritative. The package ships `py.typed`.
 | Regulation | Terraform source | Terraform plan | Kubernetes |
 |------------|-----------------|----------------|------------|
 | **NIS2 Article 21(2)** | ✅ 223 cloud check mappings | ✅ same checks apply | ✅ 26 `CKV_K8S_*` mappings |
-| **GDPR Article 32(1)** | ✅ 180 cloud check mappings | ✅ same checks apply | ✅ 16 `CKV_K8S_*` mappings |
+| **GDPR Article 32(1)** | ✅ 178 cloud check mappings | ✅ same checks apply | ✅ 16 `CKV_K8S_*` mappings |
 | **GDPR Art. 44 (third-country transfer review)** | ✅ Custom checks `EUGUARD_GDPR_002` (provider), `EUGUARD_GDPR_003` (resource `region`, replicas), `EUGUARD_GDPR_004` (Azure resource `location`) and `EUGUARD_GDPR_005` (GCP provider region, resource `region`/`location`/`zone`) | ❌ Checkov plan scans do not run provider checks; also scan Terraform source | ❌ Out of scope — see note |
 
 > Mapping counts above are generated from the registry files and verified in CI
@@ -706,7 +706,7 @@ the keywords authoritative. The package ships `py.typed`.
 > **Residency policy is configurable and separate from Chapter V:**
 > `EUGUARD_POLICY_001` (provider block) and `EUGUARD_POLICY_002` (resource
 > `region` arguments, DynamoDB/Secrets Manager replicas, ECR replication
-> destinations, Backup copy vaults) `EUGUARD_POLICY_003` (Azure `azurerm_*`
+> destinations, Backup copy vaults), `EUGUARD_POLICY_003` (Azure `azurerm_*`
 > `location`) and `EUGUARD_POLICY_004` (GCP provider `region`, `google_*` `region`/`location`/`zone`)
 > enforce `--residency-policy` (`eusc` is an AWS partition; Azure and GCP use their EU/EEA tables):
 > `eu-eea` (default: EU/EEA commercial regions plus the Sovereign Cloud),

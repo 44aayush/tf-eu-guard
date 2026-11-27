@@ -254,9 +254,9 @@ REQUIREMENTS: tuple[dict, ...] = (
         letter="44",
         category=CoverageCategory.PARTIAL,
         rationale=(
-            "The custom EUGUARD_GDPR_002 and EUGUARD_GDPR_003 checks flag known AWS "
-            "provider and resource-level regions, and Azure and GCP locations, outside the EU/EEA "
-            "for Chapter V review (EUGUARD_GDPR_004 covers Azure, EUGUARD_GDPR_005 GCP). The adequacy/SCC analysis "
+            "EUGUARD_GDPR_002/003 (AWS), EUGUARD_GDPR_004 (Azure) and EUGUARD_GDPR_005 (GCP) "
+            "flag known provider and resource-level regions and locations outside the EU/EEA "
+            "for Chapter V review. The adequacy/SCC analysis "
             "itself is legal, not technical. A third-country signal is a prompt "
             "for review, not a violation or definitive legal conclusion."
         ),
