@@ -263,8 +263,8 @@ def load_scan_findings(
         if not baseline_covers_unmapped:
             print(
                 "Note: the baseline is a JSON array report, which does not record unmapped "
-                "findings; every unmapped finding counts as new. Write baselines with "
-                "--json-format object.",
+                "findings; unmapped findings count as new unless the baseline recorded the "
+                "same check as a mapped finding. Write baselines with --json-format object.",
                 file=sys.stderr,
             )
         for f in active:

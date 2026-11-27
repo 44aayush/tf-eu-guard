@@ -243,6 +243,7 @@ def sarif_document(ctx: ReportContext) -> dict[str, Any]:
         weakening_settings=ctx.weakening_settings,
         baselined=ctx.known_findings,
         baselined_unmapped=ctx.known_unmapped,
+        baseline_covers_unmapped=ctx.baseline_covers_unmapped,
     )
 
 

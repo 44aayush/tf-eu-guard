@@ -69,14 +69,12 @@ class ReportContext:
 
     @property
     def known_unmapped(self) -> list[dict[str, Any]] | None:
-        """The baselined unmapped findings.
+        """The baselined unmapped findings, or None when no ``--baseline`` was given.
 
-        None when no ``--baseline`` was given or when it is an array report, which cannot
-        record unmapped findings (SARIF then leaves ``baselineState`` off unmapped results).
+        An array baseline records no unmapped findings, but it can still match one whose
+        check it recorded as a mapped finding, so the list is returned for it too.
         """
-        if not self.args.baseline or not self.baseline_covers_unmapped:
-            return None
-        return self.baselined_unmapped
+        return self.baselined_unmapped if self.args.baseline else None
 
     @property
     def list_baselined_unmapped(self) -> bool:

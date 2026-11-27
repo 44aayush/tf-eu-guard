@@ -433,8 +433,9 @@ esac
 > `baselined_unmapped[]`, so `--fail-on-unmapped` and `--unmapped-severity` see only new ones.
 > Matching ignores whether a check is mapped: a finding in either list of the baseline stays known
 > after a registry overlay or upgrade maps (or unmaps) its check. An array baseline cannot record
-> unmapped findings, so every unmapped finding counts as new (a note says so; write baselines
-> with `--json-format object`), and SARIF leaves `baselineState` off unmapped results then.
+> unmapped findings, so unmapped findings count as new unless the baseline recorded the same check as
+> a mapped finding (a note says so; write baselines with `--json-format object`); SARIF then
+> leaves `baselineState` off unmapped results that are not matched.
 > Waivers still never cover unmapped findings.
 > The baseline's date and match counts appear under "Scan settings that reduce findings".
 > `tf-eu-guard diff OLD.json NEW.json [--json]` prints new, fixed and unchanged counts

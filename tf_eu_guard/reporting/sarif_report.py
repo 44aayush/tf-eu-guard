@@ -392,6 +392,20 @@ def _root_location() -> dict[str, Any]:
     return {"physicalLocation": {"artifactLocation": {"uri": ".", "uriBaseId": ROOT_URI_BASE_ID}}}
 
 
+def _unmapped_baseline_state(
+    check: dict[str, Any],
+    known: set[int],
+    baselined_unmapped: list[dict[str, Any]] | None,
+    covers_unmapped: bool,
+) -> dict[str, str]:
+    """``baselineState`` of an unmapped result; none without a baseline or when suppressed."""
+    if baselined_unmapped is None or check.get("suppressed"):
+        return {}
+    if id(check) in known:
+        return {"baselineState": "unchanged"}
+    return {"baselineState": "new"} if covers_unmapped else {}
+
+
 def build_sarif(
     enriched: list[EnrichedFinding],
     unmapped: list[dict[str, Any]] | None = None,
@@ -405,6 +419,7 @@ def build_sarif(
     weakening_settings: list[str] | None = None,
     baselined: list[EnrichedFinding] | None = None,
     baselined_unmapped: list[dict[str, Any]] | None = None,
+    baseline_covers_unmapped: bool = True,
 ) -> dict[str, Any]:
     """Build a SARIF 2.1.0 document from enriched (and unmapped) findings.
 
@@ -436,6 +451,9 @@ def build_sarif(
             used; otherwise active mapped results are ``baselineState: "new"``.
         baselined_unmapped: Unmapped findings already in the baseline, handled the
             same way (``unchanged``; other active unmapped results are ``new``).
+        baseline_covers_unmapped: False when the baseline is an array report, which
+            cannot record unmapped findings; unmatched unmapped results then carry
+            no ``baselineState``.
 
     Returns:
         A SARIF 2.1.0 document as a plain dict, ready to serialize.
@@ -582,10 +600,8 @@ def build_sarif(
                     FINGERPRINT_KEY: _fingerprint(check_id, check.get("resource"), artifact_uri)
                 },
                 **_suppressions(bool(check.get("suppressed")), check.get("suppression_reason")),
-                **(
-                    {"baselineState": "unchanged" if id(check) in known_unmapped else "new"}
-                    if baselined_unmapped is not None and not check.get("suppressed")
-                    else {}
+                **_unmapped_baseline_state(
+                    check, known_unmapped, baselined_unmapped, baseline_covers_unmapped
                 ),
                 "properties": {
                     "mapped": False,

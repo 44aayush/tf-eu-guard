@@ -432,7 +432,8 @@ def test_array_baseline_leaves_sarif_unmapped_without_state_and_notes_it(
     assert "baselineState" not in result
     note = (
         "Note: the baseline is a JSON array report, which does not record unmapped findings; "
-        "every unmapped finding counts as new. Write baselines with --json-format object."
+        "unmapped findings count as new unless the baseline recorded the same check as a "
+        "mapped finding. Write baselines with --json-format object."
     )
     assert out.err.count(note) == 1
 
@@ -501,3 +502,40 @@ def test_fail_on_unmapped_counts_only_unmapped_findings_new_to_the_baseline(
     assert run_cli(monkeypatch, tmp_path, *args) == 0
     source.write_text(json.dumps(_only_unmapped_doc("CKV_ZZZ_999", "CKV_ZZZ_1")), encoding="utf-8")
     assert run_cli(monkeypatch, tmp_path, *args) == 1
+
+
+def _array_baseline_with_mapped_9999(monkeypatch, tmp_path, capsys):
+    """Array baseline written while an overlay mapped CKV_AWS_9999; return source and baseline."""
+    source = tmp_path / "in.json"
+    source.write_text(json.dumps(_only_unmapped_doc("CKV_AWS_9999")), encoding="utf-8")
+    overlay = _overlay_mapping(tmp_path, "CKV_AWS_9999")
+    base = _json_report(monkeypatch, tmp_path, source, "base.json", "array",
+                        "--registry-dir", overlay)  # fmt: skip
+    capsys.readouterr()
+    return source, base
+
+
+def test_array_baseline_known_mapped_now_unmapped_is_unchanged_in_sarif(
+    monkeypatch, tmp_path, capsys
+):
+    source, base = _array_baseline_with_mapped_9999(monkeypatch, tmp_path, capsys)
+    source.write_text(json.dumps(_only_unmapped_doc("CKV_AWS_9999", "CKV_ZZZ_1")), encoding="utf-8")
+    run_cli(monkeypatch, tmp_path, "--checkov-json", str(source), "--no-config",
+            "--baseline", str(base), "--output", "sarif")  # fmt: skip
+    results = json.loads(capsys.readouterr().out)["runs"][0]["results"]
+    states = {r["ruleId"]: r.get("baselineState", "absent") for r in results}
+    assert states == {"CKV_AWS_9999": "unchanged", "CKV_ZZZ_1": "absent"}
+
+
+def test_array_baseline_known_mapped_now_unmapped_is_not_clean_in_dev_and_json(
+    monkeypatch, tmp_path, capsys
+):
+    source, base = _array_baseline_with_mapped_9999(monkeypatch, tmp_path, capsys)
+    run_cli(monkeypatch, tmp_path, "--checkov-json", str(source), "--no-config",
+            "--baseline", str(base), "--output", "dev")  # fmt: skip
+    assert "No compliance findings" not in capsys.readouterr().out
+    run_cli(monkeypatch, tmp_path, "--checkov-json", str(source), "--no-config",
+            "--baseline", str(base), "--output", "json", "--json-format", "object")  # fmt: skip
+    report = json.loads(capsys.readouterr().out)
+    assert report["unmapped"] == []
+    assert [u["check_id"] for u in report["baselined_unmapped"]] == ["CKV_AWS_9999"]

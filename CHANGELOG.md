@@ -89,8 +89,9 @@ release point.
   findings (TEG-10).
 - `--baseline` matches a finding against the baseline's mapped and unmapped entries together, so a check that a
   registry overlay or upgrade maps (or unmaps) between scans stays known instead of failing the gate. An array
-  baseline cannot record unmapped findings: stderr says so once, every unmapped finding counts as new, and SARIF no
-  longer marks unmapped results `baselineState: "new"` in that case.
+  baseline cannot record unmapped findings: stderr says so once, unmapped findings count as new unless the baseline
+  recorded the same check as a mapped finding, and SARIF no longer marks unmatched unmapped results
+  `baselineState: "new"` in that case.
 - `--fail-on-unmapped` (CLI help, Action input and README) now says that with `--baseline` only unmapped findings
   not in the baseline count.
 - When `--fail-on-unmapped` and `--unmapped-severity` both trip on the same unmapped findings, the gate prints one
