@@ -1,9 +1,18 @@
 """Emulator-tier helpers; these run without LocalStack or terraform."""
 
 import logging
+import os
+import subprocess
 
 import pytest
-from emulator.stack import Stack, emulator_env
+from emulator import stack as stack_module
+from emulator.stack import (
+    EmulatorUnavailable,
+    Stack,
+    TerraformError,
+    emulator_env,
+    require_endpoint,
+)
 
 
 class StubStack(Stack):
@@ -65,5 +74,37 @@ def test_emulator_env_scrubs_aws_variables():
         "AWS_ACCESS_KEY_ID": "test",
         "AWS_SECRET_ACCESS_KEY": "test",
         "AWS_REGION": "us-east-1",
+        "AWS_CONFIG_FILE": os.devnull,
+        "AWS_SHARED_CREDENTIALS_FILE": os.devnull,
     }
     assert env["PATH"] == "/bin"
+
+
+def test_terraform_failure_includes_stderr(tmp_path, monkeypatch):
+    def fake_run(args, **kwargs):
+        return subprocess.CompletedProcess(args, 1, stdout="", stderr="Error: boom")
+
+    monkeypatch.setattr(stack_module.subprocess, "run", fake_run)
+    with pytest.raises(TerraformError) as excinfo:
+        Stack(tmp_path, {}).terraform("apply")
+    assert "boom" in str(excinfo.value)
+    assert "exit 1" in str(excinfo.value)
+
+
+def test_emulator_env_points_aws_files_at_devnull():
+    env = emulator_env("eu-west-1", {})
+    assert env["AWS_CONFIG_FILE"] == os.devnull
+    assert env["AWS_SHARED_CREDENTIALS_FILE"] == os.devnull
+
+
+def test_emulator_env_default_reads_os_environ(monkeypatch):
+    monkeypatch.setenv("AWS_PROFILE", "prod")
+    monkeypatch.setenv("KEEP_ME", "1")
+    env = emulator_env("eu-west-1")
+    assert "AWS_PROFILE" not in env
+    assert env["KEEP_ME"] == "1"
+
+
+def test_require_endpoint_unreachable():
+    with pytest.raises(EmulatorUnavailable, match=r"localstack/localstack:4\.9"):
+        require_endpoint("http://127.0.0.1:9", timeout=1.0)

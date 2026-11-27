@@ -40,6 +40,10 @@ def load_snapshot(path: Path) -> dict:
     missing = [key for key in REQUIRED_KEYS if key not in document]
     if missing:
         raise ValueError(f"{path.name}: missing keys {', '.join(missing)}")
+    for key in REQUIRED_KEYS[2:]:
+        value = document[key]
+        if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+            raise ValueError(f"{path.name}: {key} must be a list of strings")
     return document
 
 

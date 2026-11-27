@@ -12,6 +12,9 @@ release point.
 
 ### Added
 
+- Emulator tier: a failed `terraform` call now raises `TerraformError` carrying its stderr tail, the `endpoint` fixture fails
+  with the LocalStack start command when the health check does not answer, and Terraform runs with the AWS config and
+  credentials files pointed at `/dev/null`. The Azure/GCP region snapshot loader rejects non-list or non-string entries (T-29).
 - `--unmapped-severity SEVERITY` (config key `unmapped_severity`, Action input `unmapped-severity`) counts every
   active unmapped Checkov finding as a finding of that severity for `--fail-on-severity` and `--fail-on-any`.
   Reports are unchanged and the default gate is unchanged (TEG-10).

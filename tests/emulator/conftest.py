@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from .stack import Stack, emulator_env
+from .stack import EmulatorUnavailable, Stack, emulator_env, require_endpoint
 
 HERE = Path(__file__).resolve().parent
 OVERRIDE = HERE / "localstack_override.tf"
@@ -34,7 +34,12 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
 @pytest.fixture(scope="session")
 def endpoint() -> str:
-    return os.environ.get("TFEG_EMULATOR_ENDPOINT", DEFAULT_ENDPOINT)
+    url = os.environ.get("TFEG_EMULATOR_ENDPOINT", DEFAULT_ENDPOINT)
+    try:
+        require_endpoint(url)
+    except EmulatorUnavailable as exc:
+        pytest.fail(str(exc), pytrace=False)
+    return url
 
 
 @pytest.fixture
