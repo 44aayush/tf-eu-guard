@@ -220,6 +220,9 @@ def test_publish_verifies_tag_digest():
     assert verify["env"]["REF_NAME"] == "${{ github.ref_name }}"
     assert "imagetools inspect" in verify["run"]
     assert "exit 1" in verify["run"]
+    assert "jq -r .digest" in verify["run"]
+    assert '"${DIGEST}"' in verify["run"]
+    assert "::error::" in verify["run"]
 
 
 def test_publish_order_build_scan_tag_verify_attest():

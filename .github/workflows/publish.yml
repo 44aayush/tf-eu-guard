@@ -226,9 +226,10 @@ jobs:
         run: |
           set -euo pipefail
           "$RUNNER_TEMP/trivy" image --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL --ignorefile .trivyignore.yaml --image-src remote "${IMAGE_NAME}@${DIGEST}"
-      # The tag keeps the scanned digest only because sbom and provenance make
-      # the build an image index: imagetools create re-publishes a single
-      # manifest unchanged, but the next step verifies the result anyway.
+      # imagetools create copies a single-source image index unchanged, but wraps
+      # a single manifest in a new index (--prefer-index defaults to true). The
+      # build is an index only because sbom and provenance are on; the verify
+      # step below catches any drift.
       - name: Tag the scanned digest
         env:
           DIGEST: ${{ steps.build.outputs.digest }}

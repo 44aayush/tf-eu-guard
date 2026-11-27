@@ -739,7 +739,10 @@ the keywords authoritative. The package ships `py.typed`.
 > including an unresolved `var.region`, fails closed. These are project-policy
 > findings without a GDPR citation; known third-country regions such as
 > `us-east-1` additionally receive the hedged `EUGUARD_GDPR_002` /
-> `EUGUARD_GDPR_003` (Azure: `EUGUARD_GDPR_004`, GCP: `EUGUARD_GDPR_005`) Art. 44 review signal. With `--checkov-json` the policy
+> `EUGUARD_GDPR_003` (Azure: `EUGUARD_GDPR_004`, GCP: `EUGUARD_GDPR_005`) Art. 44 review signal.
+> The Azure and GCP checks are new and HIGH, so under the default gate a location from a variable without a default, or one not
+> yet in the tables (for example `finlandcentral` or `EUR4`), now fails: set a literal or a default, use `--residency-policy
+> custom` with `--allowed-regions`, add a waiver, or scan the root module or plan. With `--checkov-json` the policy
 > flags are ignored (results are pre-computed) and a warning is printed.
 > A source scan of AWS resources where no `provider "aws"` block sets a region reports one MEDIUM
 > `EUGUARD_POLICY_005` finding (`provider.aws`), because the region then comes from the environment at

@@ -45,9 +45,8 @@ release point.
   `google_compute_ssl_certificate`, `google_dns_managed_zone`, and the IAM resources of location-less parents such as
   projects and buckets) do not count, so a stack of only those gets neither this warning nor `EUGUARD_POLICY_006`. IAM
   types that do take a location (Cloud Run, Compute instance and subnetwork IAM, ...) still count, as do data-storing
-  Compute types with a location argument (`google_compute_image`, `google_compute_snapshot`,
-  `google_compute_instance_template`). A US provider zone
-  now fails the HIGH `EUGUARD_POLICY_004` like a US provider region.
+  Compute types that carry a placement argument: `google_compute_instance_template` (`region`), `google_compute_image`
+  and `google_compute_snapshot` (`storage_locations`, which `EUGUARD_POLICY_004` does not read).
 - Opt-in emulator test tier (`tests/emulator/`, `TFEG_RUN_EMULATOR=1`) and a CI job `emulator` that run real Terraform
   against a digest-pinned LocalStack 4.9 service: an environment-supplied region is caught in plan mode
   (`EUGUARD_POLICY_002`, `EUGUARD_GDPR_003`), and an applied S3 bucket is read back through boto3 and compared
@@ -55,7 +54,8 @@ release point.
 - GCP residency: `EUGUARD_POLICY_004` (`provider "google"` and `google-beta` `region` and `zone`, and `google_*`
   resource `region`, `location` and `zone`, within the configured residency policy) and `EUGUARD_GDPR_005` (known third-country location, a hedged
   Chapter V review signal). The policy check is fail-closed against a maintained EU/EEA table (zones map to their
-  region; dual-regions such as `EUR4` are not yet verified and fail); the Chapter V check fails only for known
+  region; dual-regions such as `EUR4` are not yet verified and fail; a US provider zone fails the HIGH check like a US
+  provider region); the Chapter V check fails only for known
   third-country locations, London, Zurich and the `US`/`ASIA` multi-regions included. `eusc` uses the GCP EU/EEA
   table (TEG-05).
 - Azure residency: `EUGUARD_POLICY_003` (resource `location` within the configured residency policy) and
@@ -94,6 +94,11 @@ release point.
 
 ### Changed
 
+- Upgrade note: the Azure (`EUGUARD_POLICY_003`) and GCP (`EUGUARD_POLICY_004`) residency checks are new and HIGH, so
+  under the Action's default `fail-on-severity` HIGH, stacks whose location comes from a variable without a default, or
+  that use a location not yet in the tables (for example `finlandcentral`, `greececentral` or dual-regions such as
+  `EUR4`), now fail. Options: set a literal location or a variable default, use `--residency-policy custom` with
+  `--allowed-regions`, add a waiver, or scan the root module or plan.
 - Source scans of GCP stacks where no `provider "google"` block and no `google_*` resource sets a region or location now
   report one MEDIUM finding, `EUGUARD_POLICY_006` (`provider.google`), next to the existing stderr warning; `--checkov-json`
   input that contains tf-eu-guard custom-check results gets it too. The Action's default gate (HIGH) is unaffected, while

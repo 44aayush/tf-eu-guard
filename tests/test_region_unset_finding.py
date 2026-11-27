@@ -584,6 +584,11 @@ _NEW_GLOBAL_GCP_TYPES = (
     "compute_target_https_proxy",
     "compute_ssl_policy",
     "compute_security_policy",
+    "compute_http_health_check",
+    "compute_https_health_check",
+    "compute_target_ssl_proxy",
+    "compute_target_tcp_proxy",
+    "compute_target_grpc_proxy",
 )
 
 
@@ -616,6 +621,20 @@ def test_gcp_iam_fixture_shape_injects_no_006(monkeypatch, tmp_path, capsys):
     report = _live_scan_with_output(monkeypatch, tmp_path, capsys, output)
     assert _policy_006(report) == []
     assert not any("google_*" in warning for warning in report.get("warnings", []))
+
+
+@pytest.mark.parametrize("name", ["compute_http_health_check", "compute_target_tcp_proxy"])
+def test_gcp_global_type_next_to_zoneless_disk_anchors_at_disk(name):
+    output = _gcp_resources_output(f"google_{name}.x", "google_compute_disk.d")
+    checks = output["results"]["failed_checks"]
+    checks[0]["file_path"] = "/stack/a_main.tf"
+    checks[1]["file_path"] = "/stack/z_main.tf"
+    checks[1]["file_line_range"] = [7, 8]
+    output["results"]["passed_checks"] = []
+    finding = gcp_region_unset_finding(output, custom_checks_loaded=True)
+    assert finding is not None
+    assert finding["file_path"] == "/stack/z_main.tf"
+    assert finding["file_line_range"] == [7, 8]
 
 
 def test_gcp_global_plus_regional_resource_anchors_at_regional(monkeypatch, tmp_path, capsys):

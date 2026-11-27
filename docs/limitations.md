@@ -74,13 +74,15 @@ Recurring structural blind spots (each also noted in the article docs):
   A `location` read from another resource, such as `data.azurerm_resource_group.x.location`, is not a literal and
   fails closed (scan the plan to evaluate the resolved value), and nested locations (for example the
   `geo_location` blocks of `azurerm_cosmosdb_account`) are not evaluated.
-  GCP residency (`EUGUARD_POLICY_004`, `EUGUARD_GDPR_005`) reads the literal `region` and `zone` of `provider "google"` blocks (a zone maps to its region, so a
-  US provider zone fails the HIGH `EUGUARD_POLICY_004`) and
+  GCP residency (`EUGUARD_POLICY_004`, `EUGUARD_GDPR_005`) reads the literal `region` and `zone` of
+  `provider "google"` blocks (a zone maps to its region, so a US provider zone fails the HIGH
+  `EUGUARD_POLICY_004`) and
   the `region`, `location` and `zone` of `google_*` resources (a zone maps to its region) against a maintained
   table; a dual-region such as `EUR4` or a newer EU region not yet in the table fails the policy check until it is
   added, `location = "global"` (for example on `google_kms_key_ring`) also fails `EUGUARD_POLICY_004`, and
   `--residency-policy eusc` uses the GCP EU/EEA table. The `google-beta` provider block is evaluated like `google`.
-  GCP coverage gaps: nested placement settings (such as
+  GCP coverage gaps: `storage_locations` (`google_compute_image`, `google_compute_snapshot`) is not evaluated by the
+  GCP residency checks, and nested placement settings (such as
   `custom_placement_config.data_locations`, Secret Manager replica locations and Spanner instance configs) are not
   evaluated, and multi-regions such as `europe` fail `EUGUARD_POLICY_004` because they are not on the allowlist.
 
@@ -173,7 +175,8 @@ finding (`provider.aws`) is reported; pin the region or scan a Terraform plan in
   `#checkov:skip=EUGUARD_POLICY_006` has no effect. GCP differences: the check is scan-wide, so one resource-level
   location result anywhere (for example a bucket with `location`) silences it for the whole scan. Global resource
   types that take no location (for example `google_project_service`, `google_project_iam_*`,
-  `google_service_account`, `google_compute_network`, `google_compute_firewall`, `google_compute_url_map`, `google_compute_backend_service`,
+  `google_service_account`, `google_compute_network`, `google_compute_firewall`, `google_compute_url_map`,
+  `google_compute_backend_service`,
   `google_dns_managed_zone`) do
   not count, so a stack of only such resources gets neither the finding nor the warning; IAM types that do take a
   location (Cloud Run, Compute instance and subnetwork IAM, ...) still count. A module repository is not always
