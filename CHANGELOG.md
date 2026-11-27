@@ -133,8 +133,9 @@ release point.
   deprecated `array`, stdout is unchanged and still a bare JSON list, and the exit code is unaffected. Pass
   `--json-format object` (recommended) or `--json-format array` to silence it; the default changes to `object` in a
   future release. `--output all` writes no JSON report and does not warn.
-- The release workflow builds the image locally and scans it with the pinned trivy (fixable HIGH and CRITICAL,
-  `.trivyignore.yaml`) before pushing to GHCR; a finding fails the job and blocks the push.
+- The release workflow builds the image once and pushes it to GHCR by digest with no tag, scans that exact digest
+  with the pinned trivy (fixable HIGH and CRITICAL, `.trivyignore.yaml`), and only then tags it and attests the
+  same digest; a finding fails the job before any tag exists (the untagged digest stays in GHCR) (TEG-06).
 - JSON object schema v3 (`schema_version: "3"`): adds `provenance.commit_source`. The v2 schema closed
   `provenance`, so a v0.9 validator rejects the new key; consumers that check `schema_version` must accept
   "3". `--baseline` and `diff` still read "1", "2" and "3" reports.

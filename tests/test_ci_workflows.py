@@ -157,7 +157,19 @@ def _trivy_scan_index(steps: list[dict]) -> int:
     return next(i for i, s in enumerate(steps) if re.search(r"trivy\"? image", s.get("run", "")))
 
 
-def test_publish_image_is_scanned_before_push():
+def _step_index(steps: list[dict], needle: str) -> int:
+    return next(i for i, s in enumerate(steps) if needle in s.get("run", ""))
+
+
+def _attest_index(steps: list[dict]) -> int:
+    return next(
+        i
+        for i, s in enumerate(steps)
+        if s.get("uses", "").startswith("actions/attest-build-provenance@")
+    )
+
+
+def test_publish_tags_only_after_scan():
     steps = _publish_image_steps()
     scan_at = _trivy_scan_index(steps)
     run = steps[scan_at]["run"]
@@ -168,10 +180,35 @@ def test_publish_image_is_scanned_before_push():
         "--ignorefile .trivyignore.yaml",
     ):
         assert flag in run
-    push_at = next(
-        i for i, s in enumerate(steps) if _is_build_push(s) and s["with"]["push"] is True
-    )
-    assert scan_at < push_at
+    tag_at = _step_index(steps, "imagetools create")
+    assert scan_at < tag_at < _attest_index(steps)
+
+
+def test_publish_scans_and_tags_same_digest():
+    steps = _publish_image_steps()
+    scan = steps[_trivy_scan_index(steps)]
+    tag = steps[_step_index(steps, "imagetools create")]
+    for step in (scan, tag):
+        assert step["env"]["DIGEST"] == "${{ steps.build.outputs.digest }}"
+        assert '"${IMAGE_NAME}@${DIGEST}"' in step["run"]
+    assert tag["env"]["REF_NAME"] == "${{ github.ref_name }}"
+    assert '-t "${IMAGE_NAME}:${REF_NAME}"' in tag["run"]
+    attest = steps[_attest_index(steps)]
+    assert attest["with"]["subject-digest"] == "${{ steps.build.outputs.digest }}"
+
+
+def test_publish_build_pushes_by_digest_only():
+    steps = _publish_image_steps()
+    builds = [s for s in steps if _is_build_push(s)]
+    assert len(builds) == 1
+    build = builds[0]
+    assert build["id"] == "build"
+    assert "tags" not in build["with"]
+    assert "load" not in build["with"]
+    outputs = build["with"]["outputs"]
+    assert "push-by-digest=true" in outputs
+    assert "name-canonical=true" in outputs
+    assert "push=true" in outputs
 
 
 def test_publish_trivy_pin_matches_ci():
@@ -183,15 +220,10 @@ def test_publish_trivy_pin_matches_ci():
     assert "sha256sum --check --strict" in install["run"]
 
 
-def test_publish_scan_build_does_not_push():
+def test_publish_no_expression_in_run():
     steps = _publish_image_steps()
-    scan_at = _trivy_scan_index(steps)
-    scan_run = steps[scan_at]["run"]
-    local = [s for s in steps[:scan_at] if _is_build_push(s)]
-    assert len(local) == 1
-    assert local[0]["with"]["push"] is False
-    assert local[0]["with"]["load"] is True
-    assert local[0]["with"]["tags"].strip() in scan_run
+    for step in steps:
+        assert "${{" not in step.get("run", ""), step.get("name")
 
 
 def test_dependabot_covers_docker_base_image():
