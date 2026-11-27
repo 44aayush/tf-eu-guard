@@ -192,6 +192,28 @@ def test_unmapped_severity_counts_at_threshold(capsys):
         "Fail: 1 unmapped Checkov finding(s) counted as HIGH (--unmapped-severity) "
         "at or above threshold (HIGH)." in err
     )
+    assert "Note:" not in err
+
+
+def test_gate_label_is_any_when_both_flags_set_unmapped(capsys):
+    args = _gate_args(fail_on_any=True, fail_on_severity="HIGH", unmapped_severity="LOW")
+    assert apply_scan_gate(args, [], _UNMAPPED) == EXIT_FINDINGS
+    err = capsys.readouterr().err
+    assert "at or above threshold (ANY)." in err
+    assert "threshold (HIGH)" not in err
+
+
+def test_gate_label_is_any_when_both_flags_set_mapped(capsys):
+    from types import SimpleNamespace
+
+    from tf_eu_guard.models import Severity
+
+    finding = SimpleNamespace(severity=Severity.LOW)
+    args = _gate_args(fail_on_any=True, fail_on_severity="HIGH")
+    assert apply_scan_gate(args, [finding], []) == EXIT_FINDINGS
+    err = capsys.readouterr().err
+    assert "(ANY)" in err
+    assert "(HIGH)" not in err
 
 
 def test_unmapped_severity_below_threshold_passes(capsys):
@@ -216,7 +238,7 @@ def test_unmapped_severity_without_gate_is_inert(capsys):
     assert "Note:" not in err
 
 
-def test_unmapped_severity_counted_suppresses_note(capsys):
+def test_fail_on_unmapped_with_unmapped_severity_suppresses_note(capsys):
     args = _gate_args(fail_on_severity="HIGH", unmapped_severity="MEDIUM", fail_on_unmapped=True)
     assert apply_scan_gate(args, [], _UNMAPPED) == EXIT_FINDINGS
     assert "Note:" not in capsys.readouterr().err

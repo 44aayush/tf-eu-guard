@@ -61,7 +61,7 @@ def apply_scan_gate(
     if failing_findings:
         print(
             f"Fail: {len(failing_findings)} finding(s) at or above threshold "
-            f"({args.fail_on_severity or 'ANY'}) — see report above.",
+            f"({'ANY' if args.fail_on_any else args.fail_on_severity}) — see report above.",
             file=sys.stderr,
         )
         gate_failed = True
@@ -79,7 +79,7 @@ def apply_scan_gate(
         print(
             f"Fail: {len(unmapped)} unmapped Checkov finding(s) counted as {unmapped_level} "
             f"(--unmapped-severity) at or above threshold "
-            f"({args.fail_on_severity or 'ANY'}).",
+            f"({'ANY' if args.fail_on_any else args.fail_on_severity}).",
             file=sys.stderr,
         )
         gate_failed = True
