@@ -12,6 +12,8 @@ release point.
 
 ### Added
 
+- Action input `fail-on-unmapped` (default `false`) passes `--fail-on-unmapped`, so a workflow can fail on active
+  Checkov findings that have no EU mapping (TEG-10).
 - A Terraform scan warns on stderr when a local module `source` (`./` or `../`) resolves outside the scan
   root, where Checkov still reads and reports those files beyond the symlink boundary (TEG-08). Exit codes
   are unchanged.

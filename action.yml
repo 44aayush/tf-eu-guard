@@ -37,6 +37,10 @@ inputs:
     description: 'Fail the workflow when any mapped finding is suppressed by an inline checkov:skip comment (true, 1 or yes, any case; mirrors --fail-on-suppressed)'
     required: false
     default: 'false'
+  fail-on-unmapped:
+    description: 'Fail the workflow when any active Checkov finding has no EU mapping (true, 1 or yes, any case; mirrors --fail-on-unmapped)'
+    required: false
+    default: 'false'
   residency-policy:
     description: 'AWS region residency policy for EUGUARD_POLICY_001/002: eu-eea (default), eusc, or custom (requires allowed-regions); mirrors --residency-policy. Ignored with checkov-json'
     required: false
@@ -159,6 +163,7 @@ runs:
         INPUT_FAIL_ON_SEVERITY: ${{ inputs.fail-on-severity }}
         INPUT_FAIL_ON_ANY: ${{ inputs.fail-on-any }}
         INPUT_FAIL_ON_SUPPRESSED: ${{ inputs.fail-on-suppressed }}
+        INPUT_FAIL_ON_UNMAPPED: ${{ inputs.fail-on-unmapped }}
         INPUT_RESIDENCY_POLICY: ${{ inputs.residency-policy }}
         INPUT_ALLOWED_REGIONS: ${{ inputs.allowed-regions }}
         INPUT_CHECKOV_JSON: ${{ inputs.checkov-json }}
@@ -327,6 +332,9 @@ runs:
         fi
         if is_true "$INPUT_FAIL_ON_SUPPRESSED"; then
           args+=(--fail-on-suppressed)
+        fi
+        if is_true "$INPUT_FAIL_ON_UNMAPPED"; then
+          args+=(--fail-on-unmapped)
         fi
         if [ -n "$INPUT_RESIDENCY_POLICY" ]; then
           args+=(--residency-policy "$INPUT_RESIDENCY_POLICY")
