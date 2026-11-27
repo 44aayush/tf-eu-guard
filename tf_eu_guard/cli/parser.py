@@ -294,7 +294,9 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="REF",
         help="Report only findings in files changed since the Git ref REF (committed "
         "REF...HEAD and staged changes; unstaged and untracked changes are not included), "
-        "e.g. origin/main. Findings in other files are hidden and counted on stderr and "
+        "e.g. origin/main. A changed Terraform file widens the scope to its module directory, that "
+        "directory's parents and its subdirectories (sibling modules reached through ../ "
+        "sources are not followed); other IaC types are file-granular. Findings elsewhere are hidden and counted on stderr and "
         "in the scan settings; the requirement matrix still reflects every check "
         "evaluated. Not valid with --checkov-json or --iac-type terraform_plan.",
     )

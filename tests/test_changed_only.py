@@ -7,7 +7,7 @@ import subprocess
 import pytest
 from cli_helpers import run_cli
 
-from tf_eu_guard.changed import changed_files
+from tf_eu_guard.changed import changed_files, in_changed_scope
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
 
@@ -30,6 +30,19 @@ def repo(tmp_path):
     _git(tmp_path, "commit", "-q", "-m", "one")
     _git(tmp_path, "tag", "base")
     (tmp_path / "a.tf").write_text("a2\n")
+    _git(tmp_path, "commit", "-q", "-am", "two")
+    return tmp_path
+
+
+@pytest.fixture
+def k8s_repo(tmp_path):
+    _git(tmp_path, "init", "-q")
+    (tmp_path / "a.yaml").write_text("a1\n")
+    (tmp_path / "b.yaml").write_text("b1\n")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "-q", "-m", "one")
+    _git(tmp_path, "tag", "base")
+    (tmp_path / "a.yaml").write_text("a2\n")
     _git(tmp_path, "commit", "-q", "-am", "two")
     return tmp_path
 
@@ -83,14 +96,15 @@ def _raise_missing(*a, **k):
     raise FileNotFoundError
 
 
-def test_changed_since_filters_findings(monkeypatch, repo, capsys):
+def test_changed_since_filters_findings(monkeypatch, k8s_repo, capsys):
+    repo = k8s_repo
     doc = {
-        "check_type": "terraform",
+        "check_type": "kubernetes",
         "results": {
             "failed_checks": [
-                _check("CKV_AWS_16", "/a.tf", "aws_db_instance.a"),
-                _check("CKV_AWS_16", "/b.tf", "aws_db_instance.b"),
-                _check("CKV_FAKE_1", "/b.tf", "x.b"),
+                _check("CKV_AWS_16", "/a.yaml", "aws_db_instance.a"),
+                _check("CKV_AWS_16", "/b.yaml", "aws_db_instance.b"),
+                _check("CKV_FAKE_1", "/b.yaml", "x.b"),
             ],
             "passed_checks": [],
             "skipped_checks": [],
@@ -98,8 +112,8 @@ def test_changed_since_filters_findings(monkeypatch, repo, capsys):
     }
     monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", lambda *a, **k: doc)
     code = run_cli(
-        monkeypatch, repo, str(repo), "--changed-since", "base", "--output", "json",
-        "--json-format", "object",
+        monkeypatch, repo, str(repo), "--iac-type", "kubernetes", "--changed-since", "base",
+        "--output", "json", "--json-format", "object",
     )  # fmt: skip
     cap = capsys.readouterr()
     assert code == 0
@@ -142,11 +156,12 @@ def test_changed_files_ref_matching_filename_is_not_a_pathspec(repo):
         changed_files(repo, "nope")
 
 
-def test_changed_since_keeps_requirement_matrix(monkeypatch, repo, capsys):
+def test_changed_since_keeps_requirement_matrix(monkeypatch, k8s_repo, capsys):
+    repo = k8s_repo
     doc = {
-        "check_type": "terraform",
+        "check_type": "kubernetes",
         "results": {
-            "failed_checks": [_check("CKV_AWS_16", "/b.tf", "aws_db_instance.b")],
+            "failed_checks": [_check("CKV_AWS_16", "/b.yaml", "aws_db_instance.b")],
             "passed_checks": [],
             "skipped_checks": [],
         },
@@ -154,7 +169,10 @@ def test_changed_since_keeps_requirement_matrix(monkeypatch, repo, capsys):
     monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", lambda *a, **k: doc)
 
     def rows(*extra):
-        run_cli(monkeypatch, repo, str(repo), "--output", "json", "--json-format", "object", *extra)
+        run_cli(
+            monkeypatch, repo, str(repo), "--iac-type", "kubernetes", "--output", "json",
+            "--json-format", "object", *extra,
+        )  # fmt: skip
         return json.loads(capsys.readouterr().out)
 
     plain, changed = rows(), rows("--changed-since", "base")
@@ -182,3 +200,49 @@ def test_changed_files_timeout_fails_closed(repo, monkeypatch):
     monkeypatch.setattr(subprocess, "run", boom)
     with pytest.raises(ValueError):
         changed_files(repo, "HEAD")
+
+
+def test_changed_scope_same_directory(tmp_path):
+    assert in_changed_scope(tmp_path / "rds.tf", {tmp_path / "variables.tf"}, "terraform") is True
+
+
+def test_changed_scope_ancestor_and_descendant(tmp_path):
+    nested = tmp_path / "modules/db/main.tf"
+    assert in_changed_scope(nested, {tmp_path / "terraform.tfvars"}, "terraform") is True
+    child_change = {tmp_path / "modules/db/variables.tf"}
+    assert in_changed_scope(tmp_path / "main.tf", child_change, "terraform") is True
+
+
+def test_changed_scope_unrelated_sibling_and_non_tf(tmp_path):
+    path = tmp_path / "a/main.tf"
+    assert in_changed_scope(path, {tmp_path / "b/main.tf"}, "terraform") is False
+    assert in_changed_scope(path, {tmp_path / "README.md"}, "terraform") is False
+
+
+def test_changed_scope_kubernetes_is_file_granular(tmp_path):
+    assert in_changed_scope(tmp_path / "a.yaml", {tmp_path / "b.yaml"}, "kubernetes") is False
+
+
+def test_changed_since_cross_file_change_keeps_finding(monkeypatch, tmp_path):
+    _git(tmp_path, "init", "-q")
+    (tmp_path / "variables.tf").write_text("v1\n")
+    (tmp_path / "rds.tf").write_text("r1\n")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "-q", "-m", "one")
+    _git(tmp_path, "tag", "base")
+    (tmp_path / "variables.tf").write_text("v2\n")
+    _git(tmp_path, "commit", "-q", "-am", "two")
+    doc = {
+        "check_type": "terraform",
+        "results": {
+            "failed_checks": [_check("CKV_AWS_16", "/rds.tf", "aws_db_instance.a")],
+            "passed_checks": [],
+            "skipped_checks": [],
+        },
+    }
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", lambda *a, **k: doc)
+    code = run_cli(
+        monkeypatch, tmp_path, str(tmp_path), "--changed-since", "base",
+        "--fail-on-severity", "HIGH",
+    )  # fmt: skip
+    assert code == 1

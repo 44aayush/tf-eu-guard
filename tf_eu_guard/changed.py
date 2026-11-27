@@ -52,6 +52,28 @@ def _git(repo: Path, *argv: str) -> str:
     return done.stdout
 
 
+_TF_SUFFIXES = (".tf", ".tfvars", ".hcl")
+
+
+def in_changed_scope(path: Path, changed: set[Path], iac_type: str) -> bool:
+    """Whether a finding in ``path`` is affected by the changed files (all resolved, absolute).
+
+    Terraform is evaluated per module directory, so a changed Terraform file widens the scope to
+    its directory, that directory's parents and its subdirectories. Sibling modules reached
+    through ``../`` sources are not followed. Other IaC types are file-granular.
+    """
+    if path in changed:
+        return True
+    if iac_type != "terraform":
+        return False
+    here = path.parent
+    return any(
+        c.name.endswith(_TF_SUFFIXES)
+        and (c.parent == here or c.parent in here.parents or here in c.parent.parents)
+        for c in changed
+    )
+
+
 def changed_files(repo_root: Path, ref: str) -> set[Path]:
     """Resolved paths changed in ``REF...HEAD`` or staged in the index.
 

@@ -23,6 +23,12 @@ release point.
   directory: it passes `--no-discovery` unless the new `discover-config` input is `true`. Use `config`
   or `trusted-config` instead (TEG-01). Behaviour change for workflows that relied on discovery.
 
+### Fixed
+
+- `--changed-since` keeps Terraform findings in the module directory, parent directories and
+  subdirectories of a changed `.tf`, `.tfvars` or `.hcl` file, so changing a variable default no
+  longer hides the resources it affects in untouched files; other IaC types stay file-granular (TEG-02).
+
 ### Security
 
 - The Action merges the container's stderr into stdout and wraps both in a random

@@ -9,7 +9,7 @@ from typing import Any
 
 import tf_eu_guard.checkov_runner as checkov_runner
 from tf_eu_guard.baseline import finding_key, load_baseline
-from tf_eu_guard.changed import changed_files
+from tf_eu_guard.changed import changed_files, in_changed_scope
 from tf_eu_guard.checkov.json import allow_partial_results, checkov_version_of
 from tf_eu_guard.cli.paths import sarif_scan_root, scope_risk_text
 from tf_eu_guard.constants import DEFAULT_CHECKOV_TIMEOUT
@@ -233,7 +233,8 @@ def load_scan_findings(
         changed = changed_files(scan_root, changed_ref)
 
         def inside(file_path: str | None) -> bool:
-            return (scan_root / (file_path or "").lstrip("/")).resolve() in changed
+            resolved = (scan_root / (file_path or "").lstrip("/")).resolve()
+            return in_changed_scope(resolved, changed, args.iac_type)
 
         matrix_inputs = ([*active, *baselined], suppressed, waived)
         groups = [active, suppressed, waived, baselined]

@@ -408,7 +408,10 @@ esac
 
 > `tf-eu-guard scan ./terraform --changed-since origin/main` reports only findings in files
 > that differ from `REF` (committed `REF...HEAD` and staged; unstaged and untracked changes
-> are not included). It filters active, suppressed, waived, baselined and unmapped findings, but
+> are not included). For Terraform, a changed `.tf`, `.tfvars` or `.hcl` file widens the scope to its
+> module directory, that directory's parents and its subdirectories, because a variable change can
+> affect resources in other files; sibling modules reached through `../` sources are not followed.
+> Kubernetes findings are matched by file. It filters active, suppressed, waived, baselined and unmapped findings, but
 > not the passed checks, so the requirement matrix still reflects everything evaluated. The
 > count of hidden findings is printed on stderr and listed under "Scan settings that reduce
 > findings". An unknown ref, a missing `git` or a non-repository exits 2, as do
