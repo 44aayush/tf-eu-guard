@@ -22,8 +22,8 @@ class ReportContext:
     """
 
     args: argparse.Namespace
-    findings: list[EnrichedFinding]
-    unmapped: list[dict[str, Any]]
+    findings: list[EnrichedFinding] = field(default_factory=list)
+    unmapped: list[dict[str, Any]] = field(default_factory=list)
     suppressed: list[EnrichedFinding] = field(default_factory=list)
     suppressed_unmapped: list[dict[str, Any]] = field(default_factory=list)
     waived: list[EnrichedFinding] = field(default_factory=list)
