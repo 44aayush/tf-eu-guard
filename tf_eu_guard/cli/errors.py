@@ -6,6 +6,7 @@ import sys
 from tf_eu_guard.checkov.types import CheckovInputError, CheckovRuntimeError
 from tf_eu_guard.constants import EXIT_INVALID_INPUT, EXIT_RUNTIME_FAILURE
 from tf_eu_guard.mapping.loader import RegistryValidationError
+from tf_eu_guard.reporting.untrusted import sanitize
 
 
 class OutputWriteError(Exception):
@@ -60,6 +61,8 @@ def handle_scan_error(error: Exception) -> int:
     detail = str(error)
     stderr = getattr(error, "stderr", None)
     if stderr:
-        detail += f"\nCheckov stderr:\n{stderr.rstrip()}"
+        # Checkov stderr echoes scanned content: indent so no line starts with "::".
+        relayed = "\n".join(f"  {sanitize(line)}" for line in str(stderr).rstrip().splitlines())
+        detail += f"\nCheckov stderr:\n{relayed}"
     print(f"Error ({label}): {detail}", file=sys.stderr)
     return code

@@ -76,7 +76,9 @@ def test_csv_unmapped_and_suppressed_rows():
 def test_csv_neutralises_formula_cells():
     for lead in ("=", "+", "-", "@", "\t", "\r"):
         text = render_csv(ScanFindings([_finding(f'{lead}HYPERLINK("x")')], []))
-        assert f"'{lead}HYPERLINK" in text
+        # a leading CR is escaped to a literal backslash-r, which is no formula either
+        expected = "\\rHYPERLINK" if lead == "\r" else f"'{lead}HYPERLINK"
+        assert expected in text
 
 
 def test_summary_file_written_alongside_json(monkeypatch, tmp_path, capsys):

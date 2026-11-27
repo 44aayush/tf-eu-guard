@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from tf_eu_guard.models import EnrichedFinding
 from tf_eu_guard.reporting.sorting import sort_findings, sorted_articles
+from tf_eu_guard.reporting.untrusted import sanitize
 
 if TYPE_CHECKING:
     from tf_eu_guard.cli.pipeline import ScanFindings
@@ -15,7 +16,8 @@ _SEVERITIES = ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO")
 
 def md_escape(value: object) -> str:
     """Escape text for a Markdown table cell; resource names are untrusted."""
-    text = str(value).replace("\\", "\\\\").replace("|", "\\|").replace("`", "\\`")
+    text = str(value).replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+    text = sanitize(text).replace("\\", "\\\\").replace("|", "\\|").replace("`", "\\`")
     text = text.replace("<", "&lt;").replace(">", "&gt;")
     return text.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
 

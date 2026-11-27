@@ -2,9 +2,12 @@
 
 import contextlib
 import datetime
+import json
 from io import StringIO
 from unittest.mock import patch
 
+import pytest
+from cli_helpers import run_cli
 from rich.console import Console
 
 import tf_eu_guard.reporting.dev_report as mod
@@ -121,3 +124,77 @@ def test_word_wrap_cannot_start_a_line_with_annotation_in_suppression_reason(mon
     out = _render_default_width(monkeypatch, findings=[], suppressed=[suppressed])
     assert "::error title=Forged::waiver" in out
     _assert_neutral(out)
+
+
+def _result(**overrides):
+    from tf_eu_guard.cli.pipeline import ScanFindings
+
+    waived = _finding(suppression_reason="r\n::error::x")
+    waived.waiver = Waiver(
+        check_id="CKV_AWS_18",
+        resource="aws_s3_bucket.data",
+        reason="r",
+        owner="o\n::error::x",
+        expires=datetime.date(2099, 1, 1),
+    )
+    return ScanFindings(
+        [_finding(resource=EVIL_RESOURCE, file_path=EVIL_PATH, check_name=EVIL_PATH)],
+        [
+            {
+                "check_id": "CKV_X_1\n::error::id",
+                "check_name": EVIL_PATH,
+                "resource": EVIL_RESOURCE,
+                "file_path": EVIL_PATH,
+                "file_line_range": [1, 2],
+                "suppression_reason": EVIL_RESOURCE,
+            }
+        ],
+        suppressed=[_finding(resource=EVIL_RESOURCE, suppression_reason=EVIL_RESOURCE)],
+        waived=[waived],
+        **overrides,
+    )
+
+
+def _assert_no_forgery(out: str) -> None:
+    assert not any(line.lstrip().startswith("::") for line in out.splitlines())
+    assert "\x1b" not in out
+
+
+def test_csv_report_neutralises_untrusted_cells():
+    from tf_eu_guard.reporting.csv_report import render_csv
+
+    out = render_csv(_result())
+    assert "forged" in out  # escaped, not dropped
+    _assert_no_forgery(out)
+
+
+def test_markdown_report_neutralises_untrusted_text():
+    from tf_eu_guard.reporting.markdown_report import render_markdown
+
+    out = render_markdown(_result(), target=EVIL_PATH, version="1")
+    assert "forged" in out
+    _assert_no_forgery(out)
+
+
+@pytest.mark.parametrize("fmt", ["dev", "json", "sarif", "markdown", "csv"])
+def test_every_stdout_format_neutralises_payload(monkeypatch, tmp_path, capsys, fmt):
+    failed = {
+        "check_id": "CKV_AWS_18",
+        "check_name": EVIL_PATH,
+        "resource": EVIL_RESOURCE,
+        "file_path": EVIL_PATH,
+        "file_line_range": [1, 5],
+        "guideline": None,
+    }
+    unmapped = dict(failed, check_id="CKV_ZZ_999")
+    doc = tmp_path / "evil.json"
+    doc.write_text(json.dumps({"results": {"failed_checks": [failed, unmapped]}}))
+    run_cli(monkeypatch, tmp_path, "--checkov-json", str(doc), "--output", fmt)
+    out = capsys.readouterr().out
+    assert out.strip()
+    _assert_no_forgery(out)
+
+
+def test_dev_report_does_not_expand_emoji_codes(monkeypatch):
+    out = _render_default_width(monkeypatch, findings=[_finding(resource="bucket:warning:x")])
+    assert "bucket:warning:x" in out

@@ -295,3 +295,16 @@ def test_checkov_timeout_exits_3(monkeypatch, tmp_path, capsys, repo_root):
     err = capsys.readouterr().err
     assert "did not finish within 7 seconds" in err
     assert "--timeout" in err
+
+
+def test_handle_scan_error_neutralises_checkov_stderr(capsys):
+    from tf_eu_guard.checkov.types import CheckovRuntimeError
+    from tf_eu_guard.cli.errors import handle_scan_error
+
+    error = CheckovRuntimeError("boom")
+    error.stderr = "x\n::error::forged\n\x1b[2K"
+    handle_scan_error(error)
+    err = capsys.readouterr().err
+    assert "forged" in err
+    assert not any(line.startswith("::") for line in err.splitlines())
+    assert "\x1b" not in err
