@@ -5,7 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![Checkov 3.4.5](https://img.shields.io/badge/checkov-3.4.5-8A2BE2)](https://www.checkov.io/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Mappings](https://img.shields.io/badge/NIS2%20%2B%20GDPR%20mappings-276-orange)](docs/check-mapping-table.md)
+[![Mappings](https://img.shields.io/badge/NIS2%20%2B%20GDPR%20mappings-278-orange)](docs/check-mapping-table.md)
 
 **Links:** [PyPI package](https://pypi.org/project/tf-eu-guard/) · [Documentation](#documentation) · [Changelog](CHANGELOG.md)
 
@@ -446,7 +446,7 @@ esac
 
 ### Unmapped findings
 
-Across all registries, **276 Checkov check IDs are mapped**: **AWS: 186 | Azure: 23 | GCP: 22 | Kubernetes: 26 | Secrets: 19** (the secrets entries apply only with `--secrets`). With 186 of Checkov's ~700 AWS checks mapped,
+Across all registries, **278 Checkov check IDs are mapped**: **AWS: 188 | Azure: 23 | GCP: 22 | Kubernetes: 26 | Secrets: 19** (the secrets entries apply only with `--secrets`). With 188 of Checkov's ~700 AWS checks mapped,
 a scan can produce Checkov failures that have no current EU regulatory mapping.
 These are **not** silently dropped: every report format surfaces them as
 "present-but-unmapped" — a count in the dev/security/auditor reports, a
@@ -679,8 +679,8 @@ the keywords authoritative. The package ships `py.typed`.
 
 | Regulation | Terraform source | Terraform plan | Kubernetes |
 |------------|-----------------|----------------|------------|
-| **NIS2 Article 21(2)** | ✅ 221 cloud check mappings | ✅ same checks apply | ✅ 26 `CKV_K8S_*` mappings |
-| **GDPR Article 32(1)** | ✅ 176 cloud check mappings | ✅ same checks apply | ✅ 16 `CKV_K8S_*` mappings |
+| **NIS2 Article 21(2)** | ✅ 223 cloud check mappings | ✅ same checks apply | ✅ 26 `CKV_K8S_*` mappings |
+| **GDPR Article 32(1)** | ✅ 178 cloud check mappings | ✅ same checks apply | ✅ 16 `CKV_K8S_*` mappings |
 | **GDPR Art. 44 (third-country transfer review)** | ✅ Custom checks `EUGUARD_GDPR_002` (provider) and `EUGUARD_GDPR_003` (resource `region`, replicas) | ❌ Checkov plan scans do not run provider checks; also scan Terraform source | ❌ Out of scope — see note |
 
 > Mapping counts above are generated from the registry files and verified in CI
@@ -730,14 +730,14 @@ the keywords authoritative. The package ships `py.typed`.
 
 ### Current Registry
 
-**276 Checkov check IDs mapped** — **AWS: 186 mappings | Azure: 23 | GCP: 22 | Kubernetes: 26 | Secrets: 19** — covering
+**278 Checkov check IDs mapped** — **AWS: 188 mappings | Azure: 23 | GCP: 22 | Kubernetes: 26 | Secrets: 19** — covering
 encryption at rest/in transit, logging & detection, backup & recovery,
 secure development/supply chain, secrets in code, IAM/access control, network
 segmentation, pod security context, RBAC, and resource limits:
 
 - **IAM / access control**: CKV_AWS_273, 287, 288, 62, 286, 63, 355, 289, 290, 274, 40, 9, 109, 111, 283, 356, 70, 79, 162, 359, CKV2_AWS_40, CKV2_AWS_41, CKV2_AWS_52
-- **Encryption (rest + transit)**: CKV_AWS_145, 3, 8, 96, 5, 247, 44, 347, 279, 280, 327, 136, 189, 186, 173, 58, 7, 127, 376, 228, 379, CKV2_AWS_2, CKV2_AWS_64, CKV2_AWS_69
-- **Logging / detection**: CKV_AWS_18, 157, 101, 84, 317, 324, 325, 92, 37, 50, 126, 353, 158, 338, CKV2_AWS_11, CKV2_AWS_30, CKV2_AWS_62
+- **Encryption (rest + transit)**: CKV_AWS_145, 3, 8, 96, 5, 247, 44, 347, 279, 280, 327, 136, 189, 186, 173, 58, 7, 127, 376, 228, 379, CKV2_AWS_2, CKV2_AWS_64, CKV2_AWS_34, CKV2_AWS_69
+- **Logging / detection**: CKV_AWS_18, 157, 101, 84, 317, 324, 325, 92, 37, 50, 126, 353, 158, 338, CKV2_AWS_11, CKV2_AWS_30, CKV2_AWS_27, CKV2_AWS_62
 - **Backup / resilience**: CKV_AWS_21, 144, 326, 361, 139, 115, 116, 135, 318, 313, 362, CKV2_AWS_8, CKV2_AWS_58, CKV2_AWS_59, CKV2_AWS_60, CKV2_AWS_61
 - **Secure development / secrets**: CKV_AWS_226, 363, 272, 51, 163, 41, 45, 46
 - **S3 / RDS / network exposure**: CKV_AWS_20, 53–56, 16, 17, 133, 129, 161, 293, 118, 24, 25, 260, 382, 137, 248, 38, 39, 117, 23, CKV2_AWS_6, CKV2_AWS_12, CKV2_AWS_5

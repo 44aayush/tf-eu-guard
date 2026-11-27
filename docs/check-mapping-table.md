@@ -2,7 +2,7 @@
 
 Reference stack: the vulnerable Terraform under [`examples/vulnerable-aws/`](../examples/vulnerable-aws/)
 (`iam.tf`, `s3.tf`, `rds.tf`, `network.tf`, plus `outputs.tf`).
-Mapped in `registry-aws.yaml`: **186 check IDs**, made up of 180 stock Checkov policies plus
+Mapped in `registry-aws.yaml`: **188 check IDs**, made up of 182 stock Checkov policies plus
 6 custom tf-eu-guard checks (**§**, added in Phase 3). The original 38-mapping core
 covered the vulnerable Terraform reference stack. Later extensions (from
 2026-08-30 on) grew the registry until every Checkov check that fires on the
@@ -109,7 +109,7 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 ### Coverage summary
 
 - By severity (original 38): 9 CRITICAL · 15 HIGH · 14 MEDIUM. With the
-  extension above (186 total: 23 CRITICAL · 70 HIGH · 67 MEDIUM · 26 LOW).
+  extension above (188 total: 20 CRITICAL · 73 HIGH · 69 MEDIUM · 26 LOW).
 - By framework (original 38): 21 map to both NIS2 and GDPR, 11 NIS2-only, 6 GDPR-only.
 - By file: iam.tf (12), s3.tf (9), rds.tf (9), network.tf (7), main.tf (1).
 - By theme: access control / least privilege (20), public exposure (7),
@@ -163,7 +163,7 @@ remediation text lives in the registry):
 |-------|------|------|--------|
 | Encryption at rest | 21(2)(h) | 32(1)(a) | CKV2_AWS_2, CKV_AWS_3, 8, 96, 5, 247, 44, 347, 279, 280, 327, 136, 189, 186, 173, 58, 7, CKV2_AWS_64 |
 | Encryption in transit | 21(2)(h) | 32(1)(a) | CKV_AWS_127, 376, 228, 379, CKV2_AWS_69 |
-| Logging / detection | 21(2)(b) | 32(1)(b) | CKV_AWS_101, 84, 317, 324, 325, 92, 37, 50, 126, 353, CKV2_AWS_30, CKV2_AWS_62 |
+| Logging / detection | 21(2)(b) | 32(1)(b) | CKV_AWS_101, 84, 317, 324, 325, 92, 37, 50, 126, 353, CKV2_AWS_30, CKV2_AWS_27, CKV2_AWS_62 |
 | Backup / resilience / recovery | 21(2)(c) | 32(1)(b)/(c) | CKV_AWS_144, CKV2_AWS_8, CKV_AWS_326, 361, 139, CKV2_AWS_58, 115, 116, 135, CKV2_AWS_59, 318, CKV2_AWS_61, 313, 362, CKV2_AWS_60 |
 | Secure development / supply chain | 21(2)(e) | 32(1)(b) | CKV_AWS_226, 363, 272, 51, 163 |
 | Secrets in code | 21(2)(e) | 32(1)(b) | CKV_AWS_41, 45, 46 |
@@ -171,8 +171,8 @@ remediation text lives in the registry):
 | Network segmentation | 21(2)(i) | 32(1)(b) | CKV_AWS_137, 248, 38, 39, 117, CKV2_AWS_5, 23 |
 | Terraform module pinning (cloud-agnostic) | 21(2)(d) | – | CKV_TF_1, CKV_TF_2 |
 
-Severity distribution after the extension: **23 CRITICAL · 70 HIGH · 67 MEDIUM ·
-26 LOW** (186 total; article refs: NIS2 176, GDPR 135). An article ref is one
+Severity distribution after the extension: **20 CRITICAL · 73 HIGH · 69 MEDIUM ·
+26 LOW** (188 total; article refs: NIS2 178, GDPR 135). An article ref is one
 entry in a check's `articles` list in `registry-aws.yaml`, counted per framework, so a
 check citing two NIS2 letters counts twice; the 3 `POLICY` refs are not included.
 

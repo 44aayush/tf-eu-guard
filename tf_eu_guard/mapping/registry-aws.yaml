@@ -63,19 +63,13 @@ CKV_AWS_288:
     - framework: GDPR
       article: "Art. 32(1)(b)"
       title: "Confidentiality, integrity, availability and resilience of processing systems"
-    - framework: GDPR
-      article: "Art. 4(12)"
-      title: "Personal data breach"
-    - framework: GDPR
-      article: "Art. 33"
-      title: "Notification of a personal data breach to the supervisory authority"
   risk: >
     Broad read actions on all resources (s3:GetObject, secretsmanager:GetSecretValue,
     rds:DownloadDBLogFilePortion on "*") enable bulk exfiltration of data — if that
-    data is personal, an exfiltration through them may constitute a personal data
-    breach (GDPR Art. 4(12)); notification under Art. 33 depends on the risk
-    assessment. These permissions may indicate a control gap relevant to the
-    access control expected by NIS2 Art. 21(2)(i).
+    data is personal, an exfiltration path through them could lead to a personal
+    data breach. These permissions may weaken the confidentiality of processing
+    expected by GDPR Art. 32(1)(b) and the access control expected by NIS2
+    Art. 21(2)(i).
   remediation: |
     Constrain read actions to specific resource ARNs, never "*":
       "Action": ["s3:GetObject"]
@@ -1125,7 +1119,7 @@ CKV_AWS_96:
         storage_encrypted = true
         kms_key_id        = aws_kms_key.rds.arn
       }
-  severity: CRITICAL
+  severity: HIGH
 
 CKV_AWS_5:
   check_name: "Ensure all data stored in the Elasticsearch is securely encrypted at rest"
@@ -1148,7 +1142,7 @@ CKV_AWS_5:
           enabled = true
         }
       }
-  severity: CRITICAL
+  severity: HIGH
 
 CKV_AWS_247:
   check_name: "Ensure all data stored in the Elasticsearch is encrypted with a CMK"
@@ -1192,7 +1186,7 @@ CKV_AWS_44:
       resource "aws_neptune_cluster" "main" {
         storage_encrypted = true
       }
-  severity: CRITICAL
+  severity: HIGH
 
 CKV_AWS_347:
   check_name: "Ensure Neptune is encrypted by KMS using a customer managed Key (CMK)"
@@ -1782,6 +1776,51 @@ CKV2_AWS_30:
       resource "aws_db_parameter_group" "main" {
         parameter { name = "log_connections"  value = "1" }
         parameter { name = "log_disconnections" value = "1" }
+      }
+  severity: MEDIUM
+
+CKV2_AWS_27:
+  check_name: "Ensure Postgres RDS as aws_rds_cluster has Query Logging enabled"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(b)"
+      title: "Incident handling"
+    - framework: GDPR
+      article: "Art. 32(1)(b)"
+      title: "Confidentiality, integrity, availability and resilience of processing systems"
+  risk: >
+    Without Postgres log capture (log_connections, log_disconnections, log_statement)
+    on the cluster there is no record of who touched personal data in the database,
+    weakening the incident detection and analysis NIS2 Art. 21(2)(b) requires and the
+    accountable processing security of GDPR Art. 32(1)(b).
+  remediation: |
+    Enable the logging parameters in the cluster's parameter group:
+      resource "aws_rds_cluster_parameter_group" "main" {
+        parameter { name = "log_connections"  value = "1" }
+        parameter { name = "log_disconnections" value = "1" }
+      }
+  severity: MEDIUM
+
+CKV2_AWS_34:
+  check_name: "AWS SSM Parameter should be Encrypted"
+  articles:
+    - framework: NIS2
+      article: "Art. 21(2)(h)"
+      title: "Policies and procedures on the use of cryptography and encryption"
+    - framework: GDPR
+      article: "Art. 32(1)(a)"
+      title: "Pseudonymisation and encryption of personal data"
+  risk: >
+    An SSM parameter of type String or StringList stores its value unencrypted, so
+    configuration values that may include credentials or personal data are readable
+    to anyone with read access. This may weaken the encryption policy expected by
+    NIS2 Art. 21(2)(h) and the encryption measure named in GDPR Art. 32(1)(a).
+  remediation: |
+    Store the value as a SecureString encrypted with a KMS key:
+      resource "aws_ssm_parameter" "secret" {
+        type   = "SecureString"
+        key_id = aws_kms_key.ssm.arn
+        value  = var.secret
       }
   severity: MEDIUM
 

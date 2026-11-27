@@ -24,7 +24,7 @@ Kubernetes check namespace:
 
 | File | Namespace |
 |------|-----------|
-| `registry-aws.yaml` | AWS (186 mappings — covers Terraform source *and* plan JSON, since the same `CKV_AWS_*` IDs fire in both modes) |
+| `registry-aws.yaml` | AWS (188 mappings — covers Terraform source *and* plan JSON, since the same `CKV_AWS_*` IDs fire in both modes) |
 | `registry-azure.yaml` | Azure (23 mappings) |
 | `registry-gcp.yaml` | GCP (22 mappings) |
 | `registry-kubernetes.yaml` | Kubernetes `CKV_K8S_*` (26 mappings) |

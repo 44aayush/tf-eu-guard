@@ -53,6 +53,11 @@ release point.
   empty file cannot pass a gate; a forged file with a positive count can still pass, since the gate is only
   as trustworthy as the file's producer. `--allow-partial` keeps the warning and ungated runs only warn
   (TEG-09). A file with no `EUGUARD_*` result only warns, since the custom checks are AWS-only.
+- Registry severity now follows one rubric: public exposure is CRITICAL and missing encryption at rest is HIGH.
+  `CKV_AWS_96` (Aurora), `CKV_AWS_5` (Elasticsearch) and `CKV_AWS_44` (Neptune) drop from CRITICAL to HIGH, so
+  `--fail-on-severity CRITICAL` no longer fails on them (`HIGH` still does). `CKV_AWS_288` no longer cites GDPR
+  Art. 4(12) and Art. 33 (a finding is a possible exfiltration path, not a breach). Checkov `CKV2_AWS_27`
+  (Postgres RDS cluster query logging) and `CKV2_AWS_34` (unencrypted SSM parameter) are now mapped (TEG-11).
 
 ### Fixed
 
