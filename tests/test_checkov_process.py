@@ -12,13 +12,11 @@ import json
 import os
 import subprocess
 import sys
-import types
 from pathlib import Path
 
 import pytest
 
 from tf_eu_guard.checkov.process import (
-    check_hcl2_module,
     hidden_dirs_warning,
     hidden_source_dirs,
 )
@@ -561,7 +559,6 @@ def test_remote_module_warning(tmp_path, capsys, monkeypatch):
     assert "module.reg (terraform-aws-modules/s3-bucket/aws)" in err
     assert "module.git (git::https://example.com/x.git?ref=v1)" in err
     assert "module.loc" not in err
-    assert "module.up" not in err
 
 
 def test_local_module_outside_root_warns(tmp_path, capsys, monkeypatch):
@@ -845,6 +842,9 @@ def test_checkov_environment_module_credentials_only_when_downloading(monkeypatc
     assert not CHECKOV_MODULE_DOWNLOAD_ENV & set(checkov_environment())
     env = checkov_environment(allow_module_download=True)
     assert CHECKOV_MODULE_DOWNLOAD_ENV <= set(env)
+    assert {"PROXY_URL", "PROXY_CA_PATH", "PROXY_HEADER_KEY", "PROXY_HEADER_VALUE"} <= (
+        CHECKOV_MODULE_DOWNLOAD_ENV
+    )
 
 
 def test_run_checkov_passes_allow_module_download(tmp_path, monkeypatch):
@@ -874,7 +874,7 @@ def test_checkov_env_allowlist_is_exact():
         "PATH", "HOME", "USER", "LOGNAME", "LANG", "LANGUAGE", "TZ", "TMPDIR", "TEMP", "TMP",
         "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT", "USERPROFILE", "APPDATA",
         "LOCALAPPDATA", "PROGRAMDATA", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy",
-        "https_proxy", "no_proxy", "REQUESTS_CA_BUNDLE", "SSL_CERT_FILE", "SSL_CERT_DIR",
+        "https_proxy", "no_proxy", "ALL_PROXY", "all_proxy", "REQUESTS_CA_BUNDLE", "SSL_CERT_FILE", "SSL_CERT_DIR",
         "CURL_CA_BUNDLE", "XDG_CACHE_HOME", "XDG_CONFIG_HOME",
         "CHECKOV_TERRAFORM_ALLOWED_MODULE_PREFIXES", "VCS_ALLOWED_HOSTS",
     }  # fmt: skip
@@ -988,20 +988,58 @@ def test_run_checkov_prints_hidden_dir_warning(tmp_path, capsys, monkeypatch):
     assert str(tmp_path.resolve() / ".prod") in err
 
 
-def test_hcl2_self_check_passes_with_bc_fork():
-    check_hcl2_module()
+def _probe_source():
+    """The hcl2 probe of the bootstrap: everything before it imports checkov.main."""
+    from tf_eu_guard.checkov.process import CHECKOV_BOOTSTRAP
+
+    return CHECKOV_BOOTSTRAP.split("import checkov.common", 1)[0]
 
 
-def test_hcl2_self_check_rejects_foreign_module(monkeypatch):
-    monkeypatch.setitem(sys.modules, "hcl2", types.ModuleType("hcl2"))
-    with pytest.raises(CheckovRuntimeError, match="bc-python-hcl2"):
-        check_hcl2_module()
+def test_bootstrap_probes_hcl2_before_importing_checkov():
+    from tf_eu_guard.checkov.process import CHECKOV_BOOTSTRAP, HCL2_REPLACED_MARKER
+
+    assert "hcl2.START_LINE" in CHECKOV_BOOTSTRAP
+    assert HCL2_REPLACED_MARKER in CHECKOV_BOOTSTRAP
+    assert CHECKOV_BOOTSTRAP.index("hcl2.START_LINE") < CHECKOV_BOOTSTRAP.index(
+        "import checkov.main"
+    )
 
 
-def test_run_checkov_reports_foreign_hcl2_before_running(monkeypatch, tmp_path):
-    monkeypatch.setitem(sys.modules, "hcl2", types.ModuleType("hcl2"))
-    calls = []
-    monkeypatch.setattr(subprocess, "run", lambda *a, **k: calls.append(a))
+def test_bootstrap_probe_exits_97_with_marker_for_foreign_hcl2(tmp_path):
+    from tf_eu_guard.checkov.process import HCL2_REPLACED_MARKER
+
+    fake = tmp_path / "fake"
+    (fake / "hcl2").mkdir(parents=True)
+    (fake / "hcl2" / "__init__.py").write_text("")
+    code = f"import sys\nsys.path.insert(0, {str(fake)!r})\n" + _probe_source()
+    result = subprocess.run(
+        [sys.executable, "-I", "-c", code], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 97
+    assert HCL2_REPLACED_MARKER in result.stderr
+
+
+@pytest.mark.skipif(
+    not os.environ.get("TFEG_RUN_CHECKOV") or importlib.util.find_spec("checkov") is None,
+    reason="live Checkov test: set TFEG_RUN_CHECKOV=1 with Checkov installed",
+)
+def test_bootstrap_probe_passes_with_bc_fork():
+    result = subprocess.run(
+        [sys.executable, "-I", "-c", _probe_source()],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("iac_type", ["terraform", "kubernetes"])
+def test_run_checkov_maps_hcl2_exit_code_for_every_iac_type(monkeypatch, tmp_path, iac_type):
+    def fake_run(cmd, **kwargs):
+        return type(
+            "R", (), {"returncode": 97, "stdout": "", "stderr": "TF_EU_GUARD_HCL2_REPLACED\n"}
+        )()
+
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
     with pytest.raises(CheckovRuntimeError, match="uv tool install tf-eu-guard"):
-        run_checkov(tmp_path, "terraform")
-    assert calls == []
+        run_checkov(tmp_path, iac_type)

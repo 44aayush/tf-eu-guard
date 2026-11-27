@@ -52,7 +52,7 @@ uv tool install tf-eu-guard
 
 Install it in its own environment (`uv tool install` or `pipx install`): a package that depends on
 python-hcl2, such as terraform-local, overwrites the `hcl2` module that Checkov's bc-python-hcl2 provides, and
-every Terraform scan then fails with exit 3 and a message naming the cause.
+every scan then fails with exit 3 and a message naming the cause.
 
 (Also available on PyPI: [tf-eu-guard](https://pypi.org/project/tf-eu-guard/); with pip, `pip install tf-eu-guard`.)
 

@@ -54,6 +54,8 @@ CHECKOV_ENV_ALLOWLIST = frozenset(
         "http_proxy",
         "https_proxy",
         "no_proxy",
+        "ALL_PROXY",
+        "all_proxy",
         "REQUESTS_CA_BUNDLE",
         "SSL_CERT_FILE",
         "SSL_CERT_DIR",
@@ -66,9 +68,14 @@ CHECKOV_ENV_ALLOWLIST = frozenset(
     }
 )
 
-# Credentials for Checkov's module loaders; kept only with --download-external-modules.
+# Credentials and proxy identity for Checkov's module loaders; kept only with
+# --download-external-modules. PROXY_HEADER_* is an identity credential.
 CHECKOV_MODULE_DOWNLOAD_ENV = frozenset(
     {
+        "PROXY_URL",
+        "PROXY_CA_PATH",
+        "PROXY_HEADER_KEY",
+        "PROXY_HEADER_VALUE",
         "TF_REGISTRY_TOKEN",
         "TFC_TOKEN",
         "TF_HOST_NAME",
@@ -92,8 +99,23 @@ def _env_allowed(name: str, allowed: frozenset[str]) -> bool:
     return name in allowed or name.startswith("LC_")
 
 
+# Exit status of the bootstrap when the installed hcl2 is not Checkov's fork.
+HCL2_REPLACED_EXIT_CODE = 97
+HCL2_REPLACED_MARKER = "TF_EU_GUARD_HCL2_REPLACED"
+
 CHECKOV_BOOTSTRAP = """
 import sys
+
+# Another package (often python-hcl2) can overwrite Checkov's bc-python-hcl2
+# fork; checkov.main imports every runner, so every scan would die with a raw
+# ImportError. The fork exports START_LINE; the original does not.
+try:
+    import hcl2
+
+    hcl2.START_LINE
+except (ImportError, AttributeError):
+    sys.stderr.write("TF_EU_GUARD_HCL2_REPLACED\\n")
+    sys.exit(97)
 
 import checkov.common.util.config_utils as config_utils
 import checkov.main as checkov_main
@@ -476,25 +498,10 @@ def remote_modules_warning(modules: Sequence[ModuleCall], limit: int = 10) -> st
 
 HCL2_REPLACED_MESSAGE = (
     "the installed 'hcl2' module is not Checkov's bc-python-hcl2 (another package, "
-    "often python-hcl2, replaced it), so Checkov cannot parse Terraform. Install "
+    "often python-hcl2, replaced it), so Checkov cannot run. Install "
     "tf-eu-guard in its own environment: uv tool install tf-eu-guard "
     "(or pipx install tf-eu-guard)."
 )
-
-
-def check_hcl2_module() -> None:
-    """Raise :class:`CheckovRuntimeError` when ``hcl2`` is not Checkov's bc-python-hcl2 fork.
-
-    Installing another package that depends on python-hcl2 into the same
-    environment overwrites the module, and every Checkov run then dies with an
-    ImportError. The fork exports ``START_LINE``; the original does not.
-    """
-    try:
-        import hcl2
-    except ImportError as exc:
-        raise CheckovRuntimeError(HCL2_REPLACED_MESSAGE) from exc
-    if not hasattr(hcl2, "START_LINE"):
-        raise CheckovRuntimeError(HCL2_REPLACED_MESSAGE)
 
 
 def run_checkov(
@@ -534,8 +541,6 @@ def run_checkov(
         raise ValueError(
             f"Unsupported iac_type '{iac_type}' — expected one of {', '.join(SUPPORTED_IAC_TYPES)}"
         )
-    if iac_type in ("terraform", "terraform_plan"):
-        check_hcl2_module()
     target = Path(target).resolve()
     if not target.exists():
         raise FileNotFoundError(f"Scan target does not exist: {target}")
@@ -606,6 +611,8 @@ def run_checkov(
             "--timeout SECONDS (0 disables it)."
         ) from exc
 
+    if result.returncode == HCL2_REPLACED_EXIT_CODE:
+        raise CheckovRuntimeError(HCL2_REPLACED_MESSAGE)
     if result.returncode not in (0, 1):
         raise CheckovRuntimeError(
             f"Checkov exited with status {result.returncode}. "
