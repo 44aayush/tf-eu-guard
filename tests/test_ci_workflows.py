@@ -135,13 +135,63 @@ def test_image_job_publishes_with_provenance_and_minimal_permissions():
     }
     uses = [step.get("uses", "") for step in job["steps"]]
     build = next(
-        s for s in job["steps"] if s.get("uses", "").startswith("docker/build-push-action")
+        s
+        for s in job["steps"]
+        if s.get("uses", "").startswith("docker/build-push-action") and s["with"]["push"] is True
     )
-    assert build["with"]["push"] is True
     assert build["with"]["sbom"] is True
     assert str(build["with"]["provenance"]).startswith("mode=")
     assert any(u.startswith("actions/attest-build-provenance@") for u in uses)
     assert "ghcr.io" in _load(WORKFLOWS / "publish.yml")["jobs"]["image"]["env"]["REGISTRY"]
+
+
+def _publish_image_steps() -> list[dict]:
+    return _load(WORKFLOWS / "publish.yml")["jobs"]["image"]["steps"]
+
+
+def _is_build_push(step: dict) -> bool:
+    return step.get("uses", "").startswith("docker/build-push-action@")
+
+
+def _trivy_scan_index(steps: list[dict]) -> int:
+    return next(i for i, s in enumerate(steps) if re.search(r"trivy\"? image", s.get("run", "")))
+
+
+def test_publish_image_is_scanned_before_push():
+    steps = _publish_image_steps()
+    scan_at = _trivy_scan_index(steps)
+    run = steps[scan_at]["run"]
+    for flag in (
+        "--exit-code 1",
+        "--severity HIGH,CRITICAL",
+        "--ignore-unfixed",
+        "--ignorefile .trivyignore.yaml",
+    ):
+        assert flag in run
+    push_at = next(
+        i for i, s in enumerate(steps) if _is_build_push(s) and s["with"]["push"] is True
+    )
+    assert scan_at < push_at
+
+
+def test_publish_trivy_pin_matches_ci():
+    ci_steps = _ci_jobs()["image-scan"]["steps"]
+    ci_install = next(s for s in ci_steps if "TRIVY_VERSION" in s.get("env", {}))
+    install = next(s for s in _publish_image_steps() if "TRIVY_VERSION" in s.get("env", {}))
+    assert install["env"]["TRIVY_VERSION"] == ci_install["env"]["TRIVY_VERSION"]
+    assert install["env"]["TRIVY_SHA256"] == ci_install["env"]["TRIVY_SHA256"]
+    assert "sha256sum --check --strict" in install["run"]
+
+
+def test_publish_scan_build_does_not_push():
+    steps = _publish_image_steps()
+    scan_at = _trivy_scan_index(steps)
+    scan_run = steps[scan_at]["run"]
+    local = [s for s in steps[:scan_at] if _is_build_push(s)]
+    assert len(local) == 1
+    assert local[0]["with"]["push"] is False
+    assert local[0]["with"]["load"] is True
+    assert local[0]["with"]["tags"].strip() in scan_run
 
 
 def test_dependabot_covers_docker_base_image():
@@ -580,7 +630,7 @@ def test_image_final_stage_has_oci_labels_linking_the_repository():
 
 def test_image_build_step_sets_version_and_revision_labels():
     steps = _load(WORKFLOWS / "publish.yml")["jobs"]["image"]["steps"]
-    build = next(s for s in steps if s.get("uses", "").startswith("docker/build-push-action@"))
+    build = next(s for s in steps if _is_build_push(s) and s["with"]["push"] is True)
     labels = build["with"]["labels"].splitlines()
     assert "org.opencontainers.image.version=${{ github.ref_name }}" in labels
     assert "org.opencontainers.image.revision=${{ github.sha }}" in labels

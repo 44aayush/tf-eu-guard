@@ -61,6 +61,8 @@ release point.
 
 ### Changed
 
+- The release workflow builds the image locally and scans it with the pinned trivy (fixable HIGH and CRITICAL,
+  `.trivyignore.yaml`) before pushing to GHCR; a finding fails the job and blocks the push.
 - JSON object schema v3 (`schema_version: "3"`): adds `provenance.commit_source`. The v2 schema closed
   `provenance`, so a v0.9 validator rejects the new key; consumers that check `schema_version` must accept
   "3". `--baseline` and `diff` still read "1", "2" and "3" reports.

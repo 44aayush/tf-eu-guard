@@ -188,6 +188,31 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # The release image is built locally and scanned first; a fixable HIGH or
+      # CRITICAL finding fails the job here, which blocks the push below.
+      - name: Build the image for scanning (not pushed)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: false
+          load: true
+          tags: tf-eu-guard:release-scan
+      - name: Install trivy (pinned release, sha256-verified)
+        # Same trust model as actionlint above: update the version and the
+        # checksum together from the release's checksums file.
+        env:
+          TRIVY_VERSION: "0.76.2"
+          TRIVY_SHA256: "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf"
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/trivy.tar.gz"
+          curl -fsSL --retry 3 -o "$archive" \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  ${archive}" | sha256sum --check --strict
+          tar -xzf "$archive" -C "$RUNNER_TEMP" trivy
+      - name: Scan the image for fixable HIGH and CRITICAL vulnerabilities
+        run: |
+          "$RUNNER_TEMP/trivy" image --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL --ignorefile .trivyignore.yaml tf-eu-guard:release-scan
       - name: Build and push image
         id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
