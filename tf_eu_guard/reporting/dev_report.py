@@ -86,7 +86,8 @@ def generate_dev_report(
         unmapped: Raw unmapped Checkov dicts; when given, listed in full
             (``--show-unmapped``)
     """
-    console = Console()
+    # soft_wrap: never let Rich re-wrap a line, which could move text to column 0
+    console = Console(soft_wrap=True)
 
     def print_unmapped() -> None:
         for cid, name, res, path, lines in unmapped_rows(unmapped or []):

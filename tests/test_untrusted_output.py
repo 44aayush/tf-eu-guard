@@ -44,6 +44,21 @@ def _render(**kwargs) -> str:
     return buf.getvalue()
 
 
+def _render_default_width(monkeypatch, **kwargs) -> str:
+    """Render through the console dev_report builds itself, at the default 80 columns."""
+    monkeypatch.delenv("COLUMNS", raising=False)
+    buf = StringIO()
+    real = Console
+
+    def factory(**kw):
+        return real(file=buf, force_terminal=False, **kw)
+
+    with patch.object(mod, "Console", side_effect=factory):
+        with contextlib.redirect_stdout(StringIO()):
+            generate_dev_report(**kwargs)
+    return buf.getvalue()
+
+
 def _assert_neutral(out: str) -> None:
     assert not any(line.lstrip().startswith("::") for line in out.splitlines())
     assert "\x1b]8" not in out
@@ -82,3 +97,27 @@ def test_waiver_and_weakening_lines_are_sanitised(capsys):
         expires=datetime.date(2099, 1, 1),
     )
     _assert_neutral(_render(findings=[], waived=[waived]))
+
+
+WRAP_PAYLOAD = "accepted risk " + "b" * 50 + " ::error title=Forged::waiver"
+
+
+def test_word_wrap_cannot_start_a_line_with_annotation_in_waiver_reason(monkeypatch):
+    waived = _finding()
+    waived.waiver = Waiver(
+        check_id="CKV_AWS_18",
+        resource="aws_s3_bucket.data",
+        reason=WRAP_PAYLOAD,
+        owner="o",
+        expires=datetime.date(2099, 1, 1),
+    )
+    out = _render_default_width(monkeypatch, findings=[], waived=[waived])
+    assert "::error title=Forged::waiver" in out
+    _assert_neutral(out)
+
+
+def test_word_wrap_cannot_start_a_line_with_annotation_in_suppression_reason(monkeypatch):
+    suppressed = _finding(suppressed=True, suppression_reason=WRAP_PAYLOAD)
+    out = _render_default_width(monkeypatch, findings=[], suppressed=[suppressed])
+    assert "::error title=Forged::waiver" in out
+    _assert_neutral(out)
