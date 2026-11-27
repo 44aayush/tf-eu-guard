@@ -36,7 +36,10 @@ _VOLATILE = re.compile(
     r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"  # ISO timestamps
     r"|\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC"  # report-header timestamps
     r"|\b[0-9a-f]{32}\b"  # uuid4 hex
-    r"|\b[0-9a-f]{64}\b"  # registry SHA-256 (changes with every registry edit)
+    # Registry SHA-256 (changes with every registry edit). Anchored on its keys: SARIF
+    # partialFingerprints are 64-hex too, are deterministic, and must stay in the goldens.
+    r'|(?<="registry_sha256": ")[0-9a-f]{64}'
+    r"|(?<=Registry SHA-256</th><td><code>)[0-9a-f]{64}"
 )
 
 
@@ -79,6 +82,8 @@ def test_reports_are_byte_identical(monkeypatch, tmp_path, name, extension, outp
     ("name", "extension", "output"), STDOUT_CASES, ids=[c[0] for c in STDOUT_CASES]
 )
 def test_stdout_reports_are_byte_identical(monkeypatch, tmp_path, capsys, name, extension, output):
+    for variable in ("FORCE_COLOR", "TTY_COMPATIBLE", "TTY_INTERACTIVE"):
+        monkeypatch.delenv(variable, raising=False)
     shutil.copy(REPO_ROOT / FIXTURE, tmp_path / "scan.json")
     rc = run_cli(
         monkeypatch,

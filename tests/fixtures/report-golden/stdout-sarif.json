@@ -31,7 +31,7 @@
             "text": "Long-lived IAM users bypass centralized identity management and SSO, making it difficult to enforce MFA, audit access centrally, and revoke credentials quickly during an incident. NIS2 Art. 21(2)(i) requires effective access control policies.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "2768616cb3bf20a52c34226cc9a566f171e2824841567ef10134dff867047ab1"
           },
           "properties": {
             "articles": [
@@ -65,7 +65,7 @@
             "text": "A policy granting full iam:* lets its holder create users, roles, and policies \u2014 including new admin access \u2014 so privilege escalation is one API call away. This weakens the access control NIS2 Art. 21(2)(i) requires and endangers all personal data under GDPR Art. 32(1)(b).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "29f81b24a79c4e7871a42530b1d70bb10fb0d45a67624d918c8124b6364b8ae5"
           },
           "properties": {
             "articles": [
@@ -100,7 +100,7 @@
             "text": "Actions such as iam:PassRole, iam:AttachUserPolicy, or iam:PutUserPolicy allow a low-privileged principal to grant itself higher privileges, collapsing access control (NIS2 Art. 21(2)(i)) and putting the confidentiality of all data at risk.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "7c020ac7db0487894d49ceada7898a1c045e50527aa0f08c0e573456b117427c"
           },
           "properties": {
             "articles": [
@@ -135,7 +135,7 @@
             "text": "Policies that permit credential-generation actions (sts:GetFederationToken, iam:CreateAccessKey, ec2:GetPasswordData, etc.) let an attacker mint new credentials and pivot, undermining the confidentiality controls GDPR Art. 32(1)(b) requires and the access control NIS2 Art. 21(2)(i) mandates.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "e1be38459e6c8744ca6f77b2bbc3c06a5a0cadd6c8ec10ce2c516eb35a8dba04"
           },
           "properties": {
             "articles": [
@@ -170,7 +170,7 @@
             "text": "Broad read actions on all resources (s3:GetObject, secretsmanager:GetSecretValue, rds:DownloadDBLogFilePortion on \"*\") enable bulk exfiltration of data \u2014 if that data is personal, an exfiltration path through them could lead to a personal data breach. These permissions may weaken the confidentiality of processing expected by GDPR Art. 32(1)(b) and the access control expected by NIS2 Art. 21(2)(i).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "ef4333f07e288cbe7ebdc6aa48c3a5c01f3bc10735bb2c05a8e4a698ba1f541a"
           },
           "properties": {
             "articles": [
@@ -205,7 +205,7 @@
             "text": "Permissions-management actions (iam:PutUserPolicy, iam:AttachUserPolicy, s3:PutBucketPolicy, etc.) on unconstrained resources let a principal rewrite who can access what, collapsing access control (NIS2 Art. 21(2)(i)) and putting the confidentiality of all data at risk (GDPR Art. 32(1)(b)).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "f4e895b148c95362f1a3a6211498ebd5f73c997cebe9262c6224337a72a285d9"
           },
           "properties": {
             "articles": [
@@ -240,7 +240,7 @@
             "text": "Write actions (Create/Put/Update/Delete) allowed on Resource \"*\" let a principal modify or destroy any resource in the account, threatening the integrity and availability of personal data (GDPR Art. 32(1)(b)) and breaking the least-privilege access control of NIS2 Art. 21(2)(i).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "8e016e495851c43f97109d9f6313570c2f48de3b5b1c988fa096fc4e732c4aa2"
           },
           "properties": {
             "articles": [
@@ -275,7 +275,7 @@
             "text": "Using Resource \"*\" for actions that support resource-level scoping lets the policy reach every object in the account, not just those the workload owns. This over-broad reach undermines the access segregation NIS2 Art. 21(2)(i) expects and the data confidentiality GDPR Art. 32(1)(b) requires.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "33f1fb9dd638d70b0015068d16bf02bc5e9267da9bcd7862e5640510e2330401"
           },
           "properties": {
             "articles": [
@@ -310,7 +310,7 @@
             "text": "Attaching policies directly to individual IAM users makes entitlements hard to review and revoke at scale, weakening the asset- and access-management discipline NIS2 Art. 21(2)(i) expects. Group/role attachment keeps privileges auditable.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "6420992308fd96726e52a340874bc5350c407ed711abdc12d7b0818e2ad004b8"
           },
           "properties": {
             "articles": [
@@ -344,7 +344,7 @@
             "text": "A policy granting Action \"*\" on Resource \"*\" is unrestricted administrative access. It can weaken least privilege and access segregation, and gives any holder the ability to read, alter, or destroy all data - which may weaken both NIS2 Art. 21(2)(i) and the confidentiality/integrity goals of GDPR Art. 32(1)(b).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "17ca58e0bb20b8af872ee2006f437cfdb5ae93d4554d1725ffc70dca97286c12"
           },
           "properties": {
             "articles": [
@@ -379,7 +379,7 @@
             "text": "A statement with Action \"*\" grants every API action the principal can hold. Even when the resource is scoped, an unrestricted action set weakens least privilege and lets a compromised identity read or alter any reachable data - which may weaken the access control of NIS2 Art. 21(2)(i) and the confidentiality goal of GDPR Art. 32(1)(b).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "92b94c0431fc1cabb9d007e75f202ff0a6817883c87c1f71e3bb985ad9b66cd3"
           },
           "properties": {
             "articles": [
@@ -414,7 +414,7 @@
             "text": "A policy granting full iam:* lets its holder create users, roles, and policies \u2014 including new admin access \u2014 so privilege escalation is one API call away. This weakens the access control NIS2 Art. 21(2)(i) requires and endangers all personal data under GDPR Art. 32(1)(b).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "cb8a9b5169acdb0c2c77631eaf111baf9b0d3994f7e1326401e32660f6827323"
           },
           "properties": {
             "articles": [
@@ -449,7 +449,7 @@
             "text": "Actions such as iam:PassRole, iam:AttachUserPolicy, or iam:PutUserPolicy allow a low-privileged principal to grant itself higher privileges, collapsing access control (NIS2 Art. 21(2)(i)) and putting the confidentiality of all data at risk.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "c2a0fca6eb419770df9284849c717795d351bfd1ef142b9d49a19410128bc810"
           },
           "properties": {
             "articles": [
@@ -484,7 +484,7 @@
             "text": "Policies that permit credential-generation actions (sts:GetFederationToken, iam:CreateAccessKey, ec2:GetPasswordData, etc.) let an attacker mint new credentials and pivot, undermining the confidentiality controls GDPR Art. 32(1)(b) requires and the access control NIS2 Art. 21(2)(i) mandates.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "c3480f260929d93e010ba43297c50e2c99232fc0be3e586aa797495f68e71abd"
           },
           "properties": {
             "articles": [
@@ -519,7 +519,7 @@
             "text": "Permissions-management actions (iam:PutUserPolicy, iam:AttachUserPolicy, s3:PutBucketPolicy, etc.) on unconstrained resources let a principal rewrite who can access what, collapsing access control (NIS2 Art. 21(2)(i)) and putting the confidentiality of all data at risk (GDPR Art. 32(1)(b)).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "e5f96597791534489f409df041354abb15d988150b6746f33df183d388dc0ef0"
           },
           "properties": {
             "articles": [
@@ -554,7 +554,7 @@
             "text": "Using Resource \"*\" for actions that support resource-level scoping lets the policy reach every object in the account, not just those the workload owns. This over-broad reach undermines the access segregation NIS2 Art. 21(2)(i) expects and the data confidentiality GDPR Art. 32(1)(b) requires.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "bf006623728a041d43be8d6bba74956d5fb29a677ef8aeb771ecd7a412e66024"
           },
           "properties": {
             "articles": [
@@ -589,7 +589,7 @@
             "text": "Attaching policies directly to individual IAM users makes entitlements hard to review and revoke at scale, weakening the asset- and access-management discipline NIS2 Art. 21(2)(i) expects. Group/role attachment keeps privileges auditable.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "d18230dd1965bf35ed76c249d1f9b9bd6476bca1c2018a79bd18eb6bd15f6197"
           },
           "properties": {
             "articles": [
@@ -623,7 +623,7 @@
             "text": "Long-lived IAM users bypass centralized identity management and SSO, making it difficult to enforce MFA, audit access centrally, and revoke credentials quickly during an incident. NIS2 Art. 21(2)(i) requires effective access control policies.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "b8c54fa0e62d60f568818414d21af78238419c200fb575bfef621a56492b7066"
           },
           "properties": {
             "articles": [
@@ -657,7 +657,7 @@
             "text": "Broad read actions on all resources (s3:GetObject, secretsmanager:GetSecretValue, rds:DownloadDBLogFilePortion on \"*\") enable bulk exfiltration of data \u2014 if that data is personal, an exfiltration path through them could lead to a personal data breach. These permissions may weaken the confidentiality of processing expected by GDPR Art. 32(1)(b) and the access control expected by NIS2 Art. 21(2)(i).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "f5641bc8746a21b4aa49aceb645fc575d4bb8059e8bd7ed40d1698e8171911b6"
           },
           "properties": {
             "articles": [
@@ -692,7 +692,7 @@
             "text": "Permissions-management actions (iam:PutUserPolicy, iam:AttachUserPolicy, s3:PutBucketPolicy, etc.) on unconstrained resources let a principal rewrite who can access what, collapsing access control (NIS2 Art. 21(2)(i)) and putting the confidentiality of all data at risk (GDPR Art. 32(1)(b)).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "e91840b20acfb755087254d28bc33dc358b031b892ec9681e97dbabd0a953cff"
           },
           "properties": {
             "articles": [
@@ -727,7 +727,7 @@
             "text": "Write actions (Create/Put/Update/Delete) allowed on Resource \"*\" let a principal modify or destroy any resource in the account, threatening the integrity and availability of personal data (GDPR Art. 32(1)(b)) and breaking the least-privilege access control of NIS2 Art. 21(2)(i).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "ed75ef7072997141536b780a8f233036d9814aed180adf664821bc5d137a8dd0"
           },
           "properties": {
             "articles": [
@@ -762,7 +762,7 @@
             "text": "Using Resource \"*\" for actions that support resource-level scoping lets the policy reach every object in the account, not just those the workload owns. This over-broad reach undermines the access segregation NIS2 Art. 21(2)(i) expects and the data confidentiality GDPR Art. 32(1)(b) requires.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "61b2d371d20ad72ed423a9d728efbd8801a289cb47d9187a6f72947b2bd846fc"
           },
           "properties": {
             "articles": [
@@ -797,7 +797,7 @@
             "text": "Attaching policies directly to individual IAM users makes entitlements hard to review and revoke at scale, weakening the asset- and access-management discipline NIS2 Art. 21(2)(i) expects. Group/role attachment keeps privileges auditable.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "611016d19ed3ed8be526ad769db3ec097d7125d015bdfb28fd195f9e029ceeb9"
           },
           "properties": {
             "articles": [
@@ -831,7 +831,7 @@
             "text": "Without VPC flow logs there is no network-level record of accepted/rejected connections, so lateral movement and exfiltration attempts cannot be detected or reconstructed. NIS2 Art. 21(2)(b) requires detection and analysis of incidents.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "c70efb9e2051c18f2cc2bc15cf1b0c9f6e7a0ba7bd4462d512243ff67f931713"
           },
           "properties": {
             "articles": [
@@ -865,7 +865,7 @@
             "text": "An unmanaged default security group can implicitly allow traffic between any resources that fall back to it, bypassing intended segmentation. NIS2 Art. 21(2)(i) expects deliberate, least-privilege network access control.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "a2ffa37dc0081041ee25d16163d2b96f30ec6137aae0326d18d88c5b18107d99"
           },
           "properties": {
             "articles": [
@@ -899,7 +899,7 @@
             "text": "Orphaned security groups accumulate stale rules that later get attached \"because they were there\", importing unintended access into live environments \u2014 an unmanaged asset under the access control and asset management of NIS2 Art. 21(2)(i).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "36da7c72b9e30f2a6dc0bbb9e12c249d9898d4a4af38fd15b9df3c70986153b3"
           },
           "properties": {
             "articles": [
@@ -933,7 +933,7 @@
             "text": "Undocumented rules cannot be reviewed: nobody can tell which rule is a deliberate control and which is leftover access. Descriptions are what make rule review \u2014 and therefore accountable access control under NIS2 Art. 21(2)(i) \u2014 possible.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "a8bbdeba936844c121ced5a83cfa62f4a9c189f1053fc573621f8540af5e502e"
           },
           "properties": {
             "articles": [
@@ -967,7 +967,7 @@
             "text": "SSH (port 22) open to 0.0.0.0/0 exposes administrative shell access to the entire internet, inviting brute-force and exploitation of any host that may process personal data. This may weaken the network access-control measures relevant to NIS2 Art. 21(2)(i) and the confidentiality safeguards expected by GDPR Art. 32(1)(b).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "811e164c019c1015bfa584e9daad5de264cec121491cf54831a596883dee03e7"
           },
           "properties": {
             "articles": [
@@ -1002,7 +1002,7 @@
             "text": "Plain-HTTP (port 80) open to the world serves traffic unencrypted and widens the attack surface. Where it fronts systems processing personal data it weakens the network access control expected by NIS2 Art. 21(2)(i); traffic should terminate TLS at a load balancer instead.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "c340292ebb8a65f70343eccf9b9515ec7942e8162f9d16ae687f453a3e2d221d"
           },
           "properties": {
             "articles": [
@@ -1036,7 +1036,7 @@
             "text": "Unrestricted egress (all ports/protocols to 0.0.0.0/0) gives a compromised host a clear path to exfiltrate data or reach command-and-control infrastructure. Egress filtering is part of the network segmentation and access control under NIS2 Art. 21(2)(i).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "6d11b0ec2a10722c3bd1d0b26cee71bb2b28c65f42e95191877c5aa199597122"
           },
           "properties": {
             "articles": [
@@ -1070,7 +1070,7 @@
             "text": "Orphaned security groups accumulate stale rules that later get attached \"because they were there\", importing unintended access into live environments \u2014 an unmanaged asset under the access control and asset management of NIS2 Art. 21(2)(i).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "8dedf7d70a8332dd6fd6cdca17902bb92c70951be0e365b5578bc09ae8949389"
           },
           "properties": {
             "articles": [
@@ -1104,7 +1104,7 @@
             "text": "SSH (port 22) open to 0.0.0.0/0 exposes administrative shell access to the entire internet, inviting brute-force and exploitation of any host that may process personal data. This may weaken the network access-control measures relevant to NIS2 Art. 21(2)(i) and the confidentiality safeguards expected by GDPR Art. 32(1)(b).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "0495d472d857b057ecf6c9cc27a9e9fdfb0b03c050324f67150e7e820b5b0abe"
           },
           "properties": {
             "articles": [
@@ -1139,7 +1139,7 @@
             "text": "RDP (port 3389) open to 0.0.0.0/0 exposes remote desktop to the internet, a heavily targeted vector for credential attacks and ransomware. It breaks the network access control of NIS2 Art. 21(2)(i) and the confidentiality control of GDPR Art. 32(1)(b).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "b393d5276cc1059ed0d922706f5a0aecccbc33120207dedc13557b1bc9419ac0"
           },
           "properties": {
             "articles": [
@@ -1174,7 +1174,7 @@
             "text": "Plain-HTTP (port 80) open to the world serves traffic unencrypted and widens the attack surface. Where it fronts systems processing personal data it weakens the network access control expected by NIS2 Art. 21(2)(i); traffic should terminate TLS at a load balancer instead.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "06633dcc3f7da36299e4da6f243bb627098625aca928f381aa4cbef8108222c8"
           },
           "properties": {
             "articles": [
@@ -1208,7 +1208,7 @@
             "text": "RDP (port 3389) open to 0.0.0.0/0 exposes remote desktop to the internet, a heavily targeted vector for credential attacks and ransomware. It breaks the network access control of NIS2 Art. 21(2)(i) and the confidentiality control of GDPR Art. 32(1)(b).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "0f1edea3a99d4c769063be1ad46e9bc8fded8ddd3cb6b5ff32bdff9c34b0550b"
           },
           "properties": {
             "articles": [
@@ -1243,7 +1243,7 @@
             "text": "Snapshots without the instance's tags cannot be found by restore runbooks or retention policies, so recovery depends on tribal knowledge. Tag propagation is part of accountable backup management under NIS2 Art. 21(2)(c).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "b15c7f2bf109bdf4861cd03fb9f390538d308a38c6a3454909d66760a6be9a78"
           },
           "properties": {
             "articles": [
@@ -1277,7 +1277,7 @@
             "text": "Without enhanced monitoring, OS-level metrics (CPU, memory, process and I/O activity) are unavailable, so resource-exhaustion attacks or anomalous database host behaviour cannot be detected or investigated - which may weaken the incident detection and handling required by NIS2 Art. 21(2)(b).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "0d1c1adc3d854f66eaa6d28154b74c3412e4df02db92a5983d1e94d313b6b178"
           },
           "properties": {
             "articles": [
@@ -1311,7 +1311,7 @@
             "text": "Without database engine logs exported to CloudWatch, suspicious queries and authentication failures leave no trail, so a data-access incident cannot be detected or investigated - which may weaken NIS2 Art. 21(2)(b).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "9aa2be09d3732b92c8570ccf7d4b95333ef7509a0a2cbad36a18d6a2d27dfa8c"
           },
           "properties": {
             "articles": [
@@ -1345,7 +1345,7 @@
             "text": "A zero-day backup retention means no point-in-time recovery: hardware failure, corruption, or ransomware results in permanent data loss. Both NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c) require the ability to restore availability of data.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "69aa7112339a3ebd47f09e7dea7e38a1b7ac22fc97d741c21e9804cbd9372afd"
           },
           "properties": {
             "articles": [
@@ -1380,7 +1380,7 @@
             "text": "A single-AZ database has no standby: an availability-zone failure takes the data offline until manual recovery. Multi-AZ provides automatic failover, supporting the availability obligation of GDPR Art. 32(1)(c) and business continuity under NIS2 Art. 21(2)(c).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "365daf696b632fa0e915b65cc50a55cf918c0dea5be5a5f6ec308798625d5cf8"
           },
           "properties": {
             "articles": [
@@ -1415,7 +1415,7 @@
             "text": "An unencrypted RDS instance leaves personal data readable on the underlying storage and in snapshots. GDPR Art. 32(1)(a) names encryption explicitly and NIS2 Art. 21(2)(h) requires cryptography controls for data at rest.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "bbe636af95fcd4dde356867ce9b99460d13947ee93fa168e0d072030877bf8b2"
           },
           "properties": {
             "articles": [
@@ -1450,7 +1450,7 @@
             "text": "Relying only on static database passwords means no centralized revocation or rotation and passwords that are easily shared or leaked. IAM database authentication ties DB access to IAM identities, strengthening the access control of NIS2 Art. 21(2)(i) and the confidentiality control of GDPR Art. 32(1)(b).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "94c377a334d926342afa80946c34ac0f2f8ae06e9ce7c80f6a0ec2496f0ca94d"
           },
           "properties": {
             "articles": [
@@ -1485,7 +1485,7 @@
             "text": "A publicly accessible database is reachable from the internet, exposing personal data to credential-stuffing and exploitation. This may weaken the confidentiality safeguards expected by GDPR Art. 32(1)(b) and the access control measures relevant to NIS2 Art. 21(2)(i).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "8d1cb40cccf4fb830f37062d137b51903cc83a7032e36f0e50a908b1c39a5052"
           },
           "properties": {
             "articles": [
@@ -1520,7 +1520,7 @@
             "text": "Postponing minor engine patches leaves known database vulnerabilities in place \u2014 often for months. Automatic minor upgrades implement the ongoing maintenance and vulnerability handling NIS2 Art. 21(2)(e) requires of systems in production.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "fb8a01433a3f2cc4015a8355020e1197f02f189a12c8b5ed17acadaa0f879d8d"
           },
           "properties": {
             "articles": [
@@ -1554,7 +1554,7 @@
             "text": "Without deletion protection, a mistaken or malicious destroy removes the database and its data with no confirmation barrier, threatening the availability that both NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c) require.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "d72943538fa33f0204a4c5e0b157e8f346ff15a4d8b8020dffd7970deb7eb32b"
           },
           "properties": {
             "articles": [
@@ -1589,7 +1589,7 @@
             "text": "A bucket with no aws_s3_bucket_public_access_block has no safety net against accidental public exposure via ACLs or bucket policy - a standing confidentiality risk for any personal data under GDPR Art. 32(1)(b).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "adb4a427fbfde2e94d4c04d2409e9fc4d3e36ec70c1e176718841453ce7ede10"
           },
           "properties": {
             "articles": [
@@ -1623,7 +1623,7 @@
             "text": "Without lifecycle rules, log and backup objects accumulate indefinitely or are manually purged ad hoc, so retention for data protection and continuity purposes is unmanaged. Lifecycle configuration is the disciplined data lifecycle NIS2 Art. 21(2)(c) backup management expects.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "f2a6bf8079293fd2fb57bffbff8b628ff8027207020ac7d69b72502813088f55"
           },
           "properties": {
             "articles": [
@@ -1657,7 +1657,7 @@
             "text": "Without event notifications, writes to a bucket holding personal data raise no signal \u2014 unexpected mass downloads or deletions go unnoticed instead of feeding the detection capability NIS2 Art. 21(2)(b) requires.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "c076bae87181d7f2b9a2c626c8e5c2de48103ee01eec533a75c7943e3c991b71"
           },
           "properties": {
             "articles": [
@@ -1691,7 +1691,7 @@
             "text": "A bucket replicated only in one region is lost with that region. Cross-region replication is the mechanism that keeps personal data available and restorable after a regional outage, relevant to NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "e406288d9362d8cf4a9ba4dc44f7fed472e00a30bc06d0c0114af5efde818d7c"
           },
           "properties": {
             "articles": [
@@ -1726,7 +1726,7 @@
             "text": "New objects in a bucket without default SSE-KMS are already encrypted at rest with S3-managed keys (SSE-S3). A KMS key adds key-policy, rotation and access-grant control over that data, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for buckets that hold personal data.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "f3c97036a923d9e11f65c4ce21c08b0ad30f08b3e861a0865b3d8433592e1a68"
           },
           "properties": {
             "articles": [
@@ -1761,7 +1761,7 @@
             "text": "Without S3 server access logging there is no record of who read or wrote objects, so a data-access incident cannot be detected, scoped, or investigated. NIS2 Art. 21(2)(b) requires the ability to handle and analyse incidents.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "f84401be8fe61db5f78f448ac278dd04686a1c04e96898f2331b25faf54e134a"
           },
           "properties": {
             "articles": [
@@ -1795,7 +1795,7 @@
             "text": "A public-READ ACL exposes every object in the bucket to anonymous internet users. If the bucket holds personal data this may weaken the confidentiality safeguards expected by GDPR Art. 32(1)(b) and the access-control measures relevant to NIS2 Art. 21(2)(i).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "202235d8fd903d8fe8abfde93b1669b7be294f896a2f269bf539ce359b91ddbe"
           },
           "properties": {
             "articles": [
@@ -1830,7 +1830,7 @@
             "text": "Without versioning, an accidental or malicious overwrite/delete is unrecoverable. Versioning provides point-in-time restore, supporting the recovery obligation in GDPR Art. 32(1)(c) and business continuity under NIS2 Art. 21(2)(c).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "8556894ec1f3cec2aae6a92bfdee30a5d9fe47614c1d029b723bfc8b184b863c"
           },
           "properties": {
             "articles": [
@@ -1865,7 +1865,7 @@
             "text": "Without a bucket policy denying aws:SecureTransport = false, clients may read and write objects over plain HTTP, exposing personal data on the wire. NIS2 Art. 21(2)(h) expects cryptographic transport policies and GDPR Art. 32(1)(a) expects encryption of personal data in transit.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "eb58add57ee3afad0cbe028f795defa600f7b9f0cea95ebeac066c31c9ca634f"
           },
           "properties": {
             "articles": [
@@ -1900,7 +1900,7 @@
             "text": "With block_public_acls disabled, a future ACL change can silently make objects public, weakening the confidentiality control GDPR Art. 32(1)(b) requires. The public access block is the account-level guardrail that prevents that drift.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "d61be9ae9049612bdfc1dea7272d74300f8d690f738cea0f77e2fabea92567d3"
           },
           "properties": {
             "articles": [
@@ -1934,7 +1934,7 @@
             "text": "With block_public_policy disabled, a bucket policy can grant anonymous access to objects, silently exposing personal data. It is the policy-side counterpart to CKV_AWS_53 and a direct confidentiality risk under GDPR Art. 32(1)(b).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "6a7361e7352dd293e18a4fdcf51df6de2dca12e5da25b0a81102bfa24fb8f1e3"
           },
           "properties": {
             "articles": [
@@ -1968,7 +1968,7 @@
             "text": "With ignore_public_acls disabled, public ACLs applied to the bucket or its objects are honoured rather than neutralised, allowing anonymous read/write and undermining the confidentiality control of GDPR Art. 32(1)(b).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "fbd480cf6acd15042fb40c724ab14856c8e596c969482a1e0f679dea4951c941"
           },
           "properties": {
             "articles": [
@@ -2002,7 +2002,7 @@
             "text": "With restrict_public_buckets disabled, a public bucket policy grants access to all principals and anonymous users rather than only authorised AWS services and users, widening exposure of personal data which may weaken GDPR Art. 32(1)(b).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "2466368acc077c556b0c71a16c2e4b51c427ed655f939ac358c6de333b653176"
           },
           "properties": {
             "articles": [
@@ -2036,7 +2036,7 @@
             "text": "A bucket policy statement whose Principal is \"*\" makes the bucket world-accessible for the listed actions \u2014 exposing any personal data in it to unauthenticated access and creating a potential control gap relevant to the access-control measures in NIS2 Art. 21(2)(i) and the confidentiality safeguards expected by GDPR Art. 32(1)(b).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "d5dab3d5d672b5bb80d5d77e1dd331048495926b2a861b2eb4e9f501eaaad3fc"
           },
           "properties": {
             "articles": [
@@ -2071,7 +2071,7 @@
             "text": "A bucket with no aws_s3_bucket_public_access_block has no safety net against accidental public exposure via ACLs or bucket policy - a standing confidentiality risk for any personal data under GDPR Art. 32(1)(b).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "6424dddcf1750c997cfd9b6bb5292cf68fb7b58368198ae1497045dde3d4e234"
           },
           "properties": {
             "articles": [
@@ -2105,7 +2105,7 @@
             "text": "Without lifecycle rules, log and backup objects accumulate indefinitely or are manually purged ad hoc, so retention for data protection and continuity purposes is unmanaged. Lifecycle configuration is the disciplined data lifecycle NIS2 Art. 21(2)(c) backup management expects.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "bd5ee3767bc6dda0566bbf679196f8960e14d26ab3cce6d65a19be1cfff534e7"
           },
           "properties": {
             "articles": [
@@ -2139,7 +2139,7 @@
             "text": "Without event notifications, writes to a bucket holding personal data raise no signal \u2014 unexpected mass downloads or deletions go unnoticed instead of feeding the detection capability NIS2 Art. 21(2)(b) requires.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "e105cb81549ca973dfd999d0c02409a6971b5d39eab043545bca22a5aad86aeb"
           },
           "properties": {
             "articles": [
@@ -2173,7 +2173,7 @@
             "text": "A bucket replicated only in one region is lost with that region. Cross-region replication is the mechanism that keeps personal data available and restorable after a regional outage, relevant to NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "52e74b2b1fabdb4b7468117d5684e451fb603534a7cbf4ec37ee2fc22b5c0b19"
           },
           "properties": {
             "articles": [
@@ -2208,7 +2208,7 @@
             "text": "New objects in a bucket without default SSE-KMS are already encrypted at rest with S3-managed keys (SSE-S3). A KMS key adds key-policy, rotation and access-grant control over that data, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for buckets that hold personal data.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "ca83bac5365266fc4742b0850b69a1c990b761bd2c0b4c22069946192f3bdc41"
           },
           "properties": {
             "articles": [
@@ -2243,7 +2243,7 @@
             "text": "Without S3 server access logging there is no record of who read or wrote objects, so a data-access incident cannot be detected, scoped, or investigated. NIS2 Art. 21(2)(b) requires the ability to handle and analyse incidents.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "c19d8aa15639129c11d8c7ead1c70c3be445c963053e7a7e00d124bd00d4c321"
           },
           "properties": {
             "articles": [
@@ -2277,7 +2277,7 @@
             "text": "Without versioning, an accidental or malicious overwrite/delete is unrecoverable. Versioning provides point-in-time restore, supporting the recovery obligation in GDPR Art. 32(1)(c) and business continuity under NIS2 Art. 21(2)(c).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "1da8498a24c2bfe422003a150c08afef000c3679d9aab13e9f06979b0ecf7925"
           },
           "properties": {
             "articles": [
@@ -2312,7 +2312,7 @@
             "text": "A bucket with no aws_s3_bucket_public_access_block has no safety net against accidental public exposure via ACLs or bucket policy - a standing confidentiality risk for any personal data under GDPR Art. 32(1)(b).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "8e30d963517be57e734494f20e5cc1945ae0558e5dfa63a5c10631906e642092"
           },
           "properties": {
             "articles": [
@@ -2346,7 +2346,7 @@
             "text": "Without lifecycle rules, log and backup objects accumulate indefinitely or are manually purged ad hoc, so retention for data protection and continuity purposes is unmanaged. Lifecycle configuration is the disciplined data lifecycle NIS2 Art. 21(2)(c) backup management expects.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "61af5315c59ac6b8b956cb938bb8c7fb7199def4384588dc75a95ddd2a2e0317"
           },
           "properties": {
             "articles": [
@@ -2380,7 +2380,7 @@
             "text": "Without event notifications, writes to a bucket holding personal data raise no signal \u2014 unexpected mass downloads or deletions go unnoticed instead of feeding the detection capability NIS2 Art. 21(2)(b) requires.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "f00a003226872bcd9a76551fd2401036a825998b47b15b5bd729a9fee0340e15"
           },
           "properties": {
             "articles": [
@@ -2414,7 +2414,7 @@
             "text": "A bucket replicated only in one region is lost with that region. Cross-region replication is the mechanism that keeps personal data available and restorable after a regional outage, relevant to NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "e0278cce77b38758d204cea792e19911d754f90602a1e7c6537c2e9b865d8be5"
           },
           "properties": {
             "articles": [
@@ -2449,7 +2449,7 @@
             "text": "New objects in a bucket without default SSE-KMS are already encrypted at rest with S3-managed keys (SSE-S3). A KMS key adds key-policy, rotation and access-grant control over that data, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for buckets that hold personal data.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "32ca2462da713fdbc80a84eb4d13f8650868442f87b60fef332a28c4e7c0c82c"
           },
           "properties": {
             "articles": [
@@ -2484,7 +2484,7 @@
             "text": "Without S3 server access logging there is no record of who read or wrote objects, so a data-access incident cannot be detected, scoped, or investigated. NIS2 Art. 21(2)(b) requires the ability to handle and analyse incidents.\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "4a4f5801e385f319a0df1fe99ff3db5d36453db7ef7c7ccf9d9bab74e2d266f3"
           },
           "properties": {
             "articles": [
@@ -2518,7 +2518,7 @@
             "text": "Without versioning, an accidental or malicious overwrite/delete is unrecoverable. Versioning provides point-in-time restore, supporting the recovery obligation in GDPR Art. 32(1)(c) and business continuity under NIS2 Art. 21(2)(c).\n"
           },
           "partialFingerprints": {
-            "tfEuGuard/v1": "<VOLATILE>"
+            "tfEuGuard/v1": "51485224487b2210c3cdff0b73a4c5afdb1f81bc91b902bb89b7d2dacc5b4d67"
           },
           "properties": {
             "articles": [
