@@ -324,7 +324,7 @@ request/response bodies.
 
 ### SNS
 
-**CKV_AWS_26** — SNS topic has no customer-managed KMS key (SSE not enabled)
+**CKV_AWS_26** — SNS topic has no KMS server-side encryption (`kms_master_key_id` unset)
 **Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)
 **Severity**: MEDIUM
 **Expected instances**: `aws_sns_topic.app_notifications`

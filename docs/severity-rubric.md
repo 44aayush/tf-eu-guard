@@ -53,7 +53,7 @@ with `severity_overrides` (see [configuration.md](configuration.md)).
 documentation states that each service encrypts at rest by default with a provider-managed key: Lambda environment
 variables (<https://docs.aws.amazon.com/lambda/latest/dg/configuration-envvars.html>), S3 buckets with SSE-S3
 (<https://docs.aws.amazon.com/AmazonS3/latest/userguide/default-bucket-encryption.html>), ECR repositories
-(<https://docs.aws.amazon.com/AmazonECR/latest/userguide/encryption-at-rest.html>) Compute Engine disks
+(<https://docs.aws.amazon.com/AmazonECR/latest/userguide/encryption-at-rest.html>), Compute Engine disks
 (<https://docs.cloud.google.com/docs/security/encryption/default-encryption>) and SNS topics, where "by default,
 Amazon SNS stores messages and files using disk encryption" (<https://docs.aws.amazon.com/sns/latest/dg/sns-data-encryption.html>).
 
