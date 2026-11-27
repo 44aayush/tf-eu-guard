@@ -3,7 +3,7 @@
 import json
 
 import pytest
-from cli_helpers import EUGUARD_PASSED, FIXTURE, run_cli
+from cli_helpers import FIXTURE, run_cli
 
 from tf_eu_guard.cli import main
 from tf_eu_guard.constants import (
@@ -79,7 +79,6 @@ def test_fail_on_severity_high_excludes_medium(monkeypatch, tmp_path):
     """A MEDIUM finding fails MEDIUM but passes HIGH."""
     document = {
         "results": {
-            "passed_checks": [EUGUARD_PASSED],
             "failed_checks": [
                 {
                     "check_id": "CKV_AWS_40",
@@ -89,7 +88,7 @@ def test_fail_on_severity_high_excludes_medium(monkeypatch, tmp_path):
                     "file_line_range": [1, 2],
                     "guideline": None,
                 }
-            ],
+            ]
         }
     }
     finding_file = tmp_path / "medium.json"
@@ -150,7 +149,7 @@ def test_no_gate_by_default(monkeypatch, tmp_path, repo_root):
 
 
 def test_fail_on_severity_empty_findings(monkeypatch, tmp_path):
-    document = {"results": {"passed_checks": [EUGUARD_PASSED], "failed_checks": []}}
+    document = {"results": {"failed_checks": []}}
     finding_file = tmp_path / "empty.json"
     finding_file.write_text(json.dumps(document))
     rc = run_cli(

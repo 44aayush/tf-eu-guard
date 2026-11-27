@@ -1,16 +1,6 @@
 {
     "check_type": "terraform",
     "results": {
-        "passed_checks": [
-            {
-              "check_id": "EUGUARD_GDPR_001",
-              "check_name": "Ensure resources stay in EU regions",
-              "file_line_range": [1, 3],
-              "file_path": "/main.tf",
-              "guideline": null,
-              "resource": "aws_s3_bucket.eu_ok"
-            }
-        ],
         "failed_checks": [
             {
                 "check_id": "CKV_AWS_9",

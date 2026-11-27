@@ -240,21 +240,19 @@ def _has_custom_check(results: dict[str, Any]) -> bool:
 
 
 def _check_input_completeness(output: dict[str, Any], require_complete: bool) -> None:
-    """Warn, or with *require_complete* fail, on a file that cannot be a full scan."""
+    """Warn about a file that may not be a full scan; with *require_complete* fail on 0 resources.
+
+    Absence of ``EUGUARD_*`` results only warns: the custom checks are AWS-only and Checkov
+    omits UNKNOWN results, so genuine output for non-AWS or region-less code has none.
+    """
     strict = require_complete and not _ALLOW_PARTIAL.get()
     results = output.get("results")
     if isinstance(results, dict) and not _has_custom_check(results):
-        if strict:
-            raise CheckovRuntimeError(
-                "the Checkov JSON contains no EUGUARD_* check, so the tf-eu-guard custom "
-                "checks were not run; a gated scan cannot trust it. Regenerate it with "
-                f"--external-checks-dir {CUSTOM_CHECKS_DIR}, or pass --allow-partial"
-            )
         _warn(
-            "no EUGUARD_* check appears in the Checkov JSON, so the tf-eu-guard custom checks "
-            "were not loaded: the data-residency and secret-in-code checks are absent and a "
-            "clean result does not cover them. Regenerate the file with "
-            f"--external-checks-dir {CUSTOM_CHECKS_DIR}"
+            "no EUGUARD_* result appears in the Checkov JSON. If it was generated without "
+            f"--external-checks-dir {CUSTOM_CHECKS_DIR}, the data-residency and secret-in-code "
+            "checks did not run and a clean result does not cover them. (Their checks are "
+            "AWS-only, so non-AWS or region-less input legitimately has none.)"
         )
     summary = output.get("summary")
     count = summary.get("resource_count") if isinstance(summary, dict) else None

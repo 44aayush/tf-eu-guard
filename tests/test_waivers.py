@@ -4,7 +4,7 @@ import json
 from datetime import date, timedelta
 
 import pytest
-from cli_helpers import EUGUARD_PASSED, run_cli
+from cli_helpers import run_cli
 
 from tf_eu_guard.models import ArticleReference, EnrichedFinding, Framework
 from tf_eu_guard.waivers import Waiver, WaiverError, apply_waivers, load_waivers
@@ -141,7 +141,6 @@ def _doc(failed=(), skipped=()):
 
     return {
         "results": {
-            "passed_checks": [EUGUARD_PASSED],
             "failed_checks": [check(*c) for c in failed],
             "skipped_checks": [
                 {**check(*c), "check_result": {"result": "SKIPPED"}} for c in skipped

@@ -3,7 +3,7 @@
 import json
 
 import pytest
-from cli_helpers import EUGUARD_PASSED, run_cli
+from cli_helpers import run_cli
 
 UNMAPPED_FIXTURE = "tests/fixtures/checkov-unmapped-tf.json"
 
@@ -12,7 +12,6 @@ def _mixed_doc():
     """Return one mapped and two unmapped Checkov failures."""
     return {
         "results": {
-            "passed_checks": [EUGUARD_PASSED],
             "failed_checks": [
                 {
                     "check_id": "CKV_AWS_40",
@@ -38,7 +37,7 @@ def _mixed_doc():
                     "file_line_range": [3, 4],
                     "guideline": None,
                 },
-            ],
+            ]
         }
     }
 

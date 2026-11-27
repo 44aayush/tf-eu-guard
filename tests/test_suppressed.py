@@ -9,7 +9,6 @@ import json
 from pathlib import Path
 
 import pytest
-from cli_helpers import EUGUARD_PASSED
 
 from tf_eu_guard.checkov.json import (
     extract_failed_checks,
@@ -366,9 +365,7 @@ def test_fail_on_suppressed_off_by_default_and_without_suppressions(
         == EXIT_OK
     )
     clean = tmp_path / "clean.json"
-    clean.write_text(
-        json.dumps({"results": {"passed_checks": [EUGUARD_PASSED], "failed_checks": []}})
-    )
+    clean.write_text(json.dumps({"results": {"failed_checks": []}}))
     assert (
         run_cli(
             monkeypatch,
