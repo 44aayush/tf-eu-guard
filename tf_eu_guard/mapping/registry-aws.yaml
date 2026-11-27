@@ -616,11 +616,10 @@ CKV_AWS_119:
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
   risk: >
-    A DynamoDB table without a customer-managed KMS key falls back to AWS-owned
-    encryption, leaving key policy, rotation, and audit trail outside the organisation's
-    control. Tables frequently hold personal data (sessions, profiles, transactions), so
-    the auditable key governance GDPR Art. 32(1)(a) expects for encryption and the
-    cryptography policies NIS2 Art. 21(2)(h) requires cannot be demonstrated.
+    A DynamoDB table without a customer-managed KMS key is already encrypted with an
+    AWS-owned key. A customer-managed key adds key-policy, rotation and revocation
+    control over that data, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR
+    Art. 32(1)(a) for tables that hold personal data (sessions, profiles, transactions).
   remediation: |
     Configure server-side encryption with a customer-managed KMS key:
       resource "aws_dynamodb_table" "sessions" {
@@ -1154,10 +1153,9 @@ CKV_AWS_247:
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
   risk: >
-    Encryption with the default AWS-managed key still leaves key policy, rotation,
-    and audit trail outside the organisation's control. A customer-managed key lets
-    the organisation enforce rotation and revoke access as NIS2 Art. 21(2)(h)
-    cryptography procedures and GDPR Art. 32(1)(a) encryption expects.
+    Encryption with the default AWS-managed key means the data is already encrypted. A
+    customer-managed key adds key-policy, rotation and revocation control, which can
+    support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a).
   remediation: |
     Point encrypt_at_rest at a customer-managed KMS key:
       resource "aws_elasticsearch_domain" "main" {
@@ -1198,10 +1196,9 @@ CKV_AWS_347:
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
   risk: >
-    Using the AWS-managed key rather than a customer-managed key deprives the
-    organisation of key-policy control, rotation schedules, and cross-account audit —
-    the cryptographic governance NIS2 Art. 21(2)(h) requires and GDPR Art. 32(1)(a)
-    encryption should be able to demonstrate.
+    Neptune encrypted with the AWS-managed key is already encrypted at rest. A
+    customer-managed key adds key-policy, rotation schedule and cross-account audit
+    control, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a).
   remediation: |
     Specify a customer-managed KMS key for the Neptune cluster:
       resource "aws_neptune_cluster" "main" {
@@ -1242,9 +1239,9 @@ CKV_AWS_280:
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
   risk: >
-    Snapshots under the AWS-managed key cannot carry the organisation's key policy or
-    rotation regime, weakening the demonstrable encryption governance of NIS2
-    Art. 21(2)(h) and GDPR Art. 32(1)(a) once data leaves the live cluster.
+    Snapshots under the AWS-managed key are already encrypted. A customer-managed key
+    adds key-policy, rotation and revocation control once data leaves the live cluster,
+    which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a).
   remediation: |
     Copy manual snapshots under a customer-managed key:
       resource "aws_neptune_cluster_snapshot" "main" {
@@ -1264,10 +1261,10 @@ CKV_AWS_327:
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
   risk: >
-    An RDS/Aurora cluster encrypted only with the default key gives the organisation
-    no key policy, rotation, or grant-revocation control. NIS2 Art. 21(2)(h) expects
-    governed cryptography and GDPR Art. 32(1)(a) expects encryption as a real,
-    auditable control over personal data.
+    An RDS/Aurora cluster encrypted with the default key is already encrypted at rest. A
+    customer-managed key adds key-policy, rotation and grant-revocation control, which
+    can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for personal
+    data in the cluster.
   remediation: |
     Create the cluster with a customer-managed KMS key:
       resource "aws_rds_cluster" "main" {
@@ -1310,9 +1307,10 @@ CKV_AWS_189:
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
   risk: >
-    Volumes encrypted with the AWS-managed key cannot demonstrate organisation-level
-    key rotation, policy, or revocation — the governance NIS2 Art. 21(2)(h) expects
-    of cryptography and GDPR Art. 32(1)(a) relies on for encryption of personal data.
+    Volumes encrypted with the AWS-managed key are already encrypted. A customer-managed
+    key adds key-policy, rotation and revocation control at organisation level, which
+    can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for personal
+    data on the volume.
   remediation: |
     Encrypt volumes with a customer-managed key:
       resource "aws_ebs_volume" "data" {
@@ -1331,10 +1329,10 @@ CKV_AWS_186:
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
   risk: >
-    Default SSE with AWS-managed keys encrypts objects but keeps key policy, grants,
-    and rotation outside the organisation's control. A CMK lets access to personal
-    data in S3 be revoked and audited, as the cryptography governance of NIS2
-    Art. 21(2)(h) and GDPR Art. 32(1)(a) expects.
+    Objects under default SSE with AWS-managed keys are already encrypted. A
+    customer-managed key adds key-policy, rotation and revocation control, so access to
+    personal data in S3 can be audited and revoked, which can support demonstrating NIS2
+    Art. 21(2)(h) and GDPR Art. 32(1)(a).
   remediation: |
     Require a customer-managed key in the bucket SSE configuration:
       resource "aws_s3_bucket_server_side_encryption_configuration" "data" {
@@ -2669,7 +2667,7 @@ CKV_AWS_38:
           public_access_cidrs    = ["203.0.113.0/24"]
         }
       }
-  severity: HIGH
+  severity: CRITICAL
 
 CKV_AWS_39:
   check_name: "Ensure Amazon EKS public endpoint disabled"
@@ -3343,14 +3341,14 @@ CKV_AWS_149:
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
   risk: >
-    A secret encrypted with the account default key is protected by a key whose policy
-    is shared across every default-key secret in the account and cannot be scoped to
-    this one. Secrets are the keys to personal data, so the encryption governance GDPR
-    Art. 32(1)(a) expects — a dedicated, policy-controlled key — and the cryptography
-    policy NIS2 Art. 21(2)(h) requires are both absent. This is also the encryption half
-    of the pattern the custom check EUGUARD_NIS2_001 addresses: that check flags a
-    literal password hardcoded in aws_db_instance, and a Secrets Manager secret
-    encrypted with a customer-managed key is the intended replacement.
+    A secret encrypted with the account default key is already encrypted with a
+    provider-managed key. A dedicated customer-managed key adds key-policy, rotation and
+    revocation control scoped to this secret, which can support demonstrating NIS2 Art.
+    21(2)(h) and GDPR Art. 32(1)(a), since secrets are often the keys to personal data.
+    This is also the encryption half of the pattern the custom check EUGUARD_NIS2_001
+    addresses: that check flags a literal password hardcoded in aws_db_instance, and a
+    Secrets Manager secret encrypted with a customer-managed key is the intended
+    replacement.
   remediation: |
     Encrypt the secret with a dedicated customer-managed key:
       resource "aws_secretsmanager_secret" "db_password" {
@@ -3722,13 +3720,11 @@ CKV_AWS_35:
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
   risk: >
-    CloudTrail logs delivered without a KMS key are encrypted with an
-    AWS-owned key, so the key policy, who may decrypt the audit trail, and
-    whether rotation is enforced stay outside the organisation's control. The
-    trail records account, source-IP and resource activity that is personal
-    data, and the audit trail is also the evidence base for every other
-    control — the encryption and key governance NIS2 Art. 21(2)(h) and GDPR
-    Art. 32(1)(a) expect cannot be demonstrated for it.
+    CloudTrail logs delivered without a KMS key are already encrypted with an AWS-owned
+    key. A customer-managed key adds key-policy, rotation and revocation control over
+    who may decrypt the audit trail, which can support demonstrating NIS2 Art. 21(2)(h)
+    and GDPR Art. 32(1)(a), since the trail records account, source-IP and resource
+    activity that is personal data.
   remediation: |
     Encrypt the trail with a customer-managed KMS key:
       resource "aws_cloudtrail" "account_trail" {
@@ -3821,14 +3817,11 @@ CKV_AWS_147:
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
   risk: >
-    Build output encrypted with an AWS-owned key, rather than a customer-managed
-    KMS key, leaves the key policy and the decrypt permissions outside the
-    organisation's control — artifacts are readable to any account role with
-    access to the artifact store, and the access cannot be audited or revoked
-    through key policy. Build output can carry compiled application code,
-    embedded credentials, and packaged personal data, so the encryption and key
-    governance NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) expect cannot be
-    demonstrated for it.
+    Build output encrypted with an AWS-owned key is already encrypted at rest. A
+    customer-managed KMS key adds key-policy, rotation and revocation control over who
+    can decrypt it, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art.
+    32(1)(a) for build output that may carry compiled code, embedded credentials or
+    packaged personal data.
   remediation: |
     Set a customer-managed KMS key on the project:
       resource "aws_codebuild_project" "app" {
@@ -3952,15 +3945,14 @@ CKV_AWS_224:
       article: "Art. 21(2)(h)"
       title: "Policies and procedures on the use of cryptography and encryption"
   risk: >
-    ECS Exec encrypts the interactive session between the client and the container,
-    and by default uses an AWS-managed key. Without a customer-managed KMS key the
-    key policy and the decrypt permissions are outside the organisation's control,
-    so access to the session data cannot be governed, audited, or revoked through
-    key policy. Naming a CMK is not sufficient on its own either: the check only
-    passes when the log destination itself is flagged as encrypted, so a key
-    reference with an unencrypted log_configuration still leaves the recorded
-    session outside the encryption governance NIS2 Art. 21(2)(h) expects for the
-    highest-privilege access path a container offers.
+    ECS Exec encrypts the interactive session and by default uses an AWS-managed key, so
+    the session is already encrypted. A customer-managed KMS key adds key-policy,
+    rotation and revocation control over who can decrypt it, which can support
+    demonstrating NIS2 Art. 21(2)(h) for the highest-privilege access path a container
+    offers. Naming a CMK is not sufficient on its own: the check only passes when the
+    log destination itself is flagged as encrypted, so a key reference with an
+    unencrypted log_configuration still leaves the recorded session outside that
+    control.
   remediation: |
     Reference a customer-managed KMS key and enable encryption on the log
     destination — both are required:
@@ -4135,11 +4127,10 @@ CKV_AWS_191:
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
   risk: >
-    Default encryption uses an AWS owned key that is not auditable or revocable, so
-    the organisation cannot account for who used the key material or take it out of
-    service. A customer-managed key gives a visible key policy and CloudTrail
-    records of use - the accountability NIS2 Art. 21(2)(h) expects from a
-    cryptography control.
+    Default encryption uses an AWS owned key, so the data is already encrypted. A
+    customer-managed key adds a visible key policy, CloudTrail records of use, rotation
+    and revocation control, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR
+    Art. 32(1)(a).
   remediation: |
     Reference a customer-managed key:
       resource "aws_elasticache_replication_group" "sessions" {

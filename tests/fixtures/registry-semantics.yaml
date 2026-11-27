@@ -308,7 +308,7 @@ CKV_AZURE_59:
   articles:
     - [NIS2, "Art. 21(2)(i)"]
     - [GDPR, "Art. 32(1)(b)"]
-  severity: CRITICAL
+  severity: HIGH
   remediation_contains: [public_network_access_enabled, "false"]
   fail_conf:
     public_network_access_enabled: [true]

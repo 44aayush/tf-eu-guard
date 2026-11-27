@@ -22,8 +22,8 @@ PUBLIC_EXPOSURE_IDS = (
     "CKV_AWS_87",
     "CKV_AWS_24",
     "CKV_AWS_25",
+    "CKV_AWS_38",
     "CKV_AZURE_11",
-    "CKV_AZURE_59",
     "CKV_GCP_11",
     "CKV_GCP_28",
     "CKV_GCP_88",
@@ -34,7 +34,7 @@ GUARDRAIL_IDS = (
     "CKV_AWS_54",
     "CKV_AWS_55",
     "CKV_AWS_56",
-    "CKV_AWS_38",
+    "CKV_AZURE_59",
     "CKV_AZURE_139",
     "CKV_AZURE_160",
     "CKV_AZURE_48",
@@ -95,11 +95,43 @@ def test_families_do_not_overlap():
     assert len(all_ids) == len(set(all_ids))
 
 
-def test_rubric_doc_lists_every_family_id():
-    doc = RUBRIC_DOC.read_text(encoding="utf-8")
-    ids = PUBLIC_EXPOSURE_IDS + GUARDRAIL_IDS + ENCRYPTION_AT_REST_IDS + CMK_IDS
-    missing = [cid for cid in ids if f"`{cid}`" not in doc]
-    assert not missing, f"docs/severity-rubric.md does not list {missing}"
+def _doc_sections():
+    """Map each `### ` heading of the rubric doc to the text under it."""
+    sections: dict[str, str] = {}
+    heading = None
+    for line in RUBRIC_DOC.read_text(encoding="utf-8").splitlines():
+        if line.startswith("### "):
+            heading = line[4:]
+            sections[heading] = ""
+        elif line.startswith("#"):
+            heading = None
+        elif heading is not None:
+            sections[heading] += line + "\n"
+    return sections
+
+
+@pytest.mark.parametrize(
+    ("heading", "ids"),
+    [
+        ("Public exposure of a data store or an admin port: CRITICAL", PUBLIC_EXPOSURE_IDS),
+        ("Public-network guardrails: HIGH", GUARDRAIL_IDS),
+        ("Data-store encryption at rest: HIGH", ENCRYPTION_AT_REST_IDS),
+        ("Customer-managed key instead of a provider-managed key: MEDIUM", CMK_IDS),
+    ],
+)
+def test_rubric_doc_lists_every_family_id(heading, ids):
+    """Each ID appears under its own family heading in docs/severity-rubric.md."""
+    section = _doc_sections()[heading]
+    missing = [cid for cid in ids if f"`{cid}`" not in section]
+    assert not missing, f"'{heading}' does not list {missing}"
+
+
+@pytest.mark.parametrize("cid", CMK_IDS)
+def test_cmk_risk_texts_are_hedged(registry, cid):
+    """A CMK is key-control depth, not a stated requirement: the risk text must not say so."""
+    risk = " ".join(registry[cid].risk_explanation.split())
+    assert "requires" not in risk
+    assert "32(1)(a) expects" not in risk
 
 
 def test_ckv_aws_288_cites_no_breach_articles(registry):

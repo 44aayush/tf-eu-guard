@@ -109,7 +109,7 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 ### Coverage summary
 
 - By severity (original 38): 11 CRITICAL · 13 HIGH · 14 MEDIUM. With the
-  extension above (188 total: 22 CRITICAL · 64 HIGH · 76 MEDIUM · 26 LOW).
+  extension above (188 total: 23 CRITICAL · 63 HIGH · 76 MEDIUM · 26 LOW).
 - By framework (original 38): 21 map to both NIS2 and GDPR, 11 NIS2-only, 6 GDPR-only.
 - By file: iam.tf (12), s3.tf (9), rds.tf (9), network.tf (7), main.tf (1).
 - By theme: access control / least privilege (20), public exposure (7),
@@ -171,7 +171,7 @@ remediation text lives in the registry):
 | Network segmentation | 21(2)(i) | 32(1)(b) | CKV_AWS_137, 248, 38, 39, 117, CKV2_AWS_5, 23 |
 | Terraform module pinning (cloud-agnostic) | 21(2)(d) | – | CKV_TF_1, CKV_TF_2 |
 
-Severity distribution after the extension: **22 CRITICAL · 64 HIGH · 76 MEDIUM ·
+Severity distribution after the extension: **23 CRITICAL · 63 HIGH · 76 MEDIUM ·
 26 LOW** (188 total; article refs: NIS2 178, GDPR 135). An article ref is one
 entry in a check's `articles` list in `registry-aws.yaml`, counted per framework, so a
 check citing two NIS2 letters counts twice; the 3 `POLICY` refs are not included.

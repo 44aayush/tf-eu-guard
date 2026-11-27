@@ -62,17 +62,23 @@ release point.
   (Postgres RDS cluster query logging) and `CKV2_AWS_34` (unencrypted SSM parameter) are now mapped (TEG-11).
 - Severity rubric (TEG-11), written down in `docs/severity-rubric.md` and pinned by `tests/test_registry_rubric.py`
   for public exposure (CRITICAL), public-network guardrails (HIGH), data-store encryption at rest (HIGH) and
-  customer-managed keys (MEDIUM). Two checks are raised: `CKV_AWS_24` (SSH open to the world) and
-  `CKV_AWS_25` (RDP open to the world), HIGH to CRITICAL. Seven are lowered, HIGH to MEDIUM, because the data
-  is already encrypted with a provider-managed key and a customer-managed key (CMK) adds key-control depth that
-  GDPR Art. 32(1)(a) does not itself require: `CKV_AWS_119`, `CKV_AWS_147`, `CKV_AWS_149`, `CKV_AWS_247`,
-  `CKV_AWS_327`, `CKV_AWS_347` and `CKV_AWS_35`. A gate at `--fail-on-severity high` no longer fails on the
-  lowered seven. To restore the previous levels, use `severity_overrides` in `.tf-eu-guard.yaml`:
+  customer-managed keys (MEDIUM). Three checks are raised, HIGH to CRITICAL: `CKV_AWS_24` (SSH open to the
+  world), `CKV_AWS_25` (RDP open to the world) and `CKV_AWS_38` (EKS public endpoint open to 0.0.0.0/0).
+  `CKV_AZURE_59` (storage-account public-access switch, the counterpart of the S3 block-public settings) is
+  lowered from CRITICAL to HIGH. Seven are lowered, HIGH to MEDIUM, because the data is already encrypted with
+  a provider-managed key and a customer-managed key (CMK) adds key-control depth that GDPR Art. 32(1)(a) does
+  not itself require: `CKV_AWS_119`, `CKV_AWS_147`, `CKV_AWS_149`, `CKV_AWS_247`, `CKV_AWS_327`,
+  `CKV_AWS_347` and `CKV_AWS_35`. The risk texts of the 12 CMK-family checks no longer say a CMK is required.
+  Gate effect: `--fail-on-severity critical` now also fails on `CKV_AWS_24`, `CKV_AWS_25` and `CKV_AWS_38`
+  and no longer fails on `CKV_AZURE_59`; `--fail-on-severity high` no longer fails on the seven lowered CMK
+  checks. To restore the previous levels, use `severity_overrides` in `.tf-eu-guard.yaml`:
 
   ```yaml
   severity_overrides:
     CKV_AWS_24: HIGH
     CKV_AWS_25: HIGH
+    CKV_AWS_38: HIGH
+    CKV_AZURE_59: CRITICAL
     CKV_AWS_119: HIGH
     CKV_AWS_147: HIGH
     CKV_AWS_149: HIGH

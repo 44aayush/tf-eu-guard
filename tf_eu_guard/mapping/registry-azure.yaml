@@ -208,7 +208,7 @@ CKV_AZURE_59:
     resource "azurerm_storage_account" "example" {
       public_network_access_enabled = false
     }
-  severity: CRITICAL
+  severity: HIGH
 
 CKV_AZURE_103:
   check_name: "Ensure that Azure Data Factory uses Git repository for source control"
