@@ -492,9 +492,10 @@ EUGUARD_POLICY_006:
     A reusable module repository without location attributes triggers this
     finding, since modules should not configure providers; exempt it with a
     waiver on check_id EUGUARD_POLICY_006 and resource provider.google (no
-    file). A module that takes its location from a variable fails
-    EUGUARD_POLICY_004 closed instead; scan such a module from the root module
-    or as a plan. An inline #checkov:skip=EUGUARD_POLICY_006 comment has no
+    file). A module that takes its location from a variable gets an
+    EUGUARD_POLICY_004 result instead (fails closed when the variable has no
+    default; evaluated against the default when it has one), so no
+    EUGUARD_POLICY_006; scan such a module from the root module or as a plan. An inline #checkov:skip=EUGUARD_POLICY_006 comment has no
     effect: the pipeline synthesizes this finding.
   severity: MEDIUM
 

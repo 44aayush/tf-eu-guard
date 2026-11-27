@@ -39,13 +39,18 @@ release point.
   mention `--unmapped-severity`.
 - A Terraform scan warns on stderr when `google_*` resources were scanned but no `EUGUARD_POLICY_004` result
   appeared, because the region then comes from the environment (for example `GOOGLE_REGION`) at apply
-  time; same semantics as the AWS region-unset warning.
+  time; same semantics as the AWS region-unset warning. Global resource types that take no location (for example
+  `google_project_service`, `google_project_iam_*`, `google_service_account`, `google_compute_network`,
+  `google_compute_firewall`, `google_dns_managed_zone`, and the IAM resources of location-less parents such as
+  projects and buckets) do not count, so a stack of only those gets neither this warning nor `EUGUARD_POLICY_006`. IAM
+  types that do take a location (Cloud Run, Compute instance and subnetwork IAM, ...) still count. A US provider zone
+  now fails the HIGH `EUGUARD_POLICY_004` like a US provider region.
 - Opt-in emulator test tier (`tests/emulator/`, `TFEG_RUN_EMULATOR=1`) and a CI job `emulator` that run real Terraform
   against a digest-pinned LocalStack 4.9 service: an environment-supplied region is caught in plan mode
   (`EUGUARD_POLICY_002`, `EUGUARD_GDPR_003`), and an applied S3 bucket is read back through boto3 and compared
   with `CKV_AWS_53` to `56`. The default suite skips it.
-- GCP residency: `EUGUARD_POLICY_004` (`provider "google"` `region` and `google_*` resource `region`, `location` and
-  `zone` within the configured residency policy) and `EUGUARD_GDPR_005` (known third-country location, a hedged
+- GCP residency: `EUGUARD_POLICY_004` (`provider "google"` and `google-beta` `region` and `zone`, and `google_*`
+  resource `region`, `location` and `zone`, within the configured residency policy) and `EUGUARD_GDPR_005` (known third-country location, a hedged
   Chapter V review signal). The policy check is fail-closed against a maintained EU/EEA table (zones map to their
   region; dual-regions such as `EUR4` are not yet verified and fail); the Chapter V check fails only for known
   third-country locations, London, Zurich and the `US`/`ASIA` multi-regions included. `eusc` uses the GCP EU/EEA
@@ -86,14 +91,6 @@ release point.
 
 ### Changed
 
-- GCP stacks made only of global resource types that take no location (for example `google_project_service`,
-  `google_project_iam_*`, `google_service_account`, `google_compute_network`, `google_compute_firewall`,
-  `google_dns_managed_zone`, and the IAM resources of location-less parents such as projects and buckets) no longer get
-  `EUGUARD_POLICY_006` or its stderr warning. IAM types that do take a location (Cloud Run, Compute instance and
-  subnetwork IAM, ...) still count, and one location result on any resource still silences the check for the whole scan.
-- `provider "google"` and `provider "google-beta"` blocks are now also checked for `zone` (a zone maps to its region, as
-  on resources). Gate effect: a US provider zone such as `zone = "us-central1-a"` now fails the HIGH
-  `EUGUARD_POLICY_004` and `EUGUARD_GDPR_005`, which previously passed silently when no `region` was set.
 - Source scans of GCP stacks where no `provider "google"` block and no `google_*` resource sets a region or location now
   report one MEDIUM finding, `EUGUARD_POLICY_006` (`provider.google`), next to the existing stderr warning; `--checkov-json`
   input that contains tf-eu-guard custom-check results gets it too. The Action's default gate (HIGH) is unaffected, while
@@ -101,7 +98,8 @@ release point.
   carries a POLICY article). Existing `--baseline` files do not contain it, so a MEDIUM-or-lower gate with a baseline
   fails once on upgrade until you re-baseline or waive it. Reusable module repositories without location attributes get
   it: waive `EUGUARD_POLICY_006` on resource `provider.google` (no file); modules that take the location from a variable
-  fail `EUGUARD_POLICY_004` closed instead, so scan those from the root module or plan. An inline `#checkov:skip` has no
+  get an `EUGUARD_POLICY_004` result instead (fails closed when the variable has no default; evaluated against the default
+  when it has one), so no 006; scan those from the root module or plan. An inline `#checkov:skip` has no
   effect. Plan scans are unchanged (TEG-05).
 - Source scans of AWS stacks where no `provider "aws"` block sets a region now report one MEDIUM finding,
   `EUGUARD_POLICY_005` (`provider.aws`), next to the existing stderr warning; `--checkov-json` input that contains

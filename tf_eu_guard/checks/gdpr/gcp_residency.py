@@ -80,7 +80,7 @@ def _review_result(found):
 
 
 class GcpProviderRegionPolicy(BaseProviderCheck):
-    """Flag ``provider "google"`` regions outside the configured residency policy."""
+    """Flag ``provider "google"`` regions and zones outside the configured residency policy."""
 
     def __init__(self):
         super().__init__(
@@ -91,7 +91,7 @@ class GcpProviderRegionPolicy(BaseProviderCheck):
         )
 
     def scan_provider_conf(self, conf):
-        """PASSED for an allowlisted region, FAILED otherwise; no region is UNKNOWN."""
+        """PASSED for an allowlisted region or zone, FAILED otherwise; none set is UNKNOWN."""
         result, keys = _policy_result(_locations(conf, _PROVIDER_KEYS))
         self.evaluated_keys = keys
         return result

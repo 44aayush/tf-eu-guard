@@ -177,8 +177,9 @@ finding (`provider.aws`) is reported; pin the region or scan a Terraform plan in
   not count, so a stack of only such resources gets neither the finding nor the warning; IAM types that do take a
   location (Cloud Run, Compute instance and subnetwork IAM, ...) still count. A module repository is not always
   flagged: modules without location attributes get it (waive check_id `EUGUARD_POLICY_006`, resource
-  `provider.google`, no file), while modules that take the location from a variable fail `EUGUARD_POLICY_004`
-  closed instead, so scan those from the root module or as a plan.
+  `provider.google`, no file), while modules that take the location from a variable get an `EUGUARD_POLICY_004`
+  result instead (fails closed when the variable has no default; evaluated against the default when it has one), so no
+  006; scan those from the root module or as a plan.
 
 The pre-scan guards (symlink
 containment and the `*.tf.json` rejection) skip the same entries, so a

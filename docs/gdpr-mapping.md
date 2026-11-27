@@ -171,7 +171,7 @@ allowlist to every cloud.
 
 **GCP** (`EUGUARD_POLICY_004` / `EUGUARD_GDPR_005`, in
 [`tf_eu_guard/checks/gdpr/gcp_residency.py`](../tf_eu_guard/checks/gdpr/gcp_residency.py))
-evaluate the `region` of each `provider "google"` block and the `region`, `location`
+evaluate the `region` and `zone` of each `provider "google"` block and the `region`, `location`
 and `zone` arguments of every `google_*` resource. Values are compared in normalised
 form: a zone maps to its region (`europe-west4-a` is `europe-west4`) and the multi-region
 `EU` equals `eu`. The policy check is fail-closed against a maintained EU/EEA table:
