@@ -160,8 +160,9 @@ destinations are bucket ARNs whose region is not resolvable statically and are
 [`tf_eu_guard/checks/gdpr/azure_residency.py`](../tf_eu_guard/checks/gdpr/azure_residency.py))
 evaluate the `location` argument of every `azurerm_*` resource, compared in
 normalised form (`West Europe` equals `westeurope`). The policy check is fail-closed
-against a maintained EU/EEA table: a newer EU location that is not yet verified
-(for example `belgiumcentral`) fails the policy check and stays *unknown* for the Chapter V
+against a maintained EU/EEA table (Microsoft Learn regions list, verified 2026-11-27, including
+`belgiumcentral` and `denmarkeast`): a newer EU location that is not yet verified
+(for example `finlandcentral`) fails the policy check and stays *unknown* for the Chapter V
 signal, which fails only for known third-country locations. The Azure checks use the
 same `--residency-policy` flag: `eu-eea` (default) and `eusc` both use the Azure EU/EEA
 table, since the Sovereign Cloud is an AWS partition, and `custom` applies the same

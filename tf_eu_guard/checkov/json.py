@@ -242,8 +242,9 @@ def _has_custom_check(results: dict[str, Any]) -> bool:
 def _check_input_completeness(output: dict[str, Any], require_complete: bool) -> None:
     """Warn about a file that may not be a full scan; with *require_complete* fail unless it reports a positive count.
 
-    Absence of ``EUGUARD_*`` results only warns: the custom checks are AWS-only and Checkov
-    omits UNKNOWN results, so genuine output for non-AWS or region-less code has none.
+    Absence of ``EUGUARD_*`` results only warns: the residency checks need a region or
+    location in the source (AWS, Azure or GCP) and Checkov omits UNKNOWN results, so genuine
+    output for region-less code has none.
     """
     strict = require_complete and not _ALLOW_PARTIAL.get()
     results = output.get("results")
@@ -251,8 +252,9 @@ def _check_input_completeness(output: dict[str, Any], require_complete: bool) ->
         _warn(
             "no EUGUARD_* result appears in the Checkov JSON. If it was generated without "
             f"--external-checks-dir {CUSTOM_CHECKS_DIR}, the data-residency and secret-in-code "
-            "checks did not run and a clean result does not cover them. (Their checks are "
-            "AWS-only, so non-AWS or region-less input legitimately has none.)"
+            "checks did not run and a clean result does not cover them. (The residency checks "
+            "need a region or location in the source, so region-less input legitimately has "
+            "none.)"
         )
     summary = output.get("summary")
     count = summary.get("resource_count") if isinstance(summary, dict) else None

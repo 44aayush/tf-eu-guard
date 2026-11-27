@@ -309,11 +309,13 @@ def test_checkov_json_gate_without_custom_checks_only_warns(monkeypatch, tmp_pat
     assert code == EXIT_OK
     err = capsys.readouterr().err
     assert "no EUGUARD_* result appears" in err
+    assert "need a region or location in the source" in err
+    assert "AWS-only" not in err
     assert "cannot trust" not in err
 
 
 def test_checkov_json_gate_real_non_aws_output_passes(monkeypatch, tmp_path, capsys):
-    """Genuine Checkov output for Azure-only code has no EUGUARD_* entry (AWS-only checks)."""
+    """Genuine Checkov output for region-less Azure code has no EUGUARD_* entry."""
     data = {
         "check_type": "terraform",
         "results": {

@@ -12,6 +12,9 @@ release point.
 
 ### Added
 
+- A Terraform scan warns on stderr when `google_*` resources were scanned but no `EUGUARD_POLICY_004` result
+  appeared, because the region then comes from the environment (for example `GOOGLE_REGION`) or the provider at apply
+  time; same semantics as the AWS region-unset warning.
 - Opt-in emulator test tier (`tests/emulator/`, `TFEG_RUN_EMULATOR=1`) and a CI job `emulator` that run real Terraform
   against a digest-pinned LocalStack 4.9 service: an environment-supplied region is caught in plan mode
   (`EUGUARD_POLICY_002`, `EUGUARD_GDPR_003`), and an applied S3 bucket is read back through boto3 and compared
@@ -69,7 +72,7 @@ release point.
   `summary.resource_count`: missing summary, missing key, a string, a boolean or 0), so a truncated or
   empty file cannot pass a gate; a forged file with a positive count can still pass, since the gate is only
   as trustworthy as the file's producer. `--allow-partial` keeps the warning and ungated runs only warn
-  (TEG-09). A file with no `EUGUARD_*` result only warns, since the custom checks are AWS-only.
+  (TEG-09). A file with no `EUGUARD_*` result only warns, since the residency checks need a region or location in the source (AWS, Azure or GCP), so region-less input legitimately has none.
 - The encryption-at-rest checks for data stores (`CKV_AWS_16`, `CKV_AWS_3`, `CKV_AWS_96`, `CKV_AWS_5`,
   `CKV_AWS_44`) now all have severity HIGH; `CKV_AWS_96`, `CKV_AWS_5` and `CKV_AWS_44` were CRITICAL, so
   `--fail-on-severity CRITICAL` no longer fails on them. `CKV_AWS_288` no longer cites GDPR
@@ -103,8 +106,22 @@ release point.
     CKV_AWS_35: HIGH
   ```
 
+- `CKV_GCP_18` (GKE control plane reachable from 0.0.0.0/0) moves from HIGH to CRITICAL: it is the same control as
+  `CKV_AWS_38`, and the same control on two clouds belongs to the same severity-rubric family. Gate effect:
+  `--fail-on-severity critical` now also fails on `CKV_GCP_18`; restore the old level with
+  `severity_overrides: {CKV_GCP_18: HIGH}`. The `CKV_AWS_173` risk text is hedged like the other CMK-family checks
+  (the variables are already encrypted with a provider-managed key); its severity is unchanged.
+- Azure residency: `belgiumcentral` (Brussels) and `denmarkeast` (Copenhagen), listed as generally available on
+  Microsoft Learn (verified 2026-11-27), join the EU/EEA allowlist; `finlandcentral` and `greececentral` stay off it
+  and fail the policy check until they are verified. The Chapter V tables now also classify the remaining generally
+  available third-country Azure locations and GCP `northamerica-south1` and `asia-southeast3`, so
+  `EUGUARD_GDPR_004` and `EUGUARD_GDPR_005` no longer stay silently unknown for them.
+
 ### Fixed
 
+- GCP provider-block residency checks (`EUGUARD_POLICY_004`, `EUGUARD_GDPR_005`) also cover `provider "google-beta"`.
+- `docs/limitations.md` and the README scope table no longer say plan-mode residency is not covered: the resource-level
+  residency checks run in plan mode, the provider-block checks do not.
 - `--framework` filtering returns new findings instead of rewriting `articles` and `risk_explanation` on the
   caller's objects, so findings returned by `scan()` no longer change under the caller (TEG-17).
 - The unset-AWS-region warning is no longer printed when the Checkov output holds no `EUGUARD_*` result at
