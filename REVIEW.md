@@ -47,7 +47,7 @@ Severity reflects the project's purpose: a CI compliance gate whose input (the p
 | TEG-03 | Medium | Untrusted strings reach the terminal and CI log unsanitised (workflow commands, ANSI/OSC) | Reproduced |
 | TEG-04 | Medium | The Action pulls its image by mutable tag and never verifies the published attestation | Code review |
 | TEG-05 | Medium | Residency checks pass silently when the region is not in the source | Reproduced |
-| TEG-06 | Medium | Runtime image has 61 HIGH OS package findings (18 distinct CVEs, 5 with a fix); no image scan in CI | trivy |
+| TEG-06 | Low (rechecked; was Medium) | The image pins a stale base digest (18 distinct HIGH OS CVEs, 5 fixable; 14 and 1 on the current 3.12 digest); no image scan in CI. Not a build or runtime failure, and not fixed by a newer Python | trivy, 4-way local build |
 | TEG-07 | Low | Local and pre-commit scans evaluate untrusted expressions unsandboxed; SECURITY.md says "never executed" | Probe and docs |
 | TEG-08 | Low | Local module sources bypass the scan-root boundary that symlinks are held to | Reproduced |
 | TEG-09 | Low | A forged `--checkov-json` passes every gate with only a warning | Reproduced |
@@ -176,13 +176,26 @@ What works well: provider aliases, `locals`, `terraform.tfvars` and an unresolve
 3. Warn on stderr when `.tf` files exist under directories Checkov skips. `iter_scanned_files` already walks the tree, so the information is free.
 4. Document plan mode as the authoritative residency scan. With AWS provider 6.x every resource carries a computed `region` in the plan, and `EUGUARD_POLICY_002` / `GDPR_003` fire on it (section 6).
 
-### TEG-06 (Medium): runtime image has 18 HIGH OS CVEs and no image scan in CI
+### TEG-06 (Low, rechecked 2026-11-27; was Medium): stale base-image digest and no image scan in CI
 
 **Where:** `Dockerfile:20` (`python:3.12-slim@sha256:f77ac9e...`, Debian 13.7).
 
 **Evidence:** `trivy image --severity HIGH,CRITICAL tf-eu-guard:review`: 0 CRITICAL and 61 HIGH package findings in OS packages, which come down to 18 distinct CVEs. 5 of them have a fixed version available (openssl/libssl3t64, zlib1g, libzstd1, libpcre2-8-0, apt). Many are in packages the scanner never needs at runtime (apt, perl-base, login, mount, util-linux). On the Python side, `ecdsa` CVE-2024-23342 is already covered by `dependency-exceptions.json`.
 
-**Recommendations:** add a CI job running `trivy image --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL` on the built image. Merge Dependabot's base-digest bumps promptly, or rebuild on a schedule. Consider a smaller final stage (distroless Python, or removing apt and perl from the slim image), which also shrinks the 535 MB image.
+**Recheck (2026-11-27): does staying on Python 3.12 instead of 3.15 cause a failure? No.** I built the image four ways with `docker build --no-cache` and scanned each base and result with trivy (HIGH and CRITICAL):
+
+| Base image | Build | Python | Debian | Smoke scan | Distinct HIGH CVEs (fixable) |
+| --- | --- | --- | --- | --- | --- |
+| `python:3.12-slim@sha256:f77ac9e4…` (current pin) | OK | 3.12.14 | 13.7 | 53 findings, no error | 18 (5) |
+| `python:3.12-slim@sha256:191083cd…` (current 3.12 digest) | OK | 3.12.16 | 13.8 | 53 findings, no error | 14 (1) |
+| `python:3.14-slim` | OK | 3.14.10 | 13.8 | 53 findings, no error | 19 (6), plus 5 Python-package CVEs in the base |
+| `python:3.15-slim` (Dependabot #38) | **Fails** | n/a | n/a | n/a | 19 (6) in the base |
+
+- **The CVEs live in Debian OS packages.** Their number depends on how old the digest is, not on the Python minor version. The 3.14 and 3.15 bases have more findings than a fresh 3.12, not fewer.
+- **Python 3.15 is the option that fails.** The runtime `pip install --require-hashes -r requirements.lock` step dies because `pycares` and `pydantic-core` have no 3.15 wheels and the slim image has no gcc or Rust (`Failed building wheel for pycares`, `linker cc not found`). 3.15 is also outside the tested 3.11-3.14 range.
+- **What TEG-06 really is:** a stale digest plus a missing scan gate. A Low hygiene item; it causes no failure.
+
+**Recommendations:** refresh both `FROM` lines to the current `python:3.12-slim` digest. Add a CI job running `trivy image --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL` on the built image. The one fixable CVE left on the fresh digest (CVE-2026-124851, `libzstd1`) needs a bounded, expiring `.trivyignore.yaml` entry until Debian ships it in the base. Merge Dependabot's base-digest bumps promptly, or rebuild on a schedule. Consider a smaller final stage (distroless Python, or removing apt and perl from the slim image), which also shrinks the 535 MB image.
 
 ### TEG-07 (Low): local and pre-commit scans evaluate untrusted expressions unsandboxed
 
@@ -297,7 +310,7 @@ Lab fixtures (each a small Terraform or Kubernetes directory; the snippets are i
 | When | Items |
 | --- | --- |
 | Before the next release (0.9.1) | TEG-01 (Action default to no discovery and a `--strict` gate), TEG-03 (sanitiser plus `stop-commands` token), TEG-02 (directory-granular changed set, or display-only filtering), TEG-07 and TEG-12 (docs corrections), TEG-11 typos |
-| 0.10 | TEG-04 (digest-pinned or attested image), TEG-06 (image scan in CI, slimmer base), TEG-05 (missing-region check, Azure/GCP residency, hidden-directory warning), TEG-09, TEG-11 severity rubric and mapping fixes, the JSON object format as default |
+| 0.10 | TEG-04 (digest-pinned or attested image), TEG-06 (refreshed digest, image scan in CI), TEG-05 (missing-region check, Azure/GCP residency, hidden-directory warning), TEG-09, TEG-11 severity rubric and mapping fixes, the JSON object format as default |
 | Later | TEG-10 coverage programme, TEG-08, TEG-13 to TEG-17, and the emulator test tier below |
 
 ## 6. Would it be a good idea to test the project with an AWS emulator?
@@ -425,3 +438,34 @@ Lab fixtures (each a small Terraform or Kubernetes directory; the snippets are i
 4. **Matrix the provider version** (for example `~> 5.0` and `~> 6.0`). The plan shape differs, and plan-mode residency only works on 6.x.
 
 **Recommendation:** add the plan-only emulator tier first. It is cheap, stable, needs no Pro features and directly covers TEG-05. Add apply-and-read-back differential tests for about ten high-signal controls after that. Do not gate releases on emulator applies until their flakiness has been measured.
+
+## 7. Recheck on a fresh local build (2026-11-27)
+
+I rebuilt the image from `HEAD` (`af9aee2`; no code change since `abc18e0`) with `--no-cache` on both the pinned and the current `python:3.12-slim` digest. Then I reran every reproducible finding with a harness that uses the Action's hardened `docker run` flags. **All 19 checks gave the same result on both images.** TEG-02 runs on the CLI because the image has no git.
+
+| Finding | Expectation | Observed (both images) |
+| --- | --- | --- |
+| E0 baseline | exit 1 | exit 1 |
+| TEG-01 discovered config | exit 0; with `--no-config` exit 1 | exit 0; 1 |
+| TEG-01 discovered waivers | exit 0, 23 waived | exit 0, 23 waived |
+| E3 exclude everything | exit 3 | exit 3 |
+| TEG-02 `--changed-since` | full scan 1, filtered 0 | 1, 0 |
+| TEG-03 workflow commands | lines starting `::error` | 18 lines |
+| TEG-03 OSC 8 / CSI sequences | raw sequences | 17 |
+| TEG-04 mutable tag | tag pull, no attestation check | confirmed |
+| TEG-05 no provider region, Azure/GCP, hidden directory | 0 findings | 0, 0, 0 |
+| TEG-07 SECURITY.md vs asteval | "never executed"; asteval 1.0.6 | confirmed |
+| TEG-08 module escape | 16 findings outside the root | 16 |
+| TEG-09 forged `--checkov-json` | exit 0 | exit 0 |
+| TEG-11 typo | 4 occurrences | 4 |
+| TEG-12 docs drift | 1 stale sentence | 1 |
+| TEG-13 `provenance.commit` in image | null | null |
+| E14 HTML escaping | 3 reports, no raw `<script>` | confirmed |
+
+**Rechecking the open 0.9.1 Dependabot plan** (`docs/superpowers/plans/2026-11-27-version-0.9.1-dependabot.md`) in a scratch clone:
+
+- **Task 1:** `actions/setup-python` v7.1.0 is commit `6d4fd22b…`, and the current pin `5fda3b95…` is v7.0.0. The plan's claim holds.
+- **Task 2:** with hatchling 1.33.0 and the old lock, `build --no-isolation` fails (`found: 1.32.4`). Running `tools/compile-locks.sh` with the pinned uv 0.13.5 changes only the hatchling lines. The wheel then builds with `Generator: hatchling 1.33.0`, and so does the image.
+- **Task 3:** the 3.15 build fails as the plan says, and the refreshed 3.12 digest builds. **One defect in that plan:** Step 6 expects the smoke scan to exit 1. It exits 0, because the CLI enables no gate by default and the image entrypoint passes none. The step needs `--fail-on-severity HIGH` to expect 1.
+
+The remediation work runs as a loop on `version_0.10.0` and is tracked in `TASKS.md`.
