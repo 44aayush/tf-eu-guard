@@ -111,7 +111,7 @@ Mapped checks (4): `CKV2_AWS_51`, `CKV_AZURE_17`, `CKV_AZURE_49`, `CKV_GCP_13`.
 | **Art. 32(1)(b)** — Confidentiality, integrity, availability and resilience of processing systems | ◐ **Partial** | **142** |
 | **Art. 32(1)(c)** — Ability to restore availability and access to personal data in a timely manner | ◐ **Partial** | **20** |
 | **Art. 32(1)(d)** — Regularly testing, assessing and evaluating effectiveness | 🧾 **Process evidence** | **2** |
-| **Art. 44** — General principle for transfers of personal data to third countries | ◐ **Partial** | **2** |
+| **Art. 44** — General principle for transfers of personal data to third countries | ◐ **Partial** | **3** |
 
 ### GDPR Art. 32(1)(a) — Pseudonymisation and encryption of personal data
 
@@ -151,7 +151,7 @@ Mapped checks (2): `CKV_AZURE_103`, `CKV_AZURE_84`.
 
 The custom EUGUARD_GDPR_002 and EUGUARD_GDPR_003 checks flag known AWS provider and resource-level regions outside the EU/EEA for Chapter V review. The adequacy/SCC analysis itself is legal, not technical. A third-country signal is a prompt for review, not a violation or definitive legal conclusion.
 
-Mapped checks (2): `EUGUARD_GDPR_002`, `EUGUARD_GDPR_003`.
+Mapped checks (3): `EUGUARD_GDPR_002`, `EUGUARD_GDPR_003`, `EUGUARD_GDPR_004`.
 
 ---
 

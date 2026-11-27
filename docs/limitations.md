@@ -64,8 +64,10 @@ Recurring structural blind spots (each also noted in the article docs):
   Residency checks read literal values: a region supplied by a variable fails
   the policy checks closed (pass non-default variable files with `--var-file`; `terraform.tfvars` and `*.auto.tfvars` are loaded automatically), S3 replication
   destinations are not evaluated, `--checkov-json` cannot apply a policy
-  (results are pre-computed), and plan-mode, Azure and GCP residency are not
-  covered.
+  (results are pre-computed), and plan-mode and GCP residency are not
+  covered. Azure residency (`EUGUARD_POLICY_003`, `EUGUARD_GDPR_004`) reads the literal `location` of
+  `azurerm_*` resources against a maintained table; a newer EU location not yet in the table fails the
+  policy check until it is added, and `--residency-policy eusc` (an AWS partition) uses the Azure EU/EEA table.
 
 ## Unmapped findings
 

@@ -871,7 +871,7 @@ EUGUARD_POLICY_001:
   articles:
     - framework: POLICY
       article: "Policy RESIDENCY-001"
-      title: "AWS region residency policy"
+      title: "Region residency policy"
   risk: >
     The AWS provider region is outside the configured residency policy
     (--residency-policy: eu-eea by default, eusc for the AWS European
@@ -899,7 +899,7 @@ EUGUARD_GDPR_001:
   articles:
     - framework: POLICY
       article: "Policy RESIDENCY-001"
-      title: "AWS region residency policy"
+      title: "Region residency policy"
   risk: >
     DEPRECATED: EUGUARD_GDPR_001 was renamed EUGUARD_POLICY_001 and this alias
     will be removed in the next release. The AWS provider region is outside the
@@ -923,7 +923,7 @@ EUGUARD_POLICY_002:
   articles:
     - framework: POLICY
       article: "Policy RESIDENCY-001"
-      title: "AWS region residency policy"
+      title: "Region residency policy"
   risk: >
     A resource places data outside the configured residency policy through its
     own region argument (AWS provider 6.0+ accepts one on most resources) or

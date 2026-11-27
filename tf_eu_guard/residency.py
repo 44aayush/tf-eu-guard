@@ -10,6 +10,9 @@ time with :func:`allowed_regions_from_env`.
 ``eusc``    only the AWS European Sovereign Cloud (the 0.7.x behaviour)
 ``custom``  an explicit allowlist from ``--allowed-regions``
 
+EUSC is an AWS partition: for Azure, ``eusc`` (and the fail-closed fallback) uses the
+Azure EU/EEA table, and ``custom`` applies the same allowlist to every cloud.
+
 Direct Checkov use (no CLI) leaves both variables unset and gets ``eu-eea``.
 An unrecognised policy value, or ``custom`` with no usable regions, fails
 closed to the EUSC-only allowlist rather than silently widening the policy.
@@ -19,7 +22,7 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
-from tf_eu_guard.regions import EU_EEA_REGIONS, EUSC_REGIONS
+from tf_eu_guard.regions import AZURE_EU_EEA_LOCATIONS, EU_EEA_REGIONS, EUSC_REGIONS
 
 POLICY_ENV_VAR = "TF_EU_GUARD_RESIDENCY_POLICY"
 ALLOWED_REGIONS_ENV_VAR = "TF_EU_GUARD_ALLOWED_REGIONS"
@@ -58,18 +61,20 @@ def residency_env(policy: str, allowed_regions: tuple[str, ...] | None) -> dict[
     return env
 
 
-def allowed_regions_from_env(environ: Mapping[str, str]) -> frozenset[str]:
-    """Resolve the active region allowlist from *environ* (fails closed)."""
+def allowed_regions_from_env(environ: Mapping[str, str], cloud: str = "aws") -> frozenset[str]:
+    """Resolve the active region allowlist for *cloud* from *environ* (fails closed)."""
+    eu_eea = AZURE_EU_EEA_LOCATIONS if cloud == "azure" else EU_EEA_REGIONS
+    strictest = eu_eea if cloud == "azure" else EUSC_REGIONS
     policy = (environ.get(POLICY_ENV_VAR) or "").strip().lower() or DEFAULT_POLICY
     if policy == POLICY_EU_EEA:
-        return EU_EEA_REGIONS
+        return eu_eea
     if policy == POLICY_CUSTOM:
         try:
             return frozenset(parse_allowed_regions(environ.get(ALLOWED_REGIONS_ENV_VAR, "")))
         except ValueError:
-            return EUSC_REGIONS
+            return strictest
     # "eusc" and any unrecognised value: strictest allowlist.
-    return EUSC_REGIONS
+    return strictest
 
 
 def aws_region_unset_warning(

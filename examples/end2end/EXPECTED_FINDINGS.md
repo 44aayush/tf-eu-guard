@@ -627,7 +627,7 @@ finding.
 ### High Severity
 
 **EUGUARD_POLICY_001** — Provider region outside the configured residency policy
-**Mapped to**: Policy RESIDENCY-001 — AWS region residency policy
+**Mapped to**: Policy RESIDENCY-001 — Region residency policy
 **Expected instances**: `consts.tf` / `providers.tf` — the default `eu-eea` policy accepts EU/EEA commercial regions and the Sovereign Cloud, so a provider such as `us-west-1` fails; under `--residency-policy eusc` only `eusc-de-east-1` passes. No GDPR Chapter V citation is attached to this policy finding.
 
 **EUGUARD_GDPR_002** — Known provider region outside the EU/EEA

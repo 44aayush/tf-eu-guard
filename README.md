@@ -5,7 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![Checkov 3.4.5](https://img.shields.io/badge/checkov-3.4.5-8A2BE2)](https://www.checkov.io/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Mappings](https://img.shields.io/badge/NIS2%20%2B%20GDPR%20mappings-278-orange)](docs/check-mapping-table.md)
+[![Mappings](https://img.shields.io/badge/NIS2%20%2B%20GDPR%20mappings-280-orange)](docs/check-mapping-table.md)
 
 **Links:** [PyPI package](https://pypi.org/project/tf-eu-guard/) · [Documentation](#documentation) · [Changelog](CHANGELOG.md)
 
@@ -32,7 +32,7 @@ tf-eu-guard wraps Checkov, enriches each failed check with the relevant NIS2/GDP
    - **Dev report** (terminal/HTML): severity-sorted findings for engineers
    - **Security dashboard** (HTML): CRITICAL/HIGH/MEDIUM/LOW breakdown with stats
    - **Auditor report** (HTML): article-by-article view showing which NIS2/GDPR clauses and project-policy controls have open findings
-5. **Custom checks**: Adds EU-specific rules (configurable region residency policy, AWS only (Azure and GCP locations are not evaluated), third-country transfer review, and selected hardcoded secrets) not in upstream Checkov
+5. **Custom checks**: Adds EU-specific rules (configurable region residency policy for AWS and Azure (GCP locations are not evaluated), third-country transfer review, and selected hardcoded secrets) not in upstream Checkov
 
 > **Note on flags:** `--iac-type` selects *what to scan* (terraform, terraform_plan, kubernetes);
 > `--framework` selects *which regulatory regime to report* (nis2/gdpr). `all` also retains
@@ -446,7 +446,7 @@ esac
 
 ### Unmapped findings
 
-Across all registries, **278 Checkov check IDs are mapped**: **AWS: 188 | Azure: 23 | GCP: 22 | Kubernetes: 26 | Secrets: 19** (the secrets entries apply only with `--secrets`). With 188 of Checkov's ~700 AWS checks mapped,
+Across all registries, **280 Checkov check IDs are mapped**: **AWS: 188 | Azure: 25 | GCP: 22 | Kubernetes: 26 | Secrets: 19** (the secrets entries apply only with `--secrets`). With 188 of Checkov's ~700 AWS checks mapped,
 a scan can produce Checkov failures that have no current EU regulatory mapping.
 These are **not** silently dropped: every report format surfaces them as
 "present-but-unmapped" — a count in the dev/security/auditor reports, a
@@ -680,7 +680,7 @@ the keywords authoritative. The package ships `py.typed`.
 | Regulation | Terraform source | Terraform plan | Kubernetes |
 |------------|-----------------|----------------|------------|
 | **NIS2 Article 21(2)** | ✅ 223 cloud check mappings | ✅ same checks apply | ✅ 26 `CKV_K8S_*` mappings |
-| **GDPR Article 32(1)** | ✅ 178 cloud check mappings | ✅ same checks apply | ✅ 16 `CKV_K8S_*` mappings |
+| **GDPR Article 32(1)** | ✅ 179 cloud check mappings | ✅ same checks apply | ✅ 16 `CKV_K8S_*` mappings |
 | **GDPR Art. 44 (third-country transfer review)** | ✅ Custom checks `EUGUARD_GDPR_002` (provider) and `EUGUARD_GDPR_003` (resource `region`, replicas) | ❌ Checkov plan scans do not run provider checks; also scan Terraform source | ❌ Out of scope — see note |
 
 > Mapping counts above are generated from the registry files and verified in CI
@@ -730,7 +730,7 @@ the keywords authoritative. The package ships `py.typed`.
 
 ### Current Registry
 
-**278 Checkov check IDs mapped** — **AWS: 188 mappings | Azure: 23 | GCP: 22 | Kubernetes: 26 | Secrets: 19** — covering
+**280 Checkov check IDs mapped** — **AWS: 188 mappings | Azure: 25 | GCP: 22 | Kubernetes: 26 | Secrets: 19** — covering
 encryption at rest/in transit, logging & detection, backup & recovery,
 secure development/supply chain, secrets in code, IAM/access control, network
 segmentation, pod security context, RBAC, and resource limits:
@@ -742,7 +742,7 @@ segmentation, pod security context, RBAC, and resource limits:
 - **Secure development / secrets**: CKV_AWS_226, 363, 272, 51, 163, 41, 45, 46
 - **S3 / RDS / network exposure**: CKV_AWS_20, 53–56, 16, 17, 133, 129, 161, 293, 118, 24, 25, 260, 382, 137, 248, 38, 39, 117, 23, CKV2_AWS_6, CKV2_AWS_12, CKV2_AWS_5
 - **Custom**: EUGUARD_POLICY_001 / EUGUARD_POLICY_002 (configurable residency policy: provider / resource regions), EUGUARD_GDPR_001 (deprecated alias of POLICY_001), EUGUARD_GDPR_002 / EUGUARD_GDPR_003 (known third-country provider / resource regions, Chapter V review), EUGUARD_NIS2_001 (selected Terraform database/cache and CodeBuild secrets), EUGUARD_NIS2_002 / EUGUARD_NIS2_003 (Kubernetes Secret manifests / container env vars)
-- **Azure** (23): `tf_eu_guard/mapping/registry-azure.yaml` — storage account encryption/public access, SQL firewall & public network access, Key Vault network rules, App Service HTTPS/auth/logging, NSG SSH rules, and more
+- **Azure** (25): `tf_eu_guard/mapping/registry-azure.yaml` — storage account encryption/public access, SQL firewall & public network access, Key Vault network rules, App Service HTTPS/auth/logging, NSG SSH rules, and more
 - **GCP** (22): `tf_eu_guard/mapping/registry-gcp.yaml` — GCS bucket CMEK/public IAM, Cloud SQL public IP/SSL/CMEK, GKE private clusters/ABAC/authorized networks, VPC flow logs, and more
 - **Kubernetes** (26): `tf_eu_guard/mapping/registry-kubernetes.yaml` — pod security context (privileged/root/capabilities), RBAC privilege escalation, missing NetworkPolicy, secrets as literals, resource requests/limits, image hygiene, health probes
 

@@ -12,6 +12,11 @@ release point.
 
 ### Added
 
+- Azure residency: `EUGUARD_POLICY_003` (resource `location` within the configured residency policy) and
+  `EUGUARD_GDPR_004` (known third-country location, a hedged Chapter V review signal) cover every
+  `azurerm_*` resource. The policy check is fail-closed against a maintained EU/EEA location table; the
+  Chapter V check fails only for known third-country locations, the UK and Switzerland included. The shared
+  `POLICY RESIDENCY-001` article title is now "Region residency policy" (TEG-05).
 - Action input `fail-on-unmapped` (default `false`) passes `--fail-on-unmapped`, so a workflow can fail on active
   Checkov findings that have no EU mapping (TEG-10).
 - A Terraform scan warns on stderr when a local module `source` (`./` or `../`) resolves outside the scan

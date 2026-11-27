@@ -62,7 +62,7 @@ GDPR_TITLES: dict[str, str] = {
 ARTICLE_TITLES: dict[tuple[Framework, str], str] = {
     **{(Framework.NIS2, f"Art. 21(2)({letter})"): title for letter, title in NIS2_TITLES.items()},
     **{(Framework.GDPR, f"Art. {article}"): title for article, title in GDPR_TITLES.items()},
-    (Framework.POLICY, "Policy RESIDENCY-001"): "AWS region residency policy",
+    (Framework.POLICY, "Policy RESIDENCY-001"): "Region residency policy",
 }
 
 

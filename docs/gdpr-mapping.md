@@ -135,6 +135,8 @@ configurable residency *policy* from the GDPR Chapter V review signal:
 | EUGUARD_GDPR_001 | **Deprecated** alias of EUGUARD_POLICY_001 so 0.7.x `--checkov-json` files still map; removed in the next release |
 | EUGUARD_GDPR_002 | A known AWS provider region outside the EU/EEA receives a Chapter V review signal (**custom** check) |
 | EUGUARD_GDPR_003 | A known resource-level region outside the EU/EEA receives a Chapter V review signal (**custom** check) |
+| EUGUARD_POLICY_003 | Azure `azurerm_*` resource `location` is within the configured residency policy (**project policy** custom check) |
+| EUGUARD_GDPR_004 | A known Azure `location` outside the EU/EEA (including the UK and Switzerland) receives a Chapter V review signal (**custom** check) |
 
 These are **custom tf-eu-guard checks** implemented in
 [`tf_eu_guard/checks/gdpr/data_residency.py`](../tf_eu_guard/checks/gdpr/data_residency.py).
@@ -149,6 +151,17 @@ top-level `region` of any `aws_*` resource, `aws_dynamodb_table`
 the ARN; an unresolved ARN is skipped). `aws_s3_bucket_replication_configuration`
 destinations are bucket ARNs whose region is not resolvable statically and are
 **not** evaluated.
+
+**Azure** (`EUGUARD_POLICY_003` / `EUGUARD_GDPR_004`, in
+[`tf_eu_guard/checks/gdpr/azure_residency.py`](../tf_eu_guard/checks/gdpr/azure_residency.py))
+evaluate the `location` argument of every `azurerm_*` resource, compared in
+normalised form (`West Europe` equals `westeurope`). The policy check is fail-closed
+against a maintained EU/EEA table: a newer EU location that is not yet verified
+(for example `belgiumcentral`) fails the policy check and stays *unknown* for the Chapter V
+signal, which fails only for known third-country locations. The Azure checks use the
+same `--residency-policy` flag: `eu-eea` (default) and `eusc` both use the Azure EU/EEA
+table, since the Sovereign Cloud is an AWS partition, and `custom` applies the same
+allowlist to every cloud. GCP locations are not evaluated.
 
 **Residency policy** (`--residency-policy`, GitHub Action input
 `residency-policy`): `eu-eea` (default) allows the EU/EEA commercial regions

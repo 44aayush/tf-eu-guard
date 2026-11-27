@@ -19,7 +19,7 @@ import check_doc_counts  # noqa: E402
 def test_computed_counts_match_current_registries():
     counts = check_doc_counts.compute_counts()
     assert counts["aws"] == 188
-    assert counts["azure"] == 23
+    assert counts["azure"] == 25
     assert counts["gcp"] == 22
     assert counts["kubernetes"] == 26
     assert counts["secrets"] == 19

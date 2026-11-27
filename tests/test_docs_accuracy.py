@@ -24,4 +24,4 @@ def test_docs_do_not_repeat_corrected_claims():
     for registry in sorted((ROOT / "tf_eu_guard" / "mapping").glob("registry-*.yaml")):
         assert "weakensing" not in registry.read_text(encoding="utf-8"), registry.name
 
-    assert "AWS only" in _read("README.md")
+    assert "residency policy for AWS and Azure" in _read("README.md")

@@ -6,6 +6,8 @@ The residency policies (``eu-eea``, ``eusc``, ``custom``; see
 them inline, so the policy is reviewable — and pin-able by tests — on its own.
 """
 
+import re
+
 # Regions of the AWS European
 # Sovereign Cloud. Verified against botocore's partition data on 2026-09-08
 # (the EUSC partition's region code is ``eusc-de-east-1`` — Brandenburg,
@@ -32,6 +34,74 @@ EU_EEA_REGIONS = (
     )
     | EUSC_REGIONS
 )
+
+# Azure locations. Azure `location` values are compared in normalised form
+# (lower case, no spaces, hyphens or underscores): "West Europe" == "westeurope".
+# Newer EU regions that could not be verified from an authoritative source
+# (belgiumcentral, denmarkeast, finlandcentral, greececentral) are deliberately
+# left out: they fail the residency policy check, the safe direction for a
+# fail-closed gate, until they are verified, and they are not classified as
+# third countries for the Chapter V review.
+AZURE_EU_EEA_LOCATIONS = frozenset(
+    {
+        "northeurope",  # Ireland
+        "westeurope",  # Netherlands
+        "francecentral",
+        "francesouth",
+        "germanywestcentral",
+        "germanynorth",
+        "swedencentral",
+        "swedensouth",
+        "italynorth",
+        "polandcentral",
+        "spaincentral",
+        "norwayeast",
+        "norwaywest",
+        "austriaeast",
+    }
+)
+
+# EU/EEA locations plus known third-country ones (the UK and Switzerland are
+# GDPR third countries). A classification table, not a legal conclusion;
+# locations not listed stay UNKNOWN for the Chapter V check.
+AZURE_KNOWN_LOCATIONS = frozenset(
+    {
+        "uksouth",
+        "ukwest",
+        "switzerlandnorth",
+        "switzerlandwest",
+        "eastus",
+        "eastus2",
+        "westus",
+        "westus2",
+        "westus3",
+        "centralus",
+        "northcentralus",
+        "southcentralus",
+        "westcentralus",
+        "canadacentral",
+        "canadaeast",
+        "brazilsouth",
+        "eastasia",
+        "southeastasia",
+        "japaneast",
+        "japanwest",
+        "australiaeast",
+        "australiasoutheast",
+        "centralindia",
+        "southindia",
+        "koreacentral",
+        "uaenorth",
+        "southafricanorth",
+        *AZURE_EU_EEA_LOCATIONS,
+    }
+)
+
+
+def normalise_azure_location(value: str) -> str:
+    """Lower-case *value* and drop spaces, hyphens and underscores."""
+    return re.sub(r"[\s_-]+", "", value).lower()
+
 
 # Regions AWS lists that are deliberately NOT classified as known third
 # countries. eu-isoe-west-1 is an isolated (ISO-E) partition region located in
