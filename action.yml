@@ -6,7 +6,7 @@ branding:
 
 inputs:
   path:
-    description: 'Path to the IaC directory (or, for iac-type: terraform_plan, the "terraform show -json" plan file), relative to the repository root or an absolute path under the workspace'
+    description: 'Path to the IaC directory (or, for iac-type: terraform_plan, the "terraform show -json" plan file), relative to the repository root or an absolute path under the workspace; ".." is rejected'
     required: false
     default: './terraform'
   output:
@@ -46,7 +46,7 @@ inputs:
     required: false
     default: ''
   checkov-json:
-    description: 'Use a pre-generated Checkov JSON result instead of running Checkov (path is optional when set)'
+    description: 'Workspace-relative path to a pre-generated Checkov JSON result, used instead of running Checkov (path is optional when set); an absolute path must be under the workspace and ".." is rejected'
     required: false
     default: ''
   output-dir:
@@ -266,9 +266,11 @@ runs:
 
         args=()
         if [ -n "$INPUT_CHECKOV_JSON" ]; then
-          args+=(--checkov-json "$INPUT_CHECKOV_JSON")
+          checkov_json_path="$(ws_rel "$INPUT_CHECKOV_JSON")" || exit 2
+          args+=(--checkov-json "$checkov_json_path")
         else
-          args+=("$INPUT_PATH")
+          scan_path="$(ws_rel "$INPUT_PATH")" || exit 2
+          args+=("$scan_path")
         fi
         args+=(
           --iac-type "$INPUT_IAC_TYPE"

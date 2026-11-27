@@ -568,6 +568,38 @@ def test_action_rejects_dotdot_in_waivers_input(tmp_path):
     assert "::error::" in result.stderr
 
 
+def test_action_rejects_dotdot_path(tmp_path):
+    bash = _bash_or_skip()
+    for bad in ("../outside", "a/../../b", "/etc"):
+        result, argv, _ = _run_action(tmp_path, bash, INPUT_PATH=bad)
+        assert result.returncode == 2, bad
+        assert "::error::" in result.stderr
+        assert argv == []
+
+
+def test_action_rejects_outside_checkov_json(tmp_path):
+    bash = _bash_or_skip()
+    for bad in ("../r.json", "/etc/passwd"):
+        result, argv, _ = _run_action(tmp_path, bash, INPUT_CHECKOV_JSON=bad)
+        assert result.returncode == 2, bad
+        assert "::error::" in result.stderr
+        assert argv == []
+
+
+def test_action_path_is_workspace_absolute(tmp_path):
+    bash = _bash_or_skip()
+    ws = str(tmp_path / "ws")
+    result, argv, _ = _run_action(tmp_path, bash)
+    assert result.returncode == 0, result.stderr
+    assert f"{ws}/terraform" in argv
+    assert "./terraform" not in argv
+    result, argv, _ = _run_action(tmp_path, bash, INPUT_CHECKOV_JSON="r/checkov.json")
+    assert result.returncode == 0, result.stderr
+    assert argv[argv.index("--checkov-json") + 1] == f"{ws}/r/checkov.json"
+    result, argv, _ = _run_action(tmp_path, bash, INPUT_PATH=f"{ws}/infra")
+    assert f"{ws}/infra" in argv
+
+
 def test_readme_documents_config_inputs_and_outputs():
     readme = (ACTION.parent / "README.md").read_text(encoding="utf-8")
     for name in ("config", "trusted-config", "waivers", "baseline", "job-summary"):

@@ -474,7 +474,7 @@ Action inputs mirror the scan options:
 
 | Input | CLI equivalent | Default |
 | --- | --- | --- |
-| `path` | positional `PATH` | `./terraform` |
+| `path` | positional `PATH` (workspace-relative, or absolute under the workspace; `..` is rejected) | `./terraform` |
 | `output` | `--output` | `dev` |
 | `iac-type` | `--iac-type` | `terraform` |
 | `framework` | `--framework` | `all` |
@@ -483,7 +483,7 @@ Action inputs mirror the scan options:
 | `fail-on-suppressed` | `--fail-on-suppressed` | `false` |
 | `residency-policy` | `--residency-policy` | `eu-eea` |
 | `allowed-regions` | `--allowed-regions` | empty |
-| `checkov-json` | `--checkov-json` | empty |
+| `checkov-json` | `--checkov-json` (workspace-relative path; same rules as `path`) | empty |
 | `output-dir` | `--output-dir` | `reports/` |
 | `output-file` | `--output-file` | empty |
 | `upload-reports` | artifact upload | `false` |

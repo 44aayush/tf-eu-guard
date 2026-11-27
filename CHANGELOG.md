@@ -65,6 +65,9 @@ release point.
   per line); Rich no longer expands `:emoji:` codes inside names.
 - The Action fails with exit 3 if it cannot create a 32-hex stop-commands token, instead of running
   the container unbracketed.
+- The Action validates the `path` and `checkov-json` inputs like `config`, `waivers` and `baseline`: a
+  `..` segment or an absolute path outside the workspace exits 2, and workspace-relative values are
+  passed to the CLI as `$GITHUB_WORKSPACE/<path>` (TEG-15).
 
 ## [0.9.0] - 2026-11-18
 
