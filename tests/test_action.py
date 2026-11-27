@@ -344,6 +344,7 @@ exit 0
 STUB_GH = r"""#!/bin/sh
 printf '%s\n' "$@" > "$STUB_GH_LOG"
 printf '%s\n' "$GH_TOKEN" > "$STUB_GH_LOG.token"
+if [ -n "$STUB_GH_STDERR" ]; then printf '%s\n' "$STUB_GH_STDERR" >&2; printf '%s\n' "$STUB_GH_STDERR"; fi
 exit "${STUB_GH_EXIT:-0}"
 """
 
@@ -980,6 +981,92 @@ def test_action_passes_commit_env_to_container(tmp_path):
     assert f"TF_EU_GUARD_COMMIT={sha}" in argv
 
 
+def _git_repo(path):
+    """Create a repository with one commit at *path*; return its HEAD."""
+    git = shutil.which("git")
+    if git is None:
+        pytest.skip("git not found")
+    path.mkdir(parents=True, exist_ok=True)
+    env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull}
+    for cmd in (
+        ["init", "-q"],
+        ["-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q",
+         "--allow-empty", "-m", "x"],
+    ):  # fmt: skip
+        subprocess.run([git, "-C", str(path), *cmd], check=True, env=env, capture_output=True)
+    out = subprocess.run(
+        [git, "-C", str(path), "rev-parse", "HEAD"], check=True, env=env, capture_output=True
+    )
+    return out.stdout.decode().strip()
+
+
+def test_action_commit_is_the_scanned_checkouts_head(tmp_path):
+    bash = _bash_or_skip()
+    head = _git_repo(tmp_path / "ws" / "terraform")
+    result, argv, _ = _run_action(tmp_path, bash, GITHUB_SHA="b" * 40)
+    assert result.returncode == 0, result.stderr
+    assert f"TF_EU_GUARD_COMMIT={head}" in argv
+    assert f"TF_EU_GUARD_COMMIT={'b' * 40}" not in argv
+
+
+def test_action_commit_for_a_file_path_uses_its_directory(tmp_path):
+    bash = _bash_or_skip()
+    head = _git_repo(tmp_path / "ws" / "sub")
+    (tmp_path / "ws" / "sub" / "plan.json").write_text("{}", encoding="utf-8")
+    result, argv, _ = _run_action(tmp_path, bash, INPUT_PATH="sub/plan.json", GITHUB_SHA="b" * 40)
+    assert result.returncode == 0, result.stderr
+    assert f"TF_EU_GUARD_COMMIT={head}" in argv
+
+
+def test_action_commit_with_checkov_json_uses_the_workspace(tmp_path):
+    bash = _bash_or_skip()
+    head = _git_repo(tmp_path / "ws")
+    result, argv, _ = _run_action(
+        tmp_path, bash, INPUT_CHECKOV_JSON="checkov.json", GITHUB_SHA="b" * 40
+    )
+    assert result.returncode == 0, result.stderr
+    assert f"TF_EU_GUARD_COMMIT={head}" in argv
+
+
+def test_action_commit_falls_back_to_github_sha_without_a_repository(tmp_path):
+    bash = _bash_or_skip()
+    (tmp_path / "ws" / "terraform").mkdir(parents=True)
+    result, argv, _ = _run_action(tmp_path, bash, GITHUB_SHA="c" * 40)
+    assert result.returncode == 0, result.stderr
+    assert f"TF_EU_GUARD_COMMIT={'c' * 40}" in argv
+
+
+def test_action_commit_discovery_stops_at_the_workspace(tmp_path):
+    """A repository above the workspace is not the scanned checkout."""
+    bash = _bash_or_skip()
+    outer = tmp_path / "outer"
+    _git_repo(outer)
+    (outer / "ws" / "terraform").mkdir(parents=True)
+    result, argv, _ = _run_action(
+        tmp_path, bash, GITHUB_WORKSPACE=str(outer / "ws"), GITHUB_SHA="d" * 40
+    )
+    assert result.returncode == 0, result.stderr
+    assert f"TF_EU_GUARD_COMMIT={'d' * 40}" in argv
+
+
+def test_action_accepts_bare_workspace_path(tmp_path):
+    bash = _bash_or_skip()
+    ws = str(tmp_path / "ws")
+    result, argv, _ = _run_action(tmp_path, bash, INPUT_PATH=ws)
+    assert result.returncode == 0, result.stderr
+    assert f"{ws}/." in argv
+    assert "::error::" not in result.stderr
+
+
+def test_action_accepts_bare_workspace_for_other_workspace_inputs(tmp_path):
+    bash = _bash_or_skip()
+    ws = str(tmp_path / "ws")
+    result, argv, _ = _run_action(tmp_path, bash, INPUT_BASELINE=ws, INPUT_CHECKOV_JSON=ws)
+    assert result.returncode == 0, result.stderr
+    assert argv[argv.index("--baseline") + 1] == f"{ws}/."
+    assert argv[argv.index("--checkov-json") + 1] == f"{ws}/."
+
+
 DIGEST_REF = "ghcr.io/44aayush/tf-eu-guard@sha256:" + "a" * 64
 FALLBACK_NOTICE = (
     "::notice::could not verify the published image ghcr.io/44aayush/tf-eu-guard:v0.10.0"
@@ -1022,7 +1109,7 @@ def test_action_unverified_image_falls_back_to_local_build(tmp_path):
     bash = _bash_or_skip()
     result, argv, _ = _image_run(tmp_path, bash, STUB_GH_EXIT="1")
     assert result.returncode == 0, result.stderr
-    assert FALLBACK_NOTICE in result.stdout
+    assert FALLBACK_NOTICE + " (the attestation check failed); building" in result.stdout
     assert (tmp_path / "build").read_text(encoding="utf-8") == "build\n"
     assert any(a.startswith("tf-eu-guard:action-") for a in argv)
     assert DIGEST_REF not in argv
@@ -1032,18 +1119,35 @@ def test_action_missing_gh_falls_back(tmp_path):
     bash = _bash_or_skip()
     result, argv, _ = _image_run(tmp_path, bash, no_gh=True)
     assert result.returncode == 0, result.stderr
-    assert FALLBACK_NOTICE in result.stdout
+    assert FALLBACK_NOTICE + " (the gh CLI is not installed); building" in result.stdout
     assert (tmp_path / "build").exists()
     assert DIGEST_REF not in argv
 
 
-def test_action_verify_image_false_uses_tag(tmp_path):
+@pytest.mark.parametrize("value", ["false", "FALSE", "False", "No", "no", "0"])
+def test_action_verify_image_false_uses_tag(tmp_path, value):
     bash = _bash_or_skip()
-    result, argv, _ = _image_run(tmp_path, bash, INPUT_VERIFY_IMAGE="false", STUB_GH_EXIT="1")
+    result, argv, _ = _image_run(tmp_path, bash, INPUT_VERIFY_IMAGE=value, STUB_GH_EXIT="1")
     assert result.returncode == 0, result.stderr
     assert "ghcr.io/44aayush/tf-eu-guard:v0.10.0" in argv
     assert not (tmp_path / "gh_argv").exists()
     assert not (tmp_path / "build").exists()
+
+
+@pytest.mark.parametrize("value", ["ture", "on", "", "off", "2", "true"])
+def test_action_verify_image_stays_on_unless_explicitly_false(tmp_path, value):
+    bash = _bash_or_skip()
+    result, argv, _ = _image_run(tmp_path, bash, INPUT_VERIFY_IMAGE=value)
+    assert result.returncode == 0, result.stderr
+    assert DIGEST_REF in argv
+    assert (tmp_path / "gh_argv").exists()
+
+
+def test_action_notice_names_the_failed_stage_and_hides_gh_output(tmp_path):
+    bash = _bash_or_skip()
+    result, _, _ = _image_run(tmp_path, bash, STUB_GH_EXIT="1", STUB_GH_STDERR="TOKEN-LEAK-xyz")
+    assert "(the attestation check failed)" in result.stdout
+    assert "TOKEN-LEAK-xyz" not in result.stdout + result.stderr
 
 
 def test_action_explicit_image_skips_verification(tmp_path):
@@ -1072,7 +1176,8 @@ def test_action_bad_digest_shape_falls_back(tmp_path, extra):
     bash = _bash_or_skip()
     result, argv, _ = _image_run(tmp_path, bash, **extra)
     assert result.returncode == 0, result.stderr
-    assert FALLBACK_NOTICE in result.stdout
+    stage = "the image pull failed" if "STUB_PULL_EXIT" in extra else "the image digest could not"
+    assert f"{FALLBACK_NOTICE} ({stage}" in result.stdout
     assert (tmp_path / "build").exists()
     assert not (tmp_path / "gh_argv").exists()
 

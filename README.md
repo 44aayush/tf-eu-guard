@@ -224,8 +224,13 @@ path), `commit` (the HEAD sha; uncommitted changes are not detected; null outsid
 `TF_EU_GUARD_COMMIT` environment variable holds a 40- or 64-character lowercase hex id),
 `commit_source` (`git`, `environment` or null), the effective `options`
 (no environment variables), `resources_scanned` and `checks` (`passed`, `failed`, `skipped`).
-The `python:3.12-slim` image the Action runs in has no git, so the Action passes `GITHUB_SHA` in
-`TF_EU_GUARD_COMMIT` and `provenance.commit` is that sha with `commit_source` `environment`. A
+The `python:3.12-slim` image the Action runs in has no git, so the Action resolves the commit on the
+runner (`git rev-parse HEAD` in the scanned directory, or the workspace with `checkov-json`, with
+fsmonitor and hooks disabled) and passes it in `TF_EU_GUARD_COMMIT`: `provenance.commit` is the scanned
+checkout's HEAD (on `pull_request` that is the merge commit GitHub checks out, not the branch tip), with
+`commit_source` `environment`. `GITHUB_SHA` is only the fallback when that directory is not a git
+repository, because under `pull_request_target` or a checkout with `ref:`, `repository:` or `path:` it
+is not the scanned code's commit. A
 `--checkov-json` run still records no commit.
 
 To attest the bundle in CI, use GitHub artifact attestations on it, for example
@@ -583,8 +588,10 @@ in the job log) because the Action only uploads SARIF when `upload-sarif` is
 
 With the default pull-by-tag, the Action verifies the pulled image against its GitHub build-provenance
 attestation (`gh attestation verify`, signed by this repository's `publish.yml` and built from the same tag as the Action ref) and runs it by digest;
-when the image cannot be verified (no `gh`, no attestation, registry unreachable) it prints a notice and
-builds the image locally instead. Set `verify-image: false` to run the tag as pulled.
+when the image cannot be verified (no `gh`, no attestation, registry unreachable) it prints a notice naming
+the failed stage (pull, digest, gh missing or attestation) and builds the image locally instead. Set
+`verify-image: false` (or `0` or `no`, any case) to run the tag as pulled; any other value, including a
+typo, keeps verification on.
 
 To pin the image itself, resolve the digest of a released tag and pass it
 through the `image` input (a pull failure then fails the step instead of

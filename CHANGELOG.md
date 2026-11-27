@@ -23,9 +23,10 @@ release point.
 - A Terraform scan warns on stderr when AWS resources were scanned but no `provider "aws"` block sets a
   region (the residency checks cannot tell where they deploy), and a directory scan warns when hidden
   directories such as `.prod/` hold source files that Checkov skips (TEG-05). Exit codes are unchanged.
-- `provenance.commit` is no longer null in the Action: the Action passes `GITHUB_SHA` as
-  `TF_EU_GUARD_COMMIT`, which is used when git is unavailable and the value is a 40- or 64-character
-  lowercase hex id, and the new `provenance.commit_source` (`git`, `environment` or null) says which
+- `provenance.commit` is no longer null in the Action: the Action resolves the scanned checkout's HEAD on the
+  runner (`git rev-parse HEAD` in the scanned directory; on `pull_request` that is the merge commit) and
+  passes it as `TF_EU_GUARD_COMMIT`, falling back to `GITHUB_SHA` when that directory is not a repository.
+  The value is used when git is unavailable and it is a 40- or 64-character lowercase hex id, and the new `provenance.commit_source` (`git`, `environment` or null) says which
   one supplied it (TEG-13).
 
 ### Changed
@@ -45,6 +46,8 @@ release point.
 
 ### Fixed
 
+- The Action accepts `path: ${{ github.workspace }}` (the bare workspace, no trailing slash) and the same
+  value for its other workspace inputs; it was rejected as an absolute path outside the workspace.
 - `--changed-since` keeps Terraform findings in the module directory, parent directories and
   subdirectories of a changed `.tf`, `.tfvars`, `.hcl`, `.tfvars.json` or `.tf.json` file, so changing a variable default no
   longer hides the resources it affects in untouched files; other IaC types stay file-granular (TEG-02).
@@ -74,8 +77,10 @@ release point.
   passed to the CLI as `$GITHUB_WORKSPACE/<path>` (TEG-15).
 - The Action verifies the build-provenance attestation of the image it pulls by tag (`gh attestation
   verify`, signed by `publish.yml`) and runs it by digest; if the pull, digest lookup or verification
-  fails it builds the image locally. New input `verify-image` (default true) turns this off; an explicit
-  `image` input is unchanged (TEG-04).
+  fails it builds the image locally and the notice names the failed stage (pull, digest, gh missing or
+  attestation; gh's own output is not printed). New input `verify-image` (default true) turns this off
+  only for an explicit `false`, `0` or `no` (any case); a typo keeps it on. An explicit `image` input is
+  unchanged (TEG-04).
 
 ## [0.9.0] - 2026-11-18
 

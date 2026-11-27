@@ -78,7 +78,7 @@ inputs:
     required: false
     default: ''
   verify-image:
-    description: 'Verify the build-provenance attestation of the published image (gh attestation verify, signed by publish.yml) before running it, then run it by digest; if verification is not possible the image is built locally instead (true, 1 or yes, any case). Set false to run the tag as pulled. Ignored when image is set'
+    description: 'Verify the build-provenance attestation of the published image (gh attestation verify, signed by publish.yml) before running it, then run it by digest; if verification is not possible the image is built locally instead (true, 1 or yes, any case). Set false, 0 or no (any case) to run the tag as pulled; any other value, including a typo, keeps verification on. Ignored when image is set'
     required: false
     default: 'true'
   config:
@@ -190,6 +190,13 @@ runs:
             *) return 1 ;;
           esac
         }
+        # Verification is switched off only by an explicit false value.
+        is_false() {
+          case "$1" in
+            [Ff][Aa][Ll][Ss][Ee]|0|[Nn][Oo]) return 0 ;;
+            *) return 1 ;;
+          esac
+        }
         # Normalised values for the upload steps' `if:` conditions. Both start
         # false so every early exit leaves uploads disabled; the real values
         # are written after the scan, once the upload targets are checked.
@@ -205,7 +212,8 @@ runs:
         # digest must carry a build-provenance attestation from that workflow
         # (gh attestation verify) and the scan then runs by digest. If the pull,
         # the digest lookup or the verification fails (ref is a branch or SHA,
-        # image not published yet, no gh, registry unreachable) fall back to
+        # image not published yet, no gh, registry unreachable) the notice names
+        # the failed stage (never gh's own output) and the action falls back to
         # building the image from the action's own source. An explicit `image`
         # input (for example a @sha256 digest) is used as given and never falls back.
         local_image="tf-eu-guard:action-${GITHUB_RUN_ID:-local}"
@@ -218,21 +226,26 @@ runs:
             candidate="ghcr.io/44aayush/tf-eu-guard:${ACTION_REF}"
             digest_re='^ghcr\.io/44aayush/tf-eu-guard@sha256:[0-9a-f]{64}$'
             ref=""
-            if docker pull --quiet "$candidate" >/dev/null 2>&1 \
-              && ref="$(docker image inspect --format '{{index .RepoDigests 0}}' "$candidate" 2>/dev/null)" \
-              && [[ "$ref" =~ $digest_re ]]; then
-              if ! is_true "$INPUT_VERIFY_IMAGE"; then
-                image="$candidate"
-              elif command -v gh >/dev/null 2>&1 \
-                && GH_TOKEN="$ACTION_TOKEN" gh attestation verify "oci://$ref" \
-                  --repo 44aayush/tf-eu-guard \
-                  --signer-workflow 44aayush/tf-eu-guard/.github/workflows/publish.yml \
-                  --source-ref "refs/tags/${ACTION_REF}" >/dev/null 2>&1; then
-                image="$ref"
-              fi
+            reason=""
+            if ! docker pull --quiet "$candidate" >/dev/null 2>&1; then
+              reason="the image pull failed"
+            elif ! ref="$(docker image inspect --format '{{index .RepoDigests 0}}' "$candidate" 2>/dev/null)" \
+              || ! [[ "$ref" =~ $digest_re ]]; then
+              reason="the image digest could not be resolved"
+            elif is_false "$INPUT_VERIFY_IMAGE"; then
+              image="$candidate"
+            elif ! command -v gh >/dev/null 2>&1; then
+              reason="the gh CLI is not installed"
+            elif ! GH_TOKEN="$ACTION_TOKEN" gh attestation verify "oci://$ref" \
+              --repo 44aayush/tf-eu-guard \
+              --signer-workflow 44aayush/tf-eu-guard/.github/workflows/publish.yml \
+              --source-ref "refs/tags/${ACTION_REF}" >/dev/null 2>&1; then
+              reason="the attestation check failed"
+            else
+              image="$ref"
             fi
             if [ -z "$image" ]; then
-              echo "::notice::could not verify the published image $candidate; building the image locally"
+              echo "::notice::could not verify the published image $candidate ($reason); building the image locally"
             fi
           fi
           if [ -z "$image" ]; then
@@ -266,6 +279,10 @@ runs:
         # workspace-relative; any other absolute path is rejected.
         out_rel() {
           local value="$1"
+          # The bare workspace itself (path: ${{ github.workspace }}) is the root.
+          if [ "$value" = "$GITHUB_WORKSPACE" ] || [ "$value" = "/workspace" ]; then
+            value="."
+          fi
           value="${value#"$GITHUB_WORKSPACE"/}"
           value="${value#/workspace/}"
           case "$value" in
@@ -333,6 +350,29 @@ runs:
           --counts-file /out/.tf-eu-guard/counts.txt
         )
         mounts=()
+        # provenance.commit: the HEAD of the scanned checkout. GITHUB_SHA is not that commit under
+        # pull_request_target or a checkout with ref:/repository:/path:, so it is only the fallback.
+        # git runs on the untrusted checkout: no fsmonitor or hooks, and discovery stops at the workspace.
+        scan_dir="$GITHUB_WORKSPACE"
+        if [ -z "$INPUT_CHECKOV_JSON" ]; then
+          scan_dir="$scan_path"
+          if [ -f "$scan_dir" ]; then
+            scan_dir="$(dirname "$scan_dir")"
+          fi
+        fi
+        commit=""
+        if command -v git >/dev/null 2>&1; then
+          commit="$(GIT_CEILING_DIRECTORIES="$(dirname "$GITHUB_WORKSPACE")" \
+            git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$scan_dir" rev-parse HEAD 2>/dev/null || true)"
+        fi
+        case "$commit" in
+          *[!0123456789abcdef]*|"") commit="${GITHUB_SHA:-}" ;;
+          *)
+            if [ "${#commit}" -ne 40 ] && [ "${#commit}" -ne 64 ]; then
+              commit="${GITHUB_SHA:-}"
+            fi
+            ;;
+        esac
         if [ -n "$INPUT_CONFIG" ] && [ -n "$INPUT_TRUSTED_CONFIG" ]; then
           echo "::error::set only one of config and trusted-config" >&2
           exit 2
@@ -437,7 +477,7 @@ runs:
           --user "$(id -u):$(id -g)" \
           -e HOME=/tmp \
           -e XDG_CACHE_HOME=/tmp/.cache \
-          -e TF_EU_GUARD_COMMIT="${GITHUB_SHA:-}" \
+          -e TF_EU_GUARD_COMMIT="$commit" \
           -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE:ro" \
           -v "$out_host:/out" \
           ${mounts[@]+"${mounts[@]}"} \
