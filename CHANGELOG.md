@@ -25,8 +25,9 @@ release point.
 
 ### Security
 
-- The Action wraps the container's output in a random `::stop-commands::` token and resumes it after
-  the scan, so output from the scanned code cannot inject workflow commands (TEG-03).
+- The Action merges the container's stderr into stdout and wraps both in a random
+  `::stop-commands::` token that is resumed after the scan, so workflow commands printed by the
+  scanned code are not interpreted while the container runs (TEG-03).
 - Terminal and stderr output escapes control characters (newline, ESC, C1, bidi overrides) in
   resource names, file paths, check text, waiver fields, weakening lines and module sources taken
   from the scanned checkout, so a crafted name can no longer forge `::error::` annotations in a

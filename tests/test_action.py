@@ -305,6 +305,9 @@ case "$1" in
     if [ -n "$STUB_STDOUT" ]; then
       printf '%s\n' "$STUB_STDOUT"
     fi
+    if [ -n "$STUB_STDERR" ]; then
+      printf '%s\n' "$STUB_STDERR" >&2
+    fi
     if [ -z "$STUB_NO_FILES" ]; then
       mkdir -p "$out/.tf-eu-guard"
       printf '# tf-eu-guard summary\n' > "$out/.tf-eu-guard/summary.md"
@@ -434,6 +437,19 @@ def test_action_brackets_container_output_with_stop_commands(tmp_path):
     forged = lines.index("::error::forged")
     resume = lines.index(f"::{token}::")
     assert starts[0] < forged < resume
+
+
+def test_action_brackets_container_stderr_on_the_same_stream(tmp_path):
+    bash = _bash_or_skip()
+    result, _, _ = _run_action(tmp_path, bash, STUB_STDERR="::error::forged")
+    assert result.returncode == 0, result.stderr
+    assert "::error::forged" not in result.stderr
+    lines = result.stdout.splitlines()
+    start = next(
+        i for i, ln in enumerate(lines) if re.fullmatch(r"::stop-commands::[0-9a-f]{32}", ln)
+    )
+    token = lines[start].split("::")[2]
+    assert start < lines.index("::error::forged") < lines.index(f"::{token}::")
 
 
 def test_action_resumes_workflow_commands_after_failed_scan(tmp_path):

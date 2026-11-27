@@ -396,7 +396,7 @@ runs:
           -v "$out_host:/out" \
           ${mounts[@]+"${mounts[@]}"} \
           -w "$GITHUB_WORKSPACE" \
-          "$image" "${args[@]}"
+          "$image" "${args[@]}" 2>&1
         status=$?
         echo "::$stop_token::"
         set -e
