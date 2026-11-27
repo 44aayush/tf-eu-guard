@@ -24,9 +24,9 @@ Kubernetes check namespace:
 
 | File | Namespace |
 |------|-----------|
-| `registry-aws.yaml` | AWS (186 mappings — covers Terraform source *and* plan JSON, since the same `CKV_AWS_*` IDs fire in both modes) |
-| `registry-azure.yaml` | Azure (23 mappings) |
-| `registry-gcp.yaml` | GCP (22 mappings) |
+| `registry-aws.yaml` | AWS (189 mappings — covers Terraform source *and* plan JSON, since the same `CKV_AWS_*` IDs fire in both modes) |
+| `registry-azure.yaml` | Azure (25 mappings) |
+| `registry-gcp.yaml` | GCP (25 mappings) |
 | `registry-kubernetes.yaml` | Kubernetes `CKV_K8S_*` (26 mappings) |
 
 Check IDs are globally unique keys, so a mapping works for every IaC type its
@@ -93,6 +93,25 @@ bash install_and_test.sh
 (creates a venv, installs dev extras, runs pytest with coverage, and smoke-tests
 a scan of `examples/vulnerable-aws/`).
 
+## Emulator tests (opt-in)
+
+`tests/emulator/` runs real Terraform against a LocalStack endpoint to test plan-mode scanning with
+real plans (for example a region supplied only by `AWS_REGION`) and to compare findings with state read
+back through boto3. It is skipped unless `TFEG_RUN_EMULATOR=1` is set and `terraform` is on PATH, so the
+default suite is unchanged. To run it locally:
+
+```bash
+docker run -d --rm --name teg-emu -p 127.0.0.1:4566:4566 -e SERVICES=s3,sqs,dynamodb,sts,iam \
+  localstack/localstack@sha256:59373b4a27dba3ec15c4db0b7455f0cb68c8a42300e2cbbe362b440f9a131697
+TFEG_RUN_EMULATOR=1 pytest tests/emulator -p no:cacheprovider -o addopts=""
+docker stop teg-emu
+```
+
+`TFEG_EMULATOR_ENDPOINT` overrides the default `http://127.0.0.1:4566`. The fixture's
+`.terraform.lock.hcl` pins the AWS provider for `linux_amd64` only; set `TF_PLUGIN_CACHE_DIR` to avoid
+re-downloading it. The emulator wiring (`localstack_override.tf`) is copied into a temporary directory
+and never lives in a scanned fixture. A clean emulator run says nothing about legal compliance.
+
 ## Dependency lock and supply-chain checks
 
 Three hashed lock files are committed, and CI and the Docker image install them
@@ -114,8 +133,8 @@ tools/compile-locks.sh --upgrade   # moves every pin to the newest allowed versi
 
 The runtime and dev locks are universal (`uv pip compile --universal`): they
 carry platform and Python-version markers, so one file installs on Python
-3.11.5 to 3.14 on Linux, macOS and Windows. The CI tooling lock is resolved for
-Python 3.12, the Docker image's version. The `lock-check` CI job runs the same
+3.11.5 to 3.14 on any platform (CI tests Linux only). The CI
+tooling lock is resolved for Python 3.12, the Docker image's version. The `lock-check` CI job runs the same
 script and fails on `git diff --exit-code`, so commit the regenerated files.
 Keep the dev tools in `requirements-dev.in` in step with the `dev` extra in
 `pyproject.toml`. To work like CI locally:

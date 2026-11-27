@@ -5,7 +5,7 @@
       "examples/vulnerable-aws": {"expected": 53, "min": 30},
       "examples/vulnerable-azure": {"expected": 7, "min": 1},
       "examples/vulnerable-gcp": {"expected": 14, "min": 1},
-      "examples/unmapped-aws": {"expected": 8, "min": 5},
+      "examples/unmapped-aws": {"expected": 9, "min": 5},
       "examples/end2end": {"expected": 297, "min": 280}
     },
     "compliant": {

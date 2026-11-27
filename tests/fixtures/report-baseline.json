@@ -1,0 +1,16 @@
+{
+  "findings": [
+    {
+      "check_id": "CKV_AWS_273",
+      "resource": "aws_iam_user.deploy_user",
+      "file_path": "/iam.tf"
+    }
+  ],
+  "unmapped": [
+    {
+      "check_id": "CKV_AWS_10",
+      "resource": "aws_iam_account_password_policy.weak",
+      "file_path": "/iam.tf"
+    }
+  ]
+}

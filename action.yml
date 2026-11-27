@@ -6,7 +6,7 @@ branding:
 
 inputs:
   path:
-    description: 'Path to the IaC directory (or, for iac-type: terraform_plan, the "terraform show -json" plan file), relative to the repository root or an absolute path under the workspace'
+    description: 'Path to the IaC directory (or, for iac-type: terraform_plan, the "terraform show -json" plan file), relative to the repository root or an absolute path under the workspace; ".." is rejected'
     required: false
     default: './terraform'
   output:
@@ -25,20 +25,32 @@ inputs:
     description: 'Fail the workflow if findings at or above this severity exist (CRITICAL, HIGH, MEDIUM, LOW, INFO); empty disables gating'
     required: false
     default: 'HIGH'
+  unmapped-severity:
+    description: 'Count every active Checkov finding with no EU mapping as a finding of this severity (CRITICAL, HIGH, MEDIUM, LOW, INFO) for fail-on-severity and fail-on-any; unmapped findings are never waived, but a baseline covers them (only new ones count); empty leaves unmapped findings out of those gates (mirrors --unmapped-severity)'
+    required: false
+    default: ''
+  json-format:
+    description: 'JSON report shape for output json: array or object; empty omits --json-format, which prints the implicit-default deprecation warning (mirrors --json-format)'
+    required: false
+    default: ''
   upload-reports:
     description: 'Upload generated HTML report(s) as a workflow artifact (true, 1 or yes, any case); applies only to output security, auditor, or all (ignored for dev, json, and sarif)'
     required: false
     default: 'false'
   fail-on-any:
-    description: 'Fail the workflow when any mapped finding exists, regardless of severity (true, 1 or yes, any case)'
+    description: 'Fail the workflow when any mapped finding exists (or, with unmapped-severity set, any active unmapped finding), regardless of severity (true, 1 or yes, any case)'
     required: false
     default: 'false'
   fail-on-suppressed:
     description: 'Fail the workflow when any mapped finding is suppressed by an inline checkov:skip comment (true, 1 or yes, any case; mirrors --fail-on-suppressed)'
     required: false
     default: 'false'
+  fail-on-unmapped:
+    description: 'Fail the workflow when any active Checkov finding has no EU mapping; with a baseline only unmapped findings not in the baseline count (true, 1 or yes, any case; mirrors --fail-on-unmapped)'
+    required: false
+    default: 'false'
   residency-policy:
-    description: 'AWS region residency policy for EUGUARD_POLICY_001/002: eu-eea (default), eusc, or custom (requires allowed-regions); mirrors --residency-policy. Ignored with checkov-json'
+    description: 'Region residency policy enforced by EUGUARD_POLICY_001/002 (AWS), EUGUARD_POLICY_003 (Azure) and EUGUARD_POLICY_004 (GCP): eu-eea (default), eusc (AWS only; Azure and GCP use their EU/EEA tables), or custom (requires allowed-regions); mirrors --residency-policy. Ignored with checkov-json'
     required: false
     default: 'eu-eea'
   allowed-regions:
@@ -46,7 +58,7 @@ inputs:
     required: false
     default: ''
   checkov-json:
-    description: 'Use a pre-generated Checkov JSON result instead of running Checkov (path is optional when set)'
+    description: 'Workspace-relative path to a pre-generated Checkov JSON result, used instead of running Checkov (path is optional when set); an absolute path must be under the workspace and ".." is rejected'
     required: false
     default: ''
   output-dir:
@@ -77,6 +89,10 @@ inputs:
     description: 'Optional container image to run instead of the default ghcr.io/44aayush/tf-eu-guard:<action ref>. Pin by digest for a verifiable supply chain (ghcr.io/44aayush/tf-eu-guard@sha256:...). When set, a failed pull fails the step; there is no fallback to a local build'
     required: false
     default: ''
+  verify-image:
+    description: 'Verify the build-provenance attestation of the published image (gh attestation verify, signed by publish.yml) before running it, then run it by digest; if verification is not possible the image is built locally instead (true, 1 or yes, any case). Set false, 0 or no (any case) to run the tag as pulled; any other value, including a typo, keeps verification on. Ignored when image is set'
+    required: false
+    default: 'true'
   config:
     description: 'Workspace-relative path to a tf-eu-guard config file, passed as --config. It lives in the scanned checkout, so a pull request can change it; use trusted-config to prevent that. Cannot be combined with trusted-config'
     required: false
@@ -89,10 +105,18 @@ inputs:
     description: 'Workspace-relative path to a waivers file, passed as --waivers'
     required: false
     default: ''
+  max-waiver-days:
+    description: 'Do not apply a waiver that expires more than this many days from today (a whole number, passed as --max-waiver-days); its findings stay active. Empty means no limit'
+    required: false
+    default: ''
   baseline:
     description: 'Workspace-relative path to a baseline file, passed as --baseline'
     required: false
     default: ''
+  discover-config:
+    description: 'Read .tf-eu-guard.yaml and .tf-eu-guard-waivers.yaml from the scanned directory (true, 1 or yes, any case). Off by default because a pull request controls those files; on pull requests use trusted-config for settings'
+    required: false
+    default: 'false'
   job-summary:
     description: 'Append a Markdown summary of the scan to the job summary (true, 1 or yes, any case)'
     required: false
@@ -129,6 +153,9 @@ outputs:
   baselined:
     description: 'Number of baselined findings (baselined)'
     value: ${{ steps.scan.outputs.baselined }}
+  baselined-unmapped:
+    description: 'Number of baselined unmapped findings (baselined_unmapped)'
+    value: ${{ steps.scan.outputs.baselined_unmapped }}
   total:
     description: 'Number of total findings (all findings)'
     value: ${{ steps.scan.outputs.total }}
@@ -147,22 +174,29 @@ runs:
         INPUT_FAIL_ON_SEVERITY: ${{ inputs.fail-on-severity }}
         INPUT_FAIL_ON_ANY: ${{ inputs.fail-on-any }}
         INPUT_FAIL_ON_SUPPRESSED: ${{ inputs.fail-on-suppressed }}
+        INPUT_FAIL_ON_UNMAPPED: ${{ inputs.fail-on-unmapped }}
+        INPUT_UNMAPPED_SEVERITY: ${{ inputs.unmapped-severity }}
+        INPUT_JSON_FORMAT: ${{ inputs.json-format }}
         INPUT_RESIDENCY_POLICY: ${{ inputs.residency-policy }}
         INPUT_ALLOWED_REGIONS: ${{ inputs.allowed-regions }}
         INPUT_CHECKOV_JSON: ${{ inputs.checkov-json }}
         INPUT_OUTPUT_DIR: ${{ inputs.output-dir }}
         INPUT_OUTPUT_FILE: ${{ inputs.output-file }}
         INPUT_IMAGE: ${{ inputs.image }}
+        INPUT_VERIFY_IMAGE: ${{ inputs.verify-image }}
         INPUT_TIMEOUT: ${{ inputs.timeout }}
         INPUT_UPLOAD_REPORTS: ${{ inputs.upload-reports }}
         INPUT_UPLOAD_SARIF: ${{ inputs.upload-sarif }}
         INPUT_CONFIG: ${{ inputs.config }}
         INPUT_TRUSTED_CONFIG: ${{ inputs.trusted-config }}
         INPUT_WAIVERS: ${{ inputs.waivers }}
+        INPUT_MAX_WAIVER_DAYS: ${{ inputs.max-waiver-days }}
         INPUT_BASELINE: ${{ inputs.baseline }}
         INPUT_JOB_SUMMARY: ${{ inputs.job-summary }}
+        INPUT_DISCOVER_CONFIG: ${{ inputs.discover-config }}
         ACTION_PATH: ${{ github.action_path }}
         ACTION_REF: ${{ github.action_ref }}
+        ACTION_TOKEN: ${{ github.token }}
         RUNNER_TEMP_DIR: ${{ runner.temp }}
       run: |
         set -euo pipefail
@@ -171,6 +205,13 @@ runs:
         is_true() {
           case "$1" in
             [Tt][Rr][Uu][Ee]|1|[Yy][Ee][Ss]) return 0 ;;
+            *) return 1 ;;
+          esac
+        }
+        # Verification is switched off only by an explicit false value.
+        is_false() {
+          case "$1" in
+            [Ff][Aa][Ll][Ss][Ee]|0|[Nn][Oo]) return 0 ;;
             *) return 1 ;;
           esac
         }
@@ -184,11 +225,15 @@ runs:
         if is_true "$INPUT_UPLOAD_REPORTS"; then upload_reports=true; fi
         if is_true "$INPUT_UPLOAD_SARIF"; then upload_sarif=true; fi
 
-        # Prefer the release image published to GHCR by release-image.yml
-        # (tagged with the action ref, e.g. v0.9.0). If the pull fails (ref is
-        # a branch or SHA, image not published yet, registry unreachable) fall
-        # back to building the image from the action's own source. An explicit
-        # `image` input (for example a @sha256 digest) never falls back.
+        # Prefer the release image published to GHCR by publish.yml (tagged
+        # with the action ref, e.g. v0.10.0). The tag is mutable, so the pulled
+        # digest must carry a build-provenance attestation from that workflow
+        # (gh attestation verify) and the scan then runs by digest. If the pull,
+        # the digest lookup or the verification fails (ref is a branch or SHA,
+        # image not published yet, no gh, registry unreachable) the notice names
+        # the failed stage (never gh's own output) and the action falls back to
+        # building the image from the action's own source. An explicit `image`
+        # input (for example a @sha256 digest) is used as given and never falls back.
         local_image="tf-eu-guard:action-${GITHUB_RUN_ID:-local}"
         if [ -n "$INPUT_IMAGE" ]; then
           docker pull --quiet "$INPUT_IMAGE" >/dev/null
@@ -197,10 +242,28 @@ runs:
           image=""
           if [ -n "$ACTION_REF" ]; then
             candidate="ghcr.io/44aayush/tf-eu-guard:${ACTION_REF}"
-            if docker pull --quiet "$candidate" >/dev/null 2>&1; then
+            digest_re='^ghcr\.io/44aayush/tf-eu-guard@sha256:[0-9a-f]{64}$'
+            ref=""
+            reason=""
+            if ! docker pull --quiet "$candidate" >/dev/null 2>&1; then
+              reason="the image pull failed"
+            elif ! ref="$(docker image inspect --format '{{index .RepoDigests 0}}' "$candidate" 2>/dev/null)" \
+              || ! [[ "$ref" =~ $digest_re ]]; then
+              reason="the image digest could not be resolved"
+            elif is_false "$INPUT_VERIFY_IMAGE"; then
               image="$candidate"
+            elif ! command -v gh >/dev/null 2>&1; then
+              reason="the gh CLI is not installed"
+            elif ! GH_TOKEN="$ACTION_TOKEN" gh attestation verify "oci://$ref" \
+              --repo 44aayush/tf-eu-guard \
+              --signer-workflow 44aayush/tf-eu-guard/.github/workflows/publish.yml \
+              --source-ref "refs/tags/${ACTION_REF}" >/dev/null 2>&1; then
+              reason="the attestation check failed"
             else
-              echo "::notice::could not pull $candidate; building the image locally"
+              image="$ref"
+            fi
+            if [ -z "$image" ]; then
+              echo "::notice::could not verify the published image $candidate ($reason); building the image locally"
             fi
           fi
           if [ -z "$image" ]; then
@@ -234,6 +297,10 @@ runs:
         # workspace-relative; any other absolute path is rejected.
         out_rel() {
           local value="$1"
+          # The bare workspace itself (a workflow passing the workspace path) is the root.
+          if [ "$value" = "$GITHUB_WORKSPACE" ] || [ "$value" = "/workspace" ]; then
+            value="."
+          fi
           value="${value#"$GITHUB_WORKSPACE"/}"
           value="${value#/workspace/}"
           case "$value" in
@@ -256,9 +323,11 @@ runs:
 
         args=()
         if [ -n "$INPUT_CHECKOV_JSON" ]; then
-          args+=(--checkov-json "$INPUT_CHECKOV_JSON")
+          checkov_json_path="$(ws_rel "$INPUT_CHECKOV_JSON")" || exit 2
+          args+=(--checkov-json "$checkov_json_path")
         else
-          args+=("$INPUT_PATH")
+          scan_path="$(ws_rel "$INPUT_PATH")" || exit 2
+          args+=("$scan_path")
         fi
         args+=(
           --iac-type "$INPUT_IAC_TYPE"
@@ -276,6 +345,15 @@ runs:
         fi
         if is_true "$INPUT_FAIL_ON_SUPPRESSED"; then
           args+=(--fail-on-suppressed)
+        fi
+        if is_true "$INPUT_FAIL_ON_UNMAPPED"; then
+          args+=(--fail-on-unmapped)
+        fi
+        if [ -n "$INPUT_UNMAPPED_SEVERITY" ]; then
+          args+=(--unmapped-severity "$INPUT_UNMAPPED_SEVERITY")
+        fi
+        if [ -n "$INPUT_JSON_FORMAT" ]; then
+          args+=(--json-format "$INPUT_JSON_FORMAT")
         fi
         if [ -n "$INPUT_RESIDENCY_POLICY" ]; then
           args+=(--residency-policy "$INPUT_RESIDENCY_POLICY")
@@ -299,9 +377,61 @@ runs:
           --counts-file /out/.tf-eu-guard/counts.txt
         )
         mounts=()
+        # provenance.commit: the HEAD of the scanned checkout. GITHUB_SHA is not that commit under
+        # pull_request_target or a checkout with ref:/repository:/path:, so it is only the fallback.
+        # git runs on the untrusted checkout: no fsmonitor or hooks, and discovery stops at the workspace.
+        scan_dir="$GITHUB_WORKSPACE"
+        if [ -z "$INPUT_CHECKOV_JSON" ]; then
+          scan_dir="$scan_path"
+          if [ -f "$scan_dir" ]; then
+            scan_dir="$(dirname "$scan_dir")"
+          fi
+        fi
+        commit=""
+        if command -v git >/dev/null 2>&1; then
+          # The checkout is untrusted: drop any inherited git redirection, refuse bare repositories
+          # planted inside it, and accept the HEAD only when the repository's top level is the workspace
+          # (or inside it).
+          ws_real="$(cd "$GITHUB_WORKSPACE" 2>/dev/null && pwd -P || true)"
+          git_safe() {
+            env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u GIT_INDEX_FILE \
+              -u GIT_OBJECT_DIRECTORY -u GIT_ALTERNATE_OBJECT_DIRECTORIES \
+              -u GIT_CONFIG_PARAMETERS -u GIT_CONFIG_COUNT -u GIT_NAMESPACE \
+              -u GIT_CEILING_DIRECTORIES \
+              GIT_CEILING_DIRECTORIES="$(dirname "$GITHUB_WORKSPACE")" \
+              git -c core.fsmonitor=false -c core.hooksPath=/dev/null \
+              -c safe.bareRepository=explicit -C "$scan_dir" "$@" 2>/dev/null
+          }
+          top="$(git_safe rev-parse --show-toplevel || true)"
+          top_real=""
+          if [ -n "$top" ]; then
+            top_real="$(cd "$top" 2>/dev/null && pwd -P || true)"
+          fi
+          case "$top_real" in
+            "") ;;
+            *)
+              if [ -n "$ws_real" ] && { [ "$top_real" = "$ws_real" ] || case "$top_real" in "$ws_real"/*) true ;; *) false ;; esac; }; then
+                commit="$(git_safe rev-parse HEAD || true)"
+              fi
+              ;;
+          esac
+        fi
+        case "$commit" in
+          *[!0123456789abcdef]*|"") commit="${GITHUB_SHA:-}" ;;
+          *)
+            if [ "${#commit}" -ne 40 ] && [ "${#commit}" -ne 64 ]; then
+              commit="${GITHUB_SHA:-}"
+            fi
+            ;;
+        esac
         if [ -n "$INPUT_CONFIG" ] && [ -n "$INPUT_TRUSTED_CONFIG" ]; then
           echo "::error::set only one of config and trusted-config" >&2
           exit 2
+        fi
+        # The scanned directory is attacker-controlled in pull requests, so
+        # its .tf-eu-guard*.yaml files are ignored unless discovery is opted in.
+        if ! is_true "$INPUT_DISCOVER_CONFIG"; then
+          args+=(--no-discovery)
         fi
         if [ -n "$INPUT_CONFIG" ]; then
           config_path="$(ws_rel "$INPUT_CONFIG")" || exit 2
@@ -341,6 +471,15 @@ runs:
           waivers_path="$(ws_rel "$INPUT_WAIVERS")" || exit 2
           args+=(--waivers "$waivers_path")
         fi
+        if [ -n "$INPUT_MAX_WAIVER_DAYS" ]; then
+          case "$INPUT_MAX_WAIVER_DAYS" in
+            ''|*[!0-9]*)
+              echo "::error::max-waiver-days must be a whole number of days" >&2
+              exit 2
+              ;;
+          esac
+          args+=(--max-waiver-days "$INPUT_MAX_WAIVER_DAYS")
+        fi
         if [ -n "$INPUT_BASELINE" ]; then
           baseline_path="$(ws_rel "$INPUT_BASELINE")" || exit 2
           args+=(--baseline "$baseline_path")
@@ -362,6 +501,17 @@ runs:
         # threshold, 2 = bad invocation, 3 = tool failure); let it
         # propagate.
         set +e
+        # The container output is untrusted: stop workflow-command processing
+        # until the random token is echoed back after the scan.
+        stop_token="$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+        case "$stop_token" in
+          *[!0-9a-f]*|"") stop_token="" ;;
+        esac
+        if [ "${#stop_token}" -ne 32 ]; then
+          echo "::error::could not create stop-commands token"
+          exit 3
+        fi
+        echo "::stop-commands::$stop_token"
         # Hardening: the scanned code is untrusted and Checkov evaluates
         # Terraform expressions from it (asteval), so the container has no
         # network (Checkov runs with --skip-download), a read-only root
@@ -378,12 +528,14 @@ runs:
           --user "$(id -u):$(id -g)" \
           -e HOME=/tmp \
           -e XDG_CACHE_HOME=/tmp/.cache \
+          -e TF_EU_GUARD_COMMIT="$commit" \
           -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE:ro" \
           -v "$out_host:/out" \
           ${mounts[@]+"${mounts[@]}"} \
           -w "$GITHUB_WORKSPACE" \
-          "$image" "${args[@]}"
+          "$image" "${args[@]}" 2>&1
         status=$?
+        echo "::$stop_token::"
         set -e
 
         # Publish the summary and counts. The container processed untrusted
@@ -396,7 +548,7 @@ runs:
             head -c 1048576 "$meta/summary.md" >> "$GITHUB_STEP_SUMMARY" || true
           fi
           if [ ! -L "$meta/counts.txt" ] && [ -f "$meta/counts.txt" ]; then
-            LC_ALL=C grep -a -E '^[a-z]+=[0-9]+$' "$meta/counts.txt" >> "$GITHUB_OUTPUT" || true
+            LC_ALL=C grep -a -E '^[a-z_]+=[0-9]+$' "$meta/counts.txt" >> "$GITHUB_OUTPUT" || true
           fi
         fi
         rm -rf "$meta"

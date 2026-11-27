@@ -206,6 +206,27 @@ def test_rule_carries_regulatory_metadata(findings):
     assert rule["properties"]["mapped"] is True
 
 
+def test_build_sarif_array_baseline_omits_new_state(validator):
+    known = {
+        "check_id": "CKV_U_1",
+        "resource": "a.b",
+        "file_path": "a.tf",
+        "file_line_range": [1, 2],
+    }
+    fresh = {
+        "check_id": "CKV_U_2",
+        "resource": "c.d",
+        "file_path": "c.tf",
+        "file_line_range": [1, 2],
+    }
+    document = build_sarif(
+        [], unmapped=[fresh], baselined_unmapped=[known], baseline_covers_unmapped=False
+    )
+    validator.validate(document)
+    states = {r["ruleId"]: r.get("baselineState") for r in document["runs"][0]["results"]}
+    assert states == {"CKV_U_1": "unchanged", "CKV_U_2": None}
+
+
 def test_unmapped_results_are_note_level_and_tagged(validator):
     unmapped = [
         {

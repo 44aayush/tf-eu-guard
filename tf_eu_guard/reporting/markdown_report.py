@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from tf_eu_guard.models import EnrichedFinding
 from tf_eu_guard.reporting.sorting import sort_findings, sorted_articles
+from tf_eu_guard.reporting.untrusted import sanitize
 
 if TYPE_CHECKING:
     from tf_eu_guard.cli.pipeline import ScanFindings
@@ -15,7 +16,8 @@ _SEVERITIES = ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO")
 
 def md_escape(value: object) -> str:
     """Escape text for a Markdown table cell; resource names are untrusted."""
-    text = str(value).replace("\\", "\\\\").replace("|", "\\|").replace("`", "\\`")
+    text = str(value).replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+    text = sanitize(text).replace("\\", "\\\\").replace("|", "\\|").replace("`", "\\`")
     text = text.replace("<", "&lt;").replace(">", "&gt;")
     return text.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
 
@@ -69,7 +71,8 @@ def render_markdown(result: ScanFindings, *, target: str, version: str, max_rows
         lines.append("")
     lines.append(
         f"Unmapped: {unmapped} | Suppressed: {suppressed} | "
-        f"Waived: {len(result.waived)} | Baselined: {len(result.baselined)}"
+        f"Waived: {len(result.waived)} | Baselined: {len(result.baselined)} | "
+        f"Baselined unmapped: {len(result.baselined_unmapped)}"
     )
     return "\n".join(lines) + "\n"
 
@@ -81,5 +84,6 @@ def render_counts(result: ScanFindings) -> str:
     counts["suppressed"] = len(result.suppressed) + len(result.suppressed_unmapped)
     counts["waived"] = len(result.waived)
     counts["baselined"] = len(result.baselined)
+    counts["baselined_unmapped"] = len(result.baselined_unmapped)
     counts["total"] = len(result.findings) + len(result.unmapped)
     return "".join(f"{key}={value}\n" for key, value in counts.items())

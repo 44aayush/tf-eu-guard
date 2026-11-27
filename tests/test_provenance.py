@@ -9,7 +9,7 @@ from pathlib import Path
 
 import jsonschema
 import pytest
-from cli_helpers import FIXTURE, run_cli
+from cli_helpers import FIXTURE, clean_git_env, run_cli
 
 from tf_eu_guard.provenance import git_commit, registry_digest
 
@@ -54,6 +54,7 @@ def test_git_commit_has_no_dirty_suffix(tmp_path):
             ["git", "-C", str(tmp_path), "-c", "user.name=t", "-c", "user.email=t@t", *a],
             check=True,
             capture_output=True,
+            env=clean_git_env(),
         )
 
     git("init")
@@ -180,18 +181,24 @@ def _git_repo(tmp_path, marker):
     repo = tmp_path / "repo"
     repo.mkdir()
     ident = ["-c", "user.name=t", "-c", "user.email=t@example.invalid"]
-    subprocess.run(["git", "init", "-q", str(repo)], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "init", "-q", str(repo)], check=True, capture_output=True, env=clean_git_env()
+    )
     (repo / "a.tf").write_text("a\n")
-    subprocess.run(["git", "-C", str(repo), "add", "."], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "add", "."], check=True, capture_output=True, env=clean_git_env()
+    )
     subprocess.run(
         ["git", *ident, "-C", str(repo), "commit", "-q", "-m", "x"],
         check=True,
         capture_output=True,
+        env=clean_git_env(),
     )
     subprocess.run(
         ["git", "-C", str(repo), "config", "core.fsmonitor", f"touch '{marker.as_posix()}'; false"],
         check=True,
         capture_output=True,
+        env=clean_git_env(),
     )
     return repo
 
@@ -201,15 +208,22 @@ def test_git_commit_ignores_git_dir_env(tmp_path, monkeypatch):
     a, other = tmp_path / "a", tmp_path / "other"
     for repo, msg in ((a, "a"), (other, "o")):
         repo.mkdir()
-        subprocess.run(["git", "init", "-q", str(repo)], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "init", "-q", str(repo)], check=True, capture_output=True, env=clean_git_env()
+        )
         subprocess.run(
             ["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid", "-C", str(repo)]
             + ["commit", "-q", "--allow-empty", "-m", msg],
             check=True,
             capture_output=True,
+            env=clean_git_env(),
         )
     head = subprocess.run(
-        ["git", "-C", str(a), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+        ["git", "-C", str(a), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+        env=clean_git_env(),
     ).stdout.strip()
     monkeypatch.setenv("GIT_DIR", str(other / ".git"))
     assert (git_commit(a) or "").startswith(head)
@@ -219,7 +233,9 @@ def test_git_commit_ignores_git_dir_env(tmp_path, monkeypatch):
 def test_git_commit_does_not_run_repo_fsmonitor(tmp_path):
     marker = tmp_path / "PWNED"
     repo = _git_repo(tmp_path, marker)
-    subprocess.run(["git", "-C", str(repo), "status"], capture_output=True, check=False)
+    subprocess.run(
+        ["git", "-C", str(repo), "status"], capture_output=True, check=False, env=clean_git_env()
+    )
     assert marker.exists(), "fixture must be exploitable without the safe flags"
     marker.unlink()
     git_commit(repo)
@@ -265,7 +281,12 @@ def _filter_repo(tmp_path, marker):
     ident = ["-c", "user.name=t", "-c", "user.email=t@example.invalid"]
 
     def git(*a):
-        subprocess.run(["git", *ident, "-C", str(repo), *a], check=True, capture_output=True)
+        subprocess.run(
+            ["git", *ident, "-C", str(repo), *a],
+            check=True,
+            capture_output=True,
+            env=clean_git_env(),
+        )
 
     git("init", "-q")
     (repo / "a.tf").write_text("aaaa\n")
@@ -284,10 +305,79 @@ def test_git_commit_and_changed_files_do_not_run_filters(tmp_path):
 
     marker = tmp_path / "PWNED"
     repo = _filter_repo(tmp_path, marker)
-    subprocess.run(["git", "-C", str(repo), "status", "--porcelain"], capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "status", "--porcelain"], capture_output=True, env=clean_git_env()
+    )
     assert marker.exists(), "fixture must be exploitable without the safe flags"
     marker.unlink()
     git_commit(repo)
     assert not marker.exists()
     changed_files(repo, "HEAD")
     assert not marker.exists()
+
+
+def _provenance(path):
+    from argparse import Namespace
+    from types import SimpleNamespace
+
+    from tf_eu_guard.provenance import build_provenance
+
+    result = SimpleNamespace(registry=None, checkov_version=None)
+    return build_provenance(Namespace(path=path), result, {})  # type: ignore[arg-type]
+
+
+def test_commit_falls_back_to_env(tmp_path, monkeypatch):
+    sha = "a" * 40
+    monkeypatch.setenv("TF_EU_GUARD_COMMIT", sha)
+    prov = _provenance(tmp_path)
+    assert prov["commit"] == sha and prov["commit_source"] == "environment"
+
+
+def test_commit_accepts_64_hex_sha256_object_ids(tmp_path, monkeypatch):
+    monkeypatch.setenv("TF_EU_GUARD_COMMIT", "b" * 64)
+    assert _provenance(tmp_path)["commit"] == "b" * 64
+
+
+@needs_git
+def test_commit_prefers_git_over_env(tmp_path, monkeypatch):
+    subprocess.run(
+        ["git", "init", "-q", str(tmp_path)], check=True, capture_output=True, env=clean_git_env()
+    )
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid", "-C", str(tmp_path)]
+        + ["commit", "-q", "--allow-empty", "-m", "x"],
+        check=True,
+        capture_output=True,
+        env=clean_git_env(),
+    )
+    monkeypatch.setenv("TF_EU_GUARD_COMMIT", "a" * 40)
+    prov = _provenance(tmp_path)
+    assert prov["commit"] == git_commit(tmp_path) != "a" * 40
+    assert prov["commit_source"] == "git"
+
+
+@pytest.mark.parametrize("value", ["abc", "A" * 40, "g" * 40, "a" * 41, "a" * 40 + "\n", ""])
+def test_commit_env_must_be_hex(tmp_path, monkeypatch, value):
+    monkeypatch.setenv("TF_EU_GUARD_COMMIT", value)
+    prov = _provenance(tmp_path)
+    assert prov["commit"] is None and prov["commit_source"] is None
+
+
+def test_commit_source_is_schema_valid(tmp_path, monkeypatch):
+    monkeypatch.setenv("TF_EU_GUARD_COMMIT", "a" * 40)
+    prov = _provenance(tmp_path)
+    prov["registry_sha256"] = "0" * 64
+    jsonschema.validate(prov, SCHEMA["properties"]["provenance"])
+
+
+def test_provenance_records_resolved_json_format(tmp_path):
+    from argparse import Namespace
+    from types import SimpleNamespace
+
+    from tf_eu_guard.provenance import build_provenance
+
+    result = SimpleNamespace(registry=None, checkov_version=None)
+    args = Namespace(path=tmp_path, output="json")
+    prov = build_provenance(args, result, {})  # type: ignore[arg-type]
+    assert prov["options"]["json_format"] == "array"
+    assert not hasattr(args, "json_format")

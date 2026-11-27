@@ -82,3 +82,15 @@ def test_scan_config_overrides_default_keywords_and_no_config_wins(monkeypatch, 
 def test_api_scan_always_has_provenance():
     result = tf_eu_guard.scan(checkov_json=FIXTURE)
     assert result.provenance["tool_version"]
+
+
+def test_scan_no_discovery_keyword(monkeypatch, tmp_path):
+    doc = json.loads(FIXTURE.read_text())
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", lambda *a, **k: doc)
+    (tmp_path / ".tf-eu-guard.yaml").write_text("severity_overrides: {CKV_AWS_16: INFO}\n")
+
+    def severity(result):
+        return next(f.severity for f in result.findings if f.check_id == "CKV_AWS_16")
+
+    assert severity(tf_eu_guard.scan(tmp_path)).name == "INFO"
+    assert severity(tf_eu_guard.scan(tmp_path, no_discovery=True)).name == "HIGH"

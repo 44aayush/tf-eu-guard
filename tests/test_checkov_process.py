@@ -16,6 +16,10 @@ from pathlib import Path
 
 import pytest
 
+from tf_eu_guard.checkov.process import (
+    hidden_dirs_warning,
+    hidden_source_dirs,
+)
 from tf_eu_guard.checkov_runner import (
     CheckovRuntimeError,
     extract_failed_checks,
@@ -440,7 +444,8 @@ def test_platform_and_ignore_variables_are_scrubbed_even_online(tmp_path, monkey
         "CKV_IGNORE_HIDDEN_DIRECTORIES",
     ):
         monkeypatch.setenv(name, "x")
-    monkeypatch.setenv("UNRELATED_VAR", "kept")
+    monkeypatch.setenv("UNRELATED_VAR", "dropped")
+    monkeypatch.setenv("LANG", "C.UTF-8")
     run_checkov(_tf_dir(tmp_path), online=True)
     env = captured["env"]
     for name in (
@@ -451,7 +456,8 @@ def test_platform_and_ignore_variables_are_scrubbed_even_online(tmp_path, monkey
         "CKV_IGNORE_HIDDEN_DIRECTORIES",
     ):
         assert name not in env
-    assert env["UNRELATED_VAR"] == "kept"
+    assert "UNRELATED_VAR" not in env
+    assert env["LANG"] == "C.UTF-8"
 
 
 def test_exclude_is_passed_to_checkov_as_skip_path(tmp_path, monkeypatch):
@@ -546,7 +552,6 @@ def test_remote_module_warning(tmp_path, capsys, monkeypatch):
         'module "reg" {\n  source = "terraform-aws-modules/s3-bucket/aws"\n}\n'
         'module "git" {\n  source = "git::https://example.com/x.git?ref=v1"\n}\n'
         'module "loc" {\n  source = "./modules/local"\n}\n'
-        'module "up" {\n  source = "../shared"\n}\n'
     )
     run_checkov(tmp_path)
     err = capsys.readouterr().err
@@ -554,7 +559,41 @@ def test_remote_module_warning(tmp_path, capsys, monkeypatch):
     assert "module.reg (terraform-aws-modules/s3-bucket/aws)" in err
     assert "module.git (git::https://example.com/x.git?ref=v1)" in err
     assert "module.loc" not in err
-    assert "module.up" not in err
+
+
+def test_local_module_outside_root_warns(tmp_path, capsys, monkeypatch):
+    _capture_cmd(monkeypatch)
+    root = tmp_path / "root"
+    (tmp_path / "outside").mkdir()
+    (tmp_path / "outside" / "main.tf").write_text('resource "null_resource" "x" {}\n')
+    root.mkdir()
+    (root / "main.tf").write_text('module "m" {\n  source = "../outside"\n}\n')
+    run_checkov(root)
+    err = capsys.readouterr().err
+    assert "Warning: local module source(s) outside the scan root: " in err
+    assert "module.m (../outside)" in err
+    assert f"resolves to {(tmp_path / 'outside').resolve()}" in err
+    assert "scan their common parent directory instead." in err
+    assert "not analysed" not in err
+
+
+def test_local_module_inside_root_does_not_warn(tmp_path, capsys, monkeypatch):
+    _capture_cmd(monkeypatch)
+    _tf_dir(tmp_path, 'module "a" {\n  source = "./m"\n}\n')
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    (sub / "b.tf").write_text('module "b" {\n  source = "../m"\n}\n')
+    run_checkov(tmp_path)
+    assert "outside the scan root" not in capsys.readouterr().err
+
+
+def test_remote_module_not_reported_as_local(tmp_path, capsys, monkeypatch):
+    _capture_cmd(monkeypatch)
+    _tf_dir(tmp_path, 'module "reg" {\n  source = "terraform-aws-modules/s3-bucket/aws"\n}\n')
+    run_checkov(tmp_path)
+    err = capsys.readouterr().err
+    assert "module.reg" in err
+    assert "outside the scan root" not in err
 
 
 def test_no_remote_module_warning_for_local_only(tmp_path, capsys, monkeypatch):
@@ -732,3 +771,275 @@ def test_checkov_environment_drops_git_variables(monkeypatch):
 
     monkeypatch.setenv("GIT_DIR", "/elsewhere")
     assert "GIT_DIR" not in checkov_environment()
+
+
+def test_checkov_environment_drops_unknown_variables(monkeypatch):
+    from tf_eu_guard.checkov.process import checkov_environment
+
+    for name in ("CHECKOV_CREATE_GRAPH", "CKV_FRAMEWORK", "BC_API_KEY", "GIT_DIR", "FOO"):
+        monkeypatch.setenv(name, "x")
+    env = checkov_environment()
+    assert not {"CHECKOV_CREATE_GRAPH", "CKV_FRAMEWORK", "BC_API_KEY", "GIT_DIR", "FOO"} & set(env)
+
+
+def test_checkov_environment_keeps_proxy_and_locale(monkeypatch):
+    from tf_eu_guard.checkov.process import checkov_environment
+
+    kept = {
+        "HTTPS_PROXY": "http://p:3128",
+        "no_proxy": "localhost",
+        "REQUESTS_CA_BUNDLE": "/ca.pem",
+        "SSL_CERT_FILE": "/ca.pem",
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "LC_CTYPE": "C.UTF-8",
+        "TZ": "UTC",
+        "XDG_CACHE_HOME": "/cache",
+    }
+    for name, value in kept.items():
+        monkeypatch.setenv(name, value)
+    env = checkov_environment()
+    assert {k: env.get(k) for k in kept} == kept
+
+
+def test_checkov_environment_keeps_windows_essentials(monkeypatch):
+    from tf_eu_guard.checkov.process import checkov_environment
+
+    essentials = (
+        "SYSTEMROOT",
+        "SYSTEMDRIVE",
+        "WINDIR",
+        "COMSPEC",
+        "PATHEXT",
+        "USERPROFILE",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "PROGRAMDATA",
+        "TEMP",
+        "TMP",
+    )
+    for name in essentials:
+        monkeypatch.setenv(name, "C:\\x")
+    env = checkov_environment()
+    assert all(env.get(name) == "C:\\x" for name in essentials)
+
+
+def test_checkov_environment_keeps_module_restrictions(monkeypatch):
+    from tf_eu_guard.checkov.process import checkov_environment
+
+    monkeypatch.setenv("CHECKOV_TERRAFORM_ALLOWED_MODULE_PREFIXES", "git::https://corp/")
+    monkeypatch.setenv("VCS_ALLOWED_HOSTS", "corp")
+    env = checkov_environment(allow_module_download=False)
+    assert env["CHECKOV_TERRAFORM_ALLOWED_MODULE_PREFIXES"] == "git::https://corp/"
+    assert env["VCS_ALLOWED_HOSTS"] == "corp"
+
+
+def test_checkov_environment_module_credentials_only_when_downloading(monkeypatch):
+    from tf_eu_guard.checkov.process import CHECKOV_MODULE_DOWNLOAD_ENV, checkov_environment
+
+    for name in CHECKOV_MODULE_DOWNLOAD_ENV:
+        monkeypatch.setenv(name, "secret")
+    assert not CHECKOV_MODULE_DOWNLOAD_ENV & set(checkov_environment())
+    env = checkov_environment(allow_module_download=True)
+    assert CHECKOV_MODULE_DOWNLOAD_ENV <= set(env)
+    assert {"PROXY_URL", "PROXY_CA_PATH", "PROXY_HEADER_KEY", "PROXY_HEADER_VALUE"} <= (
+        CHECKOV_MODULE_DOWNLOAD_ENV
+    )
+
+
+def test_run_checkov_passes_allow_module_download(tmp_path, monkeypatch):
+    captured = _capture_cmd(monkeypatch)
+    monkeypatch.setenv("GITHUB_PAT", "secret")
+    run_checkov(_tf_dir(tmp_path))
+    assert "GITHUB_PAT" not in captured["env"]
+    run_checkov(tmp_path, download_external_modules=True)
+    assert captured["env"]["GITHUB_PAT"] == "secret"
+
+
+def test_checkov_environment_windows_matches_case_insensitively(monkeypatch):
+    from tf_eu_guard.checkov import process
+
+    monkeypatch.setattr(process.sys, "platform", "win32")
+    monkeypatch.setattr(
+        process.os, "environ", {"SystemRoot": "C:\\Windows", "lc_all": "C", "Foo": "x"}
+    )
+    env = process.checkov_environment()
+    assert env == {"SystemRoot": "C:\\Windows", "lc_all": "C"}
+
+
+def test_checkov_env_allowlist_is_exact():
+    from tf_eu_guard.checkov.process import CHECKOV_ENV_ALLOWLIST
+
+    assert CHECKOV_ENV_ALLOWLIST == {
+        "PATH", "HOME", "USER", "LOGNAME", "LANG", "LANGUAGE", "TZ", "TMPDIR", "TEMP", "TMP",
+        "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT", "USERPROFILE", "APPDATA",
+        "LOCALAPPDATA", "PROGRAMDATA", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy",
+        "https_proxy", "no_proxy", "ALL_PROXY", "all_proxy", "REQUESTS_CA_BUNDLE", "SSL_CERT_FILE", "SSL_CERT_DIR",
+        "CURL_CA_BUNDLE", "XDG_CACHE_HOME", "XDG_CONFIG_HOME",
+        "CHECKOV_TERRAFORM_ALLOWED_MODULE_PREFIXES", "VCS_ALLOWED_HOSTS",
+    }  # fmt: skip
+
+
+def test_checkov_environment_applies_extra(monkeypatch):
+    from tf_eu_guard.checkov.process import checkov_environment
+
+    monkeypatch.setenv("FOO", "ambient")
+    env = checkov_environment({"TF_EU_GUARD_X": "1", "PATH": "/override"})
+    assert env["TF_EU_GUARD_X"] == "1"
+    assert env["PATH"] == "/override"
+    assert "FOO" not in env
+
+
+def _hidden_tree(tmp_path):
+    (tmp_path / "main.tf").write_text("# root\n")
+    (tmp_path / ".prod" / "env").mkdir(parents=True)
+    (tmp_path / ".prod" / "env" / "main.tf").write_text("# prod\n")
+    return tmp_path
+
+
+def test_hidden_source_dirs_finds_dot_prod(tmp_path):
+    root = _hidden_tree(tmp_path)
+    found = hidden_source_dirs(root, "terraform")
+    assert found == [root / ".prod"]
+    warning = hidden_dirs_warning(found, "terraform")
+    assert "1 hidden directory contains .tf, .tfvars, .hcl files" in warning
+    assert str(root / ".prod") in warning
+
+
+def test_hidden_dir_warning_ignores_tooling_dirs(tmp_path):
+    for name in (".git", ".github", ".terraform", ".venv", ".tox", ".cache"):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "x.tf").write_text("# x\n")
+    (tmp_path / ".empty").mkdir()
+    (tmp_path / ".docs").mkdir()
+    (tmp_path / ".docs" / "readme.md").write_text("x\n")
+    assert hidden_source_dirs(tmp_path, "terraform") == []
+
+
+def test_hidden_source_dirs_honours_exclude(tmp_path):
+    root = _hidden_tree(tmp_path)
+    assert hidden_source_dirs(root, "terraform", [".prod"]) == []
+
+
+def test_hidden_source_dirs_kubernetes_yaml(tmp_path):
+    (tmp_path / "app").mkdir()
+    (tmp_path / "app" / ".overlays").mkdir()
+    (tmp_path / "app" / ".overlays" / "deploy.yaml").write_text("kind: Pod\n")
+    assert hidden_source_dirs(tmp_path, "kubernetes") == [tmp_path / "app" / ".overlays"]
+    assert hidden_source_dirs(tmp_path, "terraform") == []
+    assert "directories contain" in hidden_dirs_warning([Path("a"), Path("b")], "kubernetes")
+
+
+def test_hidden_dir_warning_ignores_editor_dirs(tmp_path):
+    for name, config in (
+        (".vscode", "settings.json"),
+        (".devcontainer", "devcontainer.json"),
+        (".idea", "x.json"),
+    ):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / config).write_text("{}")
+    assert hidden_source_dirs(tmp_path, "kubernetes") == []
+
+
+def test_hidden_dir_with_only_plugin_cache_is_ignored(tmp_path):
+    module = tmp_path / ".prod" / ".terraform" / "modules" / "x"
+    module.mkdir(parents=True)
+    (module / "main.tf").write_text("# cached\n")
+    assert hidden_source_dirs(tmp_path, "terraform") == []
+
+
+def test_hidden_source_dirs_does_not_follow_symlinked_hidden_dir(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "main.tf").write_text("# elsewhere\n")
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "main.tf").write_text("# root\n")
+    (root / ".ext").symlink_to(Path("..") / "outside", target_is_directory=True)
+    assert hidden_source_dirs(root, "terraform") == []
+
+
+@pytest.mark.parametrize(
+    "name", [".terragrunt-cache", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".circleci"]
+)
+def test_hidden_dir_warning_ignores_more_tooling_dirs(tmp_path, name):
+    (tmp_path / name).mkdir()
+    (tmp_path / name / "x.tf").write_text("# x\n")
+    (tmp_path / name / "k.yaml").write_text("kind: Pod\n")
+    assert hidden_source_dirs(tmp_path, "terraform") == []
+    assert hidden_source_dirs(tmp_path, "kubernetes") == []
+
+
+def test_hidden_source_dirs_exclude_applies_to_the_inner_walk(tmp_path):
+    (tmp_path / ".prod" / "vendor").mkdir(parents=True)
+    (tmp_path / ".prod" / "vendor" / "main.tf").write_text("# vendored\n")
+    assert hidden_source_dirs(tmp_path, "terraform") == [tmp_path / ".prod"]
+    assert hidden_source_dirs(tmp_path, "terraform", ["vendor"]) == []
+
+
+def test_run_checkov_prints_hidden_dir_warning(tmp_path, capsys, monkeypatch):
+    _capture_cmd(monkeypatch)
+    _tf_dir(tmp_path, "# root\n")
+    (tmp_path / ".prod").mkdir()
+    (tmp_path / ".prod" / "main.tf").write_text("# prod\n")
+    run_checkov(tmp_path)
+    err = capsys.readouterr().err
+    assert "not scanned: 1 hidden directory contains" in err
+    assert str(tmp_path.resolve() / ".prod") in err
+
+
+def _probe_source():
+    """The hcl2 probe of the bootstrap: everything before it imports checkov.main."""
+    from tf_eu_guard.checkov.process import CHECKOV_BOOTSTRAP
+
+    return CHECKOV_BOOTSTRAP.split("import checkov.common", 1)[0]
+
+
+def test_bootstrap_probes_hcl2_before_importing_checkov():
+    from tf_eu_guard.checkov.process import CHECKOV_BOOTSTRAP, HCL2_REPLACED_MARKER
+
+    assert "hcl2.START_LINE" in CHECKOV_BOOTSTRAP
+    assert HCL2_REPLACED_MARKER in CHECKOV_BOOTSTRAP
+    assert CHECKOV_BOOTSTRAP.index("hcl2.START_LINE") < CHECKOV_BOOTSTRAP.index(
+        "import checkov.main"
+    )
+
+
+def test_bootstrap_probe_exits_97_with_marker_for_foreign_hcl2(tmp_path):
+    from tf_eu_guard.checkov.process import HCL2_REPLACED_MARKER
+
+    fake = tmp_path / "fake"
+    (fake / "hcl2").mkdir(parents=True)
+    (fake / "hcl2" / "__init__.py").write_text("")
+    code = f"import sys\nsys.path.insert(0, {str(fake)!r})\n" + _probe_source()
+    result = subprocess.run(
+        [sys.executable, "-I", "-c", code], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 97
+    assert HCL2_REPLACED_MARKER in result.stderr
+
+
+@pytest.mark.skipif(
+    not os.environ.get("TFEG_RUN_CHECKOV") or importlib.util.find_spec("checkov") is None,
+    reason="live Checkov test: set TFEG_RUN_CHECKOV=1 with Checkov installed",
+)
+def test_bootstrap_probe_passes_with_bc_fork():
+    result = subprocess.run(
+        [sys.executable, "-I", "-c", _probe_source()],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("iac_type", ["terraform", "kubernetes"])
+def test_run_checkov_maps_hcl2_exit_code_for_every_iac_type(monkeypatch, tmp_path, iac_type):
+    def fake_run(cmd, **kwargs):
+        return type(
+            "R", (), {"returncode": 97, "stdout": "", "stderr": "TF_EU_GUARD_HCL2_REPLACED\n"}
+        )()
+
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.subprocess.run", fake_run)
+    with pytest.raises(CheckovRuntimeError, match="uv tool install tf-eu-guard"):
+        run_checkov(tmp_path, iac_type)

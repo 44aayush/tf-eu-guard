@@ -9,6 +9,7 @@ from rich.markup import escape
 from tf_eu_guard.models import EnrichedFinding
 from tf_eu_guard.reporting.html_common import esc
 from tf_eu_guard.reporting.sorting import sort_findings
+from tf_eu_guard.reporting.untrusted import sanitize
 
 _NOTE = (
     "These findings are covered by a reviewed waiver and do not affect "
@@ -61,11 +62,11 @@ def waived_lines(waived: list[EnrichedFinding]) -> list[str]:
         if not f.waiver:
             continue
         lines.append(
-            f"\n  [yellow]○[/yellow] [bold]{escape(f.check_id)}[/bold]: {escape(f.check_name)}"
+            f"\n  [yellow]○[/yellow] [bold]{escape(sanitize(f.check_id))}[/bold]: {escape(sanitize(f.check_name))}"
         )
-        lines.append(f"    [dim]Resource:[/dim] {escape(f.resource)}")
-        lines.append(f"    [dim]File:[/dim] {escape(_location(f))}")
-        lines.append(f"    [dim]Owner:[/dim] {escape(f.waiver.owner)}")
-        lines.append(f"    [dim]Reason:[/dim] {escape(f.waiver.reason)}")
+        lines.append(f"    [dim]Resource:[/dim] {escape(sanitize(f.resource))}")
+        lines.append(f"    [dim]File:[/dim] {escape(sanitize(_location(f)))}")
+        lines.append(f"    [dim]Owner:[/dim] {escape(sanitize(f.waiver.owner))}")
+        lines.append(f"    [dim]Reason:[/dim] {escape(sanitize(f.waiver.reason))}")
         lines.append(f"    [dim]Expires:[/dim] {escape(f.waiver.expires.isoformat())}")
     return lines

@@ -634,7 +634,7 @@ def test_codebuild_env_defensive_shapes():
 def test_provider_region_unset_or_malformed_is_unknown(region):
     from checkov.common.models.enums import CheckResult
 
-    from tf_eu_guard.checks.gdpr.data_residency import ThirdCountryTransferReview
+    from tf_eu_guard.checks.gdpr.aws_residency import ThirdCountryTransferReview
 
     conf = {} if region is None else {"region": region if isinstance(region, list) else [region]}
     assert ThirdCountryTransferReview().scan_provider_conf(conf) == CheckResult.UNKNOWN

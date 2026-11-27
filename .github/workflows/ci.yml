@@ -89,6 +89,38 @@ jobs:
         run: |
           "$RUNNER_TEMP/actionlint" -color
 
+  image-scan:
+    name: image-scan
+    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build the image
+        run: |
+          docker build -t tf-eu-guard:ci .
+
+      - name: Install trivy (pinned release, sha256-verified)
+        # Same trust model as actionlint above: update the version and the
+        # checksum together from the release's checksums file.
+        env:
+          TRIVY_VERSION: "0.76.2"
+          TRIVY_SHA256: "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf"
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/trivy.tar.gz"
+          curl -fsSL --retry 3 -o "$archive" \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  ${archive}" | sha256sum --check --strict
+          tar -xzf "$archive" -C "$RUNNER_TEMP" trivy
+
+      - name: Scan the image for fixable HIGH and CRITICAL vulnerabilities
+        run: |
+          "$RUNNER_TEMP/trivy" image --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL --ignorefile .trivyignore.yaml tf-eu-guard:ci
+
   lock-check:
     name: lock-check
     timeout-minutes: 10
@@ -247,13 +279,6 @@ jobs:
       matrix:
         os: [ubuntu-24.04]
         python-version: ["3.11", "3.12", "3.13", "3.14"]
-        include:
-          # One interpreter per extra OS keeps the cost down while still
-          # exercising the package's "OS Independent" classifier.
-          - os: windows-latest
-            python-version: "3.12"
-          - os: macos-latest
-            python-version: "3.12"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -267,7 +292,7 @@ jobs:
 
       - name: Install locked dependencies
         # The lock is universal (platform markers), so the same hashed files
-        # install on every matrix Python and on Windows and macOS.
+        # install on every matrix Python.
         run: |
           pip install --require-hashes -r requirements.lock -r requirements-dev.lock
           pip install --no-deps -e .
@@ -297,12 +322,73 @@ jobs:
         run: |
           python tools/check_doc_counts.py
 
+      - name: Check Azure/GCP region tables against their snapshots
+        # Offline: fails when tf_eu_guard/regions.py and tools/region_snapshots/
+        # disagree, so table edits go through a reviewed snapshot update.
+        run: |
+          python tools/check_cloud_region_tables.py
+
       - name: Check regulatory-coverage doc against the registries
         # docs/regulatory-coverage.md is generated (requirement-level
         # automated/partial/manual classification); this fails if it drifts
         # from the registries or the requirement inventory.
         run: |
           python tools/generate_coverage_doc.py --check
+
+      - name: Check Checkov coverage doc against the installed Checkov
+        # docs/checkov-coverage.md lists every check of the pinned Checkov as
+        # mapped / intentionally unmapped / untriaged; a Checkov bump must
+        # regenerate it. Also fails on a registry ID Checkov no longer ships.
+        run: |
+          python tools/generate_checkov_coverage.py --check
+
+  emulator:
+    name: emulator
+    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    needs: [lint]
+
+    # Opt-in LocalStack tier (tests/emulator): real Terraform plans and applies
+    # against an emulator, so plan-format drift and ground-truth read-backs are
+    # tested without a cloud account. 4.9 is the last community tag that runs
+    # without an auth token.
+    services:
+      localstack:
+        image: localstack/localstack@sha256:59373b4a27dba3ec15c4db0b7455f0cb68c8a42300e2cbbe362b440f9a131697
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: s3,sqs,dynamodb,sts,iam
+        options: >-
+          --health-cmd "curl -fs http://localhost:4566/_localstack/health"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.17.2
+          terraform_wrapper: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install locked dependencies
+        run: |
+          pip install --require-hashes -r requirements.lock -r requirements-dev.lock
+          pip install --no-deps -e .
+
+      - name: Run emulator tests
+        env:
+          TFEG_RUN_EMULATOR: "1"
+        run: |
+          pytest tests/emulator -p no:cacheprovider -o addopts=""
 
   example-scan:
     name: example-scan

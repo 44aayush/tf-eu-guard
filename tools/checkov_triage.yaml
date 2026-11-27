@@ -1,0 +1,10 @@
+# Triage decisions for Checkov checks the registries do not map.
+# Only reviewed decisions belong here; every other unmapped check is "untriaged".
+# An ID may not be both here and in a registry (generate_checkov_coverage.py --check).
+intentionally_unmapped:
+  CKV_AWS_10: Represented by the mapped CKV_AWS_9 account-level password-policy check.
+  CKV_AWS_11: Represented by the mapped CKV_AWS_9 account-level password-policy check.
+  CKV_AWS_12: Represented by the mapped CKV_AWS_9 account-level password-policy check.
+  CKV_AWS_13: Represented by the mapped CKV_AWS_9 account-level password-policy check.
+  CKV_AWS_14: Represented by the mapped CKV_AWS_9 account-level password-policy check.
+  CKV_AWS_15: Represented by the mapped CKV_AWS_9 account-level password-policy check.

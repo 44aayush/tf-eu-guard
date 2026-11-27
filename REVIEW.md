@@ -1,0 +1,610 @@
+# tf-eu-guard v0.9.0: security and engineering review
+
+| | |
+| --- | --- |
+| Scope | Release v0.9.0, commit `abc18e0`: the Python package, custom Checkov checks, mapping registries, CLI, GitHub Action, Dockerfile, CI/release workflows, docs |
+| Date | 2026-11-26 |
+| Method | Full source read of the security-relevant modules, the test suite and lint run locally, the Docker image built and scanned, 19 hand-made vulnerable fixtures run through the CLI and the hardened Action container, and a Terraform + LocalStack proof of concept |
+| Toolchain used | Python 3.12.3, uv 0.13.10, Checkov 3.4.5 (pinned by the project), Terraform 1.17.2, AWS provider 6.74.0, LocalStack 4.9.2 (community), trivy 0.76.2, shellcheck 0.11.0, Docker 29.10.1 |
+
+## 1. Executive summary
+
+tf-eu-guard is a well-engineered project. The defensive work is real: fail-closed parsing, scan-root symlink validation, an isolated Checkov bootstrap, environment scrubbing, secret-value redaction, escaped HTML with a script-free CSP, CSV formula guards, SHA-pinned workflows, hash-locked dependencies, reproducible wheels, OIDC publishing, SBOMs, attestations and a sandboxed Action container. Most of that held up under testing. 1219 tests pass, coverage is 93%, ruff, mypy and shellcheck are clean, and my HTML, CSV and SARIF injection probes were all neutralised.
+
+The weak spot is **the trust model of the CI gate**. The threat that matters for a compliance gate is a pull-request author who wants a red check to turn green. In v0.9.0 that author can do it with files that live next to the code, and with the Action's default inputs:
+
+1. **TEG-01 (High):** commit a `.tf-eu-guard.yaml` (severity overrides, registry overlays, excludes) or a `.tf-eu-guard-waivers.yaml` (expiry 9999-12-31) into the scan root. The gate goes from exit 1 to exit 0. The change is disclosed in the report header, but the build passes.
+2. **TEG-02 (Medium):** with `--changed-since`, change a variable default in one file to break a resource in another file. The finding is hidden and the gate passes.
+3. **TEG-03 (Medium):** names in the scanned code can inject GitHub workflow commands (`::error`, `::stop-commands`) and ANSI/OSC escape sequences into the job log and the developer's terminal.
+
+The second theme is **residency coverage that passes silently** (TEG-05). A region supplied by the environment, an Azure or GCP location, or Terraform under a hidden directory all produce no residency signal and exit 0. Plan-mode scanning against a real plan closes the first gap; my emulator proof of concept went from 0 to 8 residency findings on the same code (section 6).
+
+None of these is a remote code execution or a data leak. They are integrity problems in a tool whose whole job is integrity, so I would fix TEG-01 to TEG-04 before calling the Action "gate-grade" for untrusted pull requests.
+
+### Scorecard
+
+| Area | Rating | Notes |
+| --- | --- | --- |
+| Input handling and fail-closed behaviour | Strong | Parsing errors, empty targets, malformed Checkov JSON and broken symlinks all fail closed; excluding every file exits 3 |
+| Output safety (HTML, CSV, SARIF, JSON) | Strong | Everything escaped, CSP `default-src 'none'` with no scripts, OWASP CSV guard, SARIF path boundary |
+| Output safety (terminal, CI log) | Weak | Control characters pass through (TEG-03) |
+| CI gate integrity against untrusted pull requests | Weak | TEG-01, TEG-02, TEG-09 |
+| GitHub Action sandbox | Strong | `--network none`, read-only root and workspace, `--cap-drop ALL`, no-new-privileges, symlink-safe copy-back, filtered `$GITHUB_OUTPUT` |
+| Release and supply chain | Good | Excellent workflow hygiene; image pulled by mutable tag (TEG-04); base image CVEs (TEG-06) |
+| Regulatory mapping quality | Good | Careful hedging; some severity and article inconsistencies (TEG-11) |
+| Coverage breadth | Fair | AWS has 186 mappings; Azure 23, GCP 22, Kubernetes 26; no Azure or GCP residency (TEG-05, TEG-10) |
+| Tests and code health | Strong | 1219 tests, 93% coverage, strict linting; some long parameter lists (TEG-17) |
+| Documentation | Good | Unusually honest about limits; a few drifted statements (TEG-07, TEG-12) |
+
+## 2. Findings
+
+Severity reflects the project's purpose: a CI compliance gate whose input (the pull request) is untrusted.
+
+| ID | Severity | Title | Evidence |
+| --- | --- | --- | --- |
+| TEG-01 | High | Files committed in the scan root can switch the CI gate off | Reproduced (CLI and Action container) |
+| TEG-02 | Medium | `--changed-since` hides findings caused by changes in other files | Reproduced |
+| TEG-03 | Medium | Untrusted strings reach the terminal and CI log unsanitised (workflow commands, ANSI/OSC) | Reproduced |
+| TEG-04 | Medium | The Action pulls its image by mutable tag and never verifies the published attestation | Code review |
+| TEG-05 | Medium | Residency checks pass silently when the region is not in the source | Reproduced |
+| TEG-06 | Low (rechecked; was Medium) | The image pins a stale base digest (18 distinct HIGH OS CVEs, 5 fixable; 14 and 1 on the current 3.12 digest); no image scan in CI. Not a build or runtime failure, and not fixed by a newer Python | trivy, 4-way local build |
+| TEG-07 | Low | Local and pre-commit scans evaluate untrusted expressions unsandboxed; SECURITY.md says "never executed" | Probe and docs |
+| TEG-08 | Low | Local module sources bypass the scan-root boundary that symlinks are held to | Reproduced |
+| TEG-09 | Low | A forged `--checkov-json` passes every gate with only a warning | Reproduced |
+| TEG-10 | Low | Gate coverage equals registry coverage; unmapped failures never gate by default | Analysis |
+| TEG-11 | Low | Registry: inconsistent severities, a questionable GDPR Art. 4(12)/33 mapping, gaps, typos | Analysis |
+| TEG-12 | Low | Docs drift on `--var-file` and `terraform.tfvars` | Reproduced |
+| TEG-13 | Info | `provenance.commit` is always null in the Action | Code review |
+| TEG-14 | Info | An `hcl2` module collision breaks Checkov with a cryptic traceback | Observed |
+| TEG-15 | Info | Action `path` and `checkov-json` inputs skip the workspace path validation | Code review |
+| TEG-16 | Info | The Checkov environment scrub is a denylist | Code review |
+| TEG-17 | Info | Code-health items | Code review |
+
+### TEG-01 (High): files committed in the scan root can switch the CI gate off
+
+**Where:** `tf_eu_guard/cli/parser.py:378` (config discovery), `tf_eu_guard/cli/pipeline.py:63` (waiver discovery), `tf_eu_guard/cli/pipeline.py:104` (severity overrides), `action.yml:372` (the Action passes neither `--no-config` nor a trusted config by default).
+
+**What:** with no `--config`, the CLI reads `.tf-eu-guard.yaml` and `.tf-eu-guard-waivers.yaml` from the scanned directory. Both are controlled by whoever writes the pull request. The config can set `severity_overrides` (any check to INFO), `registry_dirs` (overlays that rewrite severities), `exclude` and `waivers`. Waivers have no maximum expiry and no required `file` scope.
+
+**Evidence:**
+
+```text
+# vulnerable stack: unencrypted public RDS + public S3 bucket
+$ tf-eu-guard scan stack --fail-on-severity HIGH            -> exit 1 (9 findings >= HIGH)
+
+# PR adds stack/.tf-eu-guard.yaml
+severity_overrides: {CKV_AWS_17: INFO, CKV_AWS_16: INFO, EUGUARD_NIS2_001: INFO, ...}
+$ tf-eu-guard scan stack --fail-on-severity HIGH            -> exit 0
+
+# or PR adds stack/.tf-eu-guard-waivers.yaml
+schema_version: 1
+waivers:
+  - {check_id: CKV_AWS_17, resource: aws_db_instance.orders, owner: nobody, reason: ok, expires: 9999-12-31}
+$ tf-eu-guard scan stack --fail-on-severity HIGH            -> exit 0, "23 finding(s) waived"
+
+# same config inside the Action's hardened container (read-only workspace, no network)
+$ docker run --rm --network none --read-only ... tf-eu-guard:review stack --fail-on-severity HIGH -> exit 0
+```
+
+Excluding every file is handled correctly: Checkov returns no results and the scan exits 3.
+
+**Impact:** the default Action configuration (`fail-on-severity: HIGH`, no `config`, no `trusted-config`) can be bypassed by any pull-request author. The bypass is listed under "scan settings that reduce findings", but a required status check only looks at the exit code. The README (line 486) and `docs/limitations.md` acknowledge the waiver risk and offer `trusted-config`, but the secure behaviour is opt-in and the `config` input's description does not mention implicit discovery.
+
+**Recommendations:**
+
+1. In the Action, do not read any configuration from the checkout unless the workflow asks for it. Pass `--no-config` plus a new `--no-waiver-discovery` when neither `config` nor `trusted-config` is set. Alternatively, on `pull_request` events read the base-branch copy (`git show "origin/$GITHUB_BASE_REF:<path>/.tf-eu-guard.yaml"`) into `RUNNER_TEMP` and use it as the trusted config.
+2. Add a CLI `--strict` / `--fail-on-weakening` gate that exits 1 when any weakening setting came from a discovered file, and enable it in the Action by default.
+3. Bound waivers: a `max_waiver_days` setting (default 180, set from the trusted config), and reject or warn on waivers without `file`.
+4. Document a CODEOWNERS rule for `**/.tf-eu-guard*.yaml` and the registry overlay directories in the Action section of the README.
+
+### TEG-02 (Medium): `--changed-since` hides findings caused by changes in other files
+
+**Where:** `tf_eu_guard/cli/pipeline.py:229` (`inside()` filters by the finding's own file).
+
+**What:** Terraform's unit of meaning is the module directory, not the file. A variable default, a local, a `terraform.tfvars` or a called module can change the outcome for a resource in an untouched file. `--changed-since` removes those findings from the gate as well as from the display.
+
+**Evidence:**
+
+```text
+main:  variables.tf  variable "encrypt" { default = true }
+       rds.tf        storage_encrypted = var.encrypt
+PR:    variables.tf  default = false       (rds.tf untouched)
+
+$ tf-eu-guard scan . --fail-on-severity HIGH                         -> exit 1 (CKV_AWS_16 HIGH in rds.tf)
+$ tf-eu-guard scan . --fail-on-severity HIGH --changed-since main    -> exit 0
+  "Reporting only findings in 1 file(s) changed since main; 10 finding(s) in unchanged files hidden"
+```
+
+**Recommendations:** treat a change to any `.tf`, `.tfvars`, `.tfvars.json`, `.tf.json` or `.hcl` file in a directory (Checkov also auto-loads `terraform.tfvars.json`; the iteration 1 final review found that omitting it reopened this bypass) as a change to every finding in that directory, and to every directory whose local module sources resolve to it. Simpler and safer still: let the gate always use the full finding set and have `--changed-since` filter only what is shown, or require an explicit `--changed-since-gates` opt-in with a warning.
+
+### TEG-03 (Medium): untrusted strings reach the terminal and CI log unsanitised
+
+**Where:** `tf_eu_guard/reporting/dev_report.py:57` and `:200`, plus `waived.py`, `baselined.py`, `suppressed.py` and the stderr messages in `cli/pipeline.py` that print check IDs, resources and file paths. `rich.markup.escape()` neutralises Rich markup (`[...]`), not control characters.
+
+**What:** resource names (for Kubernetes, `metadata.name` is free text in YAML), file names and waiver text from the checkout are printed verbatim. The manifest does not need to be valid Kubernetes; Checkov parses it anyway.
+
+**Evidence:**
+
+```yaml
+metadata:
+  name: "web\n::error title=FORGED::tf-eu-guard found 0 issues - safe to merge\n::stop-commands::x"
+```
+
+```text
+$ tf-eu-guard scan k8s --iac-type kubernetes --output dev
+    Resource: Deployment.default.web
+::error title=FORGED::tf-eu-guard found 0 issues - safe to merge
+::stop-commands::x
+```
+
+On a GitHub runner the first line becomes an annotation on the pull request, and `::stop-commands::x` disables workflow-command processing for the rest of the step, so the Action's own `::error::` and `::warning::` lines stop working. A second probe with `\e]8;;https://evil.example\e\\` (OSC 8 hyperlink) and `\e[2K\e[1A\e[32mALL CHECKS PASSED` produced 17 raw escape sequences in the `dev` output: a clickable link and a green line drawn over the finding. `dev` is the Action's default output and the pre-commit hook's output. JSON and SARIF escape these characters. **Correction (2026-11-27, iteration 1 final review):** the CSV and Markdown outputs on stdout are affected too: the CSV writer keeps the newline inside a quoted field, so `--output csv` printed 62 lines starting with `::` for the same payload, and Markdown flattens newlines but passes ESC, C1 and bidi characters through, and the HTML reports escaped a separate `<img onerror>` / `<script>` / attribute-breakout payload in all three formats.
+
+**Recommendations:**
+
+1. Add one `sanitize_untrusted()` helper that renders C0 controls except tab, DEL, C1 controls (0x80-0x9F) and the Unicode bidi overrides (U+202A-U+202E, U+2066-U+2069) as visible escapes such as `\n` and `\x1b`. Apply it in every terminal and stderr renderer, before `escape()`.
+2. In `action.yml`, bracket the container run with a random token: `token=$(openssl rand -hex 16); echo "::stop-commands::$token"; docker run ...; echo "::$token::"`. This is GitHub's documented defence against log injection, and it also protects against anything Checkov itself prints.
+3. Add regression tests with hostile `metadata.name` values and file names.
+
+### TEG-04 (Medium): the Action pulls its image by mutable tag and never verifies the attestation
+
+**Where:** `action.yml:199` pulls `ghcr.io/44aayush/tf-eu-guard:${ACTION_REF}`; `.github/workflows/publish.yml` (the `image` job) pushes that tag and creates a build-provenance attestation that nothing consumes.
+
+**What:** consumers usually pin the Action by tag (`uses: 44aayush/tf-eu-guard@v0.9.0`). The composite steps are then fixed, but the container that actually scans the code is whatever the GHCR tag points to on the day of the run. Anyone holding a `packages: write` token for the repository, or the maintainer account, can retag it. Consumers who pin by commit SHA get a local build, which is safe but slow.
+
+**Recommendations:** have the release workflow record the pushed digest in the tagged commit (for example an `IMAGE_DIGEST` line in `action.yml` written before the tag is cut), and pull `ghcr.io/...@sha256:<digest>`. Or verify before running: `gh attestation verify oci://ghcr.io/44aayush/tf-eu-guard:$ref --repo 44aayush/tf-eu-guard`, falling back to a local build on failure. Enable tag immutability on the GHCR package if it is available to the account.
+
+### TEG-05 (Medium): residency checks pass silently when the region is not in the source
+
+**Where:** `tf_eu_guard/checks/gdpr/data_residency.py:81` (an unset provider region returns UNKNOWN), `tf_eu_guard/checks/regions_conf.py` (AWS only), `tf_eu_guard/checkov/process.py:116` (ignored directories).
+
+**Evidence (each case exits 0 with no residency finding and no warning):**
+
+| Case | Source | Result |
+| --- | --- | --- |
+| No `provider "aws"` region; region comes from `AWS_REGION` or a profile at apply time | `terraform { required_providers { aws = ... } }` plus resources | 0 residency findings |
+| Azure | `azurerm_resource_group` and `azurerm_storage_account` in `location = "eastus"` | 0 residency findings |
+| GCP | provider `region = "us-central1"`, bucket `location = "US"` | 0 residency findings |
+| Hidden directory | the whole vulnerable stack under `.prod/` | 0 findings of any kind |
+| Global services | `aws_cloudfront_distribution` with `price_class = "PriceClass_All"` (edge caches outside the EU) | no signal |
+
+What works well: provider aliases, `locals`, `terraform.tfvars` and an unresolved `var.region` are all handled and fail closed where intended. `docs/limitations.md` already says Azure and GCP residency are not covered, but the README feature list cites GDPR Art. 44 and a "configurable region residency policy" without saying they are AWS-only, and the missing-region and hidden-directory cases are not documented.
+
+**Recommendations:**
+
+1. Add a policy check: "AWS resources present but no provider block sets a region". Report it as MEDIUM and fail-closed, consistent with the rest of the residency policy.
+2. Add Azure (`location`) and GCP (`region`, `location`, multi-region `US` / `ASIA`) residency tables and checks, mirroring `regions.py`.
+3. Warn on stderr when `.tf` files exist under directories Checkov skips. `iter_scanned_files` already walks the tree, so the information is free.
+4. Document plan mode as the authoritative residency scan. With AWS provider 6.x every resource carries a computed `region` in the plan, and `EUGUARD_POLICY_002` / `GDPR_003` fire on it (section 6).
+
+### TEG-06 (Low, rechecked 2026-11-27; was Medium): stale base-image digest and no image scan in CI
+
+**Where:** `Dockerfile:20` (`python:3.12-slim@sha256:f77ac9e...`, Debian 13.7).
+
+**Evidence:** `trivy image --severity HIGH,CRITICAL tf-eu-guard:review`: 0 CRITICAL and 61 HIGH package findings in OS packages, which come down to 18 distinct CVEs. 5 of them have a fixed version available (openssl/libssl3t64, zlib1g, libzstd1, libpcre2-8-0, apt). Many are in packages the scanner never needs at runtime (apt, perl-base, login, mount, util-linux). On the Python side, `ecdsa` CVE-2024-23342 is already covered by `dependency-exceptions.json`.
+
+**Recheck (2026-11-27): does staying on Python 3.12 instead of 3.15 cause a failure? No.** I built the image four ways with `docker build --no-cache` and scanned each base and result with trivy (HIGH and CRITICAL):
+
+| Base image | Build | Python | Debian | Smoke scan | Distinct HIGH CVEs (fixable) |
+| --- | --- | --- | --- | --- | --- |
+| `python:3.12-slim@sha256:f77ac9e4…` (current pin) | OK | 3.12.14 | 13.7 | 53 findings, no error | 18 (5) |
+| `python:3.12-slim@sha256:191083cd…` (current 3.12 digest) | OK | 3.12.16 | 13.8 | 53 findings, no error | 14 (1) |
+| `python:3.14-slim` | OK | 3.14.10 | 13.8 | 53 findings, no error | 19 (6), plus 5 Python-package CVEs in the base |
+| `python:3.15-slim` (Dependabot #38) | **Fails** | n/a | n/a | n/a | 19 (6) in the base |
+
+- **The CVEs live in Debian OS packages.** Their number depends on how old the digest is, not on the Python minor version. The 3.14 and 3.15 bases have more findings than a fresh 3.12, not fewer.
+- **Python 3.15 is the option that fails.** The runtime `pip install --require-hashes -r requirements.lock` step dies because `pycares` and `pydantic-core` have no 3.15 wheels and the slim image has no gcc or Rust (`Failed building wheel for pycares`, `linker cc not found`). 3.15 is also outside the tested 3.11-3.14 range.
+- **What TEG-06 really is:** a stale digest plus a missing scan gate. A Low hygiene item; it causes no failure.
+
+**Recommendations:** refresh both `FROM` lines to the current `python:3.12-slim` digest. Add a CI job running `trivy image --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL` on the built image. The one fixable CVE left on the fresh digest (CVE-2026-124851, `libzstd1`) needs a bounded, expiring `.trivyignore.yaml` entry until Debian ships it in the base. Merge Dependabot's base-digest bumps promptly, or rebuild on a schedule. Consider a smaller final stage (distroless Python, or removing apt and perl from the slim image), which also shrinks the 535 MB image.
+
+### TEG-07 (Low): local and pre-commit scans evaluate untrusted expressions unsandboxed
+
+**Where:** `SECURITY.md:46` ("Scanned code is only read, never executed"); `dependency-exceptions.json` (asteval PYSEC-2026-3807 and GHSA-9w56-46f6-3qhx, marked "Reachable").
+
+**What:** Checkov renders Terraform expressions from the scanned code with asteval 1.0.6. The exceptions file correctly says this is reachable, which contradicts SECURITY.md. The Action contains it with the hardened container; the CLI, the pre-commit hook and pip-installed CI jobs do not.
+
+**My reachability probe:** Checkov builds `Interpreter(use_numpy=False, minimal=True)` (`checkov/terraform/graph_builder/variable_rendering/safe_eval_functions.py`). In that configuration `raise` is not implemented, and numpy (the ctypes vector fixed in 1.0.9) is not exposed. So the two known escape routes look closed, which is a better story than the exceptions file currently tells. `open` (read-only) is still exposed to expressions. tf-eu-guard never copies attribute values into reports, so I found no channel for data to leave through its outputs.
+
+**Recommendations:** correct SECURITY.md (expressions are evaluated in Checkov's restricted interpreter; scan untrusted code in the container). Record the probe above in the exceptions' reachability text. Document a one-line `docker run` for scanning untrusted checkouts locally, or add a `tf-eu-guard scan --sandbox` wrapper.
+
+### TEG-08 (Low): local module sources bypass the scan-root boundary
+
+**What:** a symlink pointing outside the scan root is rejected with exit 2 (good), but `module "m" { source = "../outside" }` makes Checkov read and report the same files. My fixture returned 16 findings with `file_path: /../outside/main.tf`. The impact is small: only Terraform files are read, and the Action mounts only the workspace. Still, the README's "symlink boundary" wording implies a stronger boundary than exists.
+
+**Recommendation:** resolve local module sources and warn, or reject behind an `--allow-modules-outside-root` opt-in, when they leave the root. Or document that the boundary covers symlinks only.
+
+### TEG-09 (Low): a forged `--checkov-json` passes every gate
+
+```text
+$ tf-eu-guard scan --checkov-json forged.json --fail-on-severity LOW --fail-on-unmapped
+Warning: no EUGUARD_* check appears in the Checkov JSON ...
+✓ No compliance findings!                                        -> exit 0
+```
+
+In the Action the file comes from the workspace, so a pull request controls it. **Recommendation:** when any gate flag is set, make "no EUGUARD_* check present" and `resource_count == 0` fatal (exit 3) unless `--allow-partial` is given. Say plainly in the docs that `--checkov-json` is only as trustworthy as whoever produced the file.
+
+### TEG-10 (Low): gate coverage equals registry coverage
+
+The registry holds 276 entries (AWS 186, Azure 23, GCP 22, Kubernetes 26, secrets 19). Unmapped failures never gate unless `--fail-on-unmapped` is set (`cli/gating.py:77`), and the Action has no input for that flag. Example: an `aws_ssm_parameter` of `type = "String"` holding a password raises `CKV2_AWS_34`, which is unmapped, so it is never gated. **Recommendations:** add a `fail-on-unmapped` Action input and an `--unmapped-severity LEVEL` option. Publish a per-release table of which Checkov checks in the pinned version are mapped, deliberately unmapped (with a reason) or not yet triaged.
+
+### TEG-11 (Low): registry quality
+
+- **Inconsistent severities for the same control:** encryption at rest is HIGH for RDS (`CKV_AWS_16`, `registry-aws.yaml:459`) but CRITICAL for Aurora (`CKV_AWS_96`, `:1108`), Elasticsearch (`CKV_AWS_5`) and Neptune (`CKV_AWS_44`). EBS (`CKV_AWS_3`) is HIGH. Write a severity rubric and test it, for example "same control family and same data exposure means the same severity".
+- **Questionable legal mapping:** `CKV_AWS_288` (an IAM policy allowing data exfiltration) cites GDPR Art. 4(12), which is the definition of a personal data breach, and Art. 33, which is breach notification (`registry-aws.yaml:67`). A permissive policy is a security-of-processing gap (Art. 32(1)(b), NIS2 Art. 21(2)(i)). It is not a breach and does not trigger Art. 33. I recommend removing both citations, or moving them to the risk text as context.
+- **Gaps and asymmetries:** `CKV2_AWS_30` (Postgres RDS query logging) is mapped but `CKV2_AWS_27` (Aurora Postgres query logging) is not. `CKV2_AWS_34` (SSM parameter encryption) is unmapped.
+- **Typo:** "weakensing" appears four times (`registry-aws.yaml:337`, `:1777`, `:2724`, `registry-kubernetes.yaml:110`) and ships in every report. Add codespell to the lint job.
+
+### TEG-12 (Low): docs drift on `--var-file` and `terraform.tfvars`
+
+`docs/limitations.md:65` says "there is no `--var-file` support", but the flag exists. `docs/limitations.md:166` says variables set only in a `.tfvars` file are unresolved unless passed with `--var-file`. In my test, Checkov loaded `terraform.tfvars` automatically: `region = "us-east-1"` set only there produced `EUGUARD_GDPR_002` without `--var-file`. The accurate statement is that auto-loaded files (`terraform.tfvars`, and probably `*.auto.tfvars`, which I did not test) are resolved, and other files need `--var-file`.
+
+### TEG-13 (Info): `provenance.commit` is always null in the Action
+
+The image has no git, so `provenance.py:95` returns null. The commit is the single most useful provenance field for an auditor. Pass `GITHUB_SHA` into the container (`-e TF_EU_GUARD_COMMIT=$GITHUB_SHA` or a `--commit` flag) and record where the value came from.
+
+### TEG-14 (Info): `hcl2` module collision
+
+Installing `terraform-local` into the same environment pulled in `python-hcl2`, which overwrote the `hcl2` module provided by Checkov's `bc-python-hcl2`. Every scan then failed with `ImportError: cannot import name 'START_LINE' from 'hcl2'` and exit 3. Failing closed is correct. Add a startup self-check with a plain-language message, and make `uv tool install` / pipx the primary install path in the README, since many IaC tools depend on `python-hcl2`.
+
+### TEG-15 (Info): two Action inputs skip workspace path validation
+
+`action.yml:259` passes `checkov-json` and the positional `path` through unchanged, while `config`, `waivers` and `baseline` go through `ws_rel`. The container mount limits the impact. Validate them the same way for consistency and clearer errors.
+
+### TEG-16 (Info): the Checkov environment scrub is a denylist
+
+`checkov/process.py:93` removes known `CKV_*`, `BC_*`, `PRISMA_*` and `GIT_*` variables. Checkov reads many more environment variables, and new releases add some. I found no exploitable variable (`CHECKOV_CREATE_GRAPH=False` had no effect), but an allowlist (PATH, HOME, LANG/LC_*, TMPDIR, proxy and CA-bundle variables, plus the two residency variables) would make this robust to future Checkov versions.
+
+### TEG-17 (Info): code health
+
+- `cli/pipeline.py:294`: `filter_findings_by_framework` mutates `EnrichedFinding` objects in place, and those objects are shared with the unfiltered result. Use `dataclasses.replace` so that API callers of `run_scan` cannot observe framework-filtered articles on objects they still hold.
+- `cli/reports.py` threads the same 10 to 12 parameters through five layers. A `ReportContext` dataclass would remove about 150 lines and a class of "forgot to pass X to format Y" bugs.
+- `checkov/process.py:277` treats only `./` and `../` as local module sources, so absolute local paths are reported as "remote".
+- `--json-format array` is deprecated but is still the default. Schedule the switch for 0.10 and warn now when the format is implicit.
+- `tools/check_dependency_exceptions.py` and `tools/check_sbom_lock.py` have 0% coverage although they are supply-chain gates in CI.
+- `checkov_runner.py` re-exports many private names for compatibility. Plan a deprecation window.
+
+## 3. What is done well (keep it)
+
+- **Fail-closed by default:** Checkov parsing errors, a missing `summary`, an empty target, a `check_type` mismatch and malformed findings all raise. `--allow-partial` is an explicit, logged opt-out.
+- **Isolated scanner:** `python -I`, patched `.checkov.yml` discovery, a trusted cwd outside the checkout, `--skip-download`, platform keys scrubbed even with `--online`.
+- **Git safety:** `core.fsmonitor=false`, `core.hooksPath=/dev/null`, `GIT_*` scrubbed, and no working-tree comparisons that could trigger filter drivers.
+- **Secret handling:** secrets-framework records are reduced to an allowlist of fields; values, code blocks and hashes never reach a report. In my tests, secrets passed through locals, `join()`, variable defaults, connection strings and Slack webhooks were all detected.
+- **Output encoding:** HTML is escaped everywhere and carries `default-src 'none'` with no scripts. Guideline URLs are restricted to http(s). CSV has an OWASP formula guard (confirmed with a `=HYPERLINK(...)` file name). SARIF keeps paths inside the repository.
+- **Action sandbox:** no network, read-only root and workspace, all capabilities dropped, no-new-privileges, the runner's uid, symlink-safe copy-back, regex-filtered `$GITHUB_OUTPUT` and a size-capped job summary. shellcheck reports only two style notes on roughly 300 lines of bash.
+- **Release pipeline:** every action pinned by SHA, zizmor at the auditor persona, checksum-verified actionlint, hash-locked dependencies, a lock-drift check, a byte-for-byte reproducible wheel, a tag-ancestry check, OIDC trusted publishing in a job that never checks out code, SBOM checked against the lock, build-provenance attestations, and dependency exceptions with owners and expiry dates.
+- **Honesty in reporting:** unmapped, suppressed, waived and baselined findings are never dropped silently; weakening settings are printed in every format; legal claims are carefully hedged; limitations are documented in one place.
+- **Tests:** 1219 passing, 93% line coverage, real-Checkov tests behind `TFEG_RUN_CHECKOV=1`, schema validation for SARIF, and doc-count drift checks.
+
+## 4. Evidence log
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Unit and integration tests | `TFEG_RUN_CHECKOV=1 pytest` | 1219 passed, 7 skipped, 93% coverage, 190 s |
+| Lint, format, types | `ruff check .`, `ruff format --check .`, `mypy tf_eu_guard tools` | clean |
+| Action bash | `shellcheck -S style` on the extracted `run:` block and the repo scripts | 2 style notes (SC2129) |
+| Image build | `docker build .` (hash-locked, two-stage) | OK, 535 MB, runs as user `tfeguard` |
+| Image CVEs | `trivy image --severity HIGH,CRITICAL` | 0 CRITICAL; 61 HIGH OS package findings (18 distinct CVEs, 5 fixable); 1 HIGH in Python (known exception) |
+
+Lab fixtures (each a small Terraform or Kubernetes directory; the snippets are in the findings above):
+
+| # | Scenario | Result | Finding |
+| --- | --- | --- | --- |
+| E0 | Unencrypted public RDS and public S3 bucket | 23 mapped findings, exit 1 at HIGH | baseline |
+| E1 | E0 plus discovered config with `severity_overrides` | exit 0 (CLI and container) | TEG-01 |
+| E2 | E0 plus discovered waivers expiring 9999-12-31 | exit 0 | TEG-01 |
+| E3 | Config excluding every file | exit 3 (fail closed) | good |
+| E4 | `source = "../outside"` module | 16 findings from outside the root | TEG-08 |
+| E5a-e | Residency: no provider region, Azure/GCP, aliases, locals, tfvars | aliases, locals, tfvars detected; no-region, Azure, GCP silent | TEG-05, TEG-12 |
+| E6 | Secrets via locals, `join()`, variable default, Lambda env, SSM | all detected except the plaintext SSM parameter (unmapped) | TEG-10 |
+| E7 | K8s `metadata.name` with `\n::error` | workflow commands at line start in `dev` output | TEG-03 |
+| E8 | Two modules with `aws_s3_bucket.this` | addresses are module-qualified, so waivers stay scoped | good |
+| E9 | Stack inside `.prod/` | 0 findings, exit 0, no warning | TEG-05 |
+| E10 | `--changed-since` with a cross-file change | exit 0 instead of 1 | TEG-02 |
+| E11 | OSC 8 and CSI sequences in a name | 17 raw escape sequences in the terminal output | TEG-03 |
+| E12 | File name starting with `=HYPERLINK` in CSV | neutralised | good |
+| E13 | Forged clean `--checkov-json` with every gate on | exit 0, warning only | TEG-09 |
+| E14 | `<img onerror>`, `<script>` and an attribute breakout in K8s names, `--output all` | escaped in all three HTML reports; CSP present | good |
+
+## 5. Prioritised plan
+
+| When | Items |
+| --- | --- |
+| Before the next release (0.9.1) | TEG-01 (Action default to no discovery and a `--strict` gate), TEG-03 (sanitiser plus `stop-commands` token), TEG-02 (directory-granular changed set, or display-only filtering), TEG-07 and TEG-12 (docs corrections), TEG-11 typos |
+| 0.10 | TEG-04 (digest-pinned or attested image), TEG-06 (refreshed digest, image scan in CI), TEG-05 (missing-region check, Azure/GCP residency, hidden-directory warning), TEG-09, TEG-11 severity rubric and mapping fixes, the JSON object format as default |
+| Later | TEG-10 coverage programme, TEG-08, TEG-13 to TEG-17, and the emulator test tier below |
+
+## 6. Would it be a good idea to test the project with an AWS emulator?
+
+**Yes, as an additional test tier, not as a replacement for the static tests.** tf-eu-guard's core never talks to AWS, so the emulator's value is in producing realistic inputs and ground truth that a static fixture cannot.
+
+### Why
+
+1. **Real plan JSON drives plan mode.** `examples/vulnerable-aws-plan/plan.json` is a committed, hand-curated artefact. An emulator lets CI generate plans with real Terraform and real provider versions on every run, so drift in the plan format (for example AWS provider 6.x adding a computed `region` to every resource) is caught. I verified this mattered:
+
+   | Same code (no region in source; `AWS_REGION=us-east-1` at plan time) | Findings | Residency findings |
+   | --- | --- | --- |
+   | Source scan | 13 | 0 |
+   | Plan scan (Terraform 1.17.2, AWS provider 6.74.0, LocalStack 4.9.2) | 21 | 8 (`EUGUARD_POLICY_002` and `EUGUARD_GDPR_003` on all 4 resources) |
+
+   That one run turns TEG-05's worst case into a tested, documented path.
+2. **Ground-truth differential testing.** Apply the vulnerable fixture, read the real resource state back through the AWS API, and compare it with the findings. In my run boto3 confirmed `BlockPublicAcls/IgnorePublicAcls/BlockPublicPolicy/RestrictPublicBuckets = false` and `SqsManagedSseEnabled = false`, matching CKV_AWS_53 to 56 and the SQS finding. Run continuously, this measures false positives and false negatives, which is the evidence an auditor will ask for.
+3. **Remediation snippets that actually apply.** The registry's remediation text and `examples/compliant-aws` can be applied to the emulator, which proves they are valid, deployable Terraform rather than plausible-looking text.
+4. **End-to-end Action tests with no cloud account:** no credentials, no cost, no risk of touching a real account, and the same result on every fork.
+5. **Module and variable semantics:** plans expand modules, including remote ones, so emulator plans are the natural regression suite for TEG-02 and TEG-08 style issues.
+
+### What it will not do, and the caveats
+
+- It does not validate the legal mappings, and a clean emulator run says nothing about compliance.
+- **Fidelity is partial:** LocalStack community does not enforce IAM by default, and RDS, CloudFront, EKS and some others are Pro-only for `apply`. `plan` works for any resource type because it makes almost no API calls. I also saw a perpetual diff on `aws_dynamodb_table` (replace on every apply), so assert on plans and on a small set of read-backs, not on idempotent applies.
+- **Licensing changed:** `localstack/localstack:latest` (2026.11) refuses to start without `LOCALSTACK_AUTH_TOKEN` (exit 55). The tag `4.9` (community 4.9.2) still runs without a token. For an open-source CI, pin `localstack/localstack:4.9` by digest, or use `motoserver/moto` (Apache-2.0; I confirmed it answers on port 5000), which covers S3, SQS, DynamoDB, KMS, IAM and more.
+- `terraform init` needs the provider from the registry. Cache it (`TF_PLUGIN_CACHE_DIR`) and commit a `.terraform.lock.hcl` for the emulator fixtures, so runs are reproducible.
+
+### How
+
+1. **Keep emulator wiring out of the scanned fixtures.** Copy the fixture into a temporary directory and add a provider override file there. Committing it into a fixture would trigger `CKV_AWS_41` (hard-coded keys) and pollute the scan.
+
+   ```hcl
+   # localstack_override.tf, generated into the temporary copy only
+   provider "aws" {
+     access_key                  = "test"
+     secret_key                  = "test"
+     skip_credentials_validation = true
+     skip_metadata_api_check     = true
+     skip_requesting_account_id  = true
+     s3_use_path_style           = true
+     endpoints {
+       s3       = "http://127.0.0.1:4566"
+       sqs      = "http://127.0.0.1:4566"
+       dynamodb = "http://127.0.0.1:4566"
+       sts      = "http://127.0.0.1:4566"
+       iam      = "http://127.0.0.1:4566"
+     }
+   }
+   ```
+
+   `tflocal` (terraform-local) generates the same file automatically, but install it in its own environment (TEG-14), and note that LocalStack now marks it deprecated in favour of `lstk terraform`.
+
+2. **A pytest tier, gated like the existing real-Checkov tests:**
+
+   ```python
+   # tests/emulator/test_plan_residency.py
+   import os
+   import shutil
+   import subprocess
+
+   import pytest
+
+   pytestmark = pytest.mark.skipif(
+       os.environ.get("TFEG_RUN_EMULATOR") != "1", reason="needs LocalStack/moto and terraform"
+   )
+
+
+   def _plan(fixture, tmp_path, region):
+       work = tmp_path / "work"
+       shutil.copytree(fixture, work)
+       shutil.copy("tests/emulator/localstack_override.tf", work)
+       env = {**os.environ, "AWS_REGION": region}
+       for args in (["init", "-input=false"], ["plan", "-input=false", "-out=tfplan"]):
+           subprocess.run(["terraform", *args], cwd=work, env=env, check=True)
+       shown = subprocess.run(
+           ["terraform", "show", "-json", "tfplan"],
+           cwd=work,
+           env=env,
+           check=True,
+           capture_output=True,
+           text=True,
+       )
+       plan = work / "plan.json"
+       plan.write_text(shown.stdout)
+       return plan
+
+
+   def test_env_region_is_caught_in_plan_mode(tmp_path):
+       from tf_eu_guard import scan
+
+       plan = _plan("tests/emulator/fixtures/no-provider-region", tmp_path, "us-east-1")
+       result = scan(plan, iac_type="terraform_plan", no_config=True)
+       ids = {f.check_id for f in result.findings}
+       assert {"EUGUARD_POLICY_002", "EUGUARD_GDPR_003"} <= ids
+   ```
+
+   Add apply-and-read-back tests for a few high-value controls (S3 public access block, SQS and SNS encryption, DynamoDB SSE, KMS rotation), asserting that a finding exists exactly when boto3 reports the insecure state.
+
+3. **A CI job using a service container:**
+
+   ```yaml
+   emulator:
+     runs-on: ubuntu-24.04
+     timeout-minutes: 20
+     permissions:
+       contents: read
+     services:
+       localstack:
+         image: localstack/localstack:4.9@sha256:<pin-the-digest>
+         ports: ["4566:4566"]
+         env:
+           SERVICES: s3,sqs,dynamodb,sts,iam,kms
+     steps:
+       - uses: actions/checkout@<sha> # v7
+         with:
+           persist-credentials: false
+       - uses: hashicorp/setup-terraform@<sha> # pin
+         with:
+           terraform_version: 1.17.2
+           terraform_wrapper: false
+       - run: pip install --require-hashes -r requirements.lock -r requirements-dev.lock && pip install --no-deps -e .
+       - run: pytest tests/emulator
+         env:
+           TFEG_RUN_EMULATOR: "1"
+           TF_PLUGIN_CACHE_DIR: ${{ runner.temp }}/tf-plugins
+   ```
+
+4. **Matrix the provider version** (for example `~> 5.0` and `~> 6.0`). The plan shape differs, and plan-mode residency only works on 6.x.
+
+**Recommendation:** add the plan-only emulator tier first. It is cheap, stable, needs no Pro features and directly covers TEG-05. Add apply-and-read-back differential tests for about ten high-signal controls after that. Do not gate releases on emulator applies until their flakiness has been measured.
+
+## 7. Recheck on a fresh local build (2026-11-27)
+
+I rebuilt the image from `HEAD` (`af9aee2`; no code change since `abc18e0`) with `--no-cache` on both the pinned and the current `python:3.12-slim` digest. Then I reran every reproducible finding with a harness that uses the Action's hardened `docker run` flags. **All 19 checks gave the same result on both images.** TEG-02 runs on the CLI because the image has no git.
+
+| Finding | Expectation | Observed (both images) |
+| --- | --- | --- |
+| E0 baseline | exit 1 | exit 1 |
+| TEG-01 discovered config | exit 0; with `--no-config` exit 1 | exit 0; 1 |
+| TEG-01 discovered waivers | exit 0, 23 waived | exit 0, 23 waived |
+| E3 exclude everything | exit 3 | exit 3 |
+| TEG-02 `--changed-since` | full scan 1, filtered 0 | 1, 0 |
+| TEG-03 workflow commands | lines starting `::error` | 18 lines |
+| TEG-03 OSC 8 / CSI sequences | raw sequences | 17 |
+| TEG-04 mutable tag | tag pull, no attestation check | confirmed |
+| TEG-05 no provider region, Azure/GCP, hidden directory | 0 findings | 0, 0, 0 |
+| TEG-07 SECURITY.md vs asteval | "never executed"; asteval 1.0.6 | confirmed |
+| TEG-08 module escape | 16 findings outside the root | 16 |
+| TEG-09 forged `--checkov-json` | exit 0 | exit 0 |
+| TEG-11 typo | 4 occurrences | 4 |
+| TEG-12 docs drift | 1 stale sentence | 1 |
+| TEG-13 `provenance.commit` in image | null | null |
+| E14 HTML escaping | 3 reports, no raw `<script>` | confirmed |
+
+**Rechecking the open 0.9.1 Dependabot plan** (`docs/superpowers/plans/2026-11-27-version-0.9.1-dependabot.md`) in a scratch clone:
+
+- **Task 1:** `actions/setup-python` v7.1.0 is commit `6d4fd22b…`, and the current pin `5fda3b95…` is v7.0.0. The plan's claim holds.
+- **Task 2:** with hatchling 1.33.0 and the old lock, `build --no-isolation` fails (`found: 1.32.4`). Running `tools/compile-locks.sh` with the pinned uv 0.13.5 changes only the hatchling lines. The wheel then builds with `Generator: hatchling 1.33.0`, and so does the image.
+- **Task 3:** the 3.15 build fails as the plan says, and the refreshed 3.12 digest builds. **One defect in that plan:** Step 6 expects the smoke scan to exit 1. It exits 0, because the CLI enables no gate by default and the image entrypoint passes none. The step needs `--fail-on-severity HIGH` to expect 1.
+
+The remediation work runs as a loop on `version_0.10.0` and is tracked in `TASKS.md`.
+
+### After iteration 1 (2026-11-27, `version_0.10.0`)
+
+These results come from a fresh `--no-cache` build of the branch image (`tf-eu-guard:ci`) and the same harness. All 1255 tests pass (with `TFEG_RUN_CHECKOV=1`), ruff and mypy are clean, and the new trivy gate (HIGH/CRITICAL, unfixed ignored, one bounded exception) exits 0. "Fixed" means the original reproduction no longer works.
+
+| Finding | Before | After iteration 1 | Status |
+| --- | --- | --- | --- |
+| TEG-01 discovered config/waivers | gate bypassed (exit 0) | still exit 0 when discovery is on (CLI default, for backward compatibility); exit 1 with `--no-discovery`, which the Action now passes by default | Fixed in the Action; opt-in on the CLI |
+| TEG-02 `--changed-since` cross-file | exit 0 | exit 1; `terraform.tfvars.json` also covered | Fixed |
+| TEG-03 workflow commands / ANSI | 18 forged lines, 17 escape sequences | 0 and 0 in the `dev`, CSV, Markdown, JSON and SARIF output and in relayed Checkov stderr; the Action also brackets container output with a random `::stop-commands::` token | Fixed |
+| TEG-06 base image | stale digest, no gate | digest refreshed; trivy gate in CI | Fixed |
+| TEG-07, TEG-11 (typos), TEG-12 | docs drift | corrected | Fixed |
+| TEG-04, TEG-05, TEG-08, TEG-09, TEG-13 | open | unchanged | Iteration 2 and 3 (see `TASKS.md`) |
+
+### After iteration 2 (2026-11-27, `version_0.10.0`)
+
+These results are from a fresh `--no-cache` build (`tf-eu-guard:ci4`) at `66fa0b8`. 1368 tests pass (`TFEG_RUN_CHECKOV=1`), ruff and mypy are clean, and the trivy gate exits 0.
+
+| Finding | After iteration 2 | Status |
+| --- | --- | --- |
+| TEG-01 waiver bounds | `--max-waiver-days` (CLI, config key, Action input) refuses waivers that expire too far ahead; waivers without a `file` pattern warn. Lab E2 with `--max-waiver-days 90` exits 1 | Fixed (opt-in) |
+| TEG-04 mutable image tag | The Action verifies the GHCR image's build attestation with `gh attestation verify --signer-workflow publish.yml --source-ref refs/tags/<action ref>` and runs the image by digest. Any failure falls back to a local build from the action's own source | Fixed |
+| TEG-05 blind spots | stderr warnings when AWS resources have no provider region (live scans) and when Terraform/K8s sources sit in hidden directories (editor and cache directories are ignored) | Partly fixed (warnings; Azure/GCP residency is still open) |
+| TEG-09 forged `--checkov-json` | A gated scan fails closed (exit 3) unless the file reports a positive integer `resource_count`. A missing `EUGUARD_*` result only warns, because the custom checks are AWS-only | Fixed for empty or incomplete files; a deliberately forged file can still pass (documented) |
+| TEG-13 provenance commit | The Action resolves the scanned checkout's HEAD on the host. GIT_* is cleared, `safe.bareRepository=explicit` is set, and the top level must lie inside the workspace; otherwise it falls back to `GITHUB_SHA`. The report schema is now `"3"` (adds `provenance.commit_source`) | Fixed |
+| TEG-15 Action path inputs | `path` and `checkov-json` go through `ws_rel`; the bare workspace path is accepted | Fixed |
+
+Two more problems turned up and were fixed during the iteration:
+- **Host-side `git rev-parse` could be redirected.** A first version could be pointed at another repository by a planted bare repository or by `GIT_DIR`, which would have let a PR forge `provenance.commit`.
+- **Test helpers wrote to the real repository.** The test suite's git helpers inherited an exported `GIT_DIR`. They now clear all `GIT_*` variables.
+
+### After iteration 3 (2026-11-27, `version_0.10.0`)
+
+These results are from a fresh `--no-cache` build (`tf-eu-guard:ci6`) at `5e2ea16`. 1402 tests pass (`TFEG_RUN_CHECKOV=1`); ruff, mypy, the doc-count check and the coverage-doc check are clean (278 mappings); the trivy gate exits 0.
+
+| Finding | After iteration 3 | Status |
+| --- | --- | --- |
+| TEG-08 local module escape | A stderr warning names every local module source that resolves outside the scan root (lab E4) | Fixed (warning) |
+| TEG-10 unmapped gate | New Action input `fail-on-unmapped` | Fixed (the per-release triage table is still open) |
+| TEG-11 registry | `CKV_AWS_288` no longer cites GDPR Art. 4(12)/33. The data-store encryption-at-rest checks (`CKV_AWS_16/3/96/5/44`) are all HIGH. `CKV2_AWS_27` and `CKV2_AWS_34` are mapped. The `CKV2_AWS_27/30` remediations now clear Checkov, which a live test proves | Partly fixed (a written cross-family severity rubric is still open) |
+| TEG-14 hcl2 collision | The Checkov bootstrap probes `hcl2` for every IaC type and exits 97, which tf-eu-guard turns into an actionable message instead of a traceback | Fixed |
+| TEG-16 environment | Checkov now receives an allowlisted environment. Module-download restrictions always pass through; download credentials and `PROXY_*` pass only with `--download-external-modules` | Fixed |
+| TEG-17 code health | Framework filtering no longer mutates the caller's findings | Partly fixed (other TEG-17 items still open) |
+
+Found and fixed during the iteration:
+- The first `hcl2` check skipped Kubernetes, and Kubernetes scans break the same way.
+- The first allowlist dropped Checkov's module-download restrictions and proxy settings.
+- A regenerated HTML sample recorded a local scratch path. The committed plans also contained that path; it is now scrubbed from the current files.
+
+### After iteration 4 (2026-11-27, `version_0.10.0`)
+
+These results are from a fresh `--no-cache` build (`tf-eu-guard:ci8`) at `8944b2e`. 1490 tests pass (`TFEG_RUN_CHECKOV=1`), coverage is 94%, the registries and docs agree on 282 mappings, the trivy gate exits 0, and all 20 recheck rows from iterations 1 to 4 report fixed.
+
+| Finding | After iteration 4 | Status |
+| --- | --- | --- |
+| TEG-05 Azure/GCP residency | `EUGUARD_POLICY_003`/`GDPR_004` (Azure `location`) and `EUGUARD_POLICY_004`/`GDPR_005` (GCP provider/resource `region`, `location`, `zone`, including `google-beta`). The region tables cite their source and the date they were verified. Region-less GCP resources now get the same warning as AWS. Lab E5c now raises all four checks | Fixed (nested placement and dual-regions documented as gaps) |
+| TEG-11 severity rubric | `docs/severity-rubric.md` with family tests. World-open data stores, admin ports and Kubernetes control planes (`CKV_AWS_24/25/38`, `CKV_GCP_18`) are CRITICAL. Public-network guardrails (now including `CKV_AZURE_59`) are HIGH. Data-store encryption at rest is HIGH. The 12 customer-managed-key checks are MEDIUM, with hedged risk text and a `severity_overrides` example to restore the old levels | Fixed for these families (KMS-by-default family still open: T-22) |
+| Section 6 emulator tier | `tests/emulator` runs only with `TFEG_RUN_EMULATOR=1`. It covers plan-mode residency and an S3 public-access-block read-back against digest-pinned LocalStack 4.9, and has its own CI job | Done |
+
+Corrected during the iteration: the first Azure table left out `belgiumcentral` and `denmarkeast`. Both are generally available on Microsoft's region list, so leaving them out produced false policy failures. The docs no longer claim that plan mode does not cover residency.
+
+### After iteration 5 (2026-11-27, `version_0.10.0`)
+
+These results are from a fresh `--no-cache` build (`tf-eu-guard:ci9`) at `8867fdf`. 1517 tests pass (`TFEG_RUN_CHECKOV=1`), the registries and docs agree on 282 mappings, the Azure/GCP region tables match their snapshots, the trivy gate exits 0, and every recheck harness from iterations 1 to 4 exits 0. The emulator tier (`TFEG_RUN_EMULATOR=1`, LocalStack 4.9 started as the CI service is) passes both tests.
+
+| Finding | After iteration 5 | Status |
+| --- | --- | --- |
+| TEG-11 KMS-by-default family | `CKV_AWS_173`, `CKV_AWS_26`, `CKV_AWS_145`, `CKV_AWS_136` and `CKV_GCP_38` are MEDIUM in the customer-managed-key family. Each service's encrypt-at-rest-by-default claim cites the provider page (`docs/severity-rubric.md`). `CKV_AZURE_160` and `CKV_AWS_260` (port 80 open to the world) are MEDIUM in a new web-port family; admin ports stay CRITICAL | Fixed |
+| TEG-05 Azure/GCP region-table drift | `tools/check_cloud_region_tables.py` compares the tables in `tf_eu_guard/regions.py` with reviewed snapshots in `tools/region_snapshots/` and fails closed (exit 1 on drift, 2 on an unreadable snapshot). It runs in the CI `test` job | Fixed (snapshot refresh is a manual step, documented in `tools/README.md`) |
+| Section 6 emulator robustness | Apply runs inside the cleanup `try`, CI waits on a LocalStack health check, the skip count is no longer hard-coded, and ambient `AWS_*` variables are scrubbed | Done (follow-up: surface terraform stderr on failure) |
+
+Regenerated at the iteration close: the sample HTML reports, the README screenshots and the demo cast. `examples/vulnerable-aws` now gives 53 findings: 7 CRITICAL, 15 HIGH, 23 MEDIUM, 8 LOW.
+
+### After iteration 6 (2026-11-27, `version_0.10.0`)
+
+These results are from a fresh `--no-cache` build (`tf-eu-guard:ci10`) at `72f3c80`. 1567 tests pass (`TFEG_RUN_CHECKOV=1`), the emulator tier passes both tests against LocalStack 4.9, the registries and docs agree on 282 mappings, the trivy gate exits 0, and every recheck harness exits 0 with all post-fix rows FIXED.
+
+| Finding | After iteration 6 | Status |
+| --- | --- | --- |
+| TEG-06/TEG-04 release image | `publish.yml` builds the image locally and scans it with trivy before the GHCR push, using the same flags as CI (`--ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 --ignorefile .trivyignore.yaml`). The trivy version and checksum must equal ci.yml's, and a test pins that | Fixed (build-once-scan-push is a later improvement) |
+| TEG-10 gate coverage | `--unmapped-severity LEVEL` (CLI, `unmapped_severity` config key, `unmapped-severity` Action input) counts active unmapped findings toward `--fail-on-severity` and `--fail-on-any`. Unmapped findings are never baselined or waived, which is documented | Fixed (a per-release mapped/unmapped table is still open) |
+| TEG-17 `--json-format` default | An implicit layout prints a stderr deprecation warning. A new `json-format` Action input lets Action users choose. The default is still `array` | Partly fixed (flipping the default is a maintainer release decision) |
+| TEG-17 untested gate tools | `tools/check_sbom_lock.py` and `tools/check_dependency_exceptions.py` have tests (97% and 99% line coverage) | Fixed |
+| Emulator follow-up | Terraform failures raise `TerraformError` with the stderr tail, an unreachable endpoint fails with the LocalStack start command, and the AWS config and credential files point at `/dev/null`. Region snapshots validate their list fields | Done |
+
+Corrected during the iteration: the gate Fail line now says `ANY` when `--fail-on-any` tripped it, for mapped and unmapped findings alike. The help text and docs no longer claim that unmapped findings can never trip a gate.
+
+### After iteration 7 (2026-11-27, `version_0.10.0`)
+
+These results are from a fresh `--no-cache` build (`tf-eu-guard:ci11`) at `a5d2478`. 1615 tests pass (`TFEG_RUN_CHECKOV=1`), the emulator tier passes against LocalStack 4.9, the registry, coverage and Checkov-coverage docs are current, the trivy gate exits 0, and every recheck harness exits 0 with all post-fix rows FIXED.
+
+| Finding | After iteration 7 | Status |
+| --- | --- | --- |
+| TEG-10 per-release table | `docs/checkov-coverage.md`, generated by `tools/generate_checkov_coverage.py` from the pinned Checkov 3.4.5, lists 1041 Terraform and Kubernetes checks as mapped (251), intentionally unmapped (6, with a reason in `tools/checkov_triage.yaml`) or untriaged. CI runs `--check`: a registry ID missing from the catalogue, or a check both mapped and triaged, fails; untriaged checks never fail | Fixed |
+| TEG-10 baselines and unmapped findings | `--baseline` now matches unmapped findings by check, resource and file. Mapped and unmapped keys match each other, so a registry change does not make a known finding new. Known unmapped findings stay visible: SARIF `baselineState: "unchanged"`, the "known in baseline" state in the HTML and terminal reports, CSV rows, and `baselined_unmapped` in the JSON object report. Array baselines cannot record unmapped findings, and the CLI says so | Fixed (separate counts in the counts file and Action outputs: T-34) |
+| TEG-17 `ReportContext` | `cli/reports.py` passes one frozen `ReportContext` instead of 10 to 12 parameters (net -160 lines). Committed golden outputs for every `--output` format, with SARIF fingerprints unmasked, prove the bytes are unchanged | Fixed |
+| TEG-17 code health | `resolve_json_format` moved to `tf_eu_guard/json_layout.py`, so `provenance.py` no longer imports the CLI layer. Provenance records the resolved JSON layout. One Fail line is printed when both unmapped gates trip | Fixed |
+
+Corrected during the iteration: the first unmapped-baseline design hid known unmapped findings from SARIF and the HTML reports, which would have closed still-failing code-scanning alerts. They are now kept visible.
+
+### After iteration 8 (2026-11-27, `version_0.10.0`)
+
+These results are from a fresh `--no-cache` build (`tf-eu-guard:ci12`) at `07b9de2`. 1677 tests pass (`TFEG_RUN_CHECKOV=1`), the emulator tier passes against LocalStack 4.9, the registries and docs agree on 283 mappings, the coverage docs are current, the trivy gate exits 0, and every recheck harness exits 0 with all post-fix rows FIXED.
+
+| Finding | After iteration 8 | Status |
+| --- | --- | --- |
+| TEG-05 no provider region | New `EUGUARD_POLICY_005` (MEDIUM, project policy `RESIDENCY-001`) is reported once per scan when AWS resources are scanned and no `provider "aws"` block sets a region. It is anchored at the first root-module AWS resource and never raised for plan or Kubernetes scans. The stderr warning with the plan-mode hint stays. Lab e5a now reports it. Module repositories without a provider get it too and should waive it (`check_id` plus `resource: provider.aws`); inline `checkov:skip` does not apply. The check is scan-wide, not per root module | Fixed (documented limits in `docs/limitations.md`) |
+| TEG-10 machine outputs | The counts file (`baselined_unmapped=`), the Markdown summary and a new Action output `baselined-unmapped` count known unmapped findings. `baselined` keeps its meaning | Fixed |
+| TEG-17 test hardening | The coverage table flags triage IDs that are in neither the catalogue nor a registry. 26 new report goldens cover unmapped, suppressed and baseline scenarios in every format | Done |
+
+Corrected during the iteration: the AWS and GCP resource patterns matched module names, so a GCP-only stack with a module named `aws_*` would have received the AWS finding. They now match only the resource-type segment.
+
+### After iteration 9 (2026-11-27, `version_0.10.0`)
+
+These results are from a fresh `--no-cache` build (`tf-eu-guard:ci13`) at `641fab1`. 1738 tests pass (`TFEG_RUN_CHECKOV=1`), the emulator tier passes against LocalStack 4.9, the registries and docs agree on 284 mappings, actionlint 1.7.12 is clean on both workflows, the trivy gate exits 0, and every recheck harness exits 0 with all post-fix rows FIXED.
+
+| Finding | After iteration 9 | Status |
+| --- | --- | --- |
+| TEG-05 GCP no region | New `EUGUARD_POLICY_006` (MEDIUM, project policy) is the GCP counterpart of `EUGUARD_POLICY_005`. It shares one predicate with the stderr warning and ignores global, location-less types such as projects, service accounts and most IAM bindings; the list was checked against the provider docs. The provider `zone` now counts like `region` for `EUGUARD_POLICY_004` and `EUGUARD_GDPR_005`, so a US provider zone fails the HIGH policy check | Fixed (documented limits: scan-wide check, partial global-type list) |
+| TEG-05 plan mode | A plan fixture test pins Azure (`EUGUARD_POLICY_003`, `EUGUARD_GDPR_004`) and GCP (`EUGUARD_POLICY_004`, `EUGUARD_GDPR_005`) resource-level residency in `--iac-type terraform_plan`, including Azure `location = "global"` | Fixed |
+| TEG-06/TEG-04 release image | The image job builds once and pushes by digest with no tag. Trivy scans that digest, and only then are the release tag (`imagetools create`) and the provenance attestation added, so the scanned bytes are the published bytes. A failed scan leaves only an untagged, unattested digest | Fixed (optional hardening: T-41) |
+
+Corrected during the iteration: the first version of `EUGUARD_POLICY_006` fired on IAM-only GCP stacks, which pinning a region could not fix. A blanket `*_iam_*` exclusion was rejected because about 90 IAM resource types do take a location.
+
+### After iteration 10 (2026-11-27, `version_0.10.0`)
+
+These results are from a fresh `--no-cache` build (`tf-eu-guard:ci14`) at `c0c58f2`. 1765 tests pass (`TFEG_RUN_CHECKOV=1`), the emulator tier passes, the registries and docs agree on 284 mappings, actionlint is clean, the trivy gate exits 0, and every recheck harness exits 0 with all post-fix rows FIXED.
+
+| Finding | After iteration 10 | Status |
+| --- | --- | --- |
+| TEG-06/TEG-04 release image | Trivy reads the pushed digest from the registry (`--image-src remote`). A step after tagging checks that the release tag resolves to the scanned digest and fails the job before attestation if it does not | Fixed |
+| TEG-05 GCP no-region finding | 16 more global Compute types (load-balancer, health-check, certificate and policy resources), each checked against the provider docs, no longer count toward `EUGUARD_POLICY_006`. Instance templates, images and snapshots still count. `storage_locations` is documented as not evaluated | Fixed |
+| Upgrade notes | The CHANGELOG now warns that the new HIGH Azure/GCP residency checks fail the Action's default HIGH gate for a variable location without a default, or for a location not yet in the tables, and lists the options | Done |
+
+**Loop status:** every REVIEW.md finding TEG-01 to TEG-17 now has a fix or a documented limit. What remains is maintainer decisions: the `--json-format` default flip, the version bump, and the `[0.10.0]` release heading.

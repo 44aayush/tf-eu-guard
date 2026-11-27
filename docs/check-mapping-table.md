@@ -2,8 +2,8 @@
 
 Reference stack: the vulnerable Terraform under [`examples/vulnerable-aws/`](../examples/vulnerable-aws/)
 (`iam.tf`, `s3.tf`, `rds.tf`, `network.tf`, plus `outputs.tf`).
-Mapped in `registry-aws.yaml`: **186 check IDs**, made up of 180 stock Checkov policies plus
-6 custom tf-eu-guard checks (**§**, added in Phase 3). The original 38-mapping core
+Mapped in `registry-aws.yaml`: **189 check IDs**, made up of 182 stock Checkov policies plus
+7 custom tf-eu-guard checks (**§**, added in Phase 3). The original 38-mapping core
 covered the vulnerable Terraform reference stack. Later extensions (from
 2026-08-30 on) grew the registry until every Checkov check that fires on the
 in-repo stacks (`examples/vulnerable-aws/`, `examples/end2end/`) is enriched.
@@ -76,7 +76,7 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 | CKV_AWS_40 | iam.tf | iam user policy | Policy on user not group/role | 21(2)(i) | – | MEDIUM |
 | CKV_AWS_9 ‡ | iam.tf | password policy | No password expiry (≤90d) | 21(2)(i) | – | MEDIUM |
 | CKV_AWS_20 | s3.tf | aws_s3_bucket_acl | Public-READ ACL | 21(2)(i) | 32(1)(b) | CRITICAL |
-| CKV_AWS_145 | s3.tf | aws_s3_bucket | Not encrypted with KMS | 21(2)(h) | 32(1)(a) | HIGH |
+| CKV_AWS_145 | s3.tf | aws_s3_bucket | Not encrypted with KMS | 21(2)(h) | 32(1)(a) | MEDIUM |
 | CKV_AWS_53 | s3.tf | public access block | `block_public_acls` off | – | 32(1)(b) | HIGH |
 | CKV_AWS_54 | s3.tf | public access block | `block_public_policy` off | – | 32(1)(b) | HIGH |
 | CKV_AWS_55 | s3.tf | public access block | `ignore_public_acls` off | – | 32(1)(b) | HIGH |
@@ -92,8 +92,8 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 | CKV_AWS_293 | rds.tf | aws_db_instance | Deletion protection off | 21(2)(c) | 32(1)(c) | MEDIUM |
 | CKV_AWS_118 | rds.tf | aws_db_instance | Enhanced monitoring off | 21(2)(b) | – | MEDIUM |
 | CKV_AWS_157 | rds.tf | aws_db_instance | Multi-AZ disabled | 21(2)(c) | 32(1)(c) | MEDIUM |
-| CKV_AWS_24 | network.tf | aws_security_group | SSH (22) open to 0.0.0.0/0 | 21(2)(i) | 32(1)(b) | HIGH |
-| CKV_AWS_25 ‡ | network.tf | aws_security_group | RDP (3389) open to 0.0.0.0/0 | 21(2)(i) | 32(1)(b) | HIGH |
+| CKV_AWS_24 | network.tf | aws_security_group | SSH (22) open to 0.0.0.0/0 | 21(2)(i) | 32(1)(b) | CRITICAL |
+| CKV_AWS_25 ‡ | network.tf | aws_security_group | RDP (3389) open to 0.0.0.0/0 | 21(2)(i) | 32(1)(b) | CRITICAL |
 | CKV_AWS_260 | network.tf | aws_security_group | HTTP (80) open to 0.0.0.0/0 | 21(2)(i) | – | MEDIUM |
 | CKV_AWS_382 | network.tf | aws_security_group | Egress open to 0.0.0.0/0 | 21(2)(i) | – | MEDIUM |
 | CKV2_AWS_12 | network.tf | aws_vpc | Default SG not restricted | 21(2)(i) | – | MEDIUM |
@@ -102,14 +102,20 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 | EUGUARD_POLICY_001 § | main.tf | aws provider | Provider region outside the configured residency policy | – | Policy RESIDENCY-001 | HIGH |
 | EUGUARD_GDPR_001 § | main.tf | aws provider | Deprecated alias of EUGUARD_POLICY_001 (removed next release) | – | Policy RESIDENCY-001 | HIGH |
 | EUGUARD_POLICY_002 § | main.tf | aws_* resources | Resource `region`, replica or copy-destination outside the residency policy | – | Policy RESIDENCY-001 | HIGH |
+| EUGUARD_POLICY_005 § | main.tf | aws provider | No `provider "aws"` block sets a region (source scans only; injected by the pipeline) | – | Policy RESIDENCY-001 | MEDIUM |
 | EUGUARD_GDPR_002 § | main.tf | aws provider | Known provider region outside the EU/EEA requires Chapter V review | – | 44 | HIGH |
 | EUGUARD_GDPR_003 § | main.tf | aws_* resources | Known resource-level region outside the EU/EEA requires Chapter V review | – | 44 | HIGH |
+| EUGUARD_POLICY_003 § | main.tf | azurerm_* resources | Resource `location` outside the residency policy | – | Policy RESIDENCY-001 | HIGH |
+| EUGUARD_GDPR_004 § | main.tf | azurerm_* resources | Known resource `location` outside the EU/EEA requires Chapter V review | – | 44 | HIGH |
+| EUGUARD_POLICY_004 § | main.tf | google provider, google_* resources | Provider `region` or resource `region`/`location`/`zone` outside the residency policy | – | Policy RESIDENCY-001 | HIGH |
+| EUGUARD_POLICY_006 § | main.tf | google provider | No `provider "google"` block or resource sets a region or location (source scans only; injected by the pipeline) | – | Policy RESIDENCY-001 | MEDIUM |
+| EUGUARD_GDPR_005 § | main.tf | google provider, google_* resources | Known region or location outside the EU/EEA requires Chapter V review | – | 44 | HIGH |
 | EUGUARD_NIS2_001 § | rds.tf | aws_db_instance | Hardcoded DB password (literal) | 21(2)(e) | 32(1)(b) | CRITICAL |
 
 ### Coverage summary
 
-- By severity (original 38): 9 CRITICAL · 15 HIGH · 14 MEDIUM. With the
-  extension above (186 total: 23 CRITICAL · 70 HIGH · 67 MEDIUM · 26 LOW).
+- By severity (original 38): 11 CRITICAL · 13 HIGH · 14 MEDIUM. With the
+  extension above (189 total: 23 CRITICAL · 59 HIGH · 81 MEDIUM · 26 LOW).
 - By framework (original 38): 21 map to both NIS2 and GDPR, 11 NIS2-only, 6 GDPR-only.
 - By file: iam.tf (12), s3.tf (9), rds.tf (9), network.tf (7), main.tf (1).
 - By theme: access control / least privilege (20), public exposure (7),
@@ -161,9 +167,9 @@ remediation text lives in the registry):
 
 | Theme | NIS2 | GDPR | Checks |
 |-------|------|------|--------|
-| Encryption at rest | 21(2)(h) | 32(1)(a) | CKV2_AWS_2, CKV_AWS_3, 8, 96, 5, 247, 44, 347, 279, 280, 327, 136, 189, 186, 173, 58, 7, CKV2_AWS_64 |
+| Encryption at rest | 21(2)(h) | 32(1)(a) | CKV2_AWS_2, CKV_AWS_3, 8, 96, 5, 247, 44, 347, 279, 280, 327, 136, 189, 186, 173, 58, 7, CKV2_AWS_64, CKV2_AWS_34 |
 | Encryption in transit | 21(2)(h) | 32(1)(a) | CKV_AWS_127, 376, 228, 379, CKV2_AWS_69 |
-| Logging / detection | 21(2)(b) | 32(1)(b) | CKV_AWS_101, 84, 317, 324, 325, 92, 37, 50, 126, 353, CKV2_AWS_30, CKV2_AWS_62 |
+| Logging / detection | 21(2)(b) | 32(1)(b) | CKV_AWS_101, 84, 317, 324, 325, 92, 37, 50, 126, 353, CKV2_AWS_30, CKV2_AWS_27, CKV2_AWS_62 |
 | Backup / resilience / recovery | 21(2)(c) | 32(1)(b)/(c) | CKV_AWS_144, CKV2_AWS_8, CKV_AWS_326, 361, 139, CKV2_AWS_58, 115, 116, 135, CKV2_AWS_59, 318, CKV2_AWS_61, 313, 362, CKV2_AWS_60 |
 | Secure development / supply chain | 21(2)(e) | 32(1)(b) | CKV_AWS_226, 363, 272, 51, 163 |
 | Secrets in code | 21(2)(e) | 32(1)(b) | CKV_AWS_41, 45, 46 |
@@ -171,10 +177,10 @@ remediation text lives in the registry):
 | Network segmentation | 21(2)(i) | 32(1)(b) | CKV_AWS_137, 248, 38, 39, 117, CKV2_AWS_5, 23 |
 | Terraform module pinning (cloud-agnostic) | 21(2)(d) | – | CKV_TF_1, CKV_TF_2 |
 
-Severity distribution after the extension: **23 CRITICAL · 70 HIGH · 67 MEDIUM ·
-26 LOW** (186 total; article refs: NIS2 176, GDPR 135). An article ref is one
+Severity distribution after the extension: **23 CRITICAL · 59 HIGH · 81 MEDIUM ·
+26 LOW** (189 total; article refs: NIS2 178, GDPR 135). An article ref is one
 entry in a check's `articles` list in `registry-aws.yaml`, counted per framework, so a
-check citing two NIS2 letters counts twice; the 3 `POLICY` refs are not included.
+check citing two NIS2 letters counts twice; the 4 `POLICY` refs are not included.
 
 ### Checks still intentionally unmapped
 
@@ -189,6 +195,9 @@ stack. Mapping the entire Checkov AWS catalogue (~700 checks) was rejected
 on purpose. Entries exist to explain real findings, and an article reference
 on every check would claim more than the check shows.
 
+The per-release list of every Checkov check with its status (mapped, intentionally
+unmapped or untriaged) is generated in [Checkov coverage by release](checkov-coverage.md).
+
 ---
 
 ## Methodology notes
@@ -198,7 +207,7 @@ on every check would claim more than the check shows.
    `examples/end2end/`); the remaining ‡ IDs are authored from the Checkov policy
    index and are dormant only because no fixture yet holds a triggering resource.
    The registry records only what has been reproduced.
-2. Severity is authored here. Checkov 3.4.5 returns `severity: null`, so the
+2. Severity is authored here (the rule for four families is in [severity-rubric.md](severity-rubric.md)). Checkov 3.4.5 returns `severity: null`, so the
    registry is the source of truth for severity (see `docs/checkov-schema.md`).
 3. Conservative dual-mapping. A check maps to both frameworks only where both
    articles apply (e.g. encryption → GDPR 32(1)(a) *and* NIS2 21(2)(h)).

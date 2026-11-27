@@ -34,6 +34,16 @@ def find_gate_failures(
     ]
 
 
+def _unmapped_meets_gate(args: argparse.Namespace, level: str) -> bool:
+    """Return whether unmapped findings counted at ``level`` trip the severity gate."""
+    if args.fail_on_any:
+        return True
+    if not args.fail_on_severity:
+        return False
+    rank = SEVERITIES_LOW_TO_HIGH.index
+    return rank(Severity(level)) >= rank(Severity(args.fail_on_severity))
+
+
 def apply_scan_gate(
     args: argparse.Namespace,
     findings: list[EnrichedFinding],
@@ -51,7 +61,7 @@ def apply_scan_gate(
     if failing_findings:
         print(
             f"Fail: {len(failing_findings)} finding(s) at or above threshold "
-            f"({args.fail_on_severity or 'ANY'}) — see report above.",
+            f"({'ANY' if args.fail_on_any else args.fail_on_severity}) — see report above.",
             file=sys.stderr,
         )
         gate_failed = True
@@ -60,6 +70,22 @@ def apply_scan_gate(
         print(
             f"Fail: {len(suppressed)} mapped finding(s) suppressed by inline "
             f"Checkov comments (--fail-on-suppressed) — see report above.",
+            file=sys.stderr,
+        )
+        gate_failed = True
+
+    unmapped_level = getattr(args, "unmapped_severity", None)
+    # --fail-on-unmapped reports the same findings below; do not print two Fail lines.
+    if (
+        unmapped
+        and unmapped_level
+        and not getattr(args, "fail_on_unmapped", False)
+        and _unmapped_meets_gate(args, unmapped_level)
+    ):
+        print(
+            f"Fail: {len(unmapped)} unmapped Checkov finding(s) counted as {unmapped_level} "
+            f"(--unmapped-severity) at or above threshold "
+            f"({'ANY' if args.fail_on_any else args.fail_on_severity}).",
             file=sys.stderr,
         )
         gate_failed = True
@@ -74,8 +100,9 @@ def apply_scan_gate(
     if gate_failed:
         return EXIT_FINDINGS
 
-    # Unmapped Checkov findings never affect the gate because severity is
-    # registry-authored. Surface that policy in CI output when a gate is used.
+    # Unmapped Checkov findings do not affect the gate unless --unmapped-severity
+    # counts them, because severity is registry-authored. Surface that policy in
+    # CI output when a gate is used.
     if (
         unmapped
         and (args.fail_on_any or args.fail_on_severity)

@@ -62,10 +62,29 @@ Recurring structural blind spots (each also noted in the article docs):
   services. Kubernetes is out of scope for residency entirely — manifests
   don't declare where the cluster runs (see [`DECISIONS.md`](DECISIONS.md) #9).
   Residency checks read literal values: a region supplied by a variable fails
-  the policy checks closed (there is no `--var-file` support), S3 replication
+  the policy checks closed (pass non-default variable files with `--var-file`; `terraform.tfvars` and `*.auto.tfvars` are loaded automatically), S3 replication
   destinations are not evaluated, `--checkov-json` cannot apply a policy
-  (results are pre-computed), and plan-mode, Azure and GCP residency are not
-  covered.
+  (results are pre-computed), and in plan mode only the resource-level residency checks run
+  (`EUGUARD_POLICY_002` and `EUGUARD_GDPR_003` for AWS, `EUGUARD_POLICY_003` and `EUGUARD_GDPR_004` for Azure,
+  `EUGUARD_POLICY_004` and `EUGUARD_GDPR_005` for GCP; the provider-block checks, including the no-region
+  findings `EUGUARD_POLICY_005` and `EUGUARD_POLICY_006`, do not). Azure residency (`EUGUARD_POLICY_003`, `EUGUARD_GDPR_004`) reads the literal `location` of
+  `azurerm_*` resources against a maintained table; a newer EU location not yet in the table fails the
+  policy check until it is added, `location = "global"` (for example on `azurerm_monitor_action_group`) also fails
+  `EUGUARD_POLICY_003` (use a regional location where the resource allows one, or add a waiver), and `--residency-policy eusc` (an AWS partition) uses the Azure EU/EEA table.
+  A `location` read from another resource, such as `data.azurerm_resource_group.x.location`, is not a literal and
+  fails closed (scan the plan to evaluate the resolved value), and nested locations (for example the
+  `geo_location` blocks of `azurerm_cosmosdb_account`) are not evaluated.
+  GCP residency (`EUGUARD_POLICY_004`, `EUGUARD_GDPR_005`) reads the literal `region` and `zone` of
+  `provider "google"` blocks (a zone maps to its region, so a US provider zone fails the HIGH
+  `EUGUARD_POLICY_004`) and
+  the `region`, `location` and `zone` of `google_*` resources (a zone maps to its region) against a maintained
+  table; a dual-region such as `EUR4` or a newer EU region not yet in the table fails the policy check until it is
+  added, `location = "global"` (for example on `google_kms_key_ring`) also fails `EUGUARD_POLICY_004`, and
+  `--residency-policy eusc` uses the GCP EU/EEA table. The `google-beta` provider block is evaluated like `google`.
+  GCP coverage gaps: `storage_locations` (`google_compute_image`, `google_compute_snapshot`) is not evaluated by the
+  GCP residency checks, and nested placement settings (such as
+  `custom_placement_config.data_locations`, Secret Manager replica locations and Spanner instance configs) are not
+  evaluated, and multi-regions such as `europe` fail `EUGUARD_POLICY_004` because they are not on the allowlist.
 
 ## Unmapped findings
 
@@ -74,8 +93,8 @@ are deliberately unmapped (methodology in
 [`check-mapping-table.md`](check-mapping-table.md)). They are surfaced as a
 count in terminal/HTML reports and as a stderr count beside JSON; SARIF also
 preserves each unmapped identity, resource, and location with
-`properties.mapped: false` but no registry remediation. They never gate a
-build. Their absence from the compliance view reflects mapping coverage and says
+`properties.mapped: false` but no registry remediation. By default they never gate a
+build (see `--unmapped-severity` and `--fail-on-unmapped`). Their absence from the compliance view reflects mapping coverage and says
 nothing about their security relevance. A scan that shows "53
 mapped, 9 unmapped" is reporting 62 real Checkov failures, not 53.
 
@@ -97,7 +116,7 @@ reads `skipped_checks` and never lets a suppression disappear:
   suppressed is reported as "No active findings; N suppressed", never as a
   clean result.
 - `--fail-on-suppressed` exits 1 when any *mapped* suppressed finding exists
-  (unmapped ones never gate, as with the other gates). `--framework` filters
+  (unmapped ones never trip it; `--unmapped-severity` only affects `--fail-on-severity` / `--fail-on-any`). `--framework` filters
   suppressed findings exactly as it filters active ones, so the gate follows
   the selected framework.
 - JSON entries carry `"suppressed"` and `"suppression_reason"` (`false`/`null`
@@ -124,17 +143,49 @@ no "Documentation" link (the guideline URL is platform metadata); reports
 omit the link rather than failing. `--online` removes `--skip-download` and
 lets Checkov fetch that metadata (one HTTPS request per scan).
 
-Platform credentials are never forwarded. Every `BC_*` and `PRISMA_*`
-variable (for example `BC_API_KEY`, `PRISMA_API_URL`, `BC_CA_BUNDLE`) and
-every `CKV_IGNORE*` variable (`CKV_IGNORED_DIRECTORIES`,
-`CKV_IGNORE_HIDDEN_DIRECTORIES`) is removed from Checkov's environment, with
-or without `--online`, so Checkov cannot enter platform mode, upload results
-or apply suppressions configured on the platform.
+Platform credentials are never forwarded. Only an allowlist of variables
+reaches Checkov (`PATH`, `HOME`, `USER`, locale `LANG`/`LC_*`, `TZ`, temp
+directories, proxy and CA-bundle variables, essential system variables such as
+`SYSTEMROOT`, and the XDG cache/config directories), with or without
+`--online`. Every other variable, including `BC_API_KEY`, `PRISMA_API_URL`,
+`BC_CA_BUNDLE`, `CKV_*`, `CHECKOV_*`, `GIT_*` and `CKV_IGNORED_DIRECTORIES`, is
+dropped, so Checkov cannot enter platform mode, upload results or apply
+suppressions configured on the platform.
 
 ## Scan scope: skipped paths and `--exclude`
 
 Checkov does not read hidden entries (names starting with `.`),
-`.terraform`, `node_modules` or `.serverless`. The pre-scan guards (symlink
+`.terraform`, `node_modules` or `.serverless`. A directory scan warns on stderr when a hidden
+directory (other than tooling ones such as `.git` or `.github`) holds source files; pass it as the
+scan path to scan it. Likewise, when AWS resources are scanned but no `provider "aws"` block sets a
+region, a warning says the residency checks could not evaluate a region and one MEDIUM `EUGUARD_POLICY_005`
+finding (`provider.aws`) is reported; pin the region or scan a Terraform plan instead. Notes on that finding:
+
+- Reusable module repositories (resources, no provider block) always get it, and an inline
+  `#checkov:skip=EUGUARD_POLICY_005` has no effect because the pipeline synthesizes it. Modules should not configure
+  providers: waive check_id `EUGUARD_POLICY_005` with resource `provider.aws` (no file), or scan the root module or plan.
+- It is anchored at the first AWS resource by sorted file path (root-module files before `.external_modules/`), so its
+  baseline key changes when an earlier-sorting file gains an AWS resource; re-baseline, or use the file-less waiver.
+- The check is scan-wide, not per root module: a scan root holding one pinned and one unpinned root directory reports
+  nothing, because some provider region was evaluated.
+- GCP has the same finding: when `google_*` resources are scanned but no `provider "google"` block and no resource sets a
+  region or location (no `EUGUARD_POLICY_004` result), one MEDIUM `EUGUARD_POLICY_006` finding (`provider.google`) is
+  reported next to the stderr warning, because the region then comes from the environment (for example `GOOGLE_REGION`).
+  Source scans only; anchoring, gate effects and the baseline note are the same as for `EUGUARD_POLICY_005`; an inline
+  `#checkov:skip=EUGUARD_POLICY_006` has no effect. GCP differences: the check is scan-wide, so one resource-level
+  location result anywhere (for example a bucket with `location`) silences it for the whole scan. Global resource
+  types that take no location (for example `google_project_service`, `google_project_iam_*`,
+  `google_service_account`, `google_compute_network`, `google_compute_firewall`, `google_compute_url_map`,
+  `google_compute_backend_service`,
+  `google_dns_managed_zone`) do
+  not count, so a stack of only such resources gets neither the finding nor the warning; IAM types that do take a
+  location (Cloud Run, Compute instance and subnetwork IAM, ...) still count. A module repository is not always
+  flagged: modules without location attributes get it (waive check_id `EUGUARD_POLICY_006`, resource
+  `provider.google`, no file), while modules that take the location from a variable get an `EUGUARD_POLICY_004`
+  result instead (fails closed when the variable has no default; evaluated against the default when it has one), so no
+  006; scan those from the root module or as a plan.
+
+The pre-scan guards (symlink
 containment and the `*.tf.json` rejection) skip the same entries, so a
 virtual environment's `bin/python` link or a Terraform plugin cache does not
 abort a scan. Elsewhere, a symlink that leaves the scan root or is broken
@@ -161,10 +212,15 @@ and are mapped to NIS2 Art. 21(2)(d), supply chain security. Scan a
 contents, because a plan contains the expanded resources. Alternatively,
 `--download-external-modules` lets Checkov fetch the modules (Terraform source
 scans only). That needs network access and runs third-party module code through
-the parser, and tf-eu-guard prints a stderr note when it is used. The GitHub
+the parser, and tf-eu-guard prints a stderr note when it is used. With the flag,
+the module-download credentials (`TF_REGISTRY_TOKEN`, `TFC_TOKEN`, `TF_HOST_NAME`,
+`GITHUB_PAT`, `VCS_*`, `BITBUCKET_*`, `SSH_AUTH_SOCK`, and Checkov's own proxy settings
+`PROXY_URL`, `PROXY_CA_PATH`, `PROXY_HEADER_KEY`, `PROXY_HEADER_VALUE`) also reach Checkov; without it
+they do not. `CHECKOV_TERRAFORM_ALLOWED_MODULE_PREFIXES` and `VCS_ALLOWED_HOSTS`
+are always passed on, because they only restrict downloads. The GitHub
 Action runs with `--network none`, so the flag does not work there. Variables
-set only in a `.tfvars` file are unresolved unless the file is passed with
-`--var-file FILE`.
+set only in a `.tfvars` file other than `terraform.tfvars` or `*.auto.tfvars` are
+unresolved unless the file is passed with `--var-file FILE`.
 
 ## Assumptions worth knowing about
 

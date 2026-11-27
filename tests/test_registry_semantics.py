@@ -65,4 +65,6 @@ def test_target_ids_are_exactly_the_fixture_scope():
     registry_ids = set()
     for path in (REGISTRY_DIR / "registry-azure.yaml", REGISTRY_DIR / "registry-gcp.yaml"):
         registry_ids.update(yaml.safe_load(path.read_text(encoding="utf-8")))
+    # Custom tf-eu-guard checks are not Checkov checks; test_residency_azure.py covers them.
+    registry_ids = {check_id for check_id in registry_ids if not check_id.startswith("EUGUARD_")}
     assert set(TARGET_IDS) == registry_ids

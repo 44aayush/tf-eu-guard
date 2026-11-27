@@ -21,7 +21,7 @@ from tf_eu_guard import __version__
 from tf_eu_guard.mapping.coverage import RequirementResult
 from tf_eu_guard.mapping.requirements import canonical_article_title
 from tf_eu_guard.models import EnrichedFinding, Framework
-from tf_eu_guard.reporting.baselined import baselined_html
+from tf_eu_guard.reporting.baselined import baselined_html, baselined_unmapped_html
 from tf_eu_guard.reporting.html_common import (
     badge_style,
     distinct_files,
@@ -225,6 +225,8 @@ def _render(
     weakening_settings: list[str] | None = None,
     requirements: list[RequirementResult] | None = None,
     baselined: list[EnrichedFinding] | None = None,
+    baselined_unmapped: list[dict[str, Any]] | None = None,
+    list_baselined_unmapped: bool = False,
     provenance: dict[str, Any] | None = None,
 ) -> str:
     """Assemble the complete auditor HTML document."""
@@ -232,6 +234,8 @@ def _render(
     suppressed = suppressed or []
     waived = waived or []
     baselined = baselined or []
+    known_unmapped = baselined_unmapped or []
+    known_total = len(baselined) + len(known_unmapped)
     header = (
         '<a id="top"></a>\n<header>\n'
         "  <h1>tf-eu-guard &mdash; Compliance Audit Report</h1>\n"
@@ -277,13 +281,7 @@ def _render(
             if waived
             else ""
         )
-        + (
-            f" <strong>{len(baselined)}</strong> finding(s) are already known from the "
-            "baseline report; they are listed in a separate section below, do not "
-            "affect the CI gate, and are still open."
-            if baselined
-            else ""
-        )
+        + _known_sentence(len(baselined), len(known_unmapped), list_baselined_unmapped)
         + "</div>"
     )
 
@@ -303,11 +301,11 @@ def _render(
                 "have no current EU regulatory mapping and are not shown here. "
                 "This does not by itself demonstrate compliance.</p></div>"
             )
-        if (suppressed or waived or baselined) and not unmapped_count:
+        if (suppressed or waived or known_total) and not unmapped_count:
             empty_body = (
                 '<div class="empty"><h2 style="margin-top:0;border:none">'
                 f"No active mapped findings &mdash; {len(suppressed)} suppressed, "
-                f"{len(waived)} waived, {len(baselined)} known in baseline</h2>"
+                f"{len(waived)} waived, {known_total} known in baseline</h2>"
                 "<p>Every failed check that maps to a compliance control was suppressed "
                 "by an inline comment, covered by a waiver or already known from the "
                 "baseline. This does not by itself demonstrate "
@@ -344,6 +342,9 @@ def _render(
     if baselined:
         body = f"{body}\n{baselined_html(baselined)}"
 
+    if known_unmapped:
+        body = f"{body}\n{baselined_unmapped_html(known_unmapped, list_baselined_unmapped)}"
+
     if provenance:
         body = f"{body}\n{_provenance_html(provenance)}"
 
@@ -367,6 +368,29 @@ def _render(
     )
 
 
+def _known_sentence(mapped: int, unmapped: int, unmapped_listed: bool) -> str:
+    """Scope sentence for findings already known from the baseline report."""
+    total = mapped + unmapped
+    if not total:
+        return ""
+    head = f" <strong>{total}</strong> finding(s) are already known from the baseline report; "
+    if not unmapped or unmapped_listed:
+        return head + (
+            "they are listed in a separate section below, do not affect the CI gate, "
+            "and are still open."
+        )
+    tail = (
+        f"{unmapped} known unmapped finding(s) are counted, not listed "
+        "(pass <code>--show-unmapped</code> to list them)."
+    )
+    return (
+        head
+        + "they do not affect the CI gate and are still open. "
+        + (f"{mapped} mapped one(s) are listed in a separate section below; " if mapped else "")
+        + tail
+    )
+
+
 def generate_auditor_report(
     findings: list[EnrichedFinding],
     *,
@@ -382,6 +406,8 @@ def generate_auditor_report(
     weakening_settings: list[str] | None = None,
     requirements: list[RequirementResult] | None = None,
     baselined: list[EnrichedFinding] | None = None,
+    baselined_unmapped: list[dict[str, Any]] | None = None,
+    list_baselined_unmapped: bool = False,
     provenance: dict[str, Any] | None = None,
 ) -> str:
     """Generate the self-contained HTML auditor / compliance-matrix report.
@@ -416,6 +442,8 @@ def generate_auditor_report(
         requirements=requirements,
         weakening_settings=weakening_settings,
         baselined=baselined,
+        baselined_unmapped=baselined_unmapped,
+        list_baselined_unmapped=list_baselined_unmapped,
         provenance=provenance,
     )
     if output_path is not None:

@@ -1,0 +1,2141 @@
+{
+  "baselined": [],
+  "baselined_unmapped": [],
+  "checkov_version": "3.3.13",
+  "findings": [
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_273",
+      "check_name": "Ensure access is controlled through SSO and not AWS IAM defined users",
+      "file_line_range": [
+        11,
+        13
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-273",
+      "remediation": "Delete standing IAM users and federate access through AWS IAM Identity Center (SSO):\n  # Remove:\n  # resource \"aws_iam_user\" \"admin\" { ... }\n  # Use Identity Center permission sets + account assignments instead\n  # (managed via aws_ssoadmin_* resources or the Identity Center console).\n",
+      "resource": "aws_iam_user.deploy_user",
+      "risk_explanation": "Long-lived IAM users bypass centralized identity management and SSO, making it difficult to enforce MFA, audit access centrally, and revoke credentials quickly during an incident. NIS2 Art. 21(2)(i) requires effective access control policies.\n",
+      "severity": "HIGH",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV2_AWS_40",
+      "check_name": "Ensure AWS IAM policy does not allow full IAM privileges",
+      "file_line_range": [
+        21,
+        35
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-2-40",
+      "remediation": "Never grant iam:* ; scope the few IAM actions genuinely needed:\n  # Before:\n  \"Action\": \"iam:*\"\n  # After:\n  \"Action\": [\"iam:PassRole\"]\n  \"Resource\": aws_iam_role.app.arn\n",
+      "resource": "aws_iam_user_policy.deploy_user_admin",
+      "risk_explanation": "A policy granting full iam:* lets its holder create users, roles, and policies — including new admin access — so privilege escalation is one API call away. This weakens the access control NIS2 Art. 21(2)(i) requires and endangers all personal data under GDPR Art. 32(1)(b).\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_286",
+      "check_name": "Ensure IAM policies does not allow privilege escalation",
+      "file_line_range": [
+        21,
+        35
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-286",
+      "remediation": "Remove privilege-management actions from workload policies, or constrain them\nwith a permissions boundary and explicit resource ARNs:\n  \"Action\": [\"iam:PassRole\"]\n  \"Resource\": \"arn:aws:iam::123456789012:role/app-task-role\"\n  \"Condition\": { \"StringEquals\": { \"iam:PassedToService\": \"ecs-tasks.amazonaws.com\" } }\n",
+      "resource": "aws_iam_user_policy.deploy_user_admin",
+      "risk_explanation": "Actions such as iam:PassRole, iam:AttachUserPolicy, or iam:PutUserPolicy allow a low-privileged principal to grant itself higher privileges, collapsing access control (NIS2 Art. 21(2)(i)) and putting the confidentiality of all data at risk.\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_287",
+      "check_name": "Ensure IAM policies does not allow credentials exposure",
+      "file_line_range": [
+        21,
+        35
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-287",
+      "remediation": "Remove credential-exposing actions and scope to least privilege:\n  # Before:\n  \"Action\": [\"sts:*\", \"iam:CreateAccessKey\"]\n  # After:\n  \"Action\": [\"s3:GetObject\", \"s3:PutObject\"]\n  \"Resource\": \"arn:aws:s3:::my-app-data/*\"\n",
+      "resource": "aws_iam_user_policy.deploy_user_admin",
+      "risk_explanation": "Policies that permit credential-generation actions (sts:GetFederationToken, iam:CreateAccessKey, ec2:GetPasswordData, etc.) let an attacker mint new credentials and pivot, undermining the confidentiality controls GDPR Art. 32(1)(b) requires and the access control NIS2 Art. 21(2)(i) mandates.\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_288",
+      "check_name": "Ensure IAM policies does not allow data exfiltration",
+      "file_line_range": [
+        21,
+        35
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-288",
+      "remediation": "Constrain read actions to specific resource ARNs, never \"*\":\n  \"Action\": [\"s3:GetObject\"]\n  \"Resource\": \"arn:aws:s3:::approved-bucket/*\"\n",
+      "resource": "aws_iam_user_policy.deploy_user_admin",
+      "risk_explanation": "Broad read actions on all resources (s3:GetObject, secretsmanager:GetSecretValue, rds:DownloadDBLogFilePortion on \"*\") enable bulk exfiltration of data — if that data is personal, an exfiltration path through them could lead to a personal data breach. These permissions may weaken the confidentiality of processing expected by GDPR Art. 32(1)(b) and the access control expected by NIS2 Art. 21(2)(i).\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_289",
+      "check_name": "Ensure IAM policies does not allow permissions management / resource exposure without constraints",
+      "file_line_range": [
+        21,
+        35
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-289",
+      "remediation": "Remove permissions-management actions from workload policies, or bound them\nwith a permissions boundary and explicit resource ARNs:\n  \"Action\": [\"iam:AttachUserPolicy\"]\n  \"Resource\": \"arn:aws:iam::123456789012:user/app-*\"\n",
+      "resource": "aws_iam_user_policy.deploy_user_admin",
+      "risk_explanation": "Permissions-management actions (iam:PutUserPolicy, iam:AttachUserPolicy, s3:PutBucketPolicy, etc.) on unconstrained resources let a principal rewrite who can access what, collapsing access control (NIS2 Art. 21(2)(i)) and putting the confidentiality of all data at risk (GDPR Art. 32(1)(b)).\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_290",
+      "check_name": "Ensure IAM policies does not allow write access without constraints",
+      "file_line_range": [
+        21,
+        35
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-290",
+      "remediation": "Scope write actions to the specific resources the workload manages:\n  \"Action\": [\"dynamodb:PutItem\", \"dynamodb:UpdateItem\"]\n  \"Resource\": \"arn:aws:dynamodb:eu-west-1:123456789012:table/app-*\"\n",
+      "resource": "aws_iam_user_policy.deploy_user_admin",
+      "risk_explanation": "Write actions (Create/Put/Update/Delete) allowed on Resource \"*\" let a principal modify or destroy any resource in the account, threatening the integrity and availability of personal data (GDPR Art. 32(1)(b)) and breaking the least-privilege access control of NIS2 Art. 21(2)(i).\n",
+      "severity": "HIGH",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_355",
+      "check_name": "Ensure no IAM policies documents allow \"*\" as a statement's resource for restrictable actions",
+      "file_line_range": [
+        21,
+        35
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-355",
+      "remediation": "Constrain each statement to specific resource ARNs:\n  # Before:\n  \"Resource\": \"*\"\n  # After:\n  \"Resource\": \"arn:aws:s3:::my-app-data/*\"\n",
+      "resource": "aws_iam_user_policy.deploy_user_admin",
+      "risk_explanation": "Using Resource \"*\" for actions that support resource-level scoping lets the policy reach every object in the account, not just those the workload owns. This over-broad reach undermines the access segregation NIS2 Art. 21(2)(i) expects and the data confidentiality GDPR Art. 32(1)(b) requires.\n",
+      "severity": "HIGH",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_40",
+      "check_name": "Ensure IAM policies are attached only to groups or roles (Reducing access management complexity may in-turn reduce opportunity for a principal to inadvertently receive or retain excessive privileges.)",
+      "file_line_range": [
+        21,
+        35
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/iam-16-iam-policy-privileges-1",
+      "remediation": "Attach the policy to a group or role and add the user to the group:\n  resource \"aws_iam_group_policy_attachment\" \"app\" {\n    group      = aws_iam_group.app.name\n    policy_arn = aws_iam_policy.app.arn\n  }\n",
+      "resource": "aws_iam_user_policy.deploy_user_admin",
+      "risk_explanation": "Attaching policies directly to individual IAM users makes entitlements hard to review and revoke at scale, weakening the asset- and access-management discipline NIS2 Art. 21(2)(i) expects. Group/role attachment keeps privileges auditable.\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_62",
+      "check_name": "Ensure IAM policies that allow full \"*-*\" administrative privileges are not created",
+      "file_line_range": [
+        21,
+        35
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-iam-45",
+      "remediation": "Replace the wildcard grant with explicit, scoped statements:\n  # Before:\n  \"Action\": \"*\"\n  \"Resource\": \"*\"\n  # After:\n  \"Action\": [\"s3:GetObject\", \"s3:PutObject\"]\n  \"Resource\": \"arn:aws:s3:::my-app-data/*\"\n",
+      "resource": "aws_iam_user_policy.deploy_user_admin",
+      "risk_explanation": "A policy granting Action \"*\" on Resource \"*\" is unrestricted administrative access. It can weaken least privilege and access segregation, and gives any holder the ability to read, alter, or destroy all data - which may weaken both NIS2 Art. 21(2)(i) and the confidentiality/integrity goals of GDPR Art. 32(1)(b).\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_63",
+      "check_name": "Ensure no IAM policies documents allow \"*\" as a statement's actions",
+      "file_line_range": [
+        21,
+        35
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/iam-48",
+      "remediation": "Enumerate only the actions the workload needs:\n  # Before:\n  \"Action\": \"*\"\n  # After:\n  \"Action\": [\"s3:GetObject\", \"s3:PutObject\"]\n",
+      "resource": "aws_iam_user_policy.deploy_user_admin",
+      "risk_explanation": "A statement with Action \"*\" grants every API action the principal can hold. Even when the resource is scoped, an unrestricted action set weakens least privilege and lets a compromised identity read or alter any reachable data - which may weaken the access control of NIS2 Art. 21(2)(i) and the confidentiality goal of GDPR Art. 32(1)(b).\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV2_AWS_40",
+      "check_name": "Ensure AWS IAM policy does not allow full IAM privileges",
+      "file_line_range": [
+        39,
+        53
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-2-40",
+      "remediation": "Never grant iam:* ; scope the few IAM actions genuinely needed:\n  # Before:\n  \"Action\": \"iam:*\"\n  # After:\n  \"Action\": [\"iam:PassRole\"]\n  \"Resource\": aws_iam_role.app.arn\n",
+      "resource": "aws_iam_user_policy.deploy_user_iam_escalation",
+      "risk_explanation": "A policy granting full iam:* lets its holder create users, roles, and policies — including new admin access — so privilege escalation is one API call away. This weakens the access control NIS2 Art. 21(2)(i) requires and endangers all personal data under GDPR Art. 32(1)(b).\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_286",
+      "check_name": "Ensure IAM policies does not allow privilege escalation",
+      "file_line_range": [
+        39,
+        53
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-286",
+      "remediation": "Remove privilege-management actions from workload policies, or constrain them\nwith a permissions boundary and explicit resource ARNs:\n  \"Action\": [\"iam:PassRole\"]\n  \"Resource\": \"arn:aws:iam::123456789012:role/app-task-role\"\n  \"Condition\": { \"StringEquals\": { \"iam:PassedToService\": \"ecs-tasks.amazonaws.com\" } }\n",
+      "resource": "aws_iam_user_policy.deploy_user_iam_escalation",
+      "risk_explanation": "Actions such as iam:PassRole, iam:AttachUserPolicy, or iam:PutUserPolicy allow a low-privileged principal to grant itself higher privileges, collapsing access control (NIS2 Art. 21(2)(i)) and putting the confidentiality of all data at risk.\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_287",
+      "check_name": "Ensure IAM policies does not allow credentials exposure",
+      "file_line_range": [
+        39,
+        53
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-287",
+      "remediation": "Remove credential-exposing actions and scope to least privilege:\n  # Before:\n  \"Action\": [\"sts:*\", \"iam:CreateAccessKey\"]\n  # After:\n  \"Action\": [\"s3:GetObject\", \"s3:PutObject\"]\n  \"Resource\": \"arn:aws:s3:::my-app-data/*\"\n",
+      "resource": "aws_iam_user_policy.deploy_user_iam_escalation",
+      "risk_explanation": "Policies that permit credential-generation actions (sts:GetFederationToken, iam:CreateAccessKey, ec2:GetPasswordData, etc.) let an attacker mint new credentials and pivot, undermining the confidentiality controls GDPR Art. 32(1)(b) requires and the access control NIS2 Art. 21(2)(i) mandates.\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_289",
+      "check_name": "Ensure IAM policies does not allow permissions management / resource exposure without constraints",
+      "file_line_range": [
+        39,
+        53
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-289",
+      "remediation": "Remove permissions-management actions from workload policies, or bound them\nwith a permissions boundary and explicit resource ARNs:\n  \"Action\": [\"iam:AttachUserPolicy\"]\n  \"Resource\": \"arn:aws:iam::123456789012:user/app-*\"\n",
+      "resource": "aws_iam_user_policy.deploy_user_iam_escalation",
+      "risk_explanation": "Permissions-management actions (iam:PutUserPolicy, iam:AttachUserPolicy, s3:PutBucketPolicy, etc.) on unconstrained resources let a principal rewrite who can access what, collapsing access control (NIS2 Art. 21(2)(i)) and putting the confidentiality of all data at risk (GDPR Art. 32(1)(b)).\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_355",
+      "check_name": "Ensure no IAM policies documents allow \"*\" as a statement's resource for restrictable actions",
+      "file_line_range": [
+        39,
+        53
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-355",
+      "remediation": "Constrain each statement to specific resource ARNs:\n  # Before:\n  \"Resource\": \"*\"\n  # After:\n  \"Resource\": \"arn:aws:s3:::my-app-data/*\"\n",
+      "resource": "aws_iam_user_policy.deploy_user_iam_escalation",
+      "risk_explanation": "Using Resource \"*\" for actions that support resource-level scoping lets the policy reach every object in the account, not just those the workload owns. This over-broad reach undermines the access segregation NIS2 Art. 21(2)(i) expects and the data confidentiality GDPR Art. 32(1)(b) requires.\n",
+      "severity": "HIGH",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_40",
+      "check_name": "Ensure IAM policies are attached only to groups or roles (Reducing access management complexity may in-turn reduce opportunity for a principal to inadvertently receive or retain excessive privileges.)",
+      "file_line_range": [
+        39,
+        53
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/iam-16-iam-policy-privileges-1",
+      "remediation": "Attach the policy to a group or role and add the user to the group:\n  resource \"aws_iam_group_policy_attachment\" \"app\" {\n    group      = aws_iam_group.app.name\n    policy_arn = aws_iam_policy.app.arn\n  }\n",
+      "resource": "aws_iam_user_policy.deploy_user_iam_escalation",
+      "risk_explanation": "Attaching policies directly to individual IAM users makes entitlements hard to review and revoke at scale, weakening the asset- and access-management discipline NIS2 Art. 21(2)(i) expects. Group/role attachment keeps privileges auditable.\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_273",
+      "check_name": "Ensure access is controlled through SSO and not AWS IAM defined users",
+      "file_line_range": [
+        58,
+        60
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-273",
+      "remediation": "Delete standing IAM users and federate access through AWS IAM Identity Center (SSO):\n  # Remove:\n  # resource \"aws_iam_user\" \"admin\" { ... }\n  # Use Identity Center permission sets + account assignments instead\n  # (managed via aws_ssoadmin_* resources or the Identity Center console).\n",
+      "resource": "aws_iam_user.readonly_user",
+      "risk_explanation": "Long-lived IAM users bypass centralized identity management and SSO, making it difficult to enforce MFA, audit access centrally, and revoke credentials quickly during an incident. NIS2 Art. 21(2)(i) requires effective access control policies.\n",
+      "severity": "HIGH",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_288",
+      "check_name": "Ensure IAM policies does not allow data exfiltration",
+      "file_line_range": [
+        62,
+        76
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-288",
+      "remediation": "Constrain read actions to specific resource ARNs, never \"*\":\n  \"Action\": [\"s3:GetObject\"]\n  \"Resource\": \"arn:aws:s3:::approved-bucket/*\"\n",
+      "resource": "aws_iam_user_policy.readonly_user_actually_full_s3",
+      "risk_explanation": "Broad read actions on all resources (s3:GetObject, secretsmanager:GetSecretValue, rds:DownloadDBLogFilePortion on \"*\") enable bulk exfiltration of data — if that data is personal, an exfiltration path through them could lead to a personal data breach. These permissions may weaken the confidentiality of processing expected by GDPR Art. 32(1)(b) and the access control expected by NIS2 Art. 21(2)(i).\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_289",
+      "check_name": "Ensure IAM policies does not allow permissions management / resource exposure without constraints",
+      "file_line_range": [
+        62,
+        76
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-289",
+      "remediation": "Remove permissions-management actions from workload policies, or bound them\nwith a permissions boundary and explicit resource ARNs:\n  \"Action\": [\"iam:AttachUserPolicy\"]\n  \"Resource\": \"arn:aws:iam::123456789012:user/app-*\"\n",
+      "resource": "aws_iam_user_policy.readonly_user_actually_full_s3",
+      "risk_explanation": "Permissions-management actions (iam:PutUserPolicy, iam:AttachUserPolicy, s3:PutBucketPolicy, etc.) on unconstrained resources let a principal rewrite who can access what, collapsing access control (NIS2 Art. 21(2)(i)) and putting the confidentiality of all data at risk (GDPR Art. 32(1)(b)).\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_290",
+      "check_name": "Ensure IAM policies does not allow write access without constraints",
+      "file_line_range": [
+        62,
+        76
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-290",
+      "remediation": "Scope write actions to the specific resources the workload manages:\n  \"Action\": [\"dynamodb:PutItem\", \"dynamodb:UpdateItem\"]\n  \"Resource\": \"arn:aws:dynamodb:eu-west-1:123456789012:table/app-*\"\n",
+      "resource": "aws_iam_user_policy.readonly_user_actually_full_s3",
+      "risk_explanation": "Write actions (Create/Put/Update/Delete) allowed on Resource \"*\" let a principal modify or destroy any resource in the account, threatening the integrity and availability of personal data (GDPR Art. 32(1)(b)) and breaking the least-privilege access control of NIS2 Art. 21(2)(i).\n",
+      "severity": "HIGH",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_355",
+      "check_name": "Ensure no IAM policies documents allow \"*\" as a statement's resource for restrictable actions",
+      "file_line_range": [
+        62,
+        76
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-355",
+      "remediation": "Constrain each statement to specific resource ARNs:\n  # Before:\n  \"Resource\": \"*\"\n  # After:\n  \"Resource\": \"arn:aws:s3:::my-app-data/*\"\n",
+      "resource": "aws_iam_user_policy.readonly_user_actually_full_s3",
+      "risk_explanation": "Using Resource \"*\" for actions that support resource-level scoping lets the policy reach every object in the account, not just those the workload owns. This over-broad reach undermines the access segregation NIS2 Art. 21(2)(i) expects and the data confidentiality GDPR Art. 32(1)(b) requires.\n",
+      "severity": "HIGH",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_40",
+      "check_name": "Ensure IAM policies are attached only to groups or roles (Reducing access management complexity may in-turn reduce opportunity for a principal to inadvertently receive or retain excessive privileges.)",
+      "file_line_range": [
+        62,
+        76
+      ],
+      "file_path": "/iam.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/iam-16-iam-policy-privileges-1",
+      "remediation": "Attach the policy to a group or role and add the user to the group:\n  resource \"aws_iam_group_policy_attachment\" \"app\" {\n    group      = aws_iam_group.app.name\n    policy_arn = aws_iam_policy.app.arn\n  }\n",
+      "resource": "aws_iam_user_policy.readonly_user_actually_full_s3",
+      "risk_explanation": "Attaching policies directly to individual IAM users makes entitlements hard to review and revoke at scale, weakening the asset- and access-management discipline NIS2 Art. 21(2)(i) expects. Group/role attachment keeps privileges auditable.\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(b)",
+          "framework": "NIS2",
+          "title": "Incident handling"
+        }
+      ],
+      "check_id": "CKV2_AWS_11",
+      "check_name": "Ensure VPC flow logging is enabled in all VPCs",
+      "file_line_range": [
+        3,
+        9
+      ],
+      "file_path": "/network.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/logging-9-enable-vpc-flow-logging",
+      "remediation": "Enable flow logs for the VPC:\n  resource \"aws_flow_log\" \"this\" {\n    vpc_id          = aws_vpc.main.id\n    traffic_type    = \"ALL\"\n    log_destination = aws_cloudwatch_log_group.vpc_flow.arn\n    iam_role_arn    = aws_iam_role.vpc_flow.arn\n  }\n",
+      "resource": "aws_vpc.main",
+      "risk_explanation": "Without VPC flow logs there is no network-level record of accepted/rejected connections, so lateral movement and exfiltration attempts cannot be detected or reconstructed. NIS2 Art. 21(2)(b) requires detection and analysis of incidents.\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV2_AWS_12",
+      "check_name": "Ensure the default security group of every VPC restricts all traffic",
+      "file_line_range": [
+        3,
+        9
+      ],
+      "file_path": "/network.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/networking-4",
+      "remediation": "Manage the default SG and strip all ingress/egress:\n  resource \"aws_default_security_group\" \"default\" {\n    vpc_id = aws_vpc.main.id\n    # no ingress or egress blocks = deny all\n  }\n",
+      "resource": "aws_vpc.main",
+      "risk_explanation": "An unmanaged default security group can implicitly allow traffic between any resources that fall back to it, bypassing intended segmentation. NIS2 Art. 21(2)(i) expects deliberate, least-privilege network access control.\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV2_AWS_5",
+      "check_name": "Ensure that Security Groups are attached to another resource",
+      "file_line_range": [
+        12,
+        39
+      ],
+      "file_path": "/network.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-that-security-groups-are-attached-to-ec2-instances-or-elastic-network-interfaces-enis",
+      "remediation": "Reference every security group from the resource it guards (and delete the rest):\n  resource \"aws_instance\" \"app\" {\n    vpc_security_group_ids = [aws_security_group.app.id]\n  }\n",
+      "resource": "aws_security_group.web_sg",
+      "risk_explanation": "Orphaned security groups accumulate stale rules that later get attached \"because they were there\", importing unintended access into live environments — an unmanaged asset under the access control and asset management of NIS2 Art. 21(2)(i).\n",
+      "severity": "LOW",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_23",
+      "check_name": "Ensure every security group and rule has a description",
+      "file_line_range": [
+        12,
+        39
+      ],
+      "file_path": "/network.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/networking-31",
+      "remediation": "Describe the purpose of every group and rule:\n  resource \"aws_security_group\" \"web\" {\n    description = \"Web tier: HTTP from office CIDR only\"\n    ingress {\n      description = \"HTTP from office\"\n      cidr_blocks = [\"203.0.113.0/24\"]\n    }\n  }\n",
+      "resource": "aws_security_group.web_sg",
+      "risk_explanation": "Undocumented rules cannot be reviewed: nobody can tell which rule is a deliberate control and which is leftover access. Descriptions are what make rule review — and therefore accountable access control under NIS2 Art. 21(2)(i) — possible.\n",
+      "severity": "LOW",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_24",
+      "check_name": "Ensure no security groups allow ingress from 0.0.0.0:0 to port 22",
+      "file_line_range": [
+        12,
+        39
+      ],
+      "file_path": "/network.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/networking-1-port-security",
+      "remediation": "Restrict SSH to a bastion or corporate CIDR, never the internet. Remove the\nwildcard in both address families when both attributes are present:\n  resource \"aws_security_group\" \"admin\" {\n    ingress {\n      from_port        = 22\n      to_port          = 22\n      protocol         = \"tcp\"\n      # Before: cidr_blocks = [\"0.0.0.0/0\"]\n      cidr_blocks      = [\"10.0.0.0/8\"]       # or a specific admin IPv4 range\n      # Before: ipv6_cidr_blocks = [\"::/0\"]\n      ipv6_cidr_blocks = [\"2001:db8:1234::/48\"] # or remove IPv6 ingress\n    }\n  }\nUse SSM Session Manager instead of exposing an administrative port where possible.\n",
+      "resource": "aws_security_group.web_sg",
+      "risk_explanation": "SSH (port 22) open to 0.0.0.0/0 exposes administrative shell access to the entire internet, inviting brute-force and exploitation of any host that may process personal data. This may weaken the network access-control measures relevant to NIS2 Art. 21(2)(i) and the confidentiality safeguards expected by GDPR Art. 32(1)(b).\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_260",
+      "check_name": "Ensure no security groups allow ingress from 0.0.0.0:0 to port 80",
+      "file_line_range": [
+        12,
+        39
+      ],
+      "file_path": "/network.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-aws-security-groups-do-not-allow-ingress-from-00000-to-port-80",
+      "remediation": "Front the service with HTTPS and restrict or redirect port 80. If the rule\nhas both address families, scope both and do not leave either wildcard:\n  resource \"aws_security_group\" \"web\" {\n    ingress {\n      from_port        = 80\n      to_port          = 80\n      protocol         = \"tcp\"\n      # Terminate TLS (443) at an ALB and redirect 80 -> 443, or scope both CIDRs:\n      # Before: cidr_blocks = [\"0.0.0.0/0\"]\n      cidr_blocks      = [\"10.0.0.0/8\"]\n      # Before: ipv6_cidr_blocks = [\"::/0\"]\n      ipv6_cidr_blocks = [\"2001:db8:1234::/48\"]\n    }\n  }\n",
+      "resource": "aws_security_group.web_sg",
+      "risk_explanation": "Plain-HTTP (port 80) open to the world serves traffic unencrypted and widens the attack surface. Where it fronts systems processing personal data it weakens the network access control expected by NIS2 Art. 21(2)(i); traffic should terminate TLS at a load balancer instead.\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_382",
+      "check_name": "Ensure no security groups allow egress from 0.0.0.0:0 to port -1",
+      "file_line_range": [
+        12,
+        39
+      ],
+      "file_path": "/network.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/bc-aws-382",
+      "remediation": "Scope egress to the destinations and ports the workload actually needs in\nboth address families:\n  resource \"aws_security_group\" \"app\" {\n    egress {\n      from_port        = 443\n      to_port          = 443\n      protocol         = \"tcp\"\n      # Before: cidr_blocks = [\"0.0.0.0/0\"]\n      cidr_blocks      = [\"10.0.0.0/8\"]\n      # Before: ipv6_cidr_blocks = [\"::/0\"]\n      ipv6_cidr_blocks = [\"2001:db8:1234::/48\"]\n    }\n  }\n",
+      "resource": "aws_security_group.web_sg",
+      "risk_explanation": "Unrestricted egress (all ports/protocols to 0.0.0.0/0) gives a compromised host a clear path to exfiltrate data or reach command-and-control infrastructure. Egress filtering is part of the network segmentation and access control under NIS2 Art. 21(2)(i).\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV2_AWS_5",
+      "check_name": "Ensure that Security Groups are attached to another resource",
+      "file_line_range": [
+        43,
+        55
+      ],
+      "file_path": "/network.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-that-security-groups-are-attached-to-ec2-instances-or-elastic-network-interfaces-enis",
+      "remediation": "Reference every security group from the resource it guards (and delete the rest):\n  resource \"aws_instance\" \"app\" {\n    vpc_security_group_ids = [aws_security_group.app.id]\n  }\n",
+      "resource": "aws_security_group.admin_sg",
+      "risk_explanation": "Orphaned security groups accumulate stale rules that later get attached \"because they were there\", importing unintended access into live environments — an unmanaged asset under the access control and asset management of NIS2 Art. 21(2)(i).\n",
+      "severity": "LOW",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_24",
+      "check_name": "Ensure no security groups allow ingress from 0.0.0.0:0 to port 22",
+      "file_line_range": [
+        43,
+        55
+      ],
+      "file_path": "/network.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/networking-1-port-security",
+      "remediation": "Restrict SSH to a bastion or corporate CIDR, never the internet. Remove the\nwildcard in both address families when both attributes are present:\n  resource \"aws_security_group\" \"admin\" {\n    ingress {\n      from_port        = 22\n      to_port          = 22\n      protocol         = \"tcp\"\n      # Before: cidr_blocks = [\"0.0.0.0/0\"]\n      cidr_blocks      = [\"10.0.0.0/8\"]       # or a specific admin IPv4 range\n      # Before: ipv6_cidr_blocks = [\"::/0\"]\n      ipv6_cidr_blocks = [\"2001:db8:1234::/48\"] # or remove IPv6 ingress\n    }\n  }\nUse SSM Session Manager instead of exposing an administrative port where possible.\n",
+      "resource": "aws_security_group.admin_sg",
+      "risk_explanation": "SSH (port 22) open to 0.0.0.0/0 exposes administrative shell access to the entire internet, inviting brute-force and exploitation of any host that may process personal data. This may weaken the network access-control measures relevant to NIS2 Art. 21(2)(i) and the confidentiality safeguards expected by GDPR Art. 32(1)(b).\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_25",
+      "check_name": "Ensure no security groups allow ingress from 0.0.0.0:0 to port 3389",
+      "file_line_range": [
+        43,
+        55
+      ],
+      "file_path": "/network.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/networking-2",
+      "remediation": "Restrict RDP to a bastion or corporate CIDR, or remove it entirely. Apply\nthe restriction to both IPv4 and IPv6 ingress attributes when present:\n  resource \"aws_security_group\" \"admin\" {\n    ingress {\n      from_port        = 3389\n      to_port          = 3389\n      protocol         = \"tcp\"\n      # Before: cidr_blocks = [\"0.0.0.0/0\"]\n      cidr_blocks      = [\"10.0.0.0/8\"]       # or a specific admin IPv4 range\n      # Before: ipv6_cidr_blocks = [\"::/0\"]\n      ipv6_cidr_blocks = [\"2001:db8:1234::/48\"] # or remove IPv6 ingress\n    }\n  }\nUse SSM Session Manager or a VPN instead of exposing RDP where possible.\n",
+      "resource": "aws_security_group.admin_sg",
+      "risk_explanation": "RDP (port 3389) open to 0.0.0.0/0 exposes remote desktop to the internet, a heavily targeted vector for credential attacks and ransomware. It breaks the network access control of NIS2 Art. 21(2)(i) and the confidentiality control of GDPR Art. 32(1)(b).\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_260",
+      "check_name": "Ensure no security groups allow ingress from 0.0.0.0:0 to port 80",
+      "file_line_range": [
+        43,
+        55
+      ],
+      "file_path": "/network.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-aws-security-groups-do-not-allow-ingress-from-00000-to-port-80",
+      "remediation": "Front the service with HTTPS and restrict or redirect port 80. If the rule\nhas both address families, scope both and do not leave either wildcard:\n  resource \"aws_security_group\" \"web\" {\n    ingress {\n      from_port        = 80\n      to_port          = 80\n      protocol         = \"tcp\"\n      # Terminate TLS (443) at an ALB and redirect 80 -> 443, or scope both CIDRs:\n      # Before: cidr_blocks = [\"0.0.0.0/0\"]\n      cidr_blocks      = [\"10.0.0.0/8\"]\n      # Before: ipv6_cidr_blocks = [\"::/0\"]\n      ipv6_cidr_blocks = [\"2001:db8:1234::/48\"]\n    }\n  }\n",
+      "resource": "aws_security_group.admin_sg",
+      "risk_explanation": "Plain-HTTP (port 80) open to the world serves traffic unencrypted and widens the attack surface. Where it fronts systems processing personal data it weakens the network access control expected by NIS2 Art. 21(2)(i); traffic should terminate TLS at a load balancer instead.\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_25",
+      "check_name": "Ensure no security groups allow ingress from 0.0.0.0:0 to port 3389",
+      "file_line_range": [
+        58,
+        78
+      ],
+      "file_path": "/network.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/networking-2",
+      "remediation": "Restrict RDP to a bastion or corporate CIDR, or remove it entirely. Apply\nthe restriction to both IPv4 and IPv6 ingress attributes when present:\n  resource \"aws_security_group\" \"admin\" {\n    ingress {\n      from_port        = 3389\n      to_port          = 3389\n      protocol         = \"tcp\"\n      # Before: cidr_blocks = [\"0.0.0.0/0\"]\n      cidr_blocks      = [\"10.0.0.0/8\"]       # or a specific admin IPv4 range\n      # Before: ipv6_cidr_blocks = [\"::/0\"]\n      ipv6_cidr_blocks = [\"2001:db8:1234::/48\"] # or remove IPv6 ingress\n    }\n  }\nUse SSM Session Manager or a VPN instead of exposing RDP where possible.\n",
+      "resource": "aws_security_group.db_sg",
+      "risk_explanation": "RDP (port 3389) open to 0.0.0.0/0 exposes remote desktop to the internet, a heavily targeted vector for credential attacks and ransomware. It breaks the network access control of NIS2 Art. 21(2)(i) and the confidentiality control of GDPR Art. 32(1)(b).\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(c)",
+          "framework": "NIS2",
+          "title": "Business continuity, backup management and disaster recovery"
+        }
+      ],
+      "check_id": "CKV2_AWS_60",
+      "check_name": "Ensure RDS instance with copy tags to snapshots is enabled",
+      "file_line_range": [
+        6,
+        32
+      ],
+      "file_path": "/rds.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-2-60",
+      "remediation": "Copy tags onto snapshots:\n  resource \"aws_db_instance\" \"main\" {\n    copy_tags_to_snapshot = true\n  }\n",
+      "resource": "aws_db_instance.app_db",
+      "risk_explanation": "Snapshots without the instance's tags cannot be found by restore runbooks or retention policies, so recovery depends on tribal knowledge. Tag propagation is part of accountable backup management under NIS2 Art. 21(2)(c).\n",
+      "severity": "LOW",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(b)",
+          "framework": "NIS2",
+          "title": "Incident handling"
+        }
+      ],
+      "check_id": "CKV_AWS_118",
+      "check_name": "Ensure that enhanced monitoring is enabled for Amazon RDS instances",
+      "file_line_range": [
+        6,
+        32
+      ],
+      "file_path": "/rds.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/ensure-that-enhanced-monitoring-is-enabled-for-amazon-rds-instances",
+      "remediation": "Enable enhanced monitoring with a monitoring role and a non-zero interval:\n  monitoring_interval = 60\n  monitoring_role_arn = aws_iam_role.rds_monitoring.arn\n",
+      "resource": "aws_db_instance.app_db",
+      "risk_explanation": "Without enhanced monitoring, OS-level metrics (CPU, memory, process and I/O activity) are unavailable, so resource-exhaustion attacks or anomalous database host behaviour cannot be detected or investigated - which may weaken the incident detection and handling required by NIS2 Art. 21(2)(b).\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(b)",
+          "framework": "NIS2",
+          "title": "Incident handling"
+        }
+      ],
+      "check_id": "CKV_AWS_129",
+      "check_name": "Ensure that respective logs of Amazon Relational Database Service (Amazon RDS) are enabled",
+      "file_line_range": [
+        6,
+        32
+      ],
+      "file_path": "/rds.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/ensure-that-respective-logs-of-amazon-relational-database-service-amazon-rds-are-enabled",
+      "remediation": "Export the relevant engine logs:\n  enabled_cloudwatch_logs_exports = [\"postgresql\", \"upgrade\"]\n  # (for MySQL: [\"audit\", \"error\", \"general\", \"slowquery\"])\n",
+      "resource": "aws_db_instance.app_db",
+      "risk_explanation": "Without database engine logs exported to CloudWatch, suspicious queries and authentication failures leave no trail, so a data-access incident cannot be detected or investigated - which may weaken NIS2 Art. 21(2)(b).\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(c)",
+          "framework": "GDPR",
+          "title": "Ability to restore availability and access to personal data in a timely manner"
+        },
+        {
+          "article": "Art. 21(2)(c)",
+          "framework": "NIS2",
+          "title": "Business continuity, backup management and disaster recovery"
+        }
+      ],
+      "check_id": "CKV_AWS_133",
+      "check_name": "Ensure that RDS instances has backup policy",
+      "file_line_range": [
+        6,
+        32
+      ],
+      "file_path": "/rds.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-rds-instances-have-backup-policy",
+      "remediation": "Set a non-zero backup retention window (>= 7 days recommended):\n  backup_retention_period = 7\n  backup_window           = \"03:00-04:00\"\n",
+      "resource": "aws_db_instance.app_db",
+      "risk_explanation": "A zero-day backup retention means no point-in-time recovery: hardware failure, corruption, or ransomware results in permanent data loss. Both NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c) require the ability to restore availability of data.\n",
+      "severity": "HIGH",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(c)",
+          "framework": "GDPR",
+          "title": "Ability to restore availability and access to personal data in a timely manner"
+        },
+        {
+          "article": "Art. 21(2)(c)",
+          "framework": "NIS2",
+          "title": "Business continuity, backup management and disaster recovery"
+        }
+      ],
+      "check_id": "CKV_AWS_157",
+      "check_name": "Ensure that RDS instances have Multi-AZ enabled",
+      "file_line_range": [
+        6,
+        32
+      ],
+      "file_path": "/rds.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-73",
+      "remediation": "Enable Multi-AZ deployment:\n  multi_az = true\n",
+      "resource": "aws_db_instance.app_db",
+      "risk_explanation": "A single-AZ database has no standby: an availability-zone failure takes the data offline until manual recovery. Multi-AZ provides automatic failover, supporting the availability obligation of GDPR Art. 32(1)(c) and business continuity under NIS2 Art. 21(2)(c).\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(a)",
+          "framework": "GDPR",
+          "title": "Pseudonymisation and encryption of personal data"
+        },
+        {
+          "article": "Art. 21(2)(h)",
+          "framework": "NIS2",
+          "title": "Policies and procedures on the use of cryptography and encryption"
+        }
+      ],
+      "check_id": "CKV_AWS_16",
+      "check_name": "Ensure all data stored in the RDS is securely encrypted at rest",
+      "file_line_range": [
+        6,
+        32
+      ],
+      "file_path": "/rds.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-4",
+      "remediation": "Enable storage encryption (immutable - requires recreate/restore):\n  resource \"aws_db_instance\" \"this\" {\n    storage_encrypted = true\n    kms_key_id        = aws_kms_key.rds.arn\n    # ...\n  }\n",
+      "resource": "aws_db_instance.app_db",
+      "risk_explanation": "An unencrypted RDS instance leaves personal data readable on the underlying storage and in snapshots. GDPR Art. 32(1)(a) names encryption explicitly and NIS2 Art. 21(2)(h) requires cryptography controls for data at rest.\n",
+      "severity": "HIGH",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_161",
+      "check_name": "Ensure RDS database has IAM authentication enabled",
+      "file_line_range": [
+        6,
+        32
+      ],
+      "file_path": "/rds.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/ensure-rds-database-has-iam-authentication-enabled",
+      "remediation": "Enable IAM database authentication:\n  iam_database_authentication_enabled = true\n",
+      "resource": "aws_db_instance.app_db",
+      "risk_explanation": "Relying only on static database passwords means no centralized revocation or rotation and passwords that are easily shared or leaked. IAM database authentication ties DB access to IAM identities, strengthening the access control of NIS2 Art. 21(2)(i) and the confidentiality control of GDPR Art. 32(1)(b).\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_17",
+      "check_name": "Ensure all data stored in RDS is not publicly accessible",
+      "file_line_range": [
+        6,
+        32
+      ],
+      "file_path": "/rds.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/public-policies/public-2",
+      "remediation": "Keep the instance private and reach it only from within the VPC:\n  publicly_accessible = false\n  # place the instance in private subnets via a db_subnet_group and\n  # restrict the security group to internal CIDRs only.\n",
+      "resource": "aws_db_instance.app_db",
+      "risk_explanation": "A publicly accessible database is reachable from the internet, exposing personal data to credential-stuffing and exploitation. This may weaken the confidentiality safeguards expected by GDPR Art. 32(1)(b) and the access control measures relevant to NIS2 Art. 21(2)(i).\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(e)",
+          "framework": "NIS2",
+          "title": "Security in network and information systems acquisition, development and maintenance"
+        }
+      ],
+      "check_id": "CKV_AWS_226",
+      "check_name": "Ensure DB instance gets all minor upgrades automatically",
+      "file_line_range": [
+        6,
+        32
+      ],
+      "file_path": "/rds.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-db-instance-gets-all-minor-upgrades-automatically",
+      "remediation": "Enable automatic minor version upgrades:\n  resource \"aws_db_instance\" \"main\" {\n    auto_minor_version_upgrade = true\n  }\n",
+      "resource": "aws_db_instance.app_db",
+      "risk_explanation": "Postponing minor engine patches leaves known database vulnerabilities in place — often for months. Automatic minor upgrades implement the ongoing maintenance and vulnerability handling NIS2 Art. 21(2)(e) requires of systems in production.\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(c)",
+          "framework": "GDPR",
+          "title": "Ability to restore availability and access to personal data in a timely manner"
+        },
+        {
+          "article": "Art. 21(2)(c)",
+          "framework": "NIS2",
+          "title": "Business continuity, backup management and disaster recovery"
+        }
+      ],
+      "check_id": "CKV_AWS_293",
+      "check_name": "Ensure that AWS database instances have deletion protection enabled",
+      "file_line_range": [
+        6,
+        32
+      ],
+      "file_path": "/rds.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-293",
+      "remediation": "Enable deletion protection on the instance:\n  deletion_protection = true\n",
+      "resource": "aws_db_instance.app_db",
+      "risk_explanation": "Without deletion protection, a mistaken or malicious destroy removes the database and its data with no confirmation barrier, threatening the availability that both NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c) require.\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        }
+      ],
+      "check_id": "CKV2_AWS_6",
+      "check_name": "Ensure that S3 bucket has a Public Access block",
+      "file_line_range": [
+        6,
+        8
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/s3-bucket-should-have-public-access-blocks-defaults-to-false-if-the-public-access-block-is-not-attached",
+      "remediation": "Attach a public access block that denies all public access (see CKV_AWS_53 for the\nfull resource); at minimum:\n  block_public_acls       = true\n  block_public_policy     = true\n  ignore_public_acls      = true\n  restrict_public_buckets = true\n",
+      "resource": "aws_s3_bucket.data",
+      "risk_explanation": "A bucket with no aws_s3_bucket_public_access_block has no safety net against accidental public exposure via ACLs or bucket policy - a standing confidentiality risk for any personal data under GDPR Art. 32(1)(b).\n",
+      "severity": "HIGH",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(c)",
+          "framework": "NIS2",
+          "title": "Business continuity, backup management and disaster recovery"
+        }
+      ],
+      "check_id": "CKV2_AWS_61",
+      "check_name": "Ensure that an S3 bucket has a lifecycle configuration",
+      "file_line_range": [
+        6,
+        8
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-61",
+      "remediation": "Define lifecycle rules (transition + expiry) for the bucket:\n  resource \"aws_s3_bucket_lifecycle_configuration\" \"logs\" {\n    bucket = aws_s3_bucket.logs.id\n    rule {\n      id     = \"expire-logs\"\n      status = \"Enabled\"\n      expiration { days = 365 }\n    }\n  }\n",
+      "resource": "aws_s3_bucket.data",
+      "risk_explanation": "Without lifecycle rules, log and backup objects accumulate indefinitely or are manually purged ad hoc, so retention for data protection and continuity purposes is unmanaged. Lifecycle configuration is the disciplined data lifecycle NIS2 Art. 21(2)(c) backup management expects.\n",
+      "severity": "LOW",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(b)",
+          "framework": "NIS2",
+          "title": "Incident handling"
+        }
+      ],
+      "check_id": "CKV2_AWS_62",
+      "check_name": "Ensure S3 buckets should have event notifications enabled",
+      "file_line_range": [
+        6,
+        8
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-62",
+      "remediation": "Subscribe at least one notification target to bucket events:\n  resource \"aws_s3_bucket_notification\" \"data\" {\n    bucket = aws_s3_bucket.data.id\n    lambda_function { lambda_function_arn = aws_lambda_function.auditor.arn\n                      events = [\"s3:ObjectCreated:*\"] }\n  }\n",
+      "resource": "aws_s3_bucket.data",
+      "risk_explanation": "Without event notifications, writes to a bucket holding personal data raise no signal — unexpected mass downloads or deletions go unnoticed instead of feeding the detection capability NIS2 Art. 21(2)(b) requires.\n",
+      "severity": "LOW",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(c)",
+          "framework": "GDPR",
+          "title": "Ability to restore availability and access to personal data in a timely manner"
+        },
+        {
+          "article": "Art. 21(2)(c)",
+          "framework": "NIS2",
+          "title": "Business continuity, backup management and disaster recovery"
+        }
+      ],
+      "check_id": "CKV_AWS_144",
+      "check_name": "Ensure that S3 bucket has cross-region replication enabled",
+      "file_line_range": [
+        6,
+        8
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-bucket-has-cross-region-replication-enabled",
+      "remediation": "Replicate the bucket to another region permitted by the configured\nresidency policy (an in-policy region, when available):\n  resource \"aws_s3_bucket_replication_configuration\" \"data\" {\n    role   = aws_iam_role.replication.arn\n    bucket = aws_s3_bucket.data.id\n    rule { destination { bucket = aws_s3_bucket.replica.arn } }\n  }\n",
+      "resource": "aws_s3_bucket.data",
+      "risk_explanation": "A bucket replicated only in one region is lost with that region. Cross-region replication is the mechanism that keeps personal data available and restorable after a regional outage, relevant to NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c).\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(a)",
+          "framework": "GDPR",
+          "title": "Pseudonymisation and encryption of personal data"
+        },
+        {
+          "article": "Art. 21(2)(h)",
+          "framework": "NIS2",
+          "title": "Policies and procedures on the use of cryptography and encryption"
+        }
+      ],
+      "check_id": "CKV_AWS_145",
+      "check_name": "Ensure that S3 buckets are encrypted with KMS by default",
+      "file_line_range": [
+        6,
+        8
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-buckets-are-encrypted-with-kms-by-default",
+      "remediation": "Configure default SSE-KMS on the bucket:\n  resource \"aws_s3_bucket_server_side_encryption_configuration\" \"this\" {\n    bucket = aws_s3_bucket.data.id\n    rule {\n      apply_server_side_encryption_by_default {\n        sse_algorithm     = \"aws:kms\"\n        kms_master_key_id = aws_kms_key.s3.arn\n      }\n    }\n  }\n",
+      "resource": "aws_s3_bucket.data",
+      "risk_explanation": "New objects in a bucket without default SSE-KMS are already encrypted at rest with S3-managed keys (SSE-S3). A KMS key adds key-policy, rotation and access-grant control over that data, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for buckets that hold personal data.\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(b)",
+          "framework": "NIS2",
+          "title": "Incident handling"
+        }
+      ],
+      "check_id": "CKV_AWS_18",
+      "check_name": "Ensure the S3 bucket has access logging enabled",
+      "file_line_range": [
+        6,
+        8
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-13-enable-logging",
+      "remediation": "Send access logs to a dedicated logging bucket:\n  resource \"aws_s3_bucket_logging\" \"this\" {\n    bucket        = aws_s3_bucket.data.id\n    target_bucket = aws_s3_bucket.logs.id\n    target_prefix = \"s3-access/\"\n  }\n",
+      "resource": "aws_s3_bucket.data",
+      "risk_explanation": "Without S3 server access logging there is no record of who read or wrote objects, so a data-access incident cannot be detected, scoped, or investigated. NIS2 Art. 21(2)(b) requires the ability to handle and analyse incidents.\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_20",
+      "check_name": "S3 Bucket has an ACL defined which allows public READ access.",
+      "file_line_range": [
+        6,
+        8
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-1-acl-read-permissions-everyone",
+      "remediation": "Remove the public ACL and keep the bucket private:\n  # Before:\n  acl = \"public-read\"\n  # After: omit the ACL (buckets are private by default) or set:\n  acl = \"private\"\n  # and enforce with an aws_s3_bucket_public_access_block (see CKV2_AWS_6).\n",
+      "resource": "aws_s3_bucket.data",
+      "risk_explanation": "A public-READ ACL exposes every object in the bucket to anonymous internet users. If the bucket holds personal data this may weaken the confidentiality safeguards expected by GDPR Art. 32(1)(b) and the access-control measures relevant to NIS2 Art. 21(2)(i).\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(c)",
+          "framework": "GDPR",
+          "title": "Ability to restore availability and access to personal data in a timely manner"
+        },
+        {
+          "article": "Art. 21(2)(c)",
+          "framework": "NIS2",
+          "title": "Business continuity, backup management and disaster recovery"
+        }
+      ],
+      "check_id": "CKV_AWS_21",
+      "check_name": "Ensure all data stored in the S3 bucket have versioning enabled",
+      "file_line_range": [
+        6,
+        8
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-16-enable-versioning",
+      "remediation": "Enable bucket versioning:\n  resource \"aws_s3_bucket_versioning\" \"this\" {\n    bucket = aws_s3_bucket.data.id\n    versioning_configuration { status = \"Enabled\" }\n  }\n",
+      "resource": "aws_s3_bucket.data",
+      "risk_explanation": "Without versioning, an accidental or malicious overwrite/delete is unrecoverable. Versioning provides point-in-time restore, supporting the recovery obligation in GDPR Art. 32(1)(c) and business continuity under NIS2 Art. 21(2)(c).\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(a)",
+          "framework": "GDPR",
+          "title": "Pseudonymisation and encryption of personal data"
+        },
+        {
+          "article": "Art. 21(2)(h)",
+          "framework": "NIS2",
+          "title": "Policies and procedures on the use of cryptography and encryption"
+        }
+      ],
+      "check_id": "CKV_AWS_379",
+      "check_name": "Ensure AWS S3 bucket is configured with secure data transport policy",
+      "file_line_range": [
+        10,
+        13
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/bc-aws-379",
+      "remediation": "Deny non-TLS requests at the bucket policy:\n  {\n    \"Effect\": \"Deny\",\n    \"Principal\": \"*\",\n    \"Action\": \"s3:*\",\n    \"Resource\": [\"arn:aws:s3:::bucket\", \"arn:aws:s3:::bucket/*\"],\n    \"Condition\": { \"Bool\": { \"aws:SecureTransport\": \"false\" } }\n  }\n",
+      "resource": "aws_s3_bucket_acl.data_acl",
+      "risk_explanation": "Without a bucket policy denying aws:SecureTransport = false, clients may read and write objects over plain HTTP, exposing personal data on the wire. NIS2 Art. 21(2)(h) expects cryptographic transport policies and GDPR Art. 32(1)(a) expects encryption of personal data in transit.\n",
+      "severity": "HIGH",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        }
+      ],
+      "check_id": "CKV_AWS_53",
+      "check_name": "Ensure S3 bucket has block public ACLS enabled",
+      "file_line_range": [
+        15,
+        22
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/bc-aws-s3-19",
+      "remediation": "Enable the guardrail on the bucket's public access block:\n  resource \"aws_s3_bucket_public_access_block\" \"this\" {\n    bucket                  = aws_s3_bucket.data.id\n    block_public_acls       = true\n    ignore_public_acls      = true\n    block_public_policy     = true\n    restrict_public_buckets = true\n  }\n",
+      "resource": "aws_s3_bucket_public_access_block.data_pab",
+      "risk_explanation": "With block_public_acls disabled, a future ACL change can silently make objects public, weakening the confidentiality control GDPR Art. 32(1)(b) requires. The public access block is the account-level guardrail that prevents that drift.\n",
+      "severity": "HIGH",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        }
+      ],
+      "check_id": "CKV_AWS_54",
+      "check_name": "Ensure S3 bucket has block public policy enabled",
+      "file_line_range": [
+        15,
+        22
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/bc-aws-s3-20",
+      "remediation": "Enable the guardrail on the bucket's public access block:\n  block_public_policy = true\n",
+      "resource": "aws_s3_bucket_public_access_block.data_pab",
+      "risk_explanation": "With block_public_policy disabled, a bucket policy can grant anonymous access to objects, silently exposing personal data. It is the policy-side counterpart to CKV_AWS_53 and a direct confidentiality risk under GDPR Art. 32(1)(b).\n",
+      "severity": "HIGH",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        }
+      ],
+      "check_id": "CKV_AWS_55",
+      "check_name": "Ensure S3 bucket has ignore public ACLs enabled",
+      "file_line_range": [
+        15,
+        22
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/bc-aws-s3-21",
+      "remediation": "Enable the guardrail on the bucket's public access block:\n  ignore_public_acls = true\n",
+      "resource": "aws_s3_bucket_public_access_block.data_pab",
+      "risk_explanation": "With ignore_public_acls disabled, public ACLs applied to the bucket or its objects are honoured rather than neutralised, allowing anonymous read/write and undermining the confidentiality control of GDPR Art. 32(1)(b).\n",
+      "severity": "HIGH",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        }
+      ],
+      "check_id": "CKV_AWS_56",
+      "check_name": "Ensure S3 bucket has 'restrict_public_buckets' enabled",
+      "file_line_range": [
+        15,
+        22
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/bc-aws-s3-22",
+      "remediation": "Enable the guardrail on the bucket's public access block:\n  restrict_public_buckets = true\n",
+      "resource": "aws_s3_bucket_public_access_block.data_pab",
+      "risk_explanation": "With restrict_public_buckets disabled, a public bucket policy grants access to all principals and anonymous users rather than only authorised AWS services and users, widening exposure of personal data which may weaken GDPR Art. 32(1)(b).\n",
+      "severity": "HIGH",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        },
+        {
+          "article": "Art. 21(2)(i)",
+          "framework": "NIS2",
+          "title": "Human resources security, access control policies and asset management"
+        }
+      ],
+      "check_id": "CKV_AWS_70",
+      "check_name": "Ensure S3 bucket does not allow an action with any Principal",
+      "file_line_range": [
+        26,
+        41
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/bc-aws-s3-23",
+      "remediation": "Restrict the bucket policy to named principals:\n  {\n    \"Effect\": \"Allow\",\n    \"Principal\": { \"AWS\": \"arn:aws:iam::123456789012:role/app\" },\n    \"Action\": [\"s3:GetObject\"],\n    \"Resource\": \"arn:aws:s3:::my-app-data/*\"\n  }\n",
+      "resource": "aws_s3_bucket_policy.data_public_policy",
+      "risk_explanation": "A bucket policy statement whose Principal is \"*\" makes the bucket world-accessible for the listed actions — exposing any personal data in it to unauthenticated access and creating a potential control gap relevant to the access-control measures in NIS2 Art. 21(2)(i) and the confidentiality safeguards expected by GDPR Art. 32(1)(b).\n",
+      "severity": "CRITICAL",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        }
+      ],
+      "check_id": "CKV2_AWS_6",
+      "check_name": "Ensure that S3 bucket has a Public Access block",
+      "file_line_range": [
+        45,
+        47
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/s3-bucket-should-have-public-access-blocks-defaults-to-false-if-the-public-access-block-is-not-attached",
+      "remediation": "Attach a public access block that denies all public access (see CKV_AWS_53 for the\nfull resource); at minimum:\n  block_public_acls       = true\n  block_public_policy     = true\n  ignore_public_acls      = true\n  restrict_public_buckets = true\n",
+      "resource": "aws_s3_bucket.logs",
+      "risk_explanation": "A bucket with no aws_s3_bucket_public_access_block has no safety net against accidental public exposure via ACLs or bucket policy - a standing confidentiality risk for any personal data under GDPR Art. 32(1)(b).\n",
+      "severity": "HIGH",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(c)",
+          "framework": "NIS2",
+          "title": "Business continuity, backup management and disaster recovery"
+        }
+      ],
+      "check_id": "CKV2_AWS_61",
+      "check_name": "Ensure that an S3 bucket has a lifecycle configuration",
+      "file_line_range": [
+        45,
+        47
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-61",
+      "remediation": "Define lifecycle rules (transition + expiry) for the bucket:\n  resource \"aws_s3_bucket_lifecycle_configuration\" \"logs\" {\n    bucket = aws_s3_bucket.logs.id\n    rule {\n      id     = \"expire-logs\"\n      status = \"Enabled\"\n      expiration { days = 365 }\n    }\n  }\n",
+      "resource": "aws_s3_bucket.logs",
+      "risk_explanation": "Without lifecycle rules, log and backup objects accumulate indefinitely or are manually purged ad hoc, so retention for data protection and continuity purposes is unmanaged. Lifecycle configuration is the disciplined data lifecycle NIS2 Art. 21(2)(c) backup management expects.\n",
+      "severity": "LOW",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(b)",
+          "framework": "NIS2",
+          "title": "Incident handling"
+        }
+      ],
+      "check_id": "CKV2_AWS_62",
+      "check_name": "Ensure S3 buckets should have event notifications enabled",
+      "file_line_range": [
+        45,
+        47
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-62",
+      "remediation": "Subscribe at least one notification target to bucket events:\n  resource \"aws_s3_bucket_notification\" \"data\" {\n    bucket = aws_s3_bucket.data.id\n    lambda_function { lambda_function_arn = aws_lambda_function.auditor.arn\n                      events = [\"s3:ObjectCreated:*\"] }\n  }\n",
+      "resource": "aws_s3_bucket.logs",
+      "risk_explanation": "Without event notifications, writes to a bucket holding personal data raise no signal — unexpected mass downloads or deletions go unnoticed instead of feeding the detection capability NIS2 Art. 21(2)(b) requires.\n",
+      "severity": "LOW",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(c)",
+          "framework": "GDPR",
+          "title": "Ability to restore availability and access to personal data in a timely manner"
+        },
+        {
+          "article": "Art. 21(2)(c)",
+          "framework": "NIS2",
+          "title": "Business continuity, backup management and disaster recovery"
+        }
+      ],
+      "check_id": "CKV_AWS_144",
+      "check_name": "Ensure that S3 bucket has cross-region replication enabled",
+      "file_line_range": [
+        45,
+        47
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-bucket-has-cross-region-replication-enabled",
+      "remediation": "Replicate the bucket to another region permitted by the configured\nresidency policy (an in-policy region, when available):\n  resource \"aws_s3_bucket_replication_configuration\" \"data\" {\n    role   = aws_iam_role.replication.arn\n    bucket = aws_s3_bucket.data.id\n    rule { destination { bucket = aws_s3_bucket.replica.arn } }\n  }\n",
+      "resource": "aws_s3_bucket.logs",
+      "risk_explanation": "A bucket replicated only in one region is lost with that region. Cross-region replication is the mechanism that keeps personal data available and restorable after a regional outage, relevant to NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c).\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(a)",
+          "framework": "GDPR",
+          "title": "Pseudonymisation and encryption of personal data"
+        },
+        {
+          "article": "Art. 21(2)(h)",
+          "framework": "NIS2",
+          "title": "Policies and procedures on the use of cryptography and encryption"
+        }
+      ],
+      "check_id": "CKV_AWS_145",
+      "check_name": "Ensure that S3 buckets are encrypted with KMS by default",
+      "file_line_range": [
+        45,
+        47
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-buckets-are-encrypted-with-kms-by-default",
+      "remediation": "Configure default SSE-KMS on the bucket:\n  resource \"aws_s3_bucket_server_side_encryption_configuration\" \"this\" {\n    bucket = aws_s3_bucket.data.id\n    rule {\n      apply_server_side_encryption_by_default {\n        sse_algorithm     = \"aws:kms\"\n        kms_master_key_id = aws_kms_key.s3.arn\n      }\n    }\n  }\n",
+      "resource": "aws_s3_bucket.logs",
+      "risk_explanation": "New objects in a bucket without default SSE-KMS are already encrypted at rest with S3-managed keys (SSE-S3). A KMS key adds key-policy, rotation and access-grant control over that data, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for buckets that hold personal data.\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(b)",
+          "framework": "NIS2",
+          "title": "Incident handling"
+        }
+      ],
+      "check_id": "CKV_AWS_18",
+      "check_name": "Ensure the S3 bucket has access logging enabled",
+      "file_line_range": [
+        45,
+        47
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-13-enable-logging",
+      "remediation": "Send access logs to a dedicated logging bucket:\n  resource \"aws_s3_bucket_logging\" \"this\" {\n    bucket        = aws_s3_bucket.data.id\n    target_bucket = aws_s3_bucket.logs.id\n    target_prefix = \"s3-access/\"\n  }\n",
+      "resource": "aws_s3_bucket.logs",
+      "risk_explanation": "Without S3 server access logging there is no record of who read or wrote objects, so a data-access incident cannot be detected, scoped, or investigated. NIS2 Art. 21(2)(b) requires the ability to handle and analyse incidents.\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(c)",
+          "framework": "GDPR",
+          "title": "Ability to restore availability and access to personal data in a timely manner"
+        },
+        {
+          "article": "Art. 21(2)(c)",
+          "framework": "NIS2",
+          "title": "Business continuity, backup management and disaster recovery"
+        }
+      ],
+      "check_id": "CKV_AWS_21",
+      "check_name": "Ensure all data stored in the S3 bucket have versioning enabled",
+      "file_line_range": [
+        45,
+        47
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-16-enable-versioning",
+      "remediation": "Enable bucket versioning:\n  resource \"aws_s3_bucket_versioning\" \"this\" {\n    bucket = aws_s3_bucket.data.id\n    versioning_configuration { status = \"Enabled\" }\n  }\n",
+      "resource": "aws_s3_bucket.logs",
+      "risk_explanation": "Without versioning, an accidental or malicious overwrite/delete is unrecoverable. Versioning provides point-in-time restore, supporting the recovery obligation in GDPR Art. 32(1)(c) and business continuity under NIS2 Art. 21(2)(c).\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(b)",
+          "framework": "GDPR",
+          "title": "Confidentiality, integrity, availability and resilience of processing systems"
+        }
+      ],
+      "check_id": "CKV2_AWS_6",
+      "check_name": "Ensure that S3 bucket has a Public Access block",
+      "file_line_range": [
+        51,
+        54
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/s3-bucket-should-have-public-access-blocks-defaults-to-false-if-the-public-access-block-is-not-attached",
+      "remediation": "Attach a public access block that denies all public access (see CKV_AWS_53 for the\nfull resource); at minimum:\n  block_public_acls       = true\n  block_public_policy     = true\n  ignore_public_acls      = true\n  restrict_public_buckets = true\n",
+      "resource": "aws_s3_bucket.backup_non_eu",
+      "risk_explanation": "A bucket with no aws_s3_bucket_public_access_block has no safety net against accidental public exposure via ACLs or bucket policy - a standing confidentiality risk for any personal data under GDPR Art. 32(1)(b).\n",
+      "severity": "HIGH",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(c)",
+          "framework": "NIS2",
+          "title": "Business continuity, backup management and disaster recovery"
+        }
+      ],
+      "check_id": "CKV2_AWS_61",
+      "check_name": "Ensure that an S3 bucket has a lifecycle configuration",
+      "file_line_range": [
+        51,
+        54
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-61",
+      "remediation": "Define lifecycle rules (transition + expiry) for the bucket:\n  resource \"aws_s3_bucket_lifecycle_configuration\" \"logs\" {\n    bucket = aws_s3_bucket.logs.id\n    rule {\n      id     = \"expire-logs\"\n      status = \"Enabled\"\n      expiration { days = 365 }\n    }\n  }\n",
+      "resource": "aws_s3_bucket.backup_non_eu",
+      "risk_explanation": "Without lifecycle rules, log and backup objects accumulate indefinitely or are manually purged ad hoc, so retention for data protection and continuity purposes is unmanaged. Lifecycle configuration is the disciplined data lifecycle NIS2 Art. 21(2)(c) backup management expects.\n",
+      "severity": "LOW",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(b)",
+          "framework": "NIS2",
+          "title": "Incident handling"
+        }
+      ],
+      "check_id": "CKV2_AWS_62",
+      "check_name": "Ensure S3 buckets should have event notifications enabled",
+      "file_line_range": [
+        51,
+        54
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-62",
+      "remediation": "Subscribe at least one notification target to bucket events:\n  resource \"aws_s3_bucket_notification\" \"data\" {\n    bucket = aws_s3_bucket.data.id\n    lambda_function { lambda_function_arn = aws_lambda_function.auditor.arn\n                      events = [\"s3:ObjectCreated:*\"] }\n  }\n",
+      "resource": "aws_s3_bucket.backup_non_eu",
+      "risk_explanation": "Without event notifications, writes to a bucket holding personal data raise no signal — unexpected mass downloads or deletions go unnoticed instead of feeding the detection capability NIS2 Art. 21(2)(b) requires.\n",
+      "severity": "LOW",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(c)",
+          "framework": "GDPR",
+          "title": "Ability to restore availability and access to personal data in a timely manner"
+        },
+        {
+          "article": "Art. 21(2)(c)",
+          "framework": "NIS2",
+          "title": "Business continuity, backup management and disaster recovery"
+        }
+      ],
+      "check_id": "CKV_AWS_144",
+      "check_name": "Ensure that S3 bucket has cross-region replication enabled",
+      "file_line_range": [
+        51,
+        54
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-bucket-has-cross-region-replication-enabled",
+      "remediation": "Replicate the bucket to another region permitted by the configured\nresidency policy (an in-policy region, when available):\n  resource \"aws_s3_bucket_replication_configuration\" \"data\" {\n    role   = aws_iam_role.replication.arn\n    bucket = aws_s3_bucket.data.id\n    rule { destination { bucket = aws_s3_bucket.replica.arn } }\n  }\n",
+      "resource": "aws_s3_bucket.backup_non_eu",
+      "risk_explanation": "A bucket replicated only in one region is lost with that region. Cross-region replication is the mechanism that keeps personal data available and restorable after a regional outage, relevant to NIS2 Art. 21(2)(c) and GDPR Art. 32(1)(c).\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(a)",
+          "framework": "GDPR",
+          "title": "Pseudonymisation and encryption of personal data"
+        },
+        {
+          "article": "Art. 21(2)(h)",
+          "framework": "NIS2",
+          "title": "Policies and procedures on the use of cryptography and encryption"
+        }
+      ],
+      "check_id": "CKV_AWS_145",
+      "check_name": "Ensure that S3 buckets are encrypted with KMS by default",
+      "file_line_range": [
+        51,
+        54
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-buckets-are-encrypted-with-kms-by-default",
+      "remediation": "Configure default SSE-KMS on the bucket:\n  resource \"aws_s3_bucket_server_side_encryption_configuration\" \"this\" {\n    bucket = aws_s3_bucket.data.id\n    rule {\n      apply_server_side_encryption_by_default {\n        sse_algorithm     = \"aws:kms\"\n        kms_master_key_id = aws_kms_key.s3.arn\n      }\n    }\n  }\n",
+      "resource": "aws_s3_bucket.backup_non_eu",
+      "risk_explanation": "New objects in a bucket without default SSE-KMS are already encrypted at rest with S3-managed keys (SSE-S3). A KMS key adds key-policy, rotation and access-grant control over that data, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for buckets that hold personal data.\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 21(2)(b)",
+          "framework": "NIS2",
+          "title": "Incident handling"
+        }
+      ],
+      "check_id": "CKV_AWS_18",
+      "check_name": "Ensure the S3 bucket has access logging enabled",
+      "file_line_range": [
+        51,
+        54
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-13-enable-logging",
+      "remediation": "Send access logs to a dedicated logging bucket:\n  resource \"aws_s3_bucket_logging\" \"this\" {\n    bucket        = aws_s3_bucket.data.id\n    target_bucket = aws_s3_bucket.logs.id\n    target_prefix = \"s3-access/\"\n  }\n",
+      "resource": "aws_s3_bucket.backup_non_eu",
+      "risk_explanation": "Without S3 server access logging there is no record of who read or wrote objects, so a data-access incident cannot be detected, scoped, or investigated. NIS2 Art. 21(2)(b) requires the ability to handle and analyse incidents.\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    },
+    {
+      "articles": [
+        {
+          "article": "Art. 32(1)(c)",
+          "framework": "GDPR",
+          "title": "Ability to restore availability and access to personal data in a timely manner"
+        },
+        {
+          "article": "Art. 21(2)(c)",
+          "framework": "NIS2",
+          "title": "Business continuity, backup management and disaster recovery"
+        }
+      ],
+      "check_id": "CKV_AWS_21",
+      "check_name": "Ensure all data stored in the S3 bucket have versioning enabled",
+      "file_line_range": [
+        51,
+        54
+      ],
+      "file_path": "/s3.tf",
+      "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-16-enable-versioning",
+      "remediation": "Enable bucket versioning:\n  resource \"aws_s3_bucket_versioning\" \"this\" {\n    bucket = aws_s3_bucket.data.id\n    versioning_configuration { status = \"Enabled\" }\n  }\n",
+      "resource": "aws_s3_bucket.backup_non_eu",
+      "risk_explanation": "Without versioning, an accidental or malicious overwrite/delete is unrecoverable. Versioning provides point-in-time restore, supporting the recovery obligation in GDPR Art. 32(1)(c) and business continuity under NIS2 Art. 21(2)(c).\n",
+      "severity": "MEDIUM",
+      "suppressed": false,
+      "suppression_reason": null
+    }
+  ],
+  "provenance": {
+    "checkov_version": "3.3.13",
+    "checks": {
+      "failed": 73,
+      "passed": 44,
+      "skipped": 0
+    },
+    "commit": null,
+    "commit_source": null,
+    "options": {
+      "allow_partial": false,
+      "checkov_json": "scan.json",
+      "download_external_modules": false,
+      "exclude": [],
+      "fail_on_any": false,
+      "fail_on_suppressed": false,
+      "fail_on_unmapped": false,
+      "framework": "all",
+      "iac_type": "terraform",
+      "json_format": "object",
+      "no_config": true,
+      "no_discovery": false,
+      "online": false,
+      "output": "json",
+      "output_file": "report.json",
+      "registry_dirs": [],
+      "residency_policy": "eu-eea",
+      "secrets": false,
+      "severity_overrides": {},
+      "show_unmapped": true,
+      "timeout": 600,
+      "var_files": []
+    },
+    "registry_files": [
+      "registry-aws.yaml",
+      "registry-azure.yaml",
+      "registry-gcp.yaml",
+      "registry-kubernetes.yaml",
+      "registry-secrets.yaml"
+    ],
+    "registry_sha256": "<VOLATILE>",
+    "resources_scanned": 18,
+    "tool_version": "<VERSION>"
+  },
+  "registry": {
+    "overlays": [],
+    "overridden": []
+  },
+  "requirements": [
+    {
+      "article": "21(2)(a)",
+      "category": "manual",
+      "failed": 0,
+      "framework": "NIS2",
+      "mapped_checks": 0,
+      "passed": 0,
+      "ran": 0,
+      "suppressed": 0,
+      "title": "Risk analysis and information system security",
+      "waived": 0
+    },
+    {
+      "article": "21(2)(b)",
+      "category": "partial",
+      "failed": 9,
+      "framework": "NIS2",
+      "mapped_checks": 45,
+      "passed": 0,
+      "ran": 9,
+      "suppressed": 0,
+      "title": "Incident handling",
+      "waived": 0
+    },
+    {
+      "article": "21(2)(c)",
+      "category": "partial",
+      "failed": 13,
+      "framework": "NIS2",
+      "mapped_checks": 36,
+      "passed": 0,
+      "ran": 13,
+      "suppressed": 0,
+      "title": "Business continuity, backup management and disaster recovery",
+      "waived": 0
+    },
+    {
+      "article": "21(2)(d)",
+      "category": "partial",
+      "failed": 0,
+      "framework": "NIS2",
+      "mapped_checks": 8,
+      "passed": 0,
+      "ran": 0,
+      "suppressed": 0,
+      "title": "Supply chain security",
+      "waived": 0
+    },
+    {
+      "article": "21(2)(e)",
+      "category": "partial",
+      "failed": 1,
+      "framework": "NIS2",
+      "mapped_checks": 45,
+      "passed": 0,
+      "ran": 1,
+      "suppressed": 0,
+      "title": "Security in network and information systems acquisition, development and maintenance",
+      "waived": 0
+    },
+    {
+      "article": "21(2)(f)",
+      "category": "process evidence",
+      "failed": 0,
+      "framework": "NIS2",
+      "mapped_checks": 0,
+      "passed": 0,
+      "ran": 0,
+      "suppressed": 0,
+      "title": "Policies and procedures to assess the effectiveness of risk-management measures",
+      "waived": 0
+    },
+    {
+      "article": "21(2)(g)",
+      "category": "partial",
+      "failed": 0,
+      "framework": "NIS2",
+      "mapped_checks": 14,
+      "passed": 0,
+      "ran": 0,
+      "suppressed": 0,
+      "title": "Basic cyber hygiene practices and cybersecurity training",
+      "waived": 0
+    },
+    {
+      "article": "21(2)(h)",
+      "category": "partial",
+      "failed": 5,
+      "framework": "NIS2",
+      "mapped_checks": 50,
+      "passed": 0,
+      "ran": 5,
+      "suppressed": 0,
+      "title": "Policies and procedures on the use of cryptography and encryption",
+      "waived": 0
+    },
+    {
+      "article": "21(2)(i)",
+      "category": "partial",
+      "failed": 38,
+      "framework": "NIS2",
+      "mapped_checks": 66,
+      "passed": 0,
+      "ran": 38,
+      "suppressed": 0,
+      "title": "Human resources security, access control policies and asset management",
+      "waived": 0
+    },
+    {
+      "article": "21(2)(j)",
+      "category": "partial",
+      "failed": 0,
+      "framework": "NIS2",
+      "mapped_checks": 4,
+      "passed": 0,
+      "ran": 0,
+      "suppressed": 0,
+      "title": "Authentication and secured communications",
+      "waived": 0
+    },
+    {
+      "article": "32(1)(a)",
+      "category": "partial",
+      "failed": 5,
+      "framework": "GDPR",
+      "mapped_checks": 49,
+      "passed": 0,
+      "ran": 5,
+      "suppressed": 0,
+      "title": "Pseudonymisation and encryption of personal data",
+      "waived": 0
+    },
+    {
+      "article": "32(1)(b)",
+      "category": "partial",
+      "failed": 33,
+      "framework": "GDPR",
+      "mapped_checks": 142,
+      "passed": 0,
+      "ran": 33,
+      "suppressed": 0,
+      "title": "Confidentiality, integrity, availability and resilience of processing systems",
+      "waived": 0
+    },
+    {
+      "article": "32(1)(c)",
+      "category": "partial",
+      "failed": 9,
+      "framework": "GDPR",
+      "mapped_checks": 20,
+      "passed": 0,
+      "ran": 9,
+      "suppressed": 0,
+      "title": "Ability to restore availability and access to personal data in a timely manner",
+      "waived": 0
+    },
+    {
+      "article": "32(1)(d)",
+      "category": "process evidence",
+      "failed": 0,
+      "framework": "GDPR",
+      "mapped_checks": 2,
+      "passed": 0,
+      "ran": 0,
+      "suppressed": 0,
+      "title": "Regularly testing, assessing and evaluating effectiveness",
+      "waived": 0
+    },
+    {
+      "article": "44",
+      "category": "partial",
+      "failed": 0,
+      "framework": "GDPR",
+      "mapped_checks": 4,
+      "passed": 0,
+      "ran": 0,
+      "suppressed": 0,
+      "title": "General principle for transfers of personal data to third countries",
+      "waived": 0
+    }
+  ],
+  "scan": {
+    "iac_type": "terraform",
+    "target": "checkov-json:scan.json",
+    "timestamp": "<VOLATILE>",
+    "weakening_settings": []
+  },
+  "schema_version": "3",
+  "summary": {
+    "by_severity": {
+      "CRITICAL": 20,
+      "HIGH": 17,
+      "INFO": 0,
+      "LOW": 10,
+      "MEDIUM": 26
+    },
+    "suppressed": 0,
+    "total": 73,
+    "unmapped": 0
+  },
+  "tool": {
+    "name": "tf-eu-guard",
+    "version": "<VERSION>"
+  },
+  "unmapped": [],
+  "waived": []
+}

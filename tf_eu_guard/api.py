@@ -22,9 +22,11 @@ def scan(
     var_files: Sequence[str | Path] = (),
     registry_dirs: Sequence[str | Path] = (),
     waivers: str | Path | None = None,
+    max_waiver_days: int | None = None,
     baseline: str | Path | None = None,
     config: str | Path | None = None,
     no_config: bool = False,
+    no_discovery: bool = False,
     secrets: bool = False,
     timeout: float = 600,
 ) -> ScanResult:
@@ -35,7 +37,9 @@ def scan(
 
     Keywords left at their default yield to a config file (``config=`` or a
     ``.tf-eu-guard.yaml`` discovered in the scan root); ``no_config=True`` makes the
-    keywords authoritative and also ignores ``config=``.
+    keywords authoritative and also ignores ``config=``. ``no_discovery=True`` skips only the
+    files discovered in the scan root (``.tf-eu-guard.yaml``, ``.tf-eu-guard-waivers.yaml``);
+    an explicit ``config=`` or ``waivers=`` still applies.
     """
     argv = ["scan"]
     if path is not None:
@@ -47,6 +51,7 @@ def scan(
         "residency-policy": (residency_policy, "eu-eea"),
         "allowed-regions": (",".join(allowed_regions) if allowed_regions else None, None),
         "waivers": (waivers, None),
+        "max-waiver-days": (max_waiver_days, None),
         "baseline": (baseline, None),
         "config": (config, None),
         "timeout": (timeout, 600),
@@ -65,6 +70,8 @@ def scan(
         argv.append("--secrets")
     if no_config:
         argv.append("--no-config")
+    if no_discovery:
+        argv.append("--no-discovery")
 
     captured = io.StringIO()
     try:

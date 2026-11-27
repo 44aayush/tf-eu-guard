@@ -13,6 +13,8 @@ directory, or the parent directory of a Terraform plan file). Discovery happens 
 for source scans; with `--checkov-json` and no `--waivers` nothing is read. An explicit
 `--config FILE` also disables discovery (so a trusted config cannot be undercut by a
 waiver file in the scanned code); `--waivers` and the config's `waivers:` key still apply.
+`--no-discovery` also disables it, together with `.tf-eu-guard.yaml` discovery, and names the
+ignored file on stderr; use it when the scanned code comes from a pull request you do not trust.
 
 ```yaml
 schema_version: 1
@@ -41,6 +43,19 @@ A waiver is valid through its `expires` date. After that the finding is active a
 and stderr says `Waiver expired on <date>: <check_id> <resource> (owner <owner>)`.
 stderr also reports `N finding(s) waived by <path>` and warns about waivers that
 matched nothing.
+
+## Bounds
+
+A waiver without `file` matches its check and resource in every file, so each one prints
+`Warning: waiver for <check_id> <resource> has no file pattern; it matches that resource in every file`
+when the file is loaded. Add a `file` glob to narrow it.
+
+`--max-waiver-days N` (config key `max_waiver_days`, Action input `max-waiver-days`, API keyword
+`max_waiver_days`; whole number, at least 1) refuses a waiver that expires more than N days from today,
+so `expires: 9999-12-31` cannot waive a finding forever. Such a waiver is not applied, its finding
+stays active and counts toward the gate, and stderr says
+`Warning: waiver for <check_id> <resource> expires <date>, more than <N> days ahead (--max-waiver-days); not applied`.
+Without the option there is no limit.
 
 ## Trust
 

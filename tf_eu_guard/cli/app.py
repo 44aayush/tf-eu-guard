@@ -15,6 +15,7 @@ from tf_eu_guard.cli.pipeline import (
     filter_findings_by_framework,
     load_scan_findings,
 )
+from tf_eu_guard.cli.report_context import ReportContext
 from tf_eu_guard.cli.reports import (
     check_evidence_dir,
     render_markdown_csv_outputs,
@@ -135,26 +136,12 @@ def main(registry_path: Path | None = None) -> int:
         if args.evidence_dir:
             check_evidence_dir(args.evidence_dir)
         shown = run_scan(args, registry_path)
-        requirements = shown.requirements or None
+        ctx = ReportContext.from_result(args, shown)
         try:
-            render_scan_output(
-                args,
-                shown.findings,
-                shown.unmapped,
-                suppressed=shown.suppressed,
-                suppressed_unmapped=shown.suppressed_unmapped,
-                checkov_version=shown.checkov_version,
-                requirements=requirements,
-                registry=shown.registry,
-                waived=shown.waived,
-                weakening_settings=shown.weakening_settings,
-                # None tells SARIF that no baseline was used (no baselineState).
-                baselined=shown.baselined if args.baseline else None,
-                provenance=shown.provenance,
-            )
+            render_scan_output(ctx)
             render_markdown_csv_outputs(args, shown)
             if args.evidence_dir:
-                write_evidence_bundle(args, shown, requirements, shown.provenance)
+                write_evidence_bundle(ctx, shown)
         except (OSError, UnicodeEncodeError) as error:
             raise OutputWriteError(f"Cannot write report output: {error}") from error
         return apply_scan_gate(args, shown.findings, shown.unmapped, suppressed=shown.suppressed)

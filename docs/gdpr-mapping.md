@@ -135,9 +135,16 @@ configurable residency *policy* from the GDPR Chapter V review signal:
 | EUGUARD_GDPR_001 | **Deprecated** alias of EUGUARD_POLICY_001 so 0.7.x `--checkov-json` files still map; removed in the next release |
 | EUGUARD_GDPR_002 | A known AWS provider region outside the EU/EEA receives a Chapter V review signal (**custom** check) |
 | EUGUARD_GDPR_003 | A known resource-level region outside the EU/EEA receives a Chapter V review signal (**custom** check) |
+| EUGUARD_POLICY_003 | Azure `azurerm_*` resource `location` is within the configured residency policy (**project policy** custom check) |
+| EUGUARD_GDPR_004 | A known Azure `location` outside the EU/EEA (including the UK and Switzerland) receives a Chapter V review signal (**custom** check) |
+| EUGUARD_POLICY_004 | GCP provider `region` and `google_*` resource `region`/`location`/`zone` are within the configured residency policy (**project policy** custom check) |
+| EUGUARD_POLICY_006 | No GCP provider region or resource location in source, so the residency policy is unverified for the stack (**project policy** finding injected by the scan pipeline, source scans only) |
+| EUGUARD_GDPR_005 | A known GCP region or location outside the EU/EEA (including London, Zurich and the `US`/`ASIA` multi-regions) receives a Chapter V review signal (**custom** check) |
 
-These are **custom tf-eu-guard checks** implemented in
-[`tf_eu_guard/checks/gdpr/data_residency.py`](../tf_eu_guard/checks/gdpr/data_residency.py).
+These are **custom tf-eu-guard checks**. The AWS ones are implemented in
+[`tf_eu_guard/checks/gdpr/aws_residency.py`](../tf_eu_guard/checks/gdpr/aws_residency.py), the Azure ones in
+[`tf_eu_guard/checks/gdpr/azure_residency.py`](../tf_eu_guard/checks/gdpr/azure_residency.py) and the GCP ones in
+[`tf_eu_guard/checks/gdpr/gcp_residency.py`](../tf_eu_guard/checks/gdpr/gcp_residency.py) (below).
 The `*_001`/`*_002` provider checks inspect each `provider "aws"` block's
 `region`. Since AWS provider 6.0 most resources also accept a top-level
 `region` argument, and replication settings place data elsewhere regardless of
@@ -150,6 +157,30 @@ the ARN; an unresolved ARN is skipped). `aws_s3_bucket_replication_configuration
 destinations are bucket ARNs whose region is not resolvable statically and are
 **not** evaluated.
 
+**Azure** (`EUGUARD_POLICY_003` / `EUGUARD_GDPR_004`, in
+[`tf_eu_guard/checks/gdpr/azure_residency.py`](../tf_eu_guard/checks/gdpr/azure_residency.py))
+evaluate the `location` argument of every `azurerm_*` resource, compared in
+normalised form (`West Europe` equals `westeurope`). The policy check is fail-closed
+against a maintained EU/EEA table (Microsoft Learn regions list, verified 2026-11-27, including
+`belgiumcentral` and `denmarkeast`): a newer EU location that is not yet verified
+(for example `finlandcentral`) fails the policy check and stays *unknown* for the Chapter V
+signal, which fails only for known third-country locations. The Azure checks use the
+same `--residency-policy` flag: `eu-eea` (default) and `eusc` both use the Azure EU/EEA
+table, since the Sovereign Cloud is an AWS partition, and `custom` applies the same
+allowlist to every cloud.
+
+**GCP** (`EUGUARD_POLICY_004` / `EUGUARD_GDPR_005`, in
+[`tf_eu_guard/checks/gdpr/gcp_residency.py`](../tf_eu_guard/checks/gdpr/gcp_residency.py))
+evaluate the `region` and `zone` of each `provider "google"` block and the `region`, `location`
+and `zone` arguments of every `google_*` resource. Values are compared in normalised
+form: a zone maps to its region (`europe-west4-a` is `europe-west4`) and the multi-region
+`EU` equals `eu`. The policy check is fail-closed against a maintained EU/EEA table:
+dual-regions such as `EUR4` and newer EU regions that are not yet verified fail the
+policy check and stay *unknown* for the Chapter V signal, which fails only for known
+third-country locations (London `europe-west2`, Zurich `europe-west6`, `US`, `ASIA` and
+the other listed non-EU regions). `eu-eea` (default) and `eusc` both use the GCP EU/EEA
+table, and `custom` applies the same allowlist to every cloud.
+
 **Residency policy** (`--residency-policy`, GitHub Action input
 `residency-policy`): `eu-eea` (default) allows the EU/EEA commercial regions
 plus the AWS European Sovereign Cloud; `eusc` allows only `eusc-de-east-1` (the
@@ -157,8 +188,8 @@ plus the AWS European Sovereign Cloud; `eusc` allows only `eusc-de-east-1` (the
 hands the policy to the Checkov subprocess through the
 `TF_EU_GUARD_RESIDENCY_POLICY` / `TF_EU_GUARD_ALLOWED_REGIONS` environment
 variables (ambient values are discarded); direct Checkov use without them
-defaults to `eu-eea`, and an invalid value fails closed to the EUSC-only
-allowlist. With `--checkov-json` the results are pre-computed, so the policy
+defaults to `eu-eea`, and an invalid value fails closed (on AWS to the EUSC-only
+allowlist; on Azure and GCP to an empty allowlist). With `--checkov-json` the results are pre-computed, so the policy
 flags are ignored and a warning is printed.
 
 The policy checks are **fail-closed**: a region off the allowlist fails,

@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from tf_eu_guard.models import EnrichedFinding
-from tf_eu_guard.reporting.baselined import baselined_html
+from tf_eu_guard.reporting.baselined import baselined_html, baselined_unmapped_html
 from tf_eu_guard.reporting.html_common import (
     distinct_files,
     esc,
@@ -87,15 +87,24 @@ def _render(
     waived: list[EnrichedFinding] | None = None,
     weakening_settings: list[str] | None = None,
     baselined: list[EnrichedFinding] | None = None,
+    baselined_unmapped: list[dict[str, Any]] | None = None,
+    list_baselined_unmapped: bool = False,
 ) -> str:
     """Assemble the complete HTML document."""
     findings = sort_findings(findings)
     suppressed = suppressed or []
     waived = waived or []
     baselined = baselined or []
+    known_unmapped = baselined_unmapped or []
+    known_total = len(baselined) + len(known_unmapped)
     suppressed_span = f"<span>Suppressed: {len(suppressed)}</span>" if suppressed else ""
     suppressed_span += f"<span>Waived: {len(waived)}</span>" if waived else ""
     suppressed_span += f"<span>Known (in baseline): {len(baselined)}</span>" if baselined else ""
+    suppressed_span += (
+        f"<span>Known unmapped (in baseline): {len(known_unmapped)}</span>"
+        if known_unmapped
+        else ""
+    )
     unmapped_span = (
         f"<span>Unmapped Checkov findings: {unmapped_count}</span>" if unmapped_count else ""
     )
@@ -112,7 +121,7 @@ def _render(
         "</header>"
     )
 
-    if not findings and not unmapped_count and not suppressed and not waived and not baselined:
+    if not findings and not unmapped_count and not suppressed and not waived and not known_total:
         body = (
             '<div class="empty"><h2 style="margin-top:0">No compliance findings</h2>'
             "<p>Checkov reported no failed checks that map to a compliance control "
@@ -122,7 +131,7 @@ def _render(
         body = (
             '<div class="attention"><h2 style="margin-top:0">No active findings &mdash; '
             f"{len(suppressed)} suppressed, {len(waived)} waived, "
-            f"{len(baselined)} known in baseline</h2>"
+            f"{known_total} known in baseline</h2>"
             "<p>Every failed check was suppressed by an inline comment or accepted by a "
             "waiver, or is already known from the baseline. This scan is not a clean bill of health &mdash; review the "
             "suppressed and waived checks below.</p></div>\n" + suppressed_html(suppressed)
@@ -166,6 +175,9 @@ def _render(
     if baselined:
         body = f"{body}\n{baselined_html(baselined)}"
 
+    if known_unmapped:
+        body = f"{body}\n{baselined_unmapped_html(known_unmapped, list_baselined_unmapped)}"
+
     unmapped_note = (
         f"{unmapped_count} unmapped Checkov finding(s) were reported separately; "
         if unmapped_count
@@ -178,7 +190,7 @@ def _render(
         "Only failed checks that map to a NIS2, GDPR, or project-policy control are shown; "
         f"{unmapped_note}"
         f"{len(suppressed)} finding(s) suppressed by inline comments, {len(waived)} "
-        f"waived and {len(baselined)} known from the baseline are listed separately; "
+        f"waived and {known_total} known from the baseline are listed separately; "
         "this report is not legal advice and is not a certification; "
         "absence of a finding is not evidence of compliance.</footer>"
     )
@@ -211,6 +223,8 @@ def generate_dev_html_report(
     waived: list[EnrichedFinding] | None = None,
     weakening_settings: list[str] | None = None,
     baselined: list[EnrichedFinding] | None = None,
+    baselined_unmapped: list[dict[str, Any]] | None = None,
+    list_baselined_unmapped: bool = False,
 ) -> str:
     """Generate the self-contained developer HTML report (findings grouped by file).
 
@@ -242,6 +256,8 @@ def generate_dev_html_report(
         waived=waived,
         weakening_settings=weakening_settings,
         baselined=baselined,
+        baselined_unmapped=baselined_unmapped,
+        list_baselined_unmapped=list_baselined_unmapped,
     )
     if output_path is not None:
         Path(output_path).write_text(document, encoding="utf-8")

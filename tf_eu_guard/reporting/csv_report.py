@@ -11,6 +11,7 @@ from tf_eu_guard.reporting.sorting import (
     sort_unmapped_findings,
     sorted_articles,
 )
+from tf_eu_guard.reporting.untrusted import sanitize
 
 if TYPE_CHECKING:
     from tf_eu_guard.cli.pipeline import ScanFindings
@@ -27,6 +28,11 @@ def _cell(value: Any) -> Any:
     if isinstance(value, str) and value.startswith(("=", "+", "-", "@", "\t", "\r")):
         return "'" + value
     return value
+
+
+def _u(value: Any) -> str:
+    """Escape control characters in a value taken from the scanned checkout."""
+    return sanitize(value)
 
 
 def _lines(finding_or_check: Any) -> tuple[Any, Any]:
@@ -50,12 +56,12 @@ def render_csv(result: ScanFindings) -> str:
             start, end = _lines(f.file_line_range)
             waiver = f.waiver
             base = [
-                status, f.severity.value, f.check_id, f.check_name, f.resource, f.file_path,
-                start, end,
+                status, f.severity.value, _u(f.check_id), _u(f.check_name), _u(f.resource),
+                _u(f.file_path), start, end,
             ]  # fmt: skip
             tail = [
-                f.risk_explanation, f.remediation, f.suppression_reason or "",
-                waiver.owner if waiver else "",
+                f.risk_explanation, f.remediation, _u(f.suppression_reason),
+                _u(waiver.owner) if waiver else "",
                 waiver.expires.isoformat() if waiver else "",
             ]  # fmt: skip
             for a in sorted_articles(f) or [None]:
@@ -63,12 +69,13 @@ def render_csv(result: ScanFindings) -> str:
                 writer.writerow([_cell(c) for c in [*base, *art, *tail]])
     unmapped = [("unmapped", c) for c in sort_unmapped_findings(result.unmapped)]
     unmapped += [("suppressed", c) for c in sort_unmapped_findings(result.suppressed_unmapped)]
+    unmapped += [("baselined", c) for c in sort_unmapped_findings(result.baselined_unmapped)]
     for status, check in unmapped:
         start, end = _lines(check.get("file_line_range"))
         row = [
-            status, "", check.get("check_id"), check.get("check_name"), check.get("resource"),
-            check.get("file_path"), start, end, "", "", "", "", "",
-            check.get("suppression_reason") or "", "", "",
+            status, "", _u(check.get("check_id")), _u(check.get("check_name")),
+            _u(check.get("resource")), _u(check.get("file_path")), start, end,
+            "", "", "", "", "", _u(check.get("suppression_reason")), "", "",
         ]  # fmt: skip
-        writer.writerow([_cell("" if c is None else c) for c in row])
+        writer.writerow([_cell(c) for c in row])
     return buffer.getvalue()

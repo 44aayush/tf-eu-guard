@@ -83,17 +83,17 @@
 
 ### High Severity
 
-**CKV_AWS_145** — Ensure that S3 buckets are encrypted with KMS by default  
-**Mapped to**: NIS2 Art. 21(2)(h) — Policies and procedures on the use of cryptography and encryption; GDPR Art. 32(1)(a) — Pseudonymisation and encryption of personal data  
-**Severity**: HIGH  
-**Expected instances**: `s3.tf` — `flowbucket`, `data`, `data_science`, `financials`, `operations`
-
 **CKV2_AWS_6** — Ensure that S3 bucket has a Public Access block  
 **Mapped to**: GDPR Art. 32(1)(b) — Confidentiality, integrity, availability and resilience of processing systems  
 **Severity**: HIGH  
 **Expected instances**: `s3.tf` — all six buckets (`flowbucket`, `data`, `data_science`, `financials`, `logs`, `operations`)
 
 ### Medium Severity
+
+**CKV_AWS_145** — Ensure that S3 buckets are encrypted with KMS by default  
+**Mapped to**: NIS2 Art. 21(2)(h) — Policies and procedures on the use of cryptography and encryption; GDPR Art. 32(1)(a) — Pseudonymisation and encryption of personal data  
+**Severity**: MEDIUM  
+**Expected instances**: `s3.tf` — `flowbucket`, `data`, `data_science`, `financials`, `operations`
 
 **CKV_AWS_18** — Ensure the S3 bucket has access logging enabled  
 **Mapped to**: NIS2 Art. 21(2)(b) — Incident handling  
@@ -166,11 +166,11 @@
 
 ## Network & Infrastructure
 
-### High Severity
+### Critical Severity
 
 **CKV_AWS_24** — Ensure no security groups allow ingress from 0.0.0.0:0 to port 22  
 **Mapped to**: NIS2 Art. 21(2)(i) — Human resources security, access control policies and asset management; GDPR Art. 32(1)(b) — Confidentiality, integrity, availability and resilience of processing systems  
-**Severity**: HIGH  
+**Severity**: CRITICAL  
 **Expected instances**: `ec2.tf` — `aws_security_group.web-node`
 
 ### Medium Severity
@@ -202,7 +202,7 @@
 
 ### Mapped but not triggered in this suite
 
-- **CKV_AWS_25** (HIGH) — Ensure no security groups allow ingress from 0.0.0.0:0 to port 3389. Mapped to NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b). No security group opens port 3389 (RDP), so this check does not fire.
+- **CKV_AWS_25** (CRITICAL) — Ensure no security groups allow ingress from 0.0.0.0:0 to port 3389. Mapped to NIS2 Art. 21(2)(i); GDPR Art. 32(1)(b). No security group opens port 3389 (RDP), so this check does not fire.
 
 ---
 
@@ -214,7 +214,7 @@ The files below exercise registry coverage beyond the core resource set. Every c
 
 **CKV_AWS_119** — DynamoDB table not encrypted with a customer-managed KMS key
 **Mapped to**: NIS2 Art. 21(2)(h) — Policies and procedures on the use of cryptography and encryption; GDPR Art. 32(1)(a) — Pseudonymisation and encryption of personal data
-**Severity**: HIGH
+**Severity**: MEDIUM
 **Expected instances**: `aws_dynamodb_table.sessions`
 
 **CKV_AWS_28** — DynamoDB point-in-time recovery (backup) not enabled
@@ -324,16 +324,16 @@ request/response bodies.
 
 ### SNS
 
-**CKV_AWS_26** — SNS topic is not encrypted
+**CKV_AWS_26** — SNS topic has no KMS server-side encryption (`kms_master_key_id` unset)
 **Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)
-**Severity**: HIGH
+**Severity**: MEDIUM
 **Expected instances**: `aws_sns_topic.app_notifications`
 
 ### Secrets Manager
 
 **CKV_AWS_149** — Secrets Manager secret is not encrypted using a KMS CMK
 **Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)
-**Severity**: HIGH
+**Severity**: MEDIUM
 **Expected instances**: `aws_secretsmanager_secret.db_password`
 **Note**: Related to `EUGUARD_NIS2_001`. The value is already stored as a
 literal in `db-app.tf`, so this gap adds to the hardcoded-secret finding.
@@ -404,7 +404,7 @@ literal in `db-app.tf`, so this gap adds to the hardcoded-secret finding.
 
 **CKV_AWS_35** — Ensure CloudTrail logs are encrypted at rest using KMS CMKs
 **Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)
-**Severity**: HIGH
+**Severity**: MEDIUM
 **Expected instances**: `cloudtrail.tf` — no `kms_key_id`, so log files are SSE-S3 rather than customer-key encrypted
 
 **CKV_AWS_36** — Ensure CloudTrail log file validation is enabled
@@ -431,7 +431,7 @@ literal in `db-app.tf`, so this gap adds to the hardcoded-secret finding.
 
 **CKV_AWS_147** — Ensure CodeBuild project artifacts are encrypted using a KMS CMK
 **Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)
-**Severity**: HIGH
+**Severity**: MEDIUM
 **Expected instances**: `codebuild.tf` — `artifacts` block has no `encryption_key`
 
 **CKV_AWS_314** — Ensure CodeBuild project environments have a logging configuration
@@ -507,7 +507,7 @@ literal in `db-app.tf`, so this gap adds to the hardcoded-secret finding.
 
 **CKV_AWS_96** — Ensure all data stored in the Aurora RDS cluster is securely encrypted at rest  
 **Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)  
-**Severity**: CRITICAL  
+**Severity**: HIGH  
 **Expected instances**: `rds-cluster.tf` — `aws_rds_cluster.aurora` has no `storage_encrypted`
 
 **CKV_AWS_327** — Ensure RDS cluster is encrypted by KMS using a customer-managed key (CMK)  
@@ -627,7 +627,7 @@ finding.
 ### High Severity
 
 **EUGUARD_POLICY_001** — Provider region outside the configured residency policy
-**Mapped to**: Policy RESIDENCY-001 — AWS region residency policy
+**Mapped to**: Policy RESIDENCY-001 — Region residency policy
 **Expected instances**: `consts.tf` / `providers.tf` — the default `eu-eea` policy accepts EU/EEA commercial regions and the Sovereign Cloud, so a provider such as `us-west-1` fails; under `--residency-policy eusc` only `eusc-de-east-1` passes. No GDPR Chapter V citation is attached to this policy finding.
 
 **EUGUARD_GDPR_002** — Known provider region outside the EU/EEA

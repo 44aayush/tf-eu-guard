@@ -1,7 +1,7 @@
 """Reviewed waiver file (N-01): loading, matching, gating and reporting."""
 
 import json
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from cli_helpers import run_cli
@@ -140,12 +140,13 @@ def _doc(failed=(), skipped=()):
         }
 
     return {
+        "summary": {"resource_count": 1, "parsing_errors": 0},
         "results": {
             "failed_checks": [check(*c) for c in failed],
             "skipped_checks": [
                 {**check(*c), "check_result": {"result": "SKIPPED"}} for c in skipped
             ],
-        }
+        },
     }
 
 
@@ -357,3 +358,135 @@ def test_waived_stderr_count_follows_framework(monkeypatch, tmp_path, capsys):
     assert "finding(s) waived" not in capsys.readouterr().err
     run_cli(monkeypatch, tmp_path, *args, "--framework", "gdpr", "--output", "json")
     assert "1 finding(s) waived by" in capsys.readouterr().err
+
+
+def _source_root(monkeypatch, tmp_path):
+    def fake_run_checkov(*_a, **_k):
+        doc = _doc([LOGS])
+        # A provider region result, so the no-region finding (EUGUARD_POLICY_005) stays silent.
+        doc["results"]["passed_checks"] = [
+            {
+                "check_id": "EUGUARD_POLICY_001",
+                "check_name": "region",
+                "resource": "aws.default",
+                "file_path": "/main.tf",
+                "file_line_range": [1, 2],
+            }
+        ]
+        return doc
+
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", fake_run_checkov)
+    src = tmp_path / "src"
+    src.mkdir()
+    return src
+
+
+def test_no_discovery_ignores_scan_root_waivers(monkeypatch, tmp_path, capsys):
+    src = _source_root(monkeypatch, tmp_path)
+    _write(src, HEADER + GOOD, ".tf-eu-guard-waivers.yaml")
+    assert run_cli(monkeypatch, tmp_path, str(src), "--fail-on-any") == 0
+    capsys.readouterr()
+    assert run_cli(monkeypatch, tmp_path, str(src), "--fail-on-any", "--no-discovery") == 1
+    err = capsys.readouterr().err
+    assert f"Note: --no-discovery: ignored {src / '.tf-eu-guard-waivers.yaml'}" in err
+
+
+def test_no_discovery_keeps_explicit_waivers_and_config(monkeypatch, tmp_path, capsys):
+    src = _source_root(monkeypatch, tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    wfile = _write(outside, HEADER + GOOD, "w.yaml")
+    rc = run_cli(
+        monkeypatch, tmp_path, str(src), "--fail-on-any", "--no-discovery", "--waivers", str(wfile)
+    )
+    assert rc == 0
+    cfg = _write(outside, f"waivers: {wfile}\n", "c.yaml")
+    rc = run_cli(
+        monkeypatch, tmp_path, str(src), "--fail-on-any", "--no-discovery", "--config", str(cfg)
+    )
+    assert rc == 0
+    assert "ignored" not in capsys.readouterr().err
+
+
+# --- bounds (TEG-01) -----------------------------------------------------------
+
+
+def test_waiver_beyond_max_days_is_not_applied():
+    waiver = _waiver(expires=TODAY + timedelta(days=400))
+    result = apply_waivers([_finding()], [waiver], TODAY, max_days=365)
+    assert len(result.active) == 1 and not result.waived
+    assert result.too_long == [waiver]
+
+
+def test_too_long_waiver_not_listed_when_another_waiver_applies():
+    short = _waiver(expires=TODAY + timedelta(days=30))
+    long = _waiver(expires=TODAY + timedelta(days=400))
+    result = apply_waivers([_finding()], [long, short], TODAY, max_days=365)
+    assert len(result.waived) == 1 and not result.active
+    assert result.waived[0].waiver == short
+    assert result.too_long == []
+    assert result.unused == []
+
+
+def test_too_long_waiver_listed_when_it_decides_the_outcome():
+    long = _waiver(expires=TODAY + timedelta(days=400))
+    other = _waiver(check_id="CKV_OTHER_1", expires=TODAY + timedelta(days=30))
+    result = apply_waivers([_finding()], [long, other], TODAY, max_days=365)
+    assert len(result.active) == 1
+    assert result.too_long == [long]
+
+
+def test_waiver_within_max_days_applies():
+    waiver = _waiver(expires=TODAY + timedelta(days=365))
+    result = apply_waivers([_finding()], [waiver], TODAY, max_days=365)
+    assert len(result.waived) == 1 and not result.active
+    assert result.too_long == []
+
+
+def test_long_waiver_applies_without_limit():
+    result = apply_waivers([_finding()], [_waiver(expires=date(9999, 12, 31))], TODAY)
+    assert len(result.waived) == 1 and result.too_long == []
+
+
+def test_cli_max_waiver_days_trips_gate(monkeypatch, tmp_path, capsys):
+    waiver = (
+        "  - check_id: CKV_AWS_16\n    resource: aws_db_instance.app_db\n    owner: o\n"
+        "    reason: r\n    expires: 9999-12-31\n    file: main.tf\n"
+    )
+    args = _setup(
+        tmp_path, failed=[("CKV_AWS_16", "aws_db_instance.app_db")], waivers=HEADER + waiver
+    )
+    rc = run_cli(
+        monkeypatch, tmp_path, *args, "--fail-on-severity", "HIGH", "--max-waiver-days", "90"
+    )
+    err = capsys.readouterr().err
+    assert rc == 1
+    assert (
+        "Warning: waiver for CKV_AWS_16 aws_db_instance.app_db expires 9999-12-31, "
+        "more than 90 days ahead (--max-waiver-days); not applied" in err
+    )
+    # Without the limit the same waiver clears the gate.
+    assert run_cli(monkeypatch, tmp_path, *args, "--fail-on-severity", "HIGH") == 0
+
+
+def test_cli_max_waiver_days_rejects_zero(monkeypatch, tmp_path):
+    args = _setup(tmp_path, failed=[LOGS])
+    with pytest.raises(SystemExit) as exc:
+        run_cli(monkeypatch, tmp_path, *args, "--max-waiver-days", "0")
+    assert exc.value.code == 2
+
+
+def test_waiver_without_file_warns(monkeypatch, tmp_path, capsys):
+    args = _setup(tmp_path, failed=[LOGS])
+    run_cli(monkeypatch, tmp_path, *args)
+    err = capsys.readouterr().err
+    assert (
+        "Warning: waiver for CKV_AWS_18 aws_s3_bucket.logs has no file pattern; "
+        "it matches that resource in every file" in err
+    )
+
+
+def test_waiver_with_file_does_not_warn_about_pattern(monkeypatch, tmp_path, capsys):
+    args = _setup(tmp_path, failed=[LOGS], waivers=HEADER + GOOD + '    file: "*.tf"\n')
+    run_cli(monkeypatch, tmp_path, *args)
+    assert "no file pattern" not in capsys.readouterr().err

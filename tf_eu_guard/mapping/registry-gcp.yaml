@@ -226,7 +226,7 @@ CKV_GCP_18:
         }
       }
     }
-  severity: HIGH
+  severity: CRITICAL
 
 CKV_GCP_25:
   check_name: "Ensure Kubernetes Cluster is created with Private cluster enabled"
@@ -373,7 +373,7 @@ CKV_GCP_38:
     - framework: GDPR
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
-  risk: "Critical VM boot disks without a customer-supplied or customer-managed encryption key rely on provider defaults rather than a key controlled and governed by the data controller."
+  risk: "Compute Engine disks are already encrypted at rest with Google-managed keys. A customer-supplied or customer-managed key adds key-control depth (rotation, revocation, access policy), which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for critical VMs."
   remediation: |
     resource "google_compute_instance" "example" {
       boot_disk {
@@ -383,7 +383,7 @@ CKV_GCP_38:
         kms_key_self_link = google_kms_crypto_key.vm.id
       }
     }
-  severity: HIGH
+  severity: MEDIUM
 
 CKV_GCP_78:
   check_name: "Ensure Cloud storage has versioning enabled"
@@ -437,3 +437,86 @@ CKV_GCP_23:
       ip_allocation_policy { }
     }
   severity: MEDIUM
+
+# -----------------------------------------------------------------------------
+# Custom tf-eu-guard checks (checks/gdpr/gcp_residency.py)
+#   EUGUARD_POLICY_004  provider region / resource location within the residency policy
+#   EUGUARD_POLICY_006  no GCP provider region or resource location in source: injected by the
+#                       scan pipeline (residency.gcp_region_unset_finding), not a Checkov check class
+#   EUGUARD_GDPR_005    known third-country GCP location: Chapter V review
+# -----------------------------------------------------------------------------
+
+EUGUARD_POLICY_004:
+  check_name: "Ensure GCP regions and locations are within the configured residency policy"
+  articles:
+    - framework: POLICY
+      article: "Policy RESIDENCY-001"
+      title: "Region residency policy"
+  risk: >
+    A GCP provider region, or a google_* resource's region, location or zone,
+    is outside the configured residency policy (--residency-policy: eu-eea by
+    default, or a custom allowlist; eusc is an AWS partition and uses the GCP
+    EU/EEA locations here). A location that could not be verified as EU/EEA
+    (including dual-regions such as EUR4), a malformed value, or an unresolved
+    variable cannot be proven to be in policy statically and also fails. Any
+    Chapter V transfer review for a non-EU/EEA location is reported separately
+    by EUGUARD_GDPR_005. This finding is a project-policy deviation, not a GDPR
+    legal conclusion.
+  remediation: |
+    Set the region or location to one allowed by the policy:
+      # Before:
+      resource "google_storage_bucket" "example" { location = "US" }
+      # After (eu-eea policy):
+      resource "google_storage_bucket" "example" { location = "EU" }
+    Use literal values; unresolved variables fail closed.
+  severity: HIGH
+
+EUGUARD_POLICY_006:
+  check_name: "Ensure a Google provider block or the resource sets a region or location"
+  articles:
+    - framework: POLICY
+      article: "Policy RESIDENCY-001"
+      title: "Region residency policy"
+  risk: >
+    google_* resources were scanned but no provider "google" block or resource
+    sets a region or location, so the region most likely comes from the
+    environment (for example GOOGLE_REGION) at apply time. A
+    source scan cannot see it, so the residency checks cannot tell where these
+    resources deploy and the residency policy is unverified for the stack. This
+    finding is a project-policy gap, not a GDPR legal conclusion.
+  remediation: |
+    Pin the region in the configuration:
+      provider "google" { region = "europe-west3" }
+    Or scan a Terraform plan (--iac-type terraform_plan) to check the
+    authoritative location.
+    A reusable module repository without location attributes triggers this
+    finding, since modules should not configure providers; exempt it with a
+    waiver on check_id EUGUARD_POLICY_006 and resource provider.google (no
+    file). A module that takes its location from a variable gets an
+    EUGUARD_POLICY_004 result instead (fails closed when the variable has no
+    default; evaluated against the default when it has one), so no
+    EUGUARD_POLICY_006; scan such a module from the root module or as a plan. An inline #checkov:skip=EUGUARD_POLICY_006 comment has no
+    effect: the pipeline synthesizes this finding.
+  severity: MEDIUM
+
+EUGUARD_GDPR_005:
+  check_name: "Review GCP regions and locations outside the EU/EEA for GDPR Chapter V transfer safeguards"
+  articles:
+    - framework: GDPR
+      article: "Art. 44"
+      title: "General principle for transfers of personal data to third countries"
+  risk: >
+    A GCP provider region or resource location that is a known location
+    outside the EU/EEA (including the United Kingdom and Switzerland, which
+    are GDPR third countries, and multi-regions such as US and ASIA) is a
+    technical signal that personal-data processing may involve a third-country
+    transfer. GDPR Chapter V (Art. 44-49) may require an adequacy decision,
+    Standard Contractual Clauses, Binding Corporate Rules, or another
+    safeguard, but this configuration alone cannot show whether a transfer
+    occurs or whether its mechanism is lawful. Treat this as a hedged Chapter
+    V review signal, not a definitive legal conclusion.
+  remediation: |
+    Confirm the data flows and document the applicable Chapter V mechanism,
+    or move the resource to an EU/EEA location:
+      location = "europe-west4"
+  severity: HIGH

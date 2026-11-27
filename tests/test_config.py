@@ -53,6 +53,14 @@ def test_config_sets_defaults(tmp_path):
     assert values["allowed_regions"] == ("eu-north-1", "eu-west-1")
 
 
+def test_config_unmapped_severity(tmp_path):
+    assert load_config(_cfg(tmp_path, "unmapped_severity: high\n"))["unmapped_severity"] == "HIGH"
+    with pytest.raises(ConfigError, match="unmapped_severity"):
+        load_config(_cfg(tmp_path, "unmapped_severity: SEVERE\n"))
+    with pytest.raises(ConfigError, match="unmapped_severity"):
+        load_config(_cfg(tmp_path, "unmapped_severity: 3\n"))
+
+
 def test_cli_overrides_config(monkeypatch, tmp_path, capsys):
     one = _one_finding(tmp_path)
     cfg = _cfg(tmp_path, "fail_on_severity: critical\n")
@@ -85,6 +93,9 @@ def test_config_lists_concatenate_with_cli(monkeypatch, tmp_path, capsys):
         ("fail_on_any: 'yes'\n", "fail_on_any"),
         ("exclude: a\n", "exclude"),
         ("timeout: -1\n", "timeout"),
+        ("max_waiver_days: 0\n", "max_waiver_days"),
+        ("max_waiver_days: x\n", "max_waiver_days"),
+        ("max_waiver_days: true\n", "max_waiver_days"),
         ("- a\n", "mapping"),
         ("a: [\n", "YAML"),
         ("exclude: [a]\nexclude: [b]\n", "duplicate"),
@@ -234,3 +245,21 @@ def test_json_array_discloses_settings_on_stderr(monkeypatch, tmp_path, capsys):
 def test_var_files_key_relative_and_concatenated(tmp_path):
     cfg = _cfg(tmp_path, "var_files: [prod.tfvars]\n")
     assert load_config(cfg)["var_files"] == [tmp_path / "prod.tfvars"]
+
+
+def test_no_discovery_ignores_scan_root_config(monkeypatch, tmp_path, capsys):
+    doc = json.loads(_one_finding(tmp_path).read_text())
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", lambda *a, **k: doc)
+    src = tmp_path / "src"
+    src.mkdir()
+    _cfg(src, "severity_overrides: {CKV_AWS_16: INFO}\n")
+    gate = [str(src), "--fail-on-severity", "HIGH", "--output", "json"]
+    assert run_cli(monkeypatch, tmp_path, *gate) == 0
+    capsys.readouterr()
+    assert run_cli(monkeypatch, tmp_path, *gate, "--no-discovery") == 1
+    err = capsys.readouterr().err
+    assert f"Note: --no-discovery: ignored {src / '.tf-eu-guard.yaml'}" in err
+
+
+def test_config_max_waiver_days(tmp_path):
+    assert load_config(_cfg(tmp_path, "max_waiver_days: 90\n"))["max_waiver_days"] == 90

@@ -1,4 +1,4 @@
-FROM python:3.12-slim@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8be030f824196b0ae4db6d462c84e51f AS build
+FROM python:3.12-slim@sha256:191083cdf6c7bda8c76158983163ead5d5cf7b77cf3033e805bb0f5296f51b4b AS build
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -17,12 +17,12 @@ COPY tf_eu_guard /src/tf_eu_guard
 RUN python -m build --wheel --no-isolation --outdir /dist
 
 
-FROM python:3.12-slim@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8be030f824196b0ae4db6d462c84e51f
+FROM python:3.12-slim@sha256:191083cdf6c7bda8c76158983163ead5d5cf7b77cf3033e805bb0f5296f51b4b
 
 # Links the GHCR package to the repository (Packages sidebar). publish.yml
 # overrides the version label with the release tag and adds the revision label
 # at build time; the default below keeps local builds correctly labelled.
-ARG VERSION=0.9.0
+ARG VERSION=0.10.0
 LABEL org.opencontainers.image.title="tf-eu-guard" \
       org.opencontainers.image.description="EU compliance security linter for Terraform and Kubernetes: NIS2 and GDPR mapping" \
       org.opencontainers.image.source="https://github.com/44aayush/tf-eu-guard" \

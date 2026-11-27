@@ -1,0 +1,1330 @@
+[
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_273",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user.deploy_user",
+    "severity": "HIGH",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV2_AWS_40",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.deploy_user_admin",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_286",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.deploy_user_admin",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_287",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.deploy_user_admin",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_288",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.deploy_user_admin",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_289",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.deploy_user_admin",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_290",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.deploy_user_admin",
+    "severity": "HIGH",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_355",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.deploy_user_admin",
+    "severity": "HIGH",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_40",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.deploy_user_admin",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_62",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.deploy_user_admin",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_63",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.deploy_user_admin",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV2_AWS_40",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.deploy_user_iam_escalation",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_286",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.deploy_user_iam_escalation",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_287",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.deploy_user_iam_escalation",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_289",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.deploy_user_iam_escalation",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_355",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.deploy_user_iam_escalation",
+    "severity": "HIGH",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_40",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.deploy_user_iam_escalation",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_273",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user.readonly_user",
+    "severity": "HIGH",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_288",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.readonly_user_actually_full_s3",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_289",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.readonly_user_actually_full_s3",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_290",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.readonly_user_actually_full_s3",
+    "severity": "HIGH",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_355",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.readonly_user_actually_full_s3",
+    "severity": "HIGH",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_40",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.readonly_user_actually_full_s3",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(b)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV2_AWS_11",
+    "file_path": "/network.tf",
+    "resource": "aws_vpc.main",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV2_AWS_12",
+    "file_path": "/network.tf",
+    "resource": "aws_vpc.main",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV2_AWS_5",
+    "file_path": "/network.tf",
+    "resource": "aws_security_group.web_sg",
+    "severity": "LOW",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_23",
+    "file_path": "/network.tf",
+    "resource": "aws_security_group.web_sg",
+    "severity": "LOW",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_24",
+    "file_path": "/network.tf",
+    "resource": "aws_security_group.web_sg",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_260",
+    "file_path": "/network.tf",
+    "resource": "aws_security_group.web_sg",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_382",
+    "file_path": "/network.tf",
+    "resource": "aws_security_group.web_sg",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV2_AWS_5",
+    "file_path": "/network.tf",
+    "resource": "aws_security_group.admin_sg",
+    "severity": "LOW",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_24",
+    "file_path": "/network.tf",
+    "resource": "aws_security_group.admin_sg",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_25",
+    "file_path": "/network.tf",
+    "resource": "aws_security_group.admin_sg",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_260",
+    "file_path": "/network.tf",
+    "resource": "aws_security_group.admin_sg",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_25",
+    "file_path": "/network.tf",
+    "resource": "aws_security_group.db_sg",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(c)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV2_AWS_60",
+    "file_path": "/rds.tf",
+    "resource": "aws_db_instance.app_db",
+    "severity": "LOW",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(b)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_118",
+    "file_path": "/rds.tf",
+    "resource": "aws_db_instance.app_db",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(b)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_129",
+    "file_path": "/rds.tf",
+    "resource": "aws_db_instance.app_db",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(c)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(c)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_133",
+    "file_path": "/rds.tf",
+    "resource": "aws_db_instance.app_db",
+    "severity": "HIGH",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(c)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(c)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_157",
+    "file_path": "/rds.tf",
+    "resource": "aws_db_instance.app_db",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(a)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(h)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_16",
+    "file_path": "/rds.tf",
+    "resource": "aws_db_instance.app_db",
+    "severity": "HIGH",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_161",
+    "file_path": "/rds.tf",
+    "resource": "aws_db_instance.app_db",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_17",
+    "file_path": "/rds.tf",
+    "resource": "aws_db_instance.app_db",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(e)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_226",
+    "file_path": "/rds.tf",
+    "resource": "aws_db_instance.app_db",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(c)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(c)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_293",
+    "file_path": "/rds.tf",
+    "resource": "aws_db_instance.app_db",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV2_AWS_6",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.data",
+    "severity": "HIGH",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(c)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV2_AWS_61",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.data",
+    "severity": "LOW",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(b)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV2_AWS_62",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.data",
+    "severity": "LOW",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(c)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(c)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_144",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.data",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(a)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(h)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_145",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.data",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(b)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_18",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.data",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_20",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.data",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(c)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(c)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_21",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.data",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(a)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(h)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_379",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket_acl.data_acl",
+    "severity": "HIGH",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_53",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket_public_access_block.data_pab",
+    "severity": "HIGH",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_54",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket_public_access_block.data_pab",
+    "severity": "HIGH",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_55",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket_public_access_block.data_pab",
+    "severity": "HIGH",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_56",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket_public_access_block.data_pab",
+    "severity": "HIGH",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_70",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket_policy.data_public_policy",
+    "severity": "CRITICAL",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV2_AWS_6",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.logs",
+    "severity": "HIGH",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(c)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV2_AWS_61",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.logs",
+    "severity": "LOW",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(b)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV2_AWS_62",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.logs",
+    "severity": "LOW",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(c)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(c)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_144",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.logs",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(a)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(h)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_145",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.logs",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(b)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_18",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.logs",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(c)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(c)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_21",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.logs",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(b)",
+        "framework": "GDPR"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV2_AWS_6",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.backup_non_eu",
+    "severity": "HIGH",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(c)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV2_AWS_61",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.backup_non_eu",
+    "severity": "LOW",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(b)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV2_AWS_62",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.backup_non_eu",
+    "severity": "LOW",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(c)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(c)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_144",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.backup_non_eu",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(a)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(h)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_145",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.backup_non_eu",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(b)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_18",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.backup_non_eu",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(c)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(c)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_21",
+    "file_path": "/s3.tf",
+    "resource": "aws_s3_bucket.backup_non_eu",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  }
+]

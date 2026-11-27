@@ -9,7 +9,7 @@ from typing import Any
 
 import tf_eu_guard.checkov_runner as checkov_runner
 from tf_eu_guard.baseline import finding_key, load_baseline
-from tf_eu_guard.changed import changed_files
+from tf_eu_guard.changed import changed_files, in_changed_scope
 from tf_eu_guard.checkov.json import allow_partial_results, checkov_version_of
 from tf_eu_guard.cli.paths import sarif_scan_root, scope_risk_text
 from tf_eu_guard.constants import DEFAULT_CHECKOV_TIMEOUT
@@ -20,7 +20,15 @@ from tf_eu_guard.mapping.loader import (
     split_findings,
 )
 from tf_eu_guard.models import EnrichedFinding, Framework, Severity
-from tf_eu_guard.residency import DEFAULT_POLICY, residency_env
+from tf_eu_guard.reporting.untrusted import sanitize
+from tf_eu_guard.residency import (
+    DEFAULT_POLICY,
+    aws_region_unset_finding,
+    aws_region_unset_warning,
+    gcp_region_unset_finding,
+    gcp_region_unset_warning,
+    residency_env,
+)
 from tf_eu_guard.waivers import WAIVER_FILENAME, apply_waivers, load_waivers
 
 
@@ -40,6 +48,8 @@ class ScanFindings:
     weakening_settings: list[str] = field(default_factory=list)
     # Active mapped findings already present in the --baseline file.
     baselined: list[EnrichedFinding] = field(default_factory=list)
+    # Active unmapped findings already present in the --baseline file.
+    baselined_unmapped: list[dict[str, Any]] = field(default_factory=list)
     # Checkov's `summary` dict (counts, resource_count) for the provenance block.
     checkov_summary: dict[str, Any] = field(default_factory=dict)
     # (active + baselined, suppressed, waived) before --changed-since filtering; the
@@ -53,6 +63,8 @@ class ScanFindings:
     # What run_scan's stderr count lines need; printed after --framework filtering.
     waiver_path: Path | None = None
     baseline_origin: str = ""  # e.g. "from 2026-01-01 (5 days old)"; "" without --baseline
+    # False when the --baseline is an array report, which cannot record unmapped findings.
+    baseline_covers_unmapped: bool = True
 
 
 def _today() -> date:
@@ -75,24 +87,46 @@ def _waiver_path(args: argparse.Namespace) -> Path | None:
         return None
     root = args.path if args.path.is_dir() else args.path.parent
     candidate = root / WAIVER_FILENAME
-    return candidate if candidate.is_file() else None
+    if not candidate.is_file():
+        return None
+    if getattr(args, "no_discovery", False):
+        print(f"Note: --no-discovery: ignored {sanitize(candidate)}", file=sys.stderr)
+        return None
+    return candidate
 
 
 def _apply_waiver_file(
-    path: Path, active: list[EnrichedFinding], suppressed: list[EnrichedFinding]
+    path: Path,
+    active: list[EnrichedFinding],
+    suppressed: list[EnrichedFinding],
+    max_days: int | None = None,
 ) -> tuple[list[EnrichedFinding], list[EnrichedFinding], list[EnrichedFinding], int]:
     """Return ``(active, suppressed, waived, entry count)``; warnings go to stderr."""
     waivers = load_waivers(path)
-    result = apply_waivers([*active, *suppressed], waivers, _today())
+    for w in waivers:
+        if w.file is None:
+            print(
+                f"Warning: waiver for {sanitize(w.check_id)} {sanitize(w.resource)} has no file "
+                "pattern; it matches that resource in every file",
+                file=sys.stderr,
+            )
+    result = apply_waivers([*active, *suppressed], waivers, _today(), max_days)
+    for w in result.too_long:
+        print(
+            f"Warning: waiver for {sanitize(w.check_id)} {sanitize(w.resource)} expires "
+            f"{w.expires.isoformat()}, more than {max_days} days ahead (--max-waiver-days); "
+            "not applied",
+            file=sys.stderr,
+        )
     for w in result.expired:
         print(
-            f"Waiver expired on {w.expires.isoformat()}: {w.check_id} {w.resource} "
-            f"(owner {w.owner})",
+            f"Waiver expired on {w.expires.isoformat()}: "
+            f"{sanitize(w.check_id)} {sanitize(w.resource)} (owner {sanitize(w.owner)})",
             file=sys.stderr,
         )
     if result.unused:
-        listed = ", ".join(f"{w.check_id} {w.resource}" for w in result.unused)
-        print(f"Warning: waiver(s) in {path} matched nothing: {listed}", file=sys.stderr)
+        listed = ", ".join(f"{sanitize(w.check_id)} {sanitize(w.resource)}" for w in result.unused)
+        print(f"Warning: waiver(s) in {sanitize(path)} matched nothing: {listed}", file=sys.stderr)
     return (
         [f for f in result.active if not f.suppressed],
         [f for f in result.active if f.suppressed],
@@ -112,7 +146,7 @@ def _apply_severity_overrides(
         mapping = loaded.mappings.get(check_id)
         if mapping is None:
             print(
-                f"Warning: severity override for {check_id} ignored: not in the registry",
+                f"Warning: severity override for {sanitize(check_id)} ignored: not in the registry",
                 file=sys.stderr,
             )
             continue
@@ -160,7 +194,15 @@ def load_scan_findings(
     with allow_partial_results(getattr(args, "allow_partial", False)):
         if args.checkov_json:
             checkov_output = checkov_runner.load_checkov_json(
-                args.checkov_json, args.iac_type, extra_types
+                args.checkov_json,
+                args.iac_type,
+                extra_types,
+                require_complete=bool(
+                    getattr(args, "fail_on_severity", None)
+                    or getattr(args, "fail_on_any", False)
+                    or getattr(args, "fail_on_suppressed", False)
+                    or getattr(args, "fail_on_unmapped", False)
+                ),
             )
         else:
             checkov_output = checkov_runner.run_checkov(
@@ -174,7 +216,26 @@ def load_scan_findings(
                 download_external_modules=getattr(args, "download_external_modules", False),
                 secrets=bool(extra_types),
             )
-    findings = checkov_runner.extract_failed_checks(checkov_output)
+    findings = checkov_runner.extract_failed_checks(checkov_output)  # also validates the shape
+    if args.iac_type == "terraform":
+        # The warning stays for the CI log (it carries the plan-mode hint); the same condition
+        # also becomes one registry-backed finding per cloud, so a gate can act on it.
+        region_findings = []
+        for finding_fn, warning_fn in (
+            (aws_region_unset_finding, aws_region_unset_warning),
+            (gcp_region_unset_finding, gcp_region_unset_warning),
+        ):
+            loaded_flag = not args.checkov_json
+            region_warning = warning_fn(checkov_output, custom_checks_loaded=loaded_flag)
+            if region_warning:
+                print(region_warning, file=sys.stderr)
+            region_finding = finding_fn(checkov_output, custom_checks_loaded=loaded_flag)
+            if region_finding:
+                region_findings.append(region_finding)
+        if region_findings:
+            # Appended after both predicates ran, so one injected finding cannot steer the other.
+            checkov_output["results"].setdefault("failed_checks", []).extend(region_findings)
+            findings = checkov_runner.extract_failed_checks(checkov_output)
     skipped = checkov_runner.extract_skipped_checks(checkov_output)
     passed_checks = checkov_runner.extract_passed_checks(checkov_output)
 
@@ -196,19 +257,41 @@ def load_scan_findings(
     waiver_path = _waiver_path(args)
     waiver_line: list[str] = []
     if waiver_path:
-        active, suppressed, waived, count = _apply_waiver_file(waiver_path, active, suppressed)
+        active, suppressed, waived, count = _apply_waiver_file(
+            waiver_path, active, suppressed, getattr(args, "max_waiver_days", None)
+        )
         waiver_line = [f"waivers: {waiver_path} ({count} entries)"]
     baselined: list[EnrichedFinding] = []
+    baselined_unmapped: list[dict[str, Any]] = []
     remaining: list[EnrichedFinding] = []
     baseline_line: list[str] = []
     baseline_origin = ""
+    baseline_covers_unmapped = True
     baseline_path = getattr(args, "baseline", None)
     if baseline_path:
         baseline = load_baseline(baseline_path)
+        # A mapping change between scans (registry overlay or upgrade) must not make a
+        # known finding look new, so both sides match against every baseline key.
+        known_keys = baseline.keys | baseline.unmapped_keys
+        baseline_covers_unmapped = baseline.covers_unmapped
+        if not baseline_covers_unmapped:
+            print(
+                "Note: the baseline is a JSON array report, which does not record unmapped "
+                "findings; unmapped findings count as new unless the baseline recorded the "
+                "same check as a mapped finding. Write baselines with --json-format object.",
+                file=sys.stderr,
+            )
         for f in active:
-            is_known = finding_key(f.check_id, f.resource, f.file_path) in baseline.keys
+            is_known = finding_key(f.check_id, f.resource, f.file_path) in known_keys
             (baselined if is_known else remaining).append(f)
         active, known = remaining, baselined
+        new_unmapped: list[dict[str, Any]] = []
+        for check in unmapped:
+            key = finding_key(
+                check.get("check_id", ""), check.get("resource"), check.get("file_path")
+            )
+            (baselined_unmapped if key in known_keys else new_unmapped).append(check)
+        unmapped = new_unmapped
         when = baseline.created.date().isoformat() if baseline.created else "unknown date"
         baseline_origin = (
             f"from {when} ({(_today() - baseline.created.date()).days} days old)"
@@ -216,7 +299,8 @@ def load_scan_findings(
             else "(date unknown)"
         )
         baseline_line = [
-            f"baseline: {baseline_path} ({when}, {len(known)} known finding(s) matched)"
+            f"baseline: {baseline_path} ({when}, {len(known)} known finding(s) matched, "
+            f"{len(baselined_unmapped)} unmapped)"
         ]
     changed_line: list[str] = []
     matrix_inputs = None
@@ -227,17 +311,20 @@ def load_scan_findings(
         changed = changed_files(scan_root, changed_ref)
 
         def inside(file_path: str | None) -> bool:
-            return (scan_root / (file_path or "").lstrip("/")).resolve() in changed
+            resolved = (scan_root / (file_path or "").lstrip("/")).resolve()
+            return in_changed_scope(resolved, changed, args.iac_type)
 
         matrix_inputs = ([*active, *baselined], suppressed, waived)
         groups = [active, suppressed, waived, baselined]
-        raw = [unmapped, suppressed_unmapped]
+        raw = [unmapped, suppressed_unmapped, baselined_unmapped]
         hidden = sum(1 for g in groups for f in g if not inside(f.file_path))
         hidden += sum(1 for g in raw for f in g if not inside(f.get("file_path")))
         active, suppressed, waived, baselined = (
             [f for f in g if inside(f.file_path)] for g in groups
         )
-        unmapped, suppressed_unmapped = ([f for f in g if inside(f.get("file_path"))] for g in raw)
+        unmapped, suppressed_unmapped, baselined_unmapped = (
+            [f for f in g if inside(f.get("file_path"))] for g in raw
+        )
         print(
             f"Reporting only findings in {len(changed)} file(s) changed since {changed_ref}; "
             f"{hidden} finding(s) in unchanged files hidden",
@@ -272,6 +359,8 @@ def load_scan_findings(
         checkov_summary=dict(checkov_output.get("summary") or {}),
         waiver_path=waiver_path,
         baseline_origin=baseline_origin,
+        baseline_covers_unmapped=baseline_covers_unmapped,
+        baselined_unmapped=baselined_unmapped,
     )
 
 
@@ -291,12 +380,17 @@ def filter_findings_by_framework(
     target_framework = Framework(framework_name.upper())
     filtered_findings: list[EnrichedFinding] = []
     for finding in findings:
-        finding.articles = [
+        articles = [
             article for article in finding.articles if article.framework == target_framework
         ]
-        if finding.articles:
-            finding.risk_explanation = scope_risk_text(
-                finding.risk_explanation, target_framework.value
+        if articles:
+            filtered_findings.append(
+                replace(
+                    finding,
+                    articles=articles,
+                    risk_explanation=scope_risk_text(
+                        finding.risk_explanation, target_framework.value
+                    ),
+                )
             )
-            filtered_findings.append(finding)
     return filtered_findings

@@ -8,6 +8,7 @@ import sys
 from rich.markup import escape
 
 from tf_eu_guard.reporting.html_common import esc
+from tf_eu_guard.reporting.untrusted import sanitize
 
 HEADING = "Scan settings that reduce findings"
 
@@ -24,7 +25,11 @@ def weakening_rich(lines: list[str] | None) -> list[str]:
     """Rich-markup lines for the terminal report ([] when none)."""
     if not lines:
         return []
-    return [f"[yellow]{HEADING}:[/yellow]", *(f"  - {escape(line)}" for line in lines), ""]
+    return [
+        f"[yellow]{HEADING}:[/yellow]",
+        *(f"  - {escape(sanitize(line))}" for line in lines),
+        "",
+    ]
 
 
 def print_weakening_to_stderr(settings: list[str]) -> None:
@@ -32,4 +37,4 @@ def print_weakening_to_stderr(settings: list[str]) -> None:
     if settings:
         print(f"{HEADING}:", file=sys.stderr)
         for line in settings:
-            print(f"  {line}", file=sys.stderr)
+            print(f"  {sanitize(line)}", file=sys.stderr)

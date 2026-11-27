@@ -30,7 +30,7 @@ Run from the repo root. Install once (this also installs Checkov 3.4.5; requires
 pip install -e .
 ```
 
-Verify with `tf-eu-guard version` (prints `tf-eu-guard version 0.9.0` for this release).
+Verify with `tf-eu-guard version` (prints `tf-eu-guard version 0.10.0` for this release).
 
 ## How to run
 
@@ -97,7 +97,7 @@ Flags:
   `--output all`, all three HTML files land here with timestamped names.
 - `--fail-on-severity {CRITICAL,HIGH,MEDIUM,LOW,INFO}` / `--fail-on-any` — exit code 1 when
   a **mapped** finding meets the threshold (CI/CD gating). Unmapped findings never trip
-  the gate — they have no registry-authored severity to compare, so they're reported for
+  the gate unless `--unmapped-severity` is set — they have no registry-authored severity to compare, so they're reported for
   visibility only. Empty value disables gating.
 
 Prefer `--output sarif` (not `--output json`) when you (Claude) need the complete picture,

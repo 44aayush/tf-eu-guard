@@ -585,3 +585,195 @@ def test_cli_dev_report_survives_cp1252_stdout(monkeypatch, tmp_path, capsys):
     stream.flush()
     text = raw.getvalue().decode("utf-8")
     assert "●" in text or "✓" in text
+
+
+def _aws_checkov_json(tmp_path, check_type):
+    document = {
+        "check_type": check_type,
+        "results": {
+            "passed_checks": [
+                {
+                    "check_id": "EUGUARD_GDPR_002",
+                    "check_name": "custom check",
+                    "resource": "aws_s3_bucket.b",
+                    "file_path": "/main.tf",
+                    "file_line_range": [1, 2],
+                    "check_result": {"result": "PASSED"},
+                }
+            ],
+            "failed_checks": [
+                {
+                    "check_id": "CKV_AWS_18",
+                    "check_name": "Ensure the S3 bucket has access logging enabled",
+                    "resource": "aws_s3_bucket.b",
+                    "file_path": "/main.tf",
+                    "file_line_range": [1, 2],
+                    "check_result": {"result": "FAILED"},
+                }
+            ],
+            "skipped_checks": [],
+        },
+        "summary": {"failed": 1, "passed": 0, "skipped": 0, "parsing_errors": 0},
+    }
+    path = tmp_path / "checkov.json"
+    path.write_text(json.dumps(document))
+    return str(path)
+
+
+def test_region_unset_warning_printed_for_terraform_checkov_json(monkeypatch, tmp_path, capsys):
+    document = _aws_checkov_json(tmp_path, "terraform")
+    run_cli(monkeypatch, tmp_path, "--checkov-json", document, "--output", "json")
+    assert 'no provider "aws" block sets a region' in capsys.readouterr().err
+
+
+def test_region_unset_warning_printed_for_live_scan_without_euguard_results(
+    monkeypatch, tmp_path, capsys
+):
+    """No provider block: every EUGUARD check is UNKNOWN, so a live scan has no EUGUARD result."""
+    (tmp_path / "main.tf").write_text('resource "aws_sqs_queue" "q" {}\n')
+
+    def fake_run_checkov(target, iac_type="terraform", residency_env=None, **_kw):
+        return {
+            "check_type": "terraform",
+            "results": {
+                "passed_checks": [],
+                "failed_checks": [
+                    {
+                        "check_id": "CKV_AWS_27",
+                        "check_name": "Ensure all data stored in the SQS queue is encrypted",
+                        "resource": "aws_sqs_queue.q",
+                        "file_path": "/main.tf",
+                        "file_line_range": [1, 1],
+                        "check_result": {"result": "FAILED"},
+                    }
+                ],
+                "skipped_checks": [],
+            },
+            "summary": {"failed": 1, "passed": 0, "skipped": 0, "parsing_errors": 0},
+        }
+
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", fake_run_checkov)
+    run_cli(monkeypatch, tmp_path, str(tmp_path), "--output", "json")
+    assert 'no provider "aws" block sets a region' in capsys.readouterr().err
+
+
+def test_region_unset_warning_not_printed_for_kubernetes(monkeypatch, tmp_path, capsys):
+    document = _aws_checkov_json(tmp_path, "kubernetes")
+    run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        document,
+        "--iac-type",
+        "kubernetes",
+        "--output",
+        "json",
+    )
+    assert 'no provider "aws" block' not in capsys.readouterr().err
+
+
+def _two_framework_finding():
+    from tf_eu_guard.models import ArticleReference, EnrichedFinding, Framework
+
+    return EnrichedFinding(
+        check_id="CKV_X",
+        check_name="x",
+        resource="aws_s3_bucket.b",
+        file_path="main.tf",
+        file_line_range=[1, 2],
+        guideline=None,
+        articles=[
+            ArticleReference(Framework.NIS2, "Art. 21", "Measures"),
+            ArticleReference(Framework.GDPR, "Art. 32", "Security"),
+        ],
+        risk_explanation="NIS2: a. GDPR: b.",
+    )
+
+
+def test_filter_does_not_mutate_input():
+    from tf_eu_guard.cli.pipeline import filter_findings_by_framework
+
+    original = _two_framework_finding()
+    result = filter_findings_by_framework([original], "gdpr")
+
+    assert len(result) == 1
+    assert result[0] is not original
+    assert [a.article for a in result[0].articles] == ["Art. 32"]
+    assert len(original.articles) == 2
+    assert original.risk_explanation == "NIS2: a. GDPR: b."
+
+
+def test_filter_all_returns_same_findings():
+    from tf_eu_guard.cli.pipeline import filter_findings_by_framework
+
+    findings = [_two_framework_finding()]
+    assert filter_findings_by_framework(findings, "all") is findings
+
+
+IMPLICIT_JSON_FORMAT_WARNING = (
+    "Warning: --json-format not given; using the deprecated 'array' layout. "
+    "Pass --json-format object (recommended) or --json-format array to silence "
+    "this warning; the default changes to 'object' in a future release."
+)
+
+
+def test_implicit_json_format_warns(monkeypatch, tmp_path, repo_root, capsys):
+    run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(repo_root / FIXTURE),
+        "--output",
+        "json",
+        "--no-config",
+    )
+    captured = capsys.readouterr()
+    assert IMPLICIT_JSON_FORMAT_WARNING in captured.err.splitlines()
+    assert isinstance(json.loads(captured.out), list)
+
+
+@pytest.mark.parametrize("layout", ["array", "object"])
+def test_explicit_json_format_does_not_warn(monkeypatch, tmp_path, repo_root, capsys, layout):
+    run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(repo_root / FIXTURE),
+        "--output",
+        "json",
+        "--json-format",
+        layout,
+        "--no-config",
+    )
+    assert "--json-format not given" not in capsys.readouterr().err
+
+
+def test_implicit_json_format_warns_once_for_all(monkeypatch, tmp_path, repo_root, capsys):
+    # --output all writes HTML reports only, never a JSON report, so it must not warn.
+    run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(repo_root / FIXTURE),
+        "--output",
+        "all",
+        "--no-config",
+    )
+    assert "--json-format not given" not in capsys.readouterr().err
+
+
+def test_implicit_json_format_with_output_file(monkeypatch, tmp_path, repo_root, capsys):
+    out = tmp_path / "report.json"
+    run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        str(repo_root / FIXTURE),
+        "--output",
+        "json",
+        "--output-file",
+        str(out),
+        "--no-config",
+    )
+    assert isinstance(json.loads(out.read_text(encoding="utf-8")), list)
+    assert capsys.readouterr().err.count(IMPLICIT_JSON_FORMAT_WARNING) == 1

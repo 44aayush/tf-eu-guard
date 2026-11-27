@@ -10,6 +10,11 @@ Parent directories are never searched, and nothing is discovered with `--checkov
 unless `--config` is given. `--no-config` disables both. An explicit `--config` also
 disables `.tf-eu-guard-waivers.yaml` discovery; use `waivers:` or `--waivers` to name a file.
 
+`--no-discovery` skips only the discovery: `.tf-eu-guard.yaml` and `.tf-eu-guard-waivers.yaml` in the
+scan root are not read (each skipped file is named on stderr), while `--config`, `--waivers` and a
+config's `waivers:` key still apply. Use it in CI, where those files are controlled by the pull
+request's author; the Python API has `no_discovery=True`.
+
 ## Precedence
 
 CLI flag > config file > built-in default. `exclude`, `registry_dirs` and `var_files` are lists: the
@@ -30,8 +35,10 @@ root exits 2.
 | `allowed_regions` | list of strings | `--allowed-regions` |
 | `exclude` | list of strings | `--exclude` |
 | `fail_on_severity` | string | `--fail-on-severity` |
+| `unmapped_severity` | string | `--unmapped-severity` |
 | `fail_on_any`, `fail_on_suppressed`, `fail_on_unmapped` | boolean (`true`/`false`, not `"yes"`) | gate flags |
 | `timeout` | number | `--timeout` |
+| `max_waiver_days` | integer, at least 1 | `--max-waiver-days` |
 | `waivers` | path string | `--waivers` |
 | `registry_dirs` | list of path strings | `--registry-dir` |
 | `var_files` | list of path strings | `--var-file` |

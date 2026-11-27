@@ -6,11 +6,12 @@ from rich.console import Console
 from rich.markup import escape
 
 from tf_eu_guard.models import EnrichedFinding, Severity
-from tf_eu_guard.reporting.baselined import baselined_lines
+from tf_eu_guard.reporting.baselined import baselined_lines, baselined_unmapped_lines
 from tf_eu_guard.reporting.html_common import line_range, safe_guideline, unmapped_rows
 from tf_eu_guard.reporting.sorting import finding_sort_key, sort_findings, sorted_articles
 from tf_eu_guard.reporting.styles import SEVERITY_COLOR_TERMINAL, SEVERITY_ORDER
 from tf_eu_guard.reporting.suppressed import SuppressedItem, suppressed_items
+from tf_eu_guard.reporting.untrusted import sanitize
 from tf_eu_guard.reporting.waived import waived_lines
 from tf_eu_guard.reporting.weakening import weakening_rich
 
@@ -51,12 +52,12 @@ def _suppressed_lines(items: list[SuppressedItem]) -> list[str]:
     ]
     for item in items:
         lines.append(
-            f"\n  [yellow]○[/yellow] [bold]{escape(item.check_id)}[/bold]: "
-            f"{escape(item.check_name)}"
+            f"\n  [yellow]○[/yellow] [bold]{escape(sanitize(item.check_id))}[/bold]: "
+            f"{escape(sanitize(item.check_name))}"
         )
-        lines.append(f"    [dim]Resource:[/dim] {escape(item.resource)}")
-        lines.append(f"    [dim]File:[/dim] {escape(item.location)}")
-        lines.append(f"    [dim]Reason:[/dim] {escape(item.reason_text)}")
+        lines.append(f"    [dim]Resource:[/dim] {escape(sanitize(item.resource))}")
+        lines.append(f"    [dim]File:[/dim] {escape(sanitize(item.location))}")
+        lines.append(f"    [dim]Reason:[/dim] {escape(sanitize(item.reason_text))}")
         if not item.mapped:
             lines.append("    [dim]No current EU regulatory mapping[/dim]")
     return lines
@@ -71,6 +72,8 @@ def generate_dev_report(
     unmapped: list[dict[str, Any]] | None = None,
     weakening_settings: list[str] | None = None,
     baselined: list[EnrichedFinding] | None = None,
+    baselined_unmapped: list[dict[str, Any]] | None = None,
+    list_baselined_unmapped: bool = False,
 ) -> None:
     """
     Generate and print developer-focused terminal report.
@@ -84,27 +87,34 @@ def generate_dev_report(
         suppressed_unmapped: Raw Checkov dicts for suppressed unmapped checks
         unmapped: Raw unmapped Checkov dicts; when given, listed in full
             (``--show-unmapped``)
+        baselined_unmapped: Unmapped findings already in the ``--baseline`` report;
+            counted as known, listed in full when ``list_baselined_unmapped`` is set
     """
-    console = Console()
+    # soft_wrap: never let Rich re-wrap a line, which could move text to column 0;
+    # emoji=False: no :code: substitution inside untrusted names
+    console = Console(soft_wrap=True, emoji=False)
 
     def print_unmapped() -> None:
         for cid, name, res, path, lines in unmapped_rows(unmapped or []):
             console.print(
-                f"  [dim]- {escape(cid)} {escape(name)} | {escape(res)} | "
-                f"{escape(path)}:{escape(lines)}[/dim]"
+                f"  [dim]- {escape(sanitize(cid))} {escape(sanitize(name))} | {escape(sanitize(res))} | "
+                f"{escape(sanitize(path))}:{escape(sanitize(lines))}[/dim]"
             )
 
     suppressed_list = suppressed_items(suppressed, suppressed_unmapped)
     waived_list = waived or []
     baselined_list = baselined or []
+    known_unmapped = baselined_unmapped or []
+    known_total = len(baselined_list) + len(known_unmapped)
     extra = [
         *(_suppressed_lines(suppressed_list) if suppressed_list else []),
         *(waived_lines(waived_list) if waived_list else []),
         *(baselined_lines(baselined_list) if baselined_list else []),
+        *baselined_unmapped_lines(known_unmapped, list_baselined_unmapped),
     ]
 
     settings = weakening_rich(weakening_settings)
-    if not (findings or unmapped_count or suppressed_list or waived_list or baselined_list):
+    if not (findings or unmapped_count or suppressed_list or waived_list or known_total):
         console.print("\n[green]✓ No compliance findings![/green]\n")
         for line in settings:
             console.print(line)
@@ -121,7 +131,7 @@ def generate_dev_report(
         # Only suppressed/waived findings — not a clean bill of health.
         console.print(
             f"[yellow]No active findings; {len(suppressed_list)} suppressed by "
-            f"inline comment, {len(waived_list)} waived, {len(baselined_list)} known in "
+            f"inline comment, {len(waived_list)} waived, {known_total} known in "
             "baseline.[/yellow]"
         )
         for line in extra:
@@ -177,6 +187,11 @@ def generate_dev_report(
             f"  [yellow]○ Known (in baseline): {len(baselined_list)} "
             f"(not counted above — listed at the end)[/yellow]"
         )
+    if known_unmapped:
+        console.print(
+            f"  [yellow]○ Known unmapped (in baseline): {len(known_unmapped)} "
+            f"(not counted above)[/yellow]"
+        )
     print_unmapped()
     console.print()
 
@@ -184,7 +199,7 @@ def generate_dev_report(
 
     # Display findings
     for file_path, file_findings in sorted(findings_by_file.items()):
-        console.print(f"\n[bold cyan]File: {escape(str(file_path))}[/bold cyan]")
+        console.print(f"\n[bold cyan]File: {escape(sanitize(file_path))}[/bold cyan]")
 
         sorted_findings = _sort_findings_within_file(file_findings)
 
@@ -194,13 +209,13 @@ def generate_dev_report(
 
             console.print(
                 f"\n  [{severity_color}]●[/{severity_color}] [bold]"
-                f"{escape(str(finding.check_id))}[/bold]: "
-                f"{escape(str(finding.check_name))}"
+                f"{escape(sanitize(finding.check_id))}[/bold]: "
+                f"{escape(sanitize(finding.check_name))}"
             )
-            console.print(f"    [dim]Resource:[/dim] {escape(str(finding.resource))}")
+            console.print(f"    [dim]Resource:[/dim] {escape(sanitize(finding.resource))}")
             line_ref = line_range(finding)
             if line_ref:
-                console.print(f"    [dim]Lines:[/dim] {escape(str(line_ref))}")
+                console.print(f"    [dim]Lines:[/dim] {escape(sanitize(line_ref))}")
             console.print(
                 f"    [dim]Severity:[/dim] [{severity_color}]"
                 f"{escape(finding.severity.value)}[/{severity_color}]"

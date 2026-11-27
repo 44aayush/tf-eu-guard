@@ -6,7 +6,7 @@ cannot be waived.
 """
 
 from dataclasses import dataclass, field, replace
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any
@@ -42,6 +42,8 @@ class WaiverResult:
     waived: list[EnrichedFinding]
     expired: list[Waiver] = field(default_factory=list)
     unused: list[Waiver] = field(default_factory=list)
+    # Matched a finding but expire beyond ``today + max_days``; not applied.
+    too_long: list[Waiver] = field(default_factory=list)
 
 
 def _text(entry: dict[str, Any], key: str, where: str) -> str:
@@ -119,19 +121,36 @@ def _matches(waiver: Waiver, finding: EnrichedFinding) -> bool:
 
 
 def apply_waivers(
-    findings: list[EnrichedFinding], waivers: list[Waiver], today: date
+    findings: list[EnrichedFinding],
+    waivers: list[Waiver],
+    today: date,
+    max_days: int | None = None,
 ) -> WaiverResult:
-    """Split ``findings`` into active and waived; a waiver is valid through its expiry date."""
+    """Split ``findings`` into active and waived; a waiver is valid through its expiry date.
+
+    With ``max_days``, a waiver expiring after ``today + max_days`` is not applied (it is listed
+    in ``too_long`` when it matched a finding), so an unbounded expiry cannot waive forever.
+    """
+    limit = date.max
+    if max_days is not None:
+        try:
+            limit = today + timedelta(days=max_days)
+        except OverflowError:
+            pass  # the limit lies beyond every representable date: nothing is too long
     result = WaiverResult([], [])
     matched: set[Waiver] = set()
+    too_long: set[Waiver] = set()
     for finding in findings:
         hits = [w for w in waivers if _matches(w, finding)]
         matched.update(hits)
-        valid = next((w for w in hits if w.expires >= today), None)
+        valid = next((w for w in hits if today <= w.expires <= limit), None)
         if valid:
             result.waived.append(replace(finding, waiver=valid))
         else:
             result.active.append(finding)
+            # Only a waiver that decided the outcome (nothing else in range applied) counts.
+            too_long.update(w for w in hits if w.expires > limit)
     result.expired = [w for w in waivers if w.expires < today]
+    result.too_long = [w for w in waivers if w in too_long]
     result.unused = [w for w in waivers if w not in matched and w.expires >= today]
     return result

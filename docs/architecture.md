@@ -82,9 +82,9 @@ citations, a risk explanation, and copy-paste remediation. Findings
 with no mapping go to a separate *unmapped* list. HTML and terminal reports
 surface its count, JSON writes the count to stderr, and SARIF retains the
 Checkov identity/resource/location with `properties.mapped: false` but no
-registry-authored severity, articles, or remediation. Unmapped findings never
-gate a build: they stay visible without claiming regulatory authority (see
-[`limitations.md`](limitations.md)).
+registry-authored severity, articles, or remediation. Unmapped findings do not
+gate a build unless `--unmapped-severity` is set: they stay visible without
+claiming regulatory authority (see [`limitations.md`](limitations.md)).
 
 ### 5. Filter — `--framework nis2|gdpr`
 
@@ -106,7 +106,7 @@ contract.
 ### 7. Gate — `tf_eu_guard/cli/gating.py`
 
 `--fail-on-severity` / `--fail-on-any` set exit code 1 when mapped
-active findings meet the threshold; `--fail-on-suppressed` sets it when any
+active findings meet the threshold (unmapped findings count only when `--unmapped-severity` sets a severity for them); `--fail-on-suppressed` sets it when any
 mapped finding was suppressed by an inline Checkov comment. The other exit codes are documented in the
 README's CI/CD Gating section: 0 clean, 1 findings, 2 invalid
 input/configuration, 3 scanner/runtime failure. A pipeline can then fail
@@ -124,7 +124,7 @@ itself is broken.
 | `tf_eu_guard/checkov/types.py` | `CheckovRuntimeError`, `CheckovInputError` |
 | `tf_eu_guard/residency.py` | Residency policy selection (`eu-eea`, `eusc`, `custom`). The CLI passes the policy to the Checkov subprocess through two environment variables; the custom checks read it with `allowed_regions_from_env()` |
 | `tf_eu_guard/regions.py` | AWS region tables (EUSC, EU/EEA, known third-country) shared by the policy and the checks |
-| `tf_eu_guard/checks/` | Custom `EUGUARD_*` Checkov checks: `gdpr/data_residency.py` (provider-level `EUGUARD_POLICY_001`, `EUGUARD_GDPR_002`), `nis2/` (secrets in code), `k8s/` (Kubernetes secrets) |
+| `tf_eu_guard/checks/` | Custom `EUGUARD_*` Checkov checks: `gdpr/aws_residency.py` (AWS: provider-level `EUGUARD_POLICY_001`, `EUGUARD_GDPR_002`, resource-level `EUGUARD_POLICY_002`, `EUGUARD_GDPR_003`), `gdpr/azure_residency.py` (Azure: `EUGUARD_POLICY_003`, `EUGUARD_GDPR_004`), `gdpr/gcp_residency.py` (GCP: `EUGUARD_POLICY_004`, `EUGUARD_GDPR_005`), `nis2/` (secrets in code), `k8s/` (Kubernetes secrets) |
 | `tf_eu_guard/checks/regions_conf.py` | Collects the regions a Terraform resource configuration names (the `region` argument, replicas, copy destinations) for the resource-level checks `EUGUARD_POLICY_002` and `EUGUARD_GDPR_003` |
 | `tf_eu_guard/checks/values.py` | Helpers for reading Checkov's nested-list attribute values |
 | `tf_eu_guard/mapping/` | Registry YAML per provider, `loader.py`, `schema.py`, `enrichment.py` (the join), `requirements.py` and `coverage.py` (requirement inventory and coverage labels) |

@@ -31,7 +31,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 def test_runtime_version_comes_from_distribution_metadata():
     """The import-time version must not be a second hand-maintained constant."""
     assert __version__ == installed_version("tf-eu-guard")
-    assert __version__ == "0.9.0"
+    assert __version__ == "0.10.0"
 
 
 #: The registry data files that must ship inside the wheel, verbatim.
@@ -183,7 +183,7 @@ def test_wheel_ships_the_custom_checks(tmp_path):
     with zipfile.ZipFile(wheel) as zf:
         names = set(zf.namelist())
         for inner in (
-            "tf_eu_guard/checks/gdpr/data_residency.py",
+            "tf_eu_guard/checks/gdpr/aws_residency.py",
             "tf_eu_guard/checks/nis2/secrets_in_code.py",
             "tf_eu_guard/checks/k8s/secrets_in_code.py",
             "tf_eu_guard/checks/__init__.py",

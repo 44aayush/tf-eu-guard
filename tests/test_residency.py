@@ -7,7 +7,7 @@ from checkov.common.models.enums import CheckResult
 
 from tests.cli_helpers import run_cli
 from tf_eu_guard.checkov import process
-from tf_eu_guard.checks.gdpr.data_residency import (
+from tf_eu_guard.checks.gdpr.aws_residency import (
     EURegionEnforcement,
     ResourceRegionPolicy,
     ResourceThirdCountryTransferReview,
@@ -18,6 +18,8 @@ from tf_eu_guard.residency import (
     ALLOWED_REGIONS_ENV_VAR,
     POLICY_ENV_VAR,
     allowed_regions_from_env,
+    aws_region_unset_warning,
+    gcp_region_unset_warning,
     parse_allowed_regions,
     residency_env,
 )
@@ -291,7 +293,7 @@ def test_default_policy_provider_and_clean_fixture_live(monkeypatch, tmp_path, r
 
 @pytest.mark.parametrize("region", ["ap-east-2", "ap-southeast-6", "us-isob-west-1"])
 def test_new_aws_regions_fail_gdpr_002_and_003(region):
-    from tf_eu_guard.checks.gdpr.data_residency import ThirdCountryTransferReview
+    from tf_eu_guard.checks.gdpr.aws_residency import ThirdCountryTransferReview
     from tf_eu_guard.regions import KNOWN_AWS_REGIONS
 
     assert region in KNOWN_AWS_REGIONS
@@ -302,7 +304,7 @@ def test_new_aws_regions_fail_gdpr_002_and_003(region):
 
 
 def test_eu_isoe_is_unclassified_not_third_country():
-    from tf_eu_guard.checks.gdpr.data_residency import ThirdCountryTransferReview
+    from tf_eu_guard.checks.gdpr.aws_residency import ThirdCountryTransferReview
     from tf_eu_guard.regions import KNOWN_AWS_REGIONS, UNCLASSIFIED_AWS_REGIONS
 
     region = "eu-isoe-west-1"
@@ -313,3 +315,107 @@ def test_eu_isoe_is_unclassified_not_third_country():
     assert _gdpr3("aws_s3_bucket", {"region": [region]}) == CheckResult.UNKNOWN
     assert _provider(region) == CheckResult.FAILED
     assert _policy2("aws_s3_bucket", {"region": [region]})[0] == CheckResult.FAILED
+
+
+def _aws_output(*extra_checks):
+    return {
+        "results": {
+            "passed_checks": [{"check_id": "EUGUARD_GDPR_002", "resource": "aws_s3_bucket.b"}],
+            "failed_checks": [{"check_id": "CKV_AWS_18", "resource": "aws_s3_bucket.b"}],
+            "skipped_checks": list(extra_checks),
+        }
+    }
+
+
+def test_aws_region_unset_warning_fires_without_provider_result():
+    warning = aws_region_unset_warning(_aws_output())
+    assert warning is not None
+    assert 'no provider "aws" block sets a region' in warning
+    assert "--iac-type terraform_plan" in warning
+
+
+@pytest.mark.parametrize("bucket", ["passed_checks", "failed_checks"])
+def test_aws_region_unset_warning_silent_when_policy_001_ran(bucket):
+    output = _aws_output()
+    output["results"][bucket].append({"check_id": "EUGUARD_POLICY_001", "resource": "aws.default"})
+    assert aws_region_unset_warning(output) is None
+
+
+def test_aws_region_unset_warning_silent_when_no_euguard_check_ran():
+    output = _aws_output()
+    output["results"]["passed_checks"] = []
+    assert aws_region_unset_warning(output, custom_checks_loaded=False) is None
+
+
+def test_region_warning_live_scan_without_any_euguard_result_fires():
+    # No provider block: every EUGUARD check is UNKNOWN and omitted, so a live scan (which
+    # loads the custom checks itself) legitimately has no EUGUARD_* result.
+    output = _aws_output()
+    output["results"]["passed_checks"] = []
+    warning = aws_region_unset_warning(output, custom_checks_loaded=True)
+    assert warning is not None
+    assert 'no provider "aws" block sets a region' in warning
+
+
+def test_region_warning_live_scan_silent_when_policy_001_ran():
+    output = _aws_output()
+    output["results"]["passed_checks"].append(
+        {"check_id": "EUGUARD_POLICY_001", "resource": "aws.default"}
+    )
+    assert aws_region_unset_warning(output, custom_checks_loaded=True) is None
+
+
+def test_aws_region_unset_warning_silent_when_policy_001_is_skipped():
+    output = _aws_output({"check_id": "EUGUARD_POLICY_001", "resource": "aws.default"})
+    assert aws_region_unset_warning(output) is None
+
+
+def test_aws_region_unset_warning_silent_without_aws_resources():
+    output = {
+        "results": {
+            "failed_checks": [{"check_id": "CKV_GCP_1", "resource": "google_storage_bucket.b"}]
+        }
+    }
+    assert aws_region_unset_warning(output) is None
+    assert aws_region_unset_warning({"results": {}}) is None
+
+
+def _gcp_output(*extra_checks):
+    return {
+        "results": {
+            "passed_checks": [],
+            "failed_checks": [
+                {"check_id": "CKV_GCP_62", "resource": "google_storage_bucket.b"},
+                *extra_checks,
+            ],
+            "skipped_checks": [],
+        }
+    }
+
+
+def test_gcp_region_unset_warning_fires_without_policy_result():
+    warning = gcp_region_unset_warning(_gcp_output(), custom_checks_loaded=True)
+    assert warning is not None
+    assert "GOOGLE_REGION" in warning
+    assert "--iac-type terraform_plan" in warning
+
+
+def test_gcp_region_unset_warning_silent_when_policy_004_ran():
+    output = _gcp_output({"check_id": "EUGUARD_POLICY_004", "resource": "google.default"})
+    assert gcp_region_unset_warning(output, custom_checks_loaded=True) is None
+    assert gcp_region_unset_warning(output) is None
+
+
+def test_gcp_region_unset_warning_checkov_json_semantics():
+    # --checkov-json without any EUGUARD_* result: the custom checks may not have run.
+    assert gcp_region_unset_warning(_gcp_output()) is None
+    other = _gcp_output({"check_id": "EUGUARD_POLICY_003", "resource": "azurerm_x.y"})
+    assert gcp_region_unset_warning(other) is not None
+
+
+def test_gcp_region_unset_warning_silent_without_google_resources():
+    output = {
+        "results": {"failed_checks": [{"check_id": "CKV_AWS_1", "resource": "aws_s3_bucket.b"}]}
+    }
+    assert gcp_region_unset_warning(output, custom_checks_loaded=True) is None
+    assert gcp_region_unset_warning({"results": {}}, custom_checks_loaded=True) is None

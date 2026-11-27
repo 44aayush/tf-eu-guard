@@ -84,7 +84,7 @@ def _object(monkeypatch, tmp_path, capsys, *extra):
 
 def test_json_object_v2_validates_and_has_requirements(monkeypatch, tmp_path, capsys):
     doc = _object(monkeypatch, tmp_path, capsys)
-    assert doc["schema_version"] == "2"
+    assert doc["schema_version"] == "3"
     assert len(doc["requirements"]) == 15
     assert doc["registry"] == {"overlays": [], "overridden": []}
     assert doc["waived"] == []

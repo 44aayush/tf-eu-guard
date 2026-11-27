@@ -369,6 +369,17 @@ class TestUnmappedCount:
         assert "No mapped findings" in doc
         assert "4 unmapped" in doc
 
+    def test_auditor_counts_known_unmapped_without_show_unmapped(self):
+        known = [{"check_id": "CKV_U_1", "resource": "r.a", "file_path": "a.tf"}]
+        doc = generate_auditor_report([], baselined_unmapped=known)
+        assert "counted, not listed" in doc
+        assert "--show-unmapped" in doc
+        assert "Every failed check that maps" in doc  # true here: no mapped finding is active
+        assert "CKV_U_1" not in doc
+        listed = generate_auditor_report([], baselined_unmapped=known, list_baselined_unmapped=True)
+        assert "counted, not listed" not in listed
+        assert "CKV_U_1" in listed
+
     def test_dev_html_report_shows_unmapped_count(self):
         doc = generate_dev_html_report(_sample_findings(), unmapped_count=9)
         assert "Unmapped Checkov findings: 9" in doc

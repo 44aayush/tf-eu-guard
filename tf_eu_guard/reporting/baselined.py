@@ -4,11 +4,14 @@ Known findings stay visible in every report but do not trip the gate. The text
 comes from the scanned checkout, so it is escaped here.
 """
 
+from typing import Any
+
 from rich.markup import escape
 
 from tf_eu_guard.models import EnrichedFinding
-from tf_eu_guard.reporting.html_common import esc
+from tf_eu_guard.reporting.html_common import esc, unmapped_rows
 from tf_eu_guard.reporting.sorting import sort_findings
+from tf_eu_guard.reporting.untrusted import sanitize
 from tf_eu_guard.reporting.waived import _location
 
 TITLE = "Known (in baseline)"
@@ -48,9 +51,51 @@ def baselined_lines(baselined: list[EnrichedFinding]) -> list[str]:
     ]
     for f in sort_findings(baselined):
         lines.append(
-            f"\n  [yellow]○[/yellow] [bold]{escape(f.check_id)}[/bold]: {escape(f.check_name)}"
+            f"\n  [yellow]○[/yellow] [bold]{escape(sanitize(f.check_id))}[/bold]: {escape(sanitize(f.check_name))}"
         )
-        lines.append(f"    [dim]Resource:[/dim] {escape(f.resource)}")
-        lines.append(f"    [dim]File:[/dim] {escape(_location(f))}")
+        lines.append(f"    [dim]Resource:[/dim] {escape(sanitize(f.resource))}")
+        lines.append(f"    [dim]File:[/dim] {escape(sanitize(_location(f)))}")
         lines.append(f"    [dim]Severity:[/dim] {escape(f.severity.value)}")
+    return lines
+
+
+UNMAPPED_TITLE = "Known unmapped (in baseline)"
+
+
+def baselined_unmapped_html(entries: list[dict[str, Any]], listed: bool = False) -> str:
+    """HTML section for known unmapped findings: the count, plus rows when ``listed``."""
+    if not entries:
+        return ""
+    table = ""
+    if listed:
+        rows = "\n".join(
+            f"<tr><td><code>{esc(cid)}</code></td><td>{esc(name)}</td><td>{esc(res)}</td>"
+            f"<td>{esc(path)}</td><td>{esc(lines)}</td></tr>"
+            for cid, name, res, path, lines in unmapped_rows(entries)
+        )
+        table = (
+            '<table class="suppressed-table">\n<thead><tr><th>Check</th><th>Name</th>'
+            "<th>Resource</th><th>File</th><th>Lines</th></tr></thead>\n"
+            f"<tbody>\n{rows}\n</tbody>\n</table>\n"
+        )
+    return (
+        '<section class="suppressed baselined">\n'
+        f"<h2>{UNMAPPED_TITLE} ({len(entries)})</h2>\n<p>{esc(_NOTE)}</p>\n{table}</section>"
+    )
+
+
+def baselined_unmapped_lines(entries: list[dict[str, Any]], listed: bool = False) -> list[str]:
+    """Rich-markup lines for known unmapped findings (rows only when ``listed``)."""
+    if not entries:
+        return []
+    lines = [
+        f"\n[bold yellow]{UNMAPPED_TITLE} ({len(entries)})[/bold yellow]",
+        f"[dim]{escape(_NOTE)}[/dim]",
+    ]
+    if listed:
+        for cid, name, res, path, span in unmapped_rows(entries):
+            lines.append(
+                f"  [dim]- {escape(sanitize(cid))} {escape(sanitize(name))} | "
+                f"{escape(sanitize(res))} | {escape(sanitize(path))}:{escape(sanitize(span))}[/dim]"
+            )
     return lines

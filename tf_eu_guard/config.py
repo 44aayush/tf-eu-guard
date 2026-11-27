@@ -23,7 +23,9 @@ _KEYS = {
     *_BOOLS,
     *_STR_LISTS,
     "fail_on_severity",
+    "unmapped_severity",
     "timeout",
+    "max_waiver_days",
     "waivers",
     "severity_overrides",
 }
@@ -54,6 +56,7 @@ def load_config(path: Path) -> dict[str, Any]:
     from tf_eu_guard.cli.parser import (
         allowed_regions_arg,
         fail_on_severity_arg,
+        max_waiver_days_arg,
         timeout_arg,
     )
     from tf_eu_guard.constants import FRAMEWORK_FILTERS, SUPPORTED_IAC_TYPES
@@ -99,14 +102,15 @@ def load_config(path: Path) -> dict[str, Any]:
                 )
             except argparse.ArgumentTypeError as error:
                 raise ConfigError(f"'allowed_regions': {error}") from error
-        if "fail_on_severity" in data:
-            value = data["fail_on_severity"]
-            if not isinstance(value, str):
-                raise ConfigError("'fail_on_severity' must be a string")
-            try:
-                out["fail_on_severity"] = fail_on_severity_arg(value)
-            except argparse.ArgumentTypeError as error:
-                raise ConfigError(f"'fail_on_severity': {error}") from error
+        for key in ("fail_on_severity", "unmapped_severity"):
+            if key in data:
+                value = data[key]
+                if not isinstance(value, str):
+                    raise ConfigError(f"'{key}' must be a string")
+                try:
+                    out[key] = fail_on_severity_arg(value)
+                except argparse.ArgumentTypeError as error:
+                    raise ConfigError(f"'{key}': {error}") from error
         if "timeout" in data:
             value = data["timeout"]
             if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -115,6 +119,14 @@ def load_config(path: Path) -> dict[str, Any]:
                 out["timeout"] = timeout_arg(str(value))
             except argparse.ArgumentTypeError as error:
                 raise ConfigError(f"'timeout': {error}") from error
+        if "max_waiver_days" in data:
+            value = data["max_waiver_days"]
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise ConfigError("'max_waiver_days' must be an integer")
+            try:
+                out["max_waiver_days"] = max_waiver_days_arg(str(value))
+            except argparse.ArgumentTypeError as error:
+                raise ConfigError(f"'max_waiver_days': {error}") from error
         if "waivers" in data:
             if not isinstance(data["waivers"], str):
                 raise ConfigError("'waivers' must be a path string")

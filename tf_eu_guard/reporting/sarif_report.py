@@ -392,6 +392,20 @@ def _root_location() -> dict[str, Any]:
     return {"physicalLocation": {"artifactLocation": {"uri": ".", "uriBaseId": ROOT_URI_BASE_ID}}}
 
 
+def _unmapped_baseline_state(
+    check: dict[str, Any],
+    known: set[int],
+    baselined_unmapped: list[dict[str, Any]] | None,
+    covers_unmapped: bool,
+) -> dict[str, str]:
+    """``baselineState`` of an unmapped result; none without a baseline or when suppressed."""
+    if baselined_unmapped is None or check.get("suppressed"):
+        return {}
+    if id(check) in known:
+        return {"baselineState": "unchanged"}
+    return {"baselineState": "new"} if covers_unmapped else {}
+
+
 def build_sarif(
     enriched: list[EnrichedFinding],
     unmapped: list[dict[str, Any]] | None = None,
@@ -404,6 +418,8 @@ def build_sarif(
     waived: list[EnrichedFinding] | None = None,
     weakening_settings: list[str] | None = None,
     baselined: list[EnrichedFinding] | None = None,
+    baselined_unmapped: list[dict[str, Any]] | None = None,
+    baseline_covers_unmapped: bool = True,
 ) -> dict[str, Any]:
     """Build a SARIF 2.1.0 document from enriched (and unmapped) findings.
 
@@ -433,13 +449,21 @@ def build_sarif(
         baselined: Mapped findings already in the ``--baseline`` report
             (``baselineState: "unchanged"``). ``None`` means no baseline was
             used; otherwise active mapped results are ``baselineState: "new"``.
+        baselined_unmapped: Unmapped findings already in the baseline, handled the
+            same way (``unchanged``; other active unmapped results are ``new``).
+        baseline_covers_unmapped: False when the baseline is an array report, which
+            cannot record unmapped findings; unmatched unmapped results then carry
+            no ``baselineState``.
 
     Returns:
         A SARIF 2.1.0 document as a plain dict, ready to serialize.
     """
     known = {id(f) for f in baselined or []}
     enriched = sort_findings([*enriched, *(suppressed or []), *(waived or []), *(baselined or [])])
-    unmapped = sort_unmapped_findings([*(unmapped or []), *(suppressed_unmapped or [])])
+    known_unmapped = {id(c) for c in baselined_unmapped or []}
+    unmapped = sort_unmapped_findings(
+        [*(unmapped or []), *(suppressed_unmapped or []), *(baselined_unmapped or [])]
+    )
 
     rules: list[dict[str, Any]] = []
     rule_index: dict[str, int] = {}
@@ -576,6 +600,9 @@ def build_sarif(
                     FINGERPRINT_KEY: _fingerprint(check_id, check.get("resource"), artifact_uri)
                 },
                 **_suppressions(bool(check.get("suppressed")), check.get("suppression_reason")),
+                **_unmapped_baseline_state(
+                    check, known_unmapped, baselined_unmapped, baseline_covers_unmapped
+                ),
                 "properties": {
                     "mapped": False,
                     "resource": check.get("resource"),

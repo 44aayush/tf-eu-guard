@@ -192,7 +192,7 @@ CKV_AZURE_160:
       source_address_prefix      = "10.0.0.0/8"
       destination_port_range     = "80"
     }
-  severity: HIGH
+  severity: MEDIUM
 
 CKV_AZURE_59:
   check_name: "Ensure that Storage accounts disallow public access"
@@ -208,7 +208,7 @@ CKV_AZURE_59:
     resource "azurerm_storage_account" "example" {
       public_network_access_enabled = false
     }
-  severity: CRITICAL
+  severity: HIGH
 
 CKV_AZURE_103:
   check_name: "Ensure that Azure Data Factory uses Git repository for source control"
@@ -408,3 +408,54 @@ CKV_AZURE_49:
       }
     }
   severity: MEDIUM
+
+# -----------------------------------------------------------------------------
+# Custom tf-eu-guard checks (checks/gdpr/azure_residency.py)
+#   EUGUARD_POLICY_003  resource location within the residency policy
+#   EUGUARD_GDPR_004    known third-country resource location: Chapter V review
+# -----------------------------------------------------------------------------
+
+EUGUARD_POLICY_003:
+  check_name: "Ensure Azure resource locations are within the configured residency policy"
+  articles:
+    - framework: POLICY
+      article: "Policy RESIDENCY-001"
+      title: "Region residency policy"
+  risk: >
+    An Azure resource's location is outside the configured residency policy
+    (--residency-policy: eu-eea by default, or a custom allowlist; eusc is an
+    AWS partition and uses the Azure EU/EEA locations here). A location that
+    could not be verified as EU/EEA, a malformed value, or an unresolved
+    variable cannot be proven to be in policy statically and also fails. Any
+    Chapter V transfer review for a non-EU/EEA location is reported separately
+    by EUGUARD_GDPR_004. This finding is a project-policy deviation, not a GDPR
+    legal conclusion.
+  remediation: |
+    Set the resource location to one allowed by the policy:
+      # Before:
+      resource "azurerm_resource_group" "example" { location = "eastus" }
+      # After (eu-eea policy):
+      resource "azurerm_resource_group" "example" { location = "westeurope" }
+    Use literal values; unresolved variables fail closed.
+  severity: HIGH
+
+EUGUARD_GDPR_004:
+  check_name: "Review Azure resource locations outside the EU/EEA for GDPR Chapter V transfer safeguards"
+  articles:
+    - framework: GDPR
+      article: "Art. 44"
+      title: "General principle for transfers of personal data to third countries"
+  risk: >
+    An Azure resource whose location is a known region outside the EU/EEA
+    (including the United Kingdom and Switzerland, which are GDPR third
+    countries) is a technical signal that personal-data processing may involve
+    a third-country transfer. GDPR Chapter V (Art. 44-49) may require an
+    adequacy decision, Standard Contractual Clauses, Binding Corporate Rules,
+    or another safeguard, but this configuration alone cannot show whether a
+    transfer occurs or whether its mechanism is lawful. Treat this as a hedged
+    Chapter V review signal, not a definitive legal conclusion.
+  remediation: |
+    Confirm the data flows and document the applicable Chapter V mechanism,
+    or move the resource to an EU/EEA location:
+      location = "westeurope"
+  severity: HIGH

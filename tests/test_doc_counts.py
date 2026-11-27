@@ -18,9 +18,10 @@ import check_doc_counts  # noqa: E402
 
 def test_computed_counts_match_current_registries():
     counts = check_doc_counts.compute_counts()
-    assert counts["aws"] == 186
-    assert counts["azure"] == 23
-    assert counts["gcp"] == 22
+    assert counts["aws"] == 189
+    assert counts["azure"] == 25
+    assert counts["gcp"] == 25
+    assert counts["tf_gdpr_32"] == 178
     assert counts["kubernetes"] == 26
     assert counts["secrets"] == 19
     assert counts["total"] == (
@@ -41,7 +42,7 @@ def test_check_detects_a_stale_count(tmp_path, monkeypatch, capsys):
         text = original_read_text(self, *args, encoding="utf-8")
         if self.name == "README.md":
             # 38 is the historical stale count this tool exists to catch
-            text = text.replace("AWS: 186 mappings", "AWS: 38 mappings")
+            text = text.replace("AWS: 189 mappings", "AWS: 38 mappings")
         return text
 
     monkeypatch.setattr(Path, "read_text", doctored_read_text)
@@ -49,11 +50,11 @@ def test_check_detects_a_stale_count(tmp_path, monkeypatch, capsys):
     err = capsys.readouterr().err
     assert "DOC COUNT CHECK FAILED" in err
     assert "AWS mappings" in err
-    assert "registries say (186,)" in err
+    assert "registries say (189,)" in err
 
 
 def test_article_refs_are_counted_per_framework_in_aws_registry():
     """The check-mapping-table "article refs" figure: entries in `articles` lists."""
     counts = check_doc_counts.compute_counts()
-    assert counts["aws_refs_nis2"] == 176
+    assert counts["aws_refs_nis2"] == 178
     assert counts["aws_refs_gdpr"] == 135

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<title>tf-eu-guard Security Report</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    max-width: 1100px; margin: 40px auto; padding: 0 20px;
+    color: #1a1a1a; background: #fafafa; line-height: 1.5;
+  }
+  header { border-bottom: 3px solid #2c3e50; padding-bottom: 16px; margin-bottom: 28px; }
+  header h1 { margin: 0 0 6px; font-size: 1.7rem; }
+  header .meta { color: #555; font-size: 0.9rem; }
+  header .meta span { margin-right: 18px; white-space: nowrap; }
+  h2 { font-size: 1.25rem; margin: 32px 0 12px; }
+
+  .summary { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
+  .stat {
+    flex: 1 1 90px; background: #fff; border: 1px solid #e2e2e2; border-radius: 8px;
+    padding: 14px 12px; box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  }
+  .stat .num { font-size: 1.7rem; font-weight: 700; line-height: 1; }
+  .stat .label { font-size: 0.78rem; color: #666; text-transform: uppercase; letter-spacing: .04em; }
+
+  .chart { background: #fff; border: 1px solid #e2e2e2; border-radius: 8px; padding: 18px 20px; }
+  .chart .row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+  .chart .rlabel { flex: 0 0 90px; font-size: 0.85rem; font-weight: 600; }
+  .chart .track { display: block; flex: 1; background: #eee; border-radius: 4px; overflow: hidden; }
+  .chart .bar { display: block; height: 20px; border-radius: 4px 0 0 4px; min-width: 2px; }
+  .chart .rcount { flex: 0 0 40px; text-align: right; font-variant-numeric: tabular-nums; }
+  .unmapped { color: #555; font-size: 0.9rem; margin: 10px 0 0; }
+
+  .finding {
+    background: #fff; border: 1px solid #e2e2e2; border-left-width: 5px;
+    border-radius: 6px; padding: 14px 18px; margin: 12px 0;
+  }
+  .finding-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+  .finding-head .cid { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }
+  .finding-head .cname { color: #333; }
+  .badge {
+    display: inline-block; font-size: 0.7rem; font-weight: 700;
+    padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: .03em;
+  }
+  dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; margin: 10px 0; font-size: 0.9rem; }
+  dl.meta dt { color: #777; font-weight: 600; }
+  dl.meta dd { margin: 0; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .art {
+    display: inline-block; background: #eef2f7; border: 1px solid #d6e0ea; color: #2c3e50;
+    font-size: 0.78rem; padding: 1px 7px; border-radius: 4px; margin: 1px 4px 1px 0;
+  }
+  .risk { margin: 8px 0; }
+  .remediation h4 { margin: 10px 0 4px; font-size: 0.85rem; text-transform: uppercase; color: #777; letter-spacing: .04em; }
+  .remediation pre {
+    background: #f5f5f5; border: 1px solid #e2e2e2; border-radius: 6px;
+    padding: 10px 12px; overflow-x: auto; margin: 0; font-size: 0.85rem;
+  }
+  .doc { display: inline-block; margin-top: 10px; font-size: 0.85rem; color: #2980b9; text-decoration: none; }
+  .doc:hover { text-decoration: underline; }
+  .empty { background: #eafaf1; border: 1px solid #abebc6; color: #1e6b43; padding: 24px; border-radius: 8px; text-align: center; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e2e2; color: #888; font-size: 0.82rem; }
+  @media (prefers-color-scheme: dark) {
+    body { color: #e6e6e6; background: #16181c; }
+    .stat, .chart, .finding { background: #21242b; border-color: #33373f; }
+    .chart .track { background: #33373f; }
+    dl.meta dt, .stat .label, header .meta { color: #aab; }
+    .remediation pre { background: #1b1d22; border-color: #33373f; }
+    .art { background: #2b3140; border-color: #3a4256; color: #cdd7e5; }
+  }
+
+  .suppressed { margin-top: 28px; border-top: 3px solid #b9770e; padding-top: 4px; }
+  .suppressed table { border-collapse: collapse; width: 100%; font-family: system-ui, sans-serif; font-size: 0.92rem; margin: 12px 0; }
+  .suppressed th, .suppressed td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; vertical-align: top; }
+  .suppressed th { background: #fdf2e0; }
+  .attention { background: #fef5e7; border: 1px solid #f5cba7; color: #7e5109; padding: 24px; border-radius: 8px; text-align: center; font-family: system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<header>
+  <h1>tf-eu-guard &mdash; Security Report</h1>
+  <div class="meta"><span>Target: <code>checkov-json:scan.json</code></span><span>Generated: <VOLATILE></span><span>Findings: 2</span><span>Unmapped Checkov findings: 1</span><span>Suppressed: 2</span><span>Known (in baseline): 1</span><span>Known unmapped (in baseline): 1</span></div>
+<div class="scope"><strong>Scan settings that reduce findings</strong><ul><li><code>baseline: baseline.json (unknown date, 1 known finding(s) matched, 1 unmapped)</code></li></ul></div>
+</header>
+<section class="summary">
+<div class="stat"><div class="num">2</div><div class="label">Findings</div></div>
+<div class="stat"><div class="num">2</div><div class="label">Files</div></div>
+<div class="stat"><div class="num" style="color:#d4ac0d">2</div><div class="label">MEDIUM</div></div>
+<div class="stat"><div class="num" style="color:#7f8c8d">1</div><div class="label">Unmapped</div></div>
+<div class="stat"><div class="num">2</div><div class="label">NIS2</div></div>
+<div class="stat"><div class="num">1</div><div class="label">GDPR</div></div>
+<div class="stat"><div class="num">0</div><div class="label">Policy</div></div>
+</section>
+<h2>Finding distribution</h2>
+<section class="chart">
+<div class="row"><span class="rlabel">MEDIUM</span><span class="track"><span class="bar" style="width:100%;background:#d4ac0d"></span></span><span class="rcount">2</span></div>
+</section>
+<p class="unmapped"><strong>1</strong> additional Checkov finding(s) have no current EU regulatory mapping and are not shown in this report.</p>
+<h2>Findings by severity</h2>
+<h3 style="color:#d4ac0d">MEDIUM (2)</h3>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
+    <span class="cid">CKV_AWS_40</span>
+    <span class="cname">Ensure IAM policies are attached only to groups or roles (Reducing access management complexity)</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_iam_user_policy.deploy_user_admin</code></dd>
+    <dt>File</dt><dd><code>/iam.tf:5-12</code></dd>
+    <dt>Compliance</dt><dd><span class="art">NIS2 Art. 21(2)(i)</span></dd>
+  </dl>
+  <p class="risk">Attaching policies directly to individual IAM users makes entitlements hard to review and revoke at scale, weakening the asset- and access-management discipline NIS2 Art. 21(2)(i) expects. Group/role attachment keeps privileges auditable.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Attach the policy to a group or role and add the user to the group:
+  resource &quot;aws_iam_group_policy_attachment&quot; &quot;app&quot; {
+    group      = aws_iam_group.app.name
+    policy_arn = aws_iam_policy.app.arn
+  }</pre></div>
+</article>
+<article class="finding sev-medium" style="border-left-color:#d4ac0d">
+  <div class="finding-head">
+    <span class="badge" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span>
+    <span class="cid">CKV_AWS_145</span>
+    <span class="cname">Ensure that S3 buckets are encrypted with KMS by default</span>
+  </div>
+  <dl class="meta">
+    <dt>Resource</dt><dd><code>aws_s3_bucket.data</code></dd>
+    <dt>File</dt><dd><code>/storage.tf:1-6</code></dd>
+    <dt>Compliance</dt><dd><span class="art">GDPR Art. 32(1)(a)</span> <span class="art">NIS2 Art. 21(2)(h)</span></dd>
+  </dl>
+  <p class="risk">New objects in a bucket without default SSE-KMS are already encrypted at rest with S3-managed keys (SSE-S3). A KMS key adds key-policy, rotation and access-grant control over that data, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for buckets that hold personal data.
+</p>
+  <div class="remediation"><h4>Remediation</h4><pre>Configure default SSE-KMS on the bucket:
+  resource &quot;aws_s3_bucket_server_side_encryption_configuration&quot; &quot;this&quot; {
+    bucket = aws_s3_bucket.data.id
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm     = &quot;aws:kms&quot;
+        kms_master_key_id = aws_kms_key.s3.arn
+      }
+    }
+  }</pre></div>
+</article>
+<h2>Unmapped Checkov findings (1)</h2>
+<table>
+<thead><tr><th>Check</th><th>Name</th><th>Resource</th><th>File</th><th>Lines</th></tr></thead>
+<tbody>
+<tr><td><code>CKV_AWS_11</code></td><td>Ensure IAM password policy requires at least one lowercase letter</td><td>aws_iam_account_password_policy.weak</td><td>/iam.tf</td><td>14-20</td></tr>
+</tbody>
+</table>
+<section class="suppressed">
+<h2>Suppressed by inline comment (2)</h2>
+<p>These checks failed but were suppressed with a <code>checkov:skip</code> comment or annotation in the scanned code. They are not counted as active findings and do not affect <code>--fail-on-severity</code> or <code>--fail-on-any</code>. Anyone who can edit the code can add such a comment, so review each one.</p>
+<table class="suppressed-table">
+<thead><tr><th>Check</th><th>Resource</th><th>Location</th><th>Stated reason</th><th>EU mapping</th></tr></thead>
+<tbody>
+<tr><td><code>CKV_AWS_12</code><br>Ensure IAM password policy expires passwords within 365 days</td><td><code>aws_iam_account_password_policy.weak</code></td><td><code>/iam.tf:14-20</code></td><td>rotation enforced by the identity provider</td><td>unmapped</td></tr>
+<tr><td><code>CKV_AWS_18</code><br>Ensure the S3 bucket has access logging enabled</td><td><code>aws_s3_bucket.logs</code></td><td><code>/storage.tf:8-12</code></td><td>access logging handled by the central log account</td><td>mapped</td></tr>
+</tbody>
+</table>
+</section>
+<section class="suppressed baselined">
+<h2>Known (in baseline) (1)</h2>
+<p>These findings were already present in the --baseline report. They do not affect --fail-on-severity or --fail-on-any, but they are still open.</p>
+<table class="suppressed-table">
+<thead><tr><th>Check</th><th>Severity</th><th>Resource</th><th>Location</th></tr></thead>
+<tbody>
+<tr><td><code>CKV_AWS_273</code><br>Ensure access is controlled through SSO and not AWS IAM defined users</td><td>HIGH</td><td><code>aws_iam_user.deploy_user</code></td><td><code>/iam.tf:1-3</code></td></tr>
+</tbody>
+</table>
+</section>
+<section class="suppressed baselined">
+<h2>Known unmapped (in baseline) (1)</h2>
+<p>These findings were already present in the --baseline report. They do not affect --fail-on-severity or --fail-on-any, but they are still open.</p>
+<table class="suppressed-table">
+<thead><tr><th>Check</th><th>Name</th><th>Resource</th><th>File</th><th>Lines</th></tr></thead>
+<tbody>
+<tr><td><code>CKV_AWS_10</code></td><td>Ensure IAM password policy requires minimum length of 14 or greater</td><td>aws_iam_account_password_policy.weak</td><td>/iam.tf</td><td>14-20</td></tr>
+</tbody>
+</table>
+</section>
+<footer>Generated by tf-eu-guard v<VERSION> on <VOLATILE>. Only failed checks that map to a NIS2, GDPR, or project-policy control are shown; 1 unmapped Checkov finding(s) were reported separately; 2 finding(s) suppressed by inline comments, 0 waived and 2 known from the baseline are listed separately; this report is not legal advice and is not a certification; absence of a finding is not evidence of compliance.</footer>
+</body>
+</html>

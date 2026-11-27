@@ -62,7 +62,7 @@ GDPR_TITLES: dict[str, str] = {
 ARTICLE_TITLES: dict[tuple[Framework, str], str] = {
     **{(Framework.NIS2, f"Art. 21(2)({letter})"): title for letter, title in NIS2_TITLES.items()},
     **{(Framework.GDPR, f"Art. {article}"): title for article, title in GDPR_TITLES.items()},
-    (Framework.POLICY, "Policy RESIDENCY-001"): "AWS region residency policy",
+    (Framework.POLICY, "Policy RESIDENCY-001"): "Region residency policy",
 }
 
 
@@ -254,8 +254,9 @@ REQUIREMENTS: tuple[dict, ...] = (
         letter="44",
         category=CoverageCategory.PARTIAL,
         rationale=(
-            "The custom EUGUARD_GDPR_002 and EUGUARD_GDPR_003 checks flag known AWS "
-            "provider and resource-level regions outside the EU/EEA for Chapter V review. The adequacy/SCC analysis "
+            "EUGUARD_GDPR_002/003 (AWS), EUGUARD_GDPR_004 (Azure) and EUGUARD_GDPR_005 (GCP) "
+            "flag known provider and resource-level regions and locations outside the EU/EEA "
+            "for Chapter V review. The adequacy/SCC analysis "
             "itself is legal, not technical. A third-country signal is a prompt "
             "for review, not a violation or definitive legal conclusion."
         ),

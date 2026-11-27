@@ -4,10 +4,13 @@ These parse the files with PyYAML (and the raw text where YAML comments matter)
 so a hardening flag or a pin cannot be dropped silently.
 """
 
+import os
 import re
 import shutil
 import subprocess
+import sys
 import tomllib
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -132,13 +135,136 @@ def test_image_job_publishes_with_provenance_and_minimal_permissions():
     }
     uses = [step.get("uses", "") for step in job["steps"]]
     build = next(
-        s for s in job["steps"] if s.get("uses", "").startswith("docker/build-push-action")
+        s
+        for s in job["steps"]
+        if s.get("uses", "").startswith("docker/build-push-action") and s["with"]["push"] is True
     )
-    assert build["with"]["push"] is True
     assert build["with"]["sbom"] is True
     assert str(build["with"]["provenance"]).startswith("mode=")
     assert any(u.startswith("actions/attest-build-provenance@") for u in uses)
     assert "ghcr.io" in _load(WORKFLOWS / "publish.yml")["jobs"]["image"]["env"]["REGISTRY"]
+
+
+def _publish_image_steps() -> list[dict]:
+    return _load(WORKFLOWS / "publish.yml")["jobs"]["image"]["steps"]
+
+
+def _is_build_push(step: dict) -> bool:
+    return step.get("uses", "").startswith("docker/build-push-action@")
+
+
+def _trivy_scan_index(steps: list[dict]) -> int:
+    return next(i for i, s in enumerate(steps) if re.search(r"trivy\"? image", s.get("run", "")))
+
+
+def _step_index(steps: list[dict], needle: str) -> int:
+    return next(i for i, s in enumerate(steps) if needle in s.get("run", ""))
+
+
+def _attest_index(steps: list[dict]) -> int:
+    return next(
+        i
+        for i, s in enumerate(steps)
+        if s.get("uses", "").startswith("actions/attest-build-provenance@")
+    )
+
+
+def test_publish_tags_only_after_scan():
+    steps = _publish_image_steps()
+    scan_at = _trivy_scan_index(steps)
+    run = steps[scan_at]["run"]
+    for flag in (
+        "--exit-code 1",
+        "--severity HIGH,CRITICAL",
+        "--ignore-unfixed",
+        "--ignorefile .trivyignore.yaml",
+    ):
+        assert flag in run
+    tag_at = _step_index(steps, "imagetools create")
+    assert scan_at < tag_at < _attest_index(steps)
+
+
+def test_publish_scans_and_tags_same_digest():
+    steps = _publish_image_steps()
+    scan = steps[_trivy_scan_index(steps)]
+    tag = steps[_step_index(steps, "imagetools create")]
+    for step in (scan, tag):
+        assert step["env"]["DIGEST"] == "${{ steps.build.outputs.digest }}"
+        assert '"${IMAGE_NAME}@${DIGEST}"' in step["run"]
+    assert tag["env"]["REF_NAME"] == "${{ github.ref_name }}"
+    assert '-t "${IMAGE_NAME}:${REF_NAME}"' in tag["run"]
+    attest = steps[_attest_index(steps)]
+    assert attest["with"]["subject-digest"] == "${{ steps.build.outputs.digest }}"
+
+
+def test_publish_trivy_reads_registry():
+    steps = _publish_image_steps()
+    assert "--image-src remote" in steps[_trivy_scan_index(steps)]["run"]
+
+
+def _verify_index(steps: list[dict]) -> int:
+    return next(
+        i
+        for i, s in enumerate(steps)
+        if s.get("name") == "Verify the tag resolves to the scanned digest"
+    )
+
+
+def test_publish_verifies_tag_digest():
+    steps = _publish_image_steps()
+    tag_at = _step_index(steps, "imagetools create")
+    verify_at = _verify_index(steps)
+    assert tag_at < verify_at < _attest_index(steps)
+    verify = steps[verify_at]
+    assert verify["env"]["DIGEST"] == "${{ steps.build.outputs.digest }}"
+    assert verify["env"]["REF_NAME"] == "${{ github.ref_name }}"
+    assert "imagetools inspect" in verify["run"]
+    assert "exit 1" in verify["run"]
+    assert "jq -r .digest" in verify["run"]
+    assert '"${DIGEST}"' in verify["run"]
+    assert "::error::" in verify["run"]
+
+
+def test_publish_order_build_scan_tag_verify_attest():
+    steps = _publish_image_steps()
+    order = [
+        next(i for i, s in enumerate(steps) if _is_build_push(s)),
+        _trivy_scan_index(steps),
+        _step_index(steps, "imagetools create"),
+        _verify_index(steps),
+        _attest_index(steps),
+    ]
+    assert order == sorted(order)
+    assert len(set(order)) == 5
+
+
+def test_publish_build_pushes_by_digest_only():
+    steps = _publish_image_steps()
+    builds = [s for s in steps if _is_build_push(s)]
+    assert len(builds) == 1
+    build = builds[0]
+    assert build["id"] == "build"
+    assert "tags" not in build["with"]
+    assert "load" not in build["with"]
+    outputs = build["with"]["outputs"]
+    assert "push-by-digest=true" in outputs
+    assert "name-canonical=true" in outputs
+    assert "push=true" in outputs
+
+
+def test_publish_trivy_pin_matches_ci():
+    ci_steps = _ci_jobs()["image-scan"]["steps"]
+    ci_install = next(s for s in ci_steps if "TRIVY_VERSION" in s.get("env", {}))
+    install = next(s for s in _publish_image_steps() if "TRIVY_VERSION" in s.get("env", {}))
+    assert install["env"]["TRIVY_VERSION"] == ci_install["env"]["TRIVY_VERSION"]
+    assert install["env"]["TRIVY_SHA256"] == ci_install["env"]["TRIVY_SHA256"]
+    assert "sha256sum --check --strict" in install["run"]
+
+
+def test_publish_no_expression_in_run():
+    steps = _publish_image_steps()
+    for step in steps:
+        assert "${{" not in step.get("run", ""), step.get("name")
 
 
 def test_dependabot_covers_docker_base_image():
@@ -148,11 +274,11 @@ def test_dependabot_covers_docker_base_image():
     assert ecosystems["docker"]["directory"] == "/"
 
 
-def test_ci_matrix_includes_windows_and_macos():
+def test_ci_matrix_runs_on_linux_only():
     matrix = _load(WORKFLOWS / "ci.yml")["jobs"]["test"]["strategy"]["matrix"]
-    systems = {entry["os"] for entry in matrix["include"]}
-    assert "windows-latest" in systems
-    assert "macos-latest" in systems
+    assert matrix["os"] == ["ubuntu-24.04"]
+    assert "include" not in matrix
+    assert matrix["python-version"] == ["3.11", "3.12", "3.13", "3.14"]
 
 
 def test_ci_lint_runs_the_same_commands_as_the_dev_hook():
@@ -577,7 +703,7 @@ def test_image_final_stage_has_oci_labels_linking_the_repository():
 
 def test_image_build_step_sets_version_and_revision_labels():
     steps = _load(WORKFLOWS / "publish.yml")["jobs"]["image"]["steps"]
-    build = next(s for s in steps if s.get("uses", "").startswith("docker/build-push-action@"))
+    build = next(s for s in steps if _is_build_push(s) and s["with"]["push"] is True)
     labels = build["with"]["labels"].splitlines()
     assert "org.opencontainers.image.version=${{ github.ref_name }}" in labels
     assert "org.opencontainers.image.revision=${{ github.sha }}" in labels
@@ -591,3 +717,97 @@ def test_image_version_label_default_matches_pyproject_version():
     assert match, "final stage must declare ARG VERSION=<default> after its FROM"
     assert match.group(1) == project["version"]
     assert 'org.opencontainers.image.version="${VERSION}"' in final
+
+
+def test_image_scan_job_gates_on_fixable_high_and_critical():
+    jobs = _ci_jobs()
+    assert "image-scan" in jobs
+    commands = _job_commands(jobs["image-scan"])
+    for fragment in (
+        "--ignore-unfixed",
+        "--exit-code 1",
+        "--severity HIGH,CRITICAL",
+        "--ignorefile .trivyignore.yaml",
+        "sha256sum --check",
+    ):
+        assert fragment in commands, fragment
+
+
+def test_trivyignore_entries_have_statement_and_future_expiry():
+    data = yaml.safe_load((ROOT / ".trivyignore.yaml").read_text(encoding="utf-8"))
+    entries = data["vulnerabilities"]
+    assert entries
+    today = date.today()
+    for entry in entries:
+        assert str(entry.get("statement", "")).strip(), entry["id"]
+        expiry = entry["expired_at"]
+        assert isinstance(expiry, date), entry["id"]
+        assert today < expiry <= today + timedelta(days=120), entry["id"]
+
+
+def test_dockerfile_stages_share_one_pinned_base():
+    text = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    bases = re.findall(r"^FROM\s+(\S+)", text, flags=re.MULTILINE)
+    assert len(bases) == 2
+    assert bases[0] == bases[1]
+    assert re.fullmatch(r"python:3\.12-slim@sha256:[0-9a-f]{64}", bases[0])
+
+
+LOCALSTACK_IMAGE = (
+    "localstack/localstack@sha256:59373b4a27dba3ec15c4db0b7455f0cb68c8a42300e2cbbe362b440f9a131697"
+)
+
+
+def test_emulator_job_is_pinned_read_only_and_runs_the_opt_in_tier():
+    job = _ci_jobs()["emulator"]
+    assert job["runs-on"] == "ubuntu-24.04"
+    assert job["timeout-minutes"] == 20
+    assert job["needs"] == ["lint"]
+    assert "permissions" not in job  # inherits the read-only workflow default
+    service = job["services"]["localstack"]
+    assert service["image"] == LOCALSTACK_IMAGE
+    assert service["ports"] == ["4566:4566"]
+    assert service["env"] == {"SERVICES": "s3,sqs,dynamodb,sts,iam"}
+    assert service["options"] == (
+        '--health-cmd "curl -fs http://localhost:4566/_localstack/health"'
+        " --health-interval 5s --health-timeout 5s --health-retries 20"
+    )
+    checkout = next(s for s in job["steps"] if s.get("uses", "").startswith("actions/checkout"))
+    assert checkout["with"]["persist-credentials"] is False
+    terraform = next(
+        s for s in job["steps"] if s.get("uses", "").startswith("hashicorp/setup-terraform@")
+    )
+    assert terraform["uses"].startswith(
+        "hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e"
+    )
+    assert terraform["with"] == {"terraform_version": "1.17.2", "terraform_wrapper": False}
+    commands = _job_commands(job)
+    assert "pip install --require-hashes -r requirements.lock -r requirements-dev.lock" in commands
+    assert "pip install --no-deps -e ." in commands
+    run = next(s for s in job["steps"] if "pytest tests/emulator" in s.get("run", ""))
+    assert 'pytest tests/emulator -p no:cacheprovider -o addopts=""' in run["run"]
+    assert run["env"] == {"TFEG_RUN_EMULATOR": "1"}
+
+
+def test_emulator_tier_skips_by_default():
+    env = {k: v for k, v in os.environ.items() if k != "TFEG_RUN_EMULATOR"}
+    done = subprocess.run(
+        [sys.executable, "-m", "pytest", "tests/emulator", "-p", "no:cacheprovider"]
+        + ["-o", "addopts=", "-q", "-rs"],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert re.search(r"\b[1-9]\d* skipped\b", done.stdout), done.stdout
+    assert not re.search(r"\b\d+ (passed|failed|error)", done.stdout), done.stdout
+
+
+def test_emulator_override_is_not_inside_a_scanned_fixture():
+    assert not list((ROOT / "tests" / "emulator" / "fixtures").rglob("*override*"))
+    assert "access_key" not in "".join(
+        p.read_text(encoding="utf-8")
+        for p in (ROOT / "tests" / "emulator" / "fixtures").rglob("*.tf")
+    )

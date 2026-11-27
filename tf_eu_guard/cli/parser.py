@@ -2,6 +2,7 @@
 
 import argparse
 import math
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,7 @@ from tf_eu_guard.constants import (
     SUPPORTED_IAC_TYPES,
 )
 from tf_eu_guard.models import Severity
+from tf_eu_guard.reporting.untrusted import sanitize
 from tf_eu_guard.residency import DEFAULT_POLICY, RESIDENCY_POLICIES, parse_allowed_regions
 
 
@@ -39,6 +41,17 @@ def timeout_arg(value: str) -> float:
     if not math.isfinite(seconds) or seconds < 0:
         raise argparse.ArgumentTypeError(f"must be a finite number >= 0, got {value!r}")
     return seconds
+
+
+def max_waiver_days_arg(value: str) -> int:
+    """Parse ``--max-waiver-days`` as a whole number of days, at least 1."""
+    try:
+        days = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid number of days: {value!r}") from None
+    if days < 1:
+        raise argparse.ArgumentTypeError(f"must be an integer >= 1, got {value!r}")
+    return days
 
 
 def allowed_regions_arg(value: str) -> tuple[str, ...]:
@@ -109,7 +122,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="FILE",
         help="Also write key=value counts (critical, high, medium, low, info, "
-        "unmapped, suppressed, waived, baselined, total), one per line in "
+        "unmapped, suppressed, waived, baselined, baselined_unmapped, total), one per line in "
         "GitHub $GITHUB_OUTPUT format.",
     )
     parser.add_argument(
@@ -184,7 +197,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--json-format",
         choices=("array", "object"),
-        default="array",
+        default=None,
         help="Layout of --output json (default: array). 'array' is the legacy "
         "bare list of findings and is deprecated: the default changes to "
         "'object' in a future release. 'object' is the versioned document "
@@ -212,9 +225,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--residency-policy",
         choices=list(RESIDENCY_POLICIES),
         default=DEFAULT_POLICY,
-        help="AWS region residency policy enforced by EUGUARD_POLICY_001/002 "
-        "(default: eu-eea). 'eu-eea' allows EU/EEA commercial regions and the "
-        "AWS European Sovereign Cloud; 'eusc' allows only the Sovereign Cloud; "
+        help="Region residency policy enforced by EUGUARD_POLICY_001/002 (AWS), "
+        "EUGUARD_POLICY_003 (Azure) and EUGUARD_POLICY_004 (GCP) (default: eu-eea). 'eu-eea' allows EU/EEA commercial "
+        "regions and the AWS European Sovereign Cloud; 'eusc' allows only the Sovereign "
+        "Cloud on AWS (Azure and GCP use their EU/EEA tables); "
         "'custom' uses --allowed-regions. Ignored with --checkov-json (results "
         "are pre-computed).",
     )
@@ -276,6 +290,15 @@ def build_parser() -> argparse.ArgumentParser:
         "root (source scans only; not used with --checkov-json). See docs/waivers.md.",
     )
     parser.add_argument(
+        "--max-waiver-days",
+        dest="max_waiver_days",
+        type=max_waiver_days_arg,
+        default=None,
+        metavar="N",
+        help="Do not apply a waiver that expires more than N days from today (N >= 1); its "
+        "findings stay active and stderr names the waiver. Default: no limit.",
+    )
+    parser.add_argument(
         "--baseline",
         type=Path,
         default=None,
@@ -292,7 +315,9 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="REF",
         help="Report only findings in files changed since the Git ref REF (committed "
         "REF...HEAD and staged changes; unstaged and untracked changes are not included), "
-        "e.g. origin/main. Findings in other files are hidden and counted on stderr and "
+        "e.g. origin/main. A changed Terraform file widens the scope to its module directory, that "
+        "directory's parents and its subdirectories (sibling modules reached through ../ "
+        "sources are not followed); other IaC types are file-granular. Findings elsewhere are hidden and counted on stderr and "
         "in the scan settings; the requirement matrix still reflects every check "
         "evaluated. Not valid with --checkov-json or --iac-type terraform_plan.",
     )
@@ -311,6 +336,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Ignore any project configuration file, discovered or given with --config.",
     )
     parser.add_argument(
+        "--no-discovery",
+        action="store_true",
+        help="Do not read .tf-eu-guard.yaml or .tf-eu-guard-waivers.yaml from the scan root "
+        "(files in a pull request are controlled by its author). --config and --waivers "
+        "still apply.",
+    )
+    parser.add_argument(
         "--fail-on-severity",
         type=fail_on_severity_arg,
         default=None,
@@ -320,18 +352,18 @@ def build_parser() -> argparse.ArgumentParser:
         "disabled (exit 0 unless an error occurs). An empty value also "
         "disables gating (the GitHub Action passes its cleared input "
         "through verbatim). "
-        "Only MAPPED findings are considered: severity is authored in the "
-        "mapping registry, so unmapped Checkov findings have no severity "
-        "to compare and never trip the gate (they are reported for "
-        "visibility instead).",
+        "Only MAPPED findings are considered unless --unmapped-severity is set: "
+        "severity is authored in the mapping registry, so unmapped Checkov "
+        "findings have no severity of their own and otherwise never trip "
+        "the gate (they are reported for visibility instead).",
     )
     parser.add_argument(
         "--fail-on-any",
         action="store_true",
         help="Exit with code 1 if any finding exists, regardless of severity. "
-        "Like --fail-on-severity, considers only MAPPED findings "
-        "(unmapped Checkov findings are surfaced in reports but do not "
-        "fail the gate).",
+        "Like --fail-on-severity, considers only MAPPED findings unless "
+        "--unmapped-severity is set (otherwise unmapped Checkov findings are "
+        "surfaced in reports but do not fail the gate).",
     )
     parser.add_argument(
         "--fail-on-suppressed",
@@ -342,6 +374,18 @@ def build_parser() -> argparse.ArgumentParser:
         "always listed in every report but never count toward "
         "--fail-on-severity / --fail-on-any. Honors --framework. Unmapped "
         "suppressed checks are reported but do not trip this gate.",
+    )
+    parser.add_argument(
+        "--unmapped-severity",
+        type=fail_on_severity_arg,
+        default=None,
+        metavar="SEVERITY",
+        help="Count every active (not inline-suppressed) unmapped Checkov finding as a "
+        "finding of this severity (CRITICAL, HIGH, MEDIUM, LOW, INFO, case-insensitive) for "
+        "--fail-on-severity and --fail-on-any. Reports are unchanged: unmapped findings "
+        "stay unmapped and carry no severity. Has no effect without one of those gates. "
+        "Unmapped findings are never waived, but --baseline covers them, so only unmapped "
+        "findings new since the baseline count; use an inline checkov:skip to exempt one. Default: unset. An empty value also leaves it unset.",
     )
     parser.add_argument(
         "--show-unmapped",
@@ -355,7 +399,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--fail-on-unmapped",
         action="store_true",
         help="Exit with code 1 if any active (not inline-suppressed) unmapped "
-        "Checkov finding exists. Unmapped findings otherwise never trip the gate.",
+        "Checkov finding exists; with --baseline only unmapped findings not in the "
+        "baseline count. Unmapped findings otherwise trip no gate unless "
+        "--unmapped-severity is set.",
     )
     return parser
 
@@ -375,7 +421,12 @@ def apply_config(
         return {}
     path = known.config
     if path is None and not known.checkov_json:
-        path = find_config(known.path or Path("."))
+        found = find_config(known.path or Path("."))
+        if known.no_discovery:
+            if found is not None:
+                print(f"Note: --no-discovery: ignored {sanitize(found)}", file=sys.stderr)
+            return {}
+        path = found
     if path is None:
         return {}
     values = load_config(path)

@@ -14,11 +14,12 @@
     "requirements",
     "registry",
     "waived",
-    "baselined"
+    "baselined",
+    "baselined_unmapped"
   ],
   "properties": {
     "schema_version": {
-      "const": "2"
+      "const": "3"
     },
     "tool": {
       "type": "object",
@@ -326,6 +327,7 @@
         "registry_sha256",
         "registry_files",
         "commit",
+        "commit_source",
         "options",
         "resources_scanned",
         "checks"
@@ -336,6 +338,7 @@
         "registry_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "registry_files": {"type": "array", "items": {"type": "string"}},
         "commit": {"type": ["string", "null"]},
+        "commit_source": {"enum": ["git", "environment", null]},
         "options": {"type": "object"},
         "resources_scanned": {"type": ["integer", "null"]},
         "checks": {
@@ -581,6 +584,42 @@
               "string",
               "null"
             ]
+          }
+        }
+      }
+    },
+    "baselined_unmapped": {
+      "description": "Active unmapped findings already present in the --baseline report; they do not affect the gate.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "check_id",
+          "check_name",
+          "resource",
+          "file_path",
+          "file_line_range",
+          "suppressed"
+        ],
+        "properties": {
+          "check_id": {
+            "type": "string"
+          },
+          "check_name": {
+            "type": "string"
+          },
+          "resource": {
+            "type": "string"
+          },
+          "file_path": {
+            "type": "string"
+          },
+          "file_line_range": {
+            "$ref": "#/$defs/lineRange"
+          },
+          "suppressed": {
+            "type": "boolean"
           }
         }
       }

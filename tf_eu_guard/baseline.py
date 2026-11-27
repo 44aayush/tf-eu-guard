@@ -29,15 +29,13 @@ def finding_key(check_id: str, resource: str | None, file_path: str | None) -> K
 class Baseline:
     keys: frozenset[Key]
     created: datetime | None
+    # Unmapped findings of the object format (`unmapped[]` plus `baselined_unmapped[]`).
+    unmapped_keys: frozenset[Key] = frozenset()
+    # Whether the document could record unmapped findings (object reports; not the array).
+    covers_unmapped: bool = True
 
 
-def read_entries(path: Path) -> tuple[list[dict[str, Any]], datetime | None]:
-    """Return the active finding entries of a report and its scan time (if recorded).
-
-    Entries flagged ``suppressed`` or ``waived`` are skipped. Baselined findings
-    (the object format's ``baselined[]``, or array entries flagged ``baselined``)
-    count as present: they are still failing checks.
-    """
+def _read_document(path: Path) -> Any:
     try:
         document = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -48,7 +46,20 @@ def read_entries(path: Path) -> tuple[list[dict[str, Any]], datetime | None]:
         raise BaselineError(f"{path}: not UTF-8 text ({error})") from error
     except OSError as error:
         raise BaselineError(f"{path}: cannot be read ({error})") from error
+    return document
 
+
+def read_entries(path: Path) -> tuple[list[dict[str, Any]], datetime | None]:
+    """Return the active finding entries of a report and its scan time (if recorded).
+
+    Entries flagged ``suppressed`` or ``waived`` are skipped. Baselined findings
+    (the object format's ``baselined[]``, or array entries flagged ``baselined``)
+    count as present: they are still failing checks.
+    """
+    return _entries_of(_read_document(path), path)
+
+
+def _entries_of(document: Any, path: Path) -> tuple[list[dict[str, Any]], datetime | None]:
     created: datetime | None = None
     if isinstance(document, list):
         raw: Any = document
@@ -81,7 +92,34 @@ def entry_key(entry: dict[str, Any]) -> Key:
     return finding_key(entry["check_id"], entry.get("resource"), entry.get("file_path"))
 
 
+def _unmapped_keys_of(document: Any, path: Path) -> frozenset[Key]:
+    """Keys of the active unmapped entries (``unmapped[]`` and ``baselined_unmapped[]``).
+
+    Only the object format carries them; a missing array reads as empty and entries
+    flagged ``suppressed`` are not known (an inline skip is not a baseline).
+    """
+    if not isinstance(document, dict):
+        return frozenset()
+    keys: set[Key] = set()
+    for name in ("unmapped", "baselined_unmapped"):
+        items = document.get(name, [])
+        if not isinstance(items, list):
+            raise BaselineError(f"{path}: '{name}' must be an array")
+        for item in items:
+            if not isinstance(item, dict) or not isinstance(item.get("check_id"), str):
+                raise BaselineError(f"{path}: every '{name}' entry needs a string 'check_id'")
+            if not item.get("suppressed"):
+                keys.add(entry_key(item))
+    return frozenset(keys)
+
+
 def load_baseline(path: Path) -> Baseline:
     """Load the known-finding keys of a previous report."""
-    entries, created = read_entries(path)
-    return Baseline(frozenset(entry_key(e) for e in entries), created)
+    document = _read_document(path)
+    entries, created = _entries_of(document, path)
+    return Baseline(
+        frozenset(entry_key(e) for e in entries),
+        created,
+        _unmapped_keys_of(document, path),
+        covers_unmapped=isinstance(document, dict),
+    )

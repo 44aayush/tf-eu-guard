@@ -1,0 +1,239 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.9.0",
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "azurerm_storage_account.us",
+          "mode": "managed",
+          "type": "azurerm_storage_account",
+          "name": "us",
+          "provider_name": "registry.terraform.io/hashicorp/azurerm",
+          "schema_version": 0,
+          "values": {
+            "name": "stus",
+            "resource_group_name": "rg",
+            "location": "eastus",
+            "account_tier": "Standard",
+            "account_replication_type": "LRS"
+          }
+        },
+        {
+          "address": "azurerm_storage_account.eu",
+          "mode": "managed",
+          "type": "azurerm_storage_account",
+          "name": "eu",
+          "provider_name": "registry.terraform.io/hashicorp/azurerm",
+          "schema_version": 0,
+          "values": {
+            "name": "steu",
+            "resource_group_name": "rg",
+            "location": "westeurope",
+            "account_tier": "Standard",
+            "account_replication_type": "LRS"
+          }
+        },
+        {
+          "address": "google_storage_bucket.us",
+          "mode": "managed",
+          "type": "google_storage_bucket",
+          "name": "us",
+          "provider_name": "registry.terraform.io/hashicorp/google",
+          "schema_version": 0,
+          "values": {
+            "name": "bucket-us",
+            "location": "US"
+          }
+        },
+        {
+          "address": "google_storage_bucket.eu",
+          "mode": "managed",
+          "type": "google_storage_bucket",
+          "name": "eu",
+          "provider_name": "registry.terraform.io/hashicorp/google",
+          "schema_version": 0,
+          "values": {
+            "name": "bucket-eu",
+            "location": "EUROPE-WEST3"
+          }
+        },
+        {
+          "address": "azurerm_monitor_action_group.g",
+          "mode": "managed",
+          "type": "azurerm_monitor_action_group",
+          "name": "g",
+          "provider_name": "registry.terraform.io/hashicorp/azurerm",
+          "schema_version": 0,
+          "values": {
+            "name": "ag",
+            "resource_group_name": "rg",
+            "short_name": "ag",
+            "location": "global"
+          }
+        }
+      ]
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "azurerm_storage_account.us",
+      "mode": "managed",
+      "type": "azurerm_storage_account",
+      "name": "us",
+      "provider_name": "registry.terraform.io/hashicorp/azurerm",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "stus",
+          "resource_group_name": "rg",
+          "location": "eastus",
+          "account_tier": "Standard",
+          "account_replication_type": "LRS"
+        },
+        "after_unknown": {},
+        "before_sensitive": false,
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "azurerm_storage_account.eu",
+      "mode": "managed",
+      "type": "azurerm_storage_account",
+      "name": "eu",
+      "provider_name": "registry.terraform.io/hashicorp/azurerm",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "steu",
+          "resource_group_name": "rg",
+          "location": "westeurope",
+          "account_tier": "Standard",
+          "account_replication_type": "LRS"
+        },
+        "after_unknown": {},
+        "before_sensitive": false,
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "google_storage_bucket.us",
+      "mode": "managed",
+      "type": "google_storage_bucket",
+      "name": "us",
+      "provider_name": "registry.terraform.io/hashicorp/google",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "bucket-us",
+          "location": "US"
+        },
+        "after_unknown": {},
+        "before_sensitive": false,
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "google_storage_bucket.eu",
+      "mode": "managed",
+      "type": "google_storage_bucket",
+      "name": "eu",
+      "provider_name": "registry.terraform.io/hashicorp/google",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "bucket-eu",
+          "location": "EUROPE-WEST3"
+        },
+        "after_unknown": {},
+        "before_sensitive": false,
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "azurerm_monitor_action_group.g",
+      "mode": "managed",
+      "type": "azurerm_monitor_action_group",
+      "name": "g",
+      "provider_name": "registry.terraform.io/hashicorp/azurerm",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "ag",
+          "resource_group_name": "rg",
+          "short_name": "ag",
+          "location": "global"
+        },
+        "after_unknown": {},
+        "before_sensitive": false,
+        "after_sensitive": {}
+      }
+    }
+  ],
+  "configuration": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "azurerm_storage_account.us",
+          "mode": "managed",
+          "type": "azurerm_storage_account",
+          "name": "us",
+          "provider_config_key": "azurerm",
+          "expressions": {},
+          "schema_version": 0
+        },
+        {
+          "address": "azurerm_storage_account.eu",
+          "mode": "managed",
+          "type": "azurerm_storage_account",
+          "name": "eu",
+          "provider_config_key": "azurerm",
+          "expressions": {},
+          "schema_version": 0
+        },
+        {
+          "address": "google_storage_bucket.us",
+          "mode": "managed",
+          "type": "google_storage_bucket",
+          "name": "us",
+          "provider_config_key": "google",
+          "expressions": {},
+          "schema_version": 0
+        },
+        {
+          "address": "google_storage_bucket.eu",
+          "mode": "managed",
+          "type": "google_storage_bucket",
+          "name": "eu",
+          "provider_config_key": "google",
+          "expressions": {},
+          "schema_version": 0
+        },
+        {
+          "address": "azurerm_monitor_action_group.g",
+          "mode": "managed",
+          "type": "azurerm_monitor_action_group",
+          "name": "g",
+          "provider_config_key": "azurerm",
+          "expressions": {},
+          "schema_version": 0
+        }
+      ]
+    }
+  }
+}

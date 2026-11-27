@@ -1,0 +1,404 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "invocations": [
+        {
+          "commandLine": "tf-eu-guard scan checkov-json:scan.json",
+          "executionSuccessful": true
+        }
+      ],
+      "properties": {
+        "weakeningSettings": []
+      },
+      "results": [
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "iam.tf"
+                },
+                "region": {
+                  "endLine": 3,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Long-lived IAM users bypass centralized identity management and SSO, making it difficult to enforce MFA, audit access centrally, and revoke credentials quickly during an incident. NIS2 Art. 21(2)(i) requires effective access control policies.\n"
+          },
+          "partialFingerprints": {
+            "tfEuGuard/v1": "2768616cb3bf20a52c34226cc9a566f171e2824841567ef10134dff867047ab1"
+          },
+          "properties": {
+            "articles": [
+              "NIS2 Art. 21(2)(i)"
+            ],
+            "mapped": true,
+            "remediation": "Delete standing IAM users and federate access through AWS IAM Identity Center (SSO):\n  # Remove:\n  # resource \"aws_iam_user\" \"admin\" { ... }\n  # Use Identity Center permission sets + account assignments instead\n  # (managed via aws_ssoadmin_* resources or the Identity Center console).\n",
+            "resource": "aws_iam_user.deploy_user",
+            "severity": "HIGH"
+          },
+          "ruleId": "CKV_AWS_273",
+          "ruleIndex": 5
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "iam.tf"
+                },
+                "region": {
+                  "endLine": 12,
+                  "startLine": 5
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Attaching policies directly to individual IAM users makes entitlements hard to review and revoke at scale, weakening the asset- and access-management discipline NIS2 Art. 21(2)(i) expects. Group/role attachment keeps privileges auditable.\n"
+          },
+          "partialFingerprints": {
+            "tfEuGuard/v1": "6420992308fd96726e52a340874bc5350c407ed711abdc12d7b0818e2ad004b8"
+          },
+          "properties": {
+            "articles": [
+              "NIS2 Art. 21(2)(i)"
+            ],
+            "mapped": true,
+            "remediation": "Attach the policy to a group or role and add the user to the group:\n  resource \"aws_iam_group_policy_attachment\" \"app\" {\n    group      = aws_iam_group.app.name\n    policy_arn = aws_iam_policy.app.arn\n  }\n",
+            "resource": "aws_iam_user_policy.deploy_user_admin",
+            "severity": "MEDIUM"
+          },
+          "ruleId": "CKV_AWS_40",
+          "ruleIndex": 6
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "iam.tf"
+                },
+                "region": {
+                  "endLine": 20,
+                  "startLine": 14
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Ensure IAM password policy requires minimum length of 14 or greater \u2014 no current EU regulatory mapping (surfaced for visibility, does not affect severity gating)."
+          },
+          "partialFingerprints": {
+            "tfEuGuard/v1": "7e9a4bcdd3870bac824a17baab5c8312f84c6e85f168003538922a6e73baef82"
+          },
+          "properties": {
+            "mapped": false,
+            "resource": "aws_iam_account_password_policy.weak"
+          },
+          "ruleId": "CKV_AWS_10",
+          "ruleIndex": 0
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "iam.tf"
+                },
+                "region": {
+                  "endLine": 20,
+                  "startLine": 14
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Ensure IAM password policy requires at least one lowercase letter \u2014 no current EU regulatory mapping (surfaced for visibility, does not affect severity gating)."
+          },
+          "partialFingerprints": {
+            "tfEuGuard/v1": "d1e4cbb3f5c7c2b206f7041bdf3700819547908b184e59f367791d73a9f090ab"
+          },
+          "properties": {
+            "mapped": false,
+            "resource": "aws_iam_account_password_policy.weak"
+          },
+          "ruleId": "CKV_AWS_11",
+          "ruleIndex": 1
+        },
+        {
+          "level": "note",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "iam.tf"
+                },
+                "region": {
+                  "endLine": 20,
+                  "startLine": 14
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Ensure IAM password policy expires passwords within 365 days \u2014 no current EU regulatory mapping (surfaced for visibility, does not affect severity gating)."
+          },
+          "partialFingerprints": {
+            "tfEuGuard/v1": "8c656bd87ea56128cf8682c30d2b04a85a0b365babe728f2ace579c9d106f372"
+          },
+          "properties": {
+            "mapped": false,
+            "resource": "aws_iam_account_password_policy.weak"
+          },
+          "ruleId": "CKV_AWS_12",
+          "ruleIndex": 2,
+          "suppressions": [
+            {
+              "justification": "rotation enforced by the identity provider",
+              "kind": "inSource"
+            }
+          ]
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "storage.tf"
+                },
+                "region": {
+                  "endLine": 6,
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "New objects in a bucket without default SSE-KMS are already encrypted at rest with S3-managed keys (SSE-S3). A KMS key adds key-policy, rotation and access-grant control over that data, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for buckets that hold personal data.\n"
+          },
+          "partialFingerprints": {
+            "tfEuGuard/v1": "313b4a44c8a81afe8cab9a3a865dda211ecac595eb4c382faffd7385475cd8f3"
+          },
+          "properties": {
+            "articles": [
+              "GDPR Art. 32(1)(a)",
+              "NIS2 Art. 21(2)(h)"
+            ],
+            "mapped": true,
+            "remediation": "Configure default SSE-KMS on the bucket:\n  resource \"aws_s3_bucket_server_side_encryption_configuration\" \"this\" {\n    bucket = aws_s3_bucket.data.id\n    rule {\n      apply_server_side_encryption_by_default {\n        sse_algorithm     = \"aws:kms\"\n        kms_master_key_id = aws_kms_key.s3.arn\n      }\n    }\n  }\n",
+            "resource": "aws_s3_bucket.data",
+            "severity": "MEDIUM"
+          },
+          "ruleId": "CKV_AWS_145",
+          "ruleIndex": 3
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "storage.tf"
+                },
+                "region": {
+                  "endLine": 12,
+                  "startLine": 8
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Without S3 server access logging there is no record of who read or wrote objects, so a data-access incident cannot be detected, scoped, or investigated. NIS2 Art. 21(2)(b) requires the ability to handle and analyse incidents.\n"
+          },
+          "partialFingerprints": {
+            "tfEuGuard/v1": "648a2b17507d57b5581df8e95a6edcb8b2f7e9e9c58b66ff871d10a94056239c"
+          },
+          "properties": {
+            "articles": [
+              "NIS2 Art. 21(2)(b)"
+            ],
+            "mapped": true,
+            "remediation": "Send access logs to a dedicated logging bucket:\n  resource \"aws_s3_bucket_logging\" \"this\" {\n    bucket        = aws_s3_bucket.data.id\n    target_bucket = aws_s3_bucket.logs.id\n    target_prefix = \"s3-access/\"\n  }\n",
+            "resource": "aws_s3_bucket.logs",
+            "severity": "MEDIUM"
+          },
+          "ruleId": "CKV_AWS_18",
+          "ruleIndex": 4,
+          "suppressions": [
+            {
+              "justification": "access logging handled by the central log account",
+              "kind": "inSource"
+            }
+          ]
+        }
+      ],
+      "tool": {
+        "driver": {
+          "informationUri": "https://github.com/44aayush/tf-eu-guard",
+          "name": "tf-eu-guard",
+          "rules": [
+            {
+              "id": "CKV_AWS_10",
+              "properties": {
+                "mapped": false,
+                "tags": [
+                  "security"
+                ]
+              },
+              "shortDescription": {
+                "text": "Ensure IAM password policy requires minimum length of 14 or greater"
+              }
+            },
+            {
+              "id": "CKV_AWS_11",
+              "properties": {
+                "mapped": false,
+                "tags": [
+                  "security"
+                ]
+              },
+              "shortDescription": {
+                "text": "Ensure IAM password policy requires at least one lowercase letter"
+              }
+            },
+            {
+              "id": "CKV_AWS_12",
+              "properties": {
+                "mapped": false,
+                "tags": [
+                  "security"
+                ]
+              },
+              "shortDescription": {
+                "text": "Ensure IAM password policy expires passwords within 365 days"
+              }
+            },
+            {
+              "fullDescription": {
+                "text": "New objects in a bucket without default SSE-KMS are already encrypted at rest with S3-managed keys (SSE-S3). A KMS key adds key-policy, rotation and access-grant control over that data, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for buckets that hold personal data.\n"
+              },
+              "help": {
+                "markdown": "**Remediation**\n\nConfigure default SSE-KMS on the bucket:\n  resource \"aws\\_s3\\_bucket\\_server\\_side\\_encryption\\_configuration\" \"this\" {\n    bucket = aws\\_s3\\_bucket.data.id\n    rule {\n      apply\\_server\\_side\\_encryption\\_by\\_default {\n        sse\\_algorithm     = \"aws:kms\"\n        kms\\_master\\_key\\_id = aws\\_kms\\_key.s3.arn\n      }\n    }\n  }\n\n\n**Regulatory references**\n\n- GDPR Art. 32(1)(a)\n- NIS2 Art. 21(2)(h)",
+                "text": "Remediation: Configure default SSE-KMS on the bucket:\n  resource \"aws_s3_bucket_server_side_encryption_configuration\" \"this\" {\n    bucket = aws_s3_bucket.data.id\n    rule {\n      apply_server_side_encryption_by_default {\n        sse_algorithm     = \"aws:kms\"\n        kms_master_key_id = aws_kms_key.s3.arn\n      }\n    }\n  }\n\n\nRegulatory references: GDPR Art. 32(1)(a); NIS2 Art. 21(2)(h)"
+              },
+              "id": "CKV_AWS_145",
+              "properties": {
+                "articles": [
+                  "GDPR Art. 32(1)(a)",
+                  "NIS2 Art. 21(2)(h)"
+                ],
+                "mapped": true,
+                "remediation": "Configure default SSE-KMS on the bucket:\n  resource \"aws_s3_bucket_server_side_encryption_configuration\" \"this\" {\n    bucket = aws_s3_bucket.data.id\n    rule {\n      apply_server_side_encryption_by_default {\n        sse_algorithm     = \"aws:kms\"\n        kms_master_key_id = aws_kms_key.s3.arn\n      }\n    }\n  }\n",
+                "security-severity": "5.5",
+                "severity": "MEDIUM",
+                "tags": [
+                  "security",
+                  "GDPR",
+                  "NIS2",
+                  "GDPR Art. 32(1)(a)",
+                  "NIS2 Art. 21(2)(h)"
+                ]
+              },
+              "shortDescription": {
+                "text": "Ensure that S3 buckets are encrypted with KMS by default"
+              }
+            },
+            {
+              "fullDescription": {
+                "text": "Without S3 server access logging there is no record of who read or wrote objects, so a data-access incident cannot be detected, scoped, or investigated. NIS2 Art. 21(2)(b) requires the ability to handle and analyse incidents.\n"
+              },
+              "help": {
+                "markdown": "**Remediation**\n\nSend access logs to a dedicated logging bucket:\n  resource \"aws\\_s3\\_bucket\\_logging\" \"this\" {\n    bucket        = aws\\_s3\\_bucket.data.id\n    target\\_bucket = aws\\_s3\\_bucket.logs.id\n    target\\_prefix = \"s3-access/\"\n  }\n\n\n**Regulatory references**\n\n- NIS2 Art. 21(2)(b)",
+                "text": "Remediation: Send access logs to a dedicated logging bucket:\n  resource \"aws_s3_bucket_logging\" \"this\" {\n    bucket        = aws_s3_bucket.data.id\n    target_bucket = aws_s3_bucket.logs.id\n    target_prefix = \"s3-access/\"\n  }\n\n\nRegulatory references: NIS2 Art. 21(2)(b)"
+              },
+              "id": "CKV_AWS_18",
+              "properties": {
+                "articles": [
+                  "NIS2 Art. 21(2)(b)"
+                ],
+                "mapped": true,
+                "remediation": "Send access logs to a dedicated logging bucket:\n  resource \"aws_s3_bucket_logging\" \"this\" {\n    bucket        = aws_s3_bucket.data.id\n    target_bucket = aws_s3_bucket.logs.id\n    target_prefix = \"s3-access/\"\n  }\n",
+                "security-severity": "5.5",
+                "severity": "MEDIUM",
+                "tags": [
+                  "security",
+                  "NIS2",
+                  "NIS2 Art. 21(2)(b)"
+                ]
+              },
+              "shortDescription": {
+                "text": "Ensure the S3 bucket has access logging enabled"
+              }
+            },
+            {
+              "fullDescription": {
+                "text": "Long-lived IAM users bypass centralized identity management and SSO, making it difficult to enforce MFA, audit access centrally, and revoke credentials quickly during an incident. NIS2 Art. 21(2)(i) requires effective access control policies.\n"
+              },
+              "help": {
+                "markdown": "**Remediation**\n\nDelete standing IAM users and federate access through AWS IAM Identity Center (SSO):\n  \\# Remove:\n  \\# resource \"aws\\_iam\\_user\" \"admin\" { ... }\n  \\# Use Identity Center permission sets + account assignments instead\n  \\# (managed via aws\\_ssoadmin\\_\\* resources or the Identity Center console).\n\n\n**Regulatory references**\n\n- NIS2 Art. 21(2)(i)",
+                "text": "Remediation: Delete standing IAM users and federate access through AWS IAM Identity Center (SSO):\n  # Remove:\n  # resource \"aws_iam_user\" \"admin\" { ... }\n  # Use Identity Center permission sets + account assignments instead\n  # (managed via aws_ssoadmin_* resources or the Identity Center console).\n\n\nRegulatory references: NIS2 Art. 21(2)(i)"
+              },
+              "id": "CKV_AWS_273",
+              "properties": {
+                "articles": [
+                  "NIS2 Art. 21(2)(i)"
+                ],
+                "mapped": true,
+                "remediation": "Delete standing IAM users and federate access through AWS IAM Identity Center (SSO):\n  # Remove:\n  # resource \"aws_iam_user\" \"admin\" { ... }\n  # Use Identity Center permission sets + account assignments instead\n  # (managed via aws_ssoadmin_* resources or the Identity Center console).\n",
+                "security-severity": "8.0",
+                "severity": "HIGH",
+                "tags": [
+                  "security",
+                  "NIS2",
+                  "NIS2 Art. 21(2)(i)"
+                ]
+              },
+              "shortDescription": {
+                "text": "Ensure access is controlled through SSO and not AWS IAM defined users"
+              }
+            },
+            {
+              "fullDescription": {
+                "text": "Attaching policies directly to individual IAM users makes entitlements hard to review and revoke at scale, weakening the asset- and access-management discipline NIS2 Art. 21(2)(i) expects. Group/role attachment keeps privileges auditable.\n"
+              },
+              "help": {
+                "markdown": "**Remediation**\n\nAttach the policy to a group or role and add the user to the group:\n  resource \"aws\\_iam\\_group\\_policy\\_attachment\" \"app\" {\n    group      = aws\\_iam\\_group.app.name\n    policy\\_arn = aws\\_iam\\_policy.app.arn\n  }\n\n\n**Regulatory references**\n\n- NIS2 Art. 21(2)(i)",
+                "text": "Remediation: Attach the policy to a group or role and add the user to the group:\n  resource \"aws_iam_group_policy_attachment\" \"app\" {\n    group      = aws_iam_group.app.name\n    policy_arn = aws_iam_policy.app.arn\n  }\n\n\nRegulatory references: NIS2 Art. 21(2)(i)"
+              },
+              "id": "CKV_AWS_40",
+              "properties": {
+                "articles": [
+                  "NIS2 Art. 21(2)(i)"
+                ],
+                "mapped": true,
+                "remediation": "Attach the policy to a group or role and add the user to the group:\n  resource \"aws_iam_group_policy_attachment\" \"app\" {\n    group      = aws_iam_group.app.name\n    policy_arn = aws_iam_policy.app.arn\n  }\n",
+                "security-severity": "5.5",
+                "severity": "MEDIUM",
+                "tags": [
+                  "security",
+                  "NIS2",
+                  "NIS2 Art. 21(2)(i)"
+                ]
+              },
+              "shortDescription": {
+                "text": "Ensure IAM policies are attached only to groups or roles (Reducing access management complexity)"
+              }
+            }
+          ],
+          "version": "<VERSION>"
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}

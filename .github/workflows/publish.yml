@@ -188,7 +188,11 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push image
+      # Build once and push by digest only: no tag points at the image yet.
+      # A failed scan below leaves an untagged digest in GHCR that no tag points
+      # to; the tag is created only after the scan passes. Output syntax:
+      # https://docs.docker.com/build/exporters/image-registry/
+      - name: Build and push image by digest (untagged)
         id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -196,11 +200,54 @@ jobs:
           push: true
           provenance: mode=max
           sbom: true
-          tags: |
-            ${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
           labels: |
             org.opencontainers.image.version=${{ github.ref_name }}
             org.opencontainers.image.revision=${{ github.sha }}
+      - name: Install trivy (pinned release, sha256-verified)
+        # Version and checksum must stay equal to ci.yml's image-scan job
+        # (enforced by test_publish_trivy_pin_matches_ci); update both together
+        # from the release's checksums file.
+        env:
+          TRIVY_VERSION: "0.76.2"
+          TRIVY_SHA256: "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf"
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/trivy.tar.gz"
+          curl -fsSL --retry 3 -o "$archive" \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "${TRIVY_SHA256}  ${archive}" | sha256sum --check --strict
+          tar -xzf "$archive" -C "$RUNNER_TEMP" trivy
+      # Trivy reads the registry credentials docker/login-action wrote to the
+      # Docker config earlier in this job, so no TRIVY_USERNAME/TRIVY_PASSWORD.
+      - name: Scan the pushed digest for fixable HIGH and CRITICAL vulnerabilities
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/trivy" image --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL --ignorefile .trivyignore.yaml --image-src remote "${IMAGE_NAME}@${DIGEST}"
+      # imagetools create copies a single-source image index unchanged, but wraps
+      # a single manifest in a new index (--prefer-index defaults to true). The
+      # build is an index only because sbom and provenance are on; the verify
+      # step below catches any drift.
+      - name: Tag the scanned digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          docker buildx imagetools create -t "${IMAGE_NAME}:${REF_NAME}" "${IMAGE_NAME}@${DIGEST}"
+      - name: Verify the tag resolves to the scanned digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          actual="$(docker buildx imagetools inspect "${IMAGE_NAME}:${REF_NAME}" --format '{{json .Manifest}}' | jq -r .digest)"
+          if [ "${actual}" != "${DIGEST}" ]; then
+            echo "::error::tag ${REF_NAME} resolves to ${actual}, scanned ${DIGEST}"
+            exit 1
+          fi
       - name: Attest build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:

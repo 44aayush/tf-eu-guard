@@ -19,7 +19,7 @@ from checkov.common.models.enums import CheckResult  # noqa: E402
 
 import tf_eu_guard.checks.k8s as k8s_pkg
 from tf_eu_guard.checkov_runner import extract_failed_checks, run_checkov
-from tf_eu_guard.checks.gdpr.data_residency import (  # noqa: E402
+from tf_eu_guard.checks.gdpr.aws_residency import (  # noqa: E402
     EURegionEnforcement,
     ThirdCountryTransferReview,
 )
@@ -541,4 +541,6 @@ def test_k8s_data_residency_is_scoped_out():
     manifests are cloud-agnostic, region lives at the cluster boundary, not in
     the manifest. Guard against an accidental future import, which would
     silently do nothing."""
-    assert not hasattr(k8s_pkg, "data_residency")
+    assert not hasattr(k8s_pkg, "aws_residency")
+    k8s_dir = os.path.dirname(k8s_pkg.__file__)
+    assert not [name for name in os.listdir(k8s_dir) if "residency" in name]
