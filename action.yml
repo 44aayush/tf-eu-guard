@@ -362,8 +362,32 @@ runs:
         fi
         commit=""
         if command -v git >/dev/null 2>&1; then
-          commit="$(GIT_CEILING_DIRECTORIES="$(dirname "$GITHUB_WORKSPACE")" \
-            git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$scan_dir" rev-parse HEAD 2>/dev/null || true)"
+          # The checkout is untrusted: drop any inherited git redirection, refuse bare repositories
+          # planted inside it, and accept the HEAD only when the repository's top level is the workspace
+          # (or inside it).
+          ws_real="$(cd "$GITHUB_WORKSPACE" 2>/dev/null && pwd -P || true)"
+          git_safe() {
+            env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR -u GIT_INDEX_FILE \
+              -u GIT_OBJECT_DIRECTORY -u GIT_ALTERNATE_OBJECT_DIRECTORIES \
+              -u GIT_CONFIG_PARAMETERS -u GIT_CONFIG_COUNT -u GIT_NAMESPACE \
+              -u GIT_CEILING_DIRECTORIES \
+              GIT_CEILING_DIRECTORIES="$(dirname "$GITHUB_WORKSPACE")" \
+              git -c core.fsmonitor=false -c core.hooksPath=/dev/null \
+              -c safe.bareRepository=explicit -C "$scan_dir" "$@" 2>/dev/null
+          }
+          top="$(git_safe rev-parse --show-toplevel || true)"
+          top_real=""
+          if [ -n "$top" ]; then
+            top_real="$(cd "$top" 2>/dev/null && pwd -P || true)"
+          fi
+          case "$top_real" in
+            "") ;;
+            *)
+              if [ -n "$ws_real" ] && { [ "$top_real" = "$ws_real" ] || case "$top_real" in "$ws_real"/*) true ;; *) false ;; esac; }; then
+                commit="$(git_safe rev-parse HEAD || true)"
+              fi
+              ;;
+          esac
         fi
         case "$commit" in
           *[!0123456789abcdef]*|"") commit="${GITHUB_SHA:-}" ;;

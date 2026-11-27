@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from cli_helpers import clean_git_env
 
 ACTION = Path(__file__).parents[1] / "action.yml"
 ACTION_E2E = Path(__file__).parents[1] / ".github" / "workflows" / "action-e2e.yml"
@@ -987,7 +988,7 @@ def _git_repo(path):
     if git is None:
         pytest.skip("git not found")
     path.mkdir(parents=True, exist_ok=True)
-    env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull}
+    env = clean_git_env()
     for cmd in (
         ["init", "-q"],
         ["-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q",
@@ -998,6 +999,23 @@ def _git_repo(path):
         [git, "-C", str(path), "rev-parse", "HEAD"], check=True, env=env, capture_output=True
     )
     return out.stdout.decode().strip()
+
+
+def test_git_helpers_ignore_exported_git_dir(tmp_path, monkeypatch):
+    """An exported GIT_DIR must not make the test helpers write into another repository."""
+    other = tmp_path / "other"
+    other_head = _git_repo(other)
+    monkeypatch.setenv("GIT_DIR", str(other / ".git"))
+    made = _git_repo(tmp_path / "made")
+    git = shutil.which("git")
+    assert git is not None
+    after = subprocess.run(
+        [git, "-C", str(other), "rev-parse", "HEAD"],
+        check=True, env=clean_git_env(), capture_output=True,
+    ).stdout.decode().strip()  # fmt: skip
+    assert after == other_head
+    assert (tmp_path / "made" / ".git").is_dir()
+    assert made
 
 
 def test_action_commit_is_the_scanned_checkouts_head(tmp_path):
@@ -1047,6 +1065,77 @@ def test_action_commit_discovery_stops_at_the_workspace(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert f"TF_EU_GUARD_COMMIT={'d' * 40}" in argv
+
+
+def _plant_bare_repo(path):
+    """Create a bare repository with one commit at *path*; return its HEAD."""
+    git = shutil.which("git")
+    if git is None:
+        pytest.skip("git not found")
+    path.mkdir(parents=True, exist_ok=True)
+    env = clean_git_env()
+    subprocess.run(
+        [git, "init", "-q", "--bare", str(path)], check=True, env=env, capture_output=True
+    )
+    tree = subprocess.run(
+        [git, "--git-dir", str(path), "hash-object", "-t", "tree", "-w", "--stdin"],
+        check=True, env=env, capture_output=True, input=b"",
+    ).stdout.decode().strip()  # fmt: skip
+    commit_env = {
+        **env,
+        "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.invalid",
+        "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.invalid",
+    }  # fmt: skip
+    planted = subprocess.run(
+        [git, "--git-dir", str(path), "commit-tree", tree, "-m", "planted"],
+        check=True, env=commit_env, capture_output=True,
+    ).stdout.decode().strip()  # fmt: skip
+    subprocess.run(
+        [git, "--git-dir", str(path), "update-ref", "refs/heads/master", planted],
+        check=True, env=env, capture_output=True,
+    )  # fmt: skip
+    subprocess.run(
+        [git, "--git-dir", str(path), "symbolic-ref", "HEAD", "refs/heads/master"],
+        check=True, env=env, capture_output=True,
+    )  # fmt: skip
+    return planted
+
+
+def test_action_commit_ignores_planted_bare_repo(tmp_path):
+    """A bare-repository-shaped tree inside the scanned path must not supply provenance.commit."""
+    bash = _bash_or_skip()
+    head = _git_repo(tmp_path / "ws")
+    planted = _plant_bare_repo(tmp_path / "ws" / "terraform")
+    assert planted != head
+    result, argv, _ = _run_action(tmp_path, bash, GITHUB_SHA="b" * 40)
+    assert result.returncode == 0, result.stderr
+    assert f"TF_EU_GUARD_COMMIT={planted}" not in argv
+    assert f"TF_EU_GUARD_COMMIT={head}" in argv or f"TF_EU_GUARD_COMMIT={'b' * 40}" in argv
+
+
+def test_action_commit_ignores_git_dir_env(tmp_path):
+    """GIT_DIR in the step environment must not redirect the commit lookup."""
+    bash = _bash_or_skip()
+    head = _git_repo(tmp_path / "ws")
+    (tmp_path / "ws" / "terraform").mkdir()
+    _git_repo(tmp_path / "other")
+    env = clean_git_env()
+    subprocess.run(
+        ["git", "-C", str(tmp_path / "other"), "-c", "user.name=t",
+         "-c", "user.email=t@example.invalid", "commit", "-q", "--allow-empty", "-m", "second"],
+        check=True, env=env, capture_output=True,
+    )  # fmt: skip
+    other_head = subprocess.run(
+        ["git", "-C", str(tmp_path / "other"), "rev-parse", "HEAD"],
+        check=True, env=env, capture_output=True,
+    ).stdout.decode().strip()  # fmt: skip
+    assert other_head != head
+    result, argv, _ = _run_action(
+        tmp_path, bash, GITHUB_SHA="b" * 40, GIT_DIR=str(tmp_path / "other" / ".git")
+    )
+    assert result.returncode == 0, result.stderr
+    assert f"TF_EU_GUARD_COMMIT={other_head}" not in argv
+    assert f"TF_EU_GUARD_COMMIT={head}" in argv or f"TF_EU_GUARD_COMMIT={'b' * 40}" in argv
 
 
 def test_action_accepts_bare_workspace_path(tmp_path):

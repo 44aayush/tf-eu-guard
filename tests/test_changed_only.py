@@ -5,7 +5,7 @@ import shutil
 import subprocess
 
 import pytest
-from cli_helpers import run_cli
+from cli_helpers import clean_git_env, run_cli
 
 from tf_eu_guard.changed import changed_files, in_changed_scope
 
@@ -18,6 +18,7 @@ def _git(cwd, *args):
         cwd=cwd,
         check=True,
         capture_output=True,
+        env=clean_git_env(),
     )
 
 
@@ -186,7 +187,9 @@ def test_changed_since_keeps_requirement_matrix(monkeypatch, k8s_repo, capsys):
 def test_changed_files_does_not_run_repo_fsmonitor(repo, tmp_path_factory):
     marker = tmp_path_factory.mktemp("marker") / "PWNED"
     _git(repo, "config", "core.fsmonitor", f"touch '{marker.as_posix()}'; false")
-    subprocess.run(["git", "-C", str(repo), "status"], capture_output=True, check=False)
+    subprocess.run(
+        ["git", "-C", str(repo), "status"], capture_output=True, check=False, env=clean_git_env()
+    )
     assert marker.exists(), "fixture must be exploitable without the safe flags"
     marker.unlink()
     changed_files(repo, "HEAD")

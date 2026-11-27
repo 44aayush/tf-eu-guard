@@ -68,6 +68,11 @@ release point.
   `image-scan` job that builds the image and fails on fixable HIGH or CRITICAL vulnerabilities with a
   pinned, checksum-verified trivy; the one remaining fixable CVE is a dated exception in
   `.trivyignore.yaml` (TEG-06).
+- The Action's `provenance.commit` lookup can no longer be redirected: `git rev-parse` runs with the
+  inherited `GIT_*` variables removed and `safe.bareRepository=explicit` (a bare repository planted under
+  the scanned path is ignored), and the HEAD is used only when the repository's top level is the workspace
+  or inside it; otherwise `GITHUB_SHA` is the fallback. Test git helpers also drop `GIT_*` from their
+  environment.
 - The Action merges the container's stderr into stdout and wraps both in a random
   `::stop-commands::` token that is resumed after the scan, so workflow commands printed by the
   scanned code are not interpreted while the container runs (TEG-03).

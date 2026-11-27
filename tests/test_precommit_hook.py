@@ -34,6 +34,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from cli_helpers import clean_git_env
 
 HOOK_FILE = ".pre-commit-hooks.yaml"
 DEV_HOOK_FILE = ".githooks/pre-commit"
@@ -104,6 +105,7 @@ def _git(repo: Path, *args: str) -> str:
         capture_output=True,
         text=True,
         check=True,
+        env=clean_git_env(),
     )
     return result.stdout.strip()
 
