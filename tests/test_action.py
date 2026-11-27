@@ -397,7 +397,7 @@ def _run_action(tmp_path, bash, no_gh=False, **extra):
         **{
             f"INPUT_{n}": ""
             for n in (
-                "UPLOAD_REPORTS UPLOAD_SARIF FAIL_ON_SEVERITY FAIL_ON_ANY FAIL_ON_SUPPRESSED FAIL_ON_UNMAPPED UNMAPPED_SEVERITY "
+                "UPLOAD_REPORTS UPLOAD_SARIF FAIL_ON_SEVERITY FAIL_ON_ANY FAIL_ON_SUPPRESSED FAIL_ON_UNMAPPED UNMAPPED_SEVERITY JSON_FORMAT "
                 "RESIDENCY_POLICY ALLOWED_REGIONS TIMEOUT CHECKOV_JSON OUTPUT_DIR OUTPUT_FILE "
                 "CONFIG TRUSTED_CONFIG WAIVERS MAX_WAIVER_DAYS BASELINE DISCOVER_CONFIG"
             ).split()
@@ -445,6 +445,7 @@ def test_action_declares_new_inputs():
     assert inputs["discover-config"]["default"] == "false"
     assert inputs["fail-on-unmapped"]["default"] == "false"
     assert inputs["unmapped-severity"]["default"] == ""
+    assert inputs["json-format"]["default"] == ""
     text = ACTION.read_text(encoding="utf-8")
     for var in (
         "CONFIG",
@@ -455,6 +456,7 @@ def test_action_declares_new_inputs():
         "DISCOVER_CONFIG",
         "FAIL_ON_UNMAPPED",
         "UNMAPPED_SEVERITY",
+        "JSON_FORMAT",
     ):
         assert f"INPUT_{var}: ${{{{ inputs." in text
 
@@ -477,6 +479,16 @@ def test_action_passes_unmapped_severity(tmp_path, value, passed):
     assert ("--unmapped-severity" in argv) is passed
     if passed:
         assert argv[argv.index("--unmapped-severity") + 1] == value
+
+
+@pytest.mark.parametrize(("value", "passed"), [("object", True), ("array", True), ("", False)])
+def test_action_passes_json_format(tmp_path, value, passed):
+    bash = _bash_or_skip()
+    result, argv, _ = _run_action(tmp_path, bash, INPUT_JSON_FORMAT=value)
+    assert result.returncode == 0, result.stderr
+    assert ("--json-format" in argv) is passed
+    if passed:
+        assert argv[argv.index("--json-format") + 1] == value
 
 
 def test_action_passes_no_discovery_by_default(tmp_path):

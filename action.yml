@@ -26,7 +26,11 @@ inputs:
     required: false
     default: 'HIGH'
   unmapped-severity:
-    description: 'Count every active Checkov finding with no EU mapping as a finding of this severity (CRITICAL, HIGH, MEDIUM, LOW, INFO) for fail-on-severity and fail-on-any; empty leaves unmapped findings out of those gates (mirrors --unmapped-severity)'
+    description: 'Count every active Checkov finding with no EU mapping as a finding of this severity (CRITICAL, HIGH, MEDIUM, LOW, INFO) for fail-on-severity and fail-on-any; unmapped findings are never baselined or waived; empty leaves unmapped findings out of those gates (mirrors --unmapped-severity)'
+    required: false
+    default: ''
+  json-format:
+    description: 'JSON report shape for output json: array or object; empty omits --json-format, which prints the implicit-default deprecation warning (mirrors --json-format)'
     required: false
     default: ''
   upload-reports:
@@ -34,7 +38,7 @@ inputs:
     required: false
     default: 'false'
   fail-on-any:
-    description: 'Fail the workflow when any mapped finding exists, regardless of severity (true, 1 or yes, any case)'
+    description: 'Fail the workflow when any mapped finding exists (or, with unmapped-severity set, any active unmapped finding), regardless of severity (true, 1 or yes, any case)'
     required: false
     default: 'false'
   fail-on-suppressed:
@@ -169,6 +173,7 @@ runs:
         INPUT_FAIL_ON_SUPPRESSED: ${{ inputs.fail-on-suppressed }}
         INPUT_FAIL_ON_UNMAPPED: ${{ inputs.fail-on-unmapped }}
         INPUT_UNMAPPED_SEVERITY: ${{ inputs.unmapped-severity }}
+        INPUT_JSON_FORMAT: ${{ inputs.json-format }}
         INPUT_RESIDENCY_POLICY: ${{ inputs.residency-policy }}
         INPUT_ALLOWED_REGIONS: ${{ inputs.allowed-regions }}
         INPUT_CHECKOV_JSON: ${{ inputs.checkov-json }}
@@ -343,6 +348,9 @@ runs:
         fi
         if [ -n "$INPUT_UNMAPPED_SEVERITY" ]; then
           args+=(--unmapped-severity "$INPUT_UNMAPPED_SEVERITY")
+        fi
+        if [ -n "$INPUT_JSON_FORMAT" ]; then
+          args+=(--json-format "$INPUT_JSON_FORMAT")
         fi
         if [ -n "$INPUT_RESIDENCY_POLICY" ]; then
           args+=(--residency-policy "$INPUT_RESIDENCY_POLICY")
