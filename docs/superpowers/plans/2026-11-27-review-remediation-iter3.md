@@ -12,13 +12,15 @@
 
 ## Global Constraints
 
+- `<scratchpad>` is the controller's session scratch directory (outside the repo; it holds the review venv, the lab fixtures and the recheck harness).
+
 - Branch `version_0.10.0` in `/home/dev/tf-eu-guard`.
   - Never create or push tags, never merge into `main`, take no pull-request actions, and do not push.
   - Never rewrite history (no `filter-branch`, rebase or amend of commits you did not create in this task).
   - Never `git checkout` or revert files you did not change.
   - Never export `GIT_*` environment variables while running anything.
 - Supported Python 3.11-3.14; no new runtime dependency. ruff, `git ls-files '*.py' '*.md' | xargs ruff format --check` and `mypy --ignore-missing-imports tf_eu_guard tools` stay clean.
-- `<venv>` is `/tmp/claude-1000/-home-dev-tf-eu-guard/231e1cf5-a406-4886-872c-312b008715d1/scratchpad/venv`. Full-suite runs use `TFEG_RUN_CHECKOV=1`; run the full suite again after your last code change.
+- `<venv>` is `<scratchpad>/venv`. Full-suite runs use `TFEG_RUN_CHECKOV=1`; run the full suite again after your last code change.
 - Action inputs reach the script only through `env:`. No bash-4-only constructs.
 - Untrusted strings printed to a terminal or stderr go through `tf_eu_guard.reporting.untrusted.sanitize`.
 - Each task adds a bullet under `## [Unreleased]` in `CHANGELOG.md`, in the existing subsections. Do not edit `REVIEW.md`, `TASKS.md` or `docs/superpowers/`.

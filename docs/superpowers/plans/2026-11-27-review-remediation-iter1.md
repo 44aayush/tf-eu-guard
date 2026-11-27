@@ -12,9 +12,11 @@
 
 ## Global Constraints
 
+- `<scratchpad>` is the controller's session scratch directory (outside the repo; it holds the review venv, the lab fixtures and the recheck harness).
+
 - Work on branch `version_0.10.0` in `/home/dev/tf-eu-guard`. Push only that branch. Never create or push tags; never merge into `main`; no pull-request actions.
 - Supported Python 3.11-3.14; no new runtime dependency; ruff (line length 100), `ruff format --check` and `mypy --ignore-missing-imports tf_eu_guard tools` stay clean.
-- Test command: `/tmp/claude-1000/-home-dev-tf-eu-guard/231e1cf5-a406-4886-872c-312b008715d1/scratchpad/venv/bin/pytest`, run from the repo root (that venv has the project installed in editable mode from the locks; `<venv>` below means its directory). Full-suite runs use `TFEG_RUN_CHECKOV=1`.
+- Test command: `<scratchpad>/venv/bin/pytest`, run from the repo root (that venv has the project installed in editable mode from the locks; `<venv>` below means its directory). Full-suite runs use `TFEG_RUN_CHECKOV=1`.
 - Every `uses:` in workflows and `action.yml` is pinned to a 40-hex SHA with a `# vX.Y.Z` comment.
 - Each task adds its own bullet under `## [Unreleased]` in `CHANGELOG.md` (subsections `### Added`, `### Changed`, `### Fixed`, `### Security` as appropriate).
 - `TASKS.md` is git-ignored by project convention (`TASKS*` in .gitignore). Implementers do not edit it; the controller updates its status column after each task review.
@@ -52,7 +54,7 @@ Rules for `sanitize`: `None` becomes `""`; other values go through `str()`. Repl
 - [ ] **Step 2: Run them and confirm they fail.** Run: `pytest tests/test_untrusted_output.py -v`. Expected: ImportError for `tf_eu_guard.reporting.untrusted`.
 - [ ] **Step 3: Implement `sanitize` and apply it** at every listed call site. Sanitise the values that come from the checkout or from Checkov: resource, file path, check name, check ID, suppression reason, waiver owner and reason, weakening lines, symlink paths, module names and sources. Do not sanitise fixed text written by the tool.
 - [ ] **Step 4: Run the new and the existing terminal tests.** Run: `pytest tests/test_untrusted_output.py tests/test_reporting_terminal.py tests/test_suppressed.py tests/test_waivers.py tests/test_baseline.py -q`. Expected: all pass.
-- [ ] **Step 5: Reproduce the lab case.** Run: `<venv>/bin/tf-eu-guard scan /tmp/claude-1000/-home-dev-tf-eu-guard/231e1cf5-a406-4886-872c-312b008715d1/scratchpad/lab/e7-k8s --iac-type kubernetes --output dev | grep -c '^::'`. Expected: `0` (it was 18).
+- [ ] **Step 5: Reproduce the lab case.** Run: `<venv>/bin/tf-eu-guard scan <scratchpad>/lab/e7-k8s --iac-type kubernetes --output dev | grep -c '^::'`. Expected: `0` (it was 18).
 - [ ] **Step 6: CHANGELOG (`### Security`), commit** `fix(security): sanitise untrusted strings in terminal and stderr output (TEG-03)`.
 
 ---
@@ -102,7 +104,7 @@ Behaviour:
   - Add `discover-config` to the inputs asserted by `test_action_declares_new_inputs`.
 - [ ] **Step 2: Run them and confirm they fail.** Run: `pytest tests/test_action.py -k "discovery or discover_config or stop_commands or resumes" -v`. Expected: FAIL.
 - [ ] **Step 3: Implement** in `action.yml`. Keep the `env:`-only input handling (so `test_action_inputs_are_passed_through_env_not_shell_code` still holds) and use no bash-4-only constructs. Document the input in the README inputs table, and add to the trusted-config paragraph that discovery is off by default since 0.10.
-- [ ] **Step 4: Run.** Run: `pytest tests/test_action.py tests/test_ci_workflows.py -q`. Then run `/home/dev/.local/bin/shellcheck -s bash` on the extracted `run:` block; extract it with `python3 -I <scratchpad>/extract_run.py action.yml OUT.sh`, where `<scratchpad>` is `/tmp/claude-1000/-home-dev-tf-eu-guard/231e1cf5-a406-4886-872c-312b008715d1/scratchpad`. Expected: all tests pass; shellcheck reports no warning or error.
+- [ ] **Step 4: Run.** Run: `pytest tests/test_action.py tests/test_ci_workflows.py -q`. Then run `/home/dev/.local/bin/shellcheck -s bash` on the extracted `run:` block; extract it with `python3 -I <scratchpad>/extract_run.py action.yml OUT.sh`, where `<scratchpad>` is `<scratchpad>`. Expected: all tests pass; shellcheck reports no warning or error.
 - [ ] **Step 5: CHANGELOG (`### Changed`: discovery is off by default in the Action, a behaviour change; `### Security`: the stop-commands bracket), commit** `feat(action): discovery off by default and stop-commands bracket (TEG-01, TEG-03)`.
 
 ---
