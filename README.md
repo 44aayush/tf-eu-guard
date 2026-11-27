@@ -582,7 +582,7 @@ in the job log) because the Action only uploads SARIF when `upload-sarif` is
 `true`.
 
 With the default pull-by-tag, the Action verifies the pulled image against its GitHub build-provenance
-attestation (`gh attestation verify`, signed by this repository's `publish.yml`) and runs it by digest;
+attestation (`gh attestation verify`, signed by this repository's `publish.yml` and built from the same tag as the Action ref) and runs it by digest;
 when the image cannot be verified (no `gh`, no attestation, registry unreachable) it prints a notice and
 builds the image locally instead. Set `verify-image: false` to run the tag as pulled.
 

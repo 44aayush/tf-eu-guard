@@ -226,7 +226,8 @@ runs:
               elif command -v gh >/dev/null 2>&1 \
                 && GH_TOKEN="$ACTION_TOKEN" gh attestation verify "oci://$ref" \
                   --repo 44aayush/tf-eu-guard \
-                  --signer-workflow 44aayush/tf-eu-guard/.github/workflows/publish.yml >/dev/null 2>&1; then
+                  --signer-workflow 44aayush/tf-eu-guard/.github/workflows/publish.yml \
+                  --source-ref "refs/tags/${ACTION_REF}" >/dev/null 2>&1; then
                 image="$ref"
               fi
             fi

@@ -1010,6 +1010,14 @@ def test_action_verified_image_runs_by_digest(tmp_path):
     assert "could not verify" not in result.stdout
 
 
+def test_action_verify_binds_source_ref(tmp_path):
+    bash = _bash_or_skip()
+    result, _, _ = _image_run(tmp_path, bash)
+    assert result.returncode == 0, result.stderr
+    gh_argv = (tmp_path / "gh_argv").read_text(encoding="utf-8").splitlines()
+    assert gh_argv[gh_argv.index("--source-ref") + 1] == "refs/tags/v0.10.0"
+
+
 def test_action_unverified_image_falls_back_to_local_build(tmp_path):
     bash = _bash_or_skip()
     result, argv, _ = _image_run(tmp_path, bash, STUB_GH_EXIT="1")
