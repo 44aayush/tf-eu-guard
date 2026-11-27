@@ -25,8 +25,7 @@ def test_env_region_is_caught_in_plan_mode(make_stack):
 def test_s3_public_access_block_ground_truth(make_stack, endpoint):
     stack = make_stack(FIXTURE, "us-east-1")
     plan = stack.plan_json()
-    stack.apply()
-    try:
+    with stack.applied():
         s3 = boto3.client(
             "s3",
             endpoint_url=endpoint,
@@ -34,7 +33,7 @@ def test_s3_public_access_block_ground_truth(make_stack, endpoint):
             aws_access_key_id="test",
             aws_secret_access_key="test",
         )
-        config = s3.get_public_access_block(Bucket="tf-eu-guard-emulator-data")
+        config = s3.get_public_access_block(Bucket=stack.bucket)
         flags = config["PublicAccessBlockConfiguration"]
         assert flags == {
             "BlockPublicAcls": False,
@@ -45,5 +44,3 @@ def test_s3_public_access_block_ground_truth(make_stack, endpoint):
         ids = {f.check_id for f in scan(plan, iac_type="terraform_plan", no_config=True).findings}
         missing = {f"CKV_AWS_{n}" for n in range(53, 57)} - ids
         assert not missing, f"insecure state read back but no finding for {sorted(missing)}"
-    finally:
-        stack.destroy()

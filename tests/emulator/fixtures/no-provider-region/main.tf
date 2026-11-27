@@ -11,8 +11,13 @@ terraform {
   }
 }
 
+variable "bucket_name" {
+  type    = string
+  default = "tf-eu-guard-emulator-data"
+}
+
 resource "aws_s3_bucket" "data" {
-  bucket = "tf-eu-guard-emulator-data"
+  bucket = var.bucket_name
 }
 
 resource "aws_s3_bucket_public_access_block" "data" {

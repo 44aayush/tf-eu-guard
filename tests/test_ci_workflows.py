@@ -645,6 +645,10 @@ def test_emulator_job_is_pinned_read_only_and_runs_the_opt_in_tier():
     assert service["image"] == LOCALSTACK_IMAGE
     assert service["ports"] == ["4566:4566"]
     assert service["env"] == {"SERVICES": "s3,sqs,dynamodb,sts,iam"}
+    assert service["options"] == (
+        '--health-cmd "curl -fs http://localhost:4566/_localstack/health"'
+        " --health-interval 5s --health-timeout 5s --health-retries 20"
+    )
     checkout = next(s for s in job["steps"] if s.get("uses", "").startswith("actions/checkout"))
     assert checkout["with"]["persist-credentials"] is False
     terraform = next(
@@ -674,8 +678,8 @@ def test_emulator_tier_skips_by_default():
         check=False,
     )
     assert done.returncode == 0, done.stdout + done.stderr
-    assert "2 skipped" in done.stdout
-    assert "passed" not in done.stdout and "failed" not in done.stdout
+    assert re.search(r"\b[1-9]\d* skipped\b", done.stdout), done.stdout
+    assert not re.search(r"\b\d+ (passed|failed|error)", done.stdout), done.stdout
 
 
 def test_emulator_override_is_not_inside_a_scanned_fixture():
