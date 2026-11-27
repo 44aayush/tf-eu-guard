@@ -113,7 +113,15 @@ def test_doc_is_current():
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_doc_flag_without_value_exits_with_message():
+def test_doc_flag_without_value_exits_with_message(capsys):
     with pytest.raises(SystemExit) as exc:
         gcc.main(["--check", "--doc"])
-    assert "--doc" in str(exc.value)
+    assert exc.value.code == 2
+    assert "--doc" in capsys.readouterr().err
+
+
+def test_doc_flag_followed_by_flag_is_error(capsys):
+    with pytest.raises(SystemExit) as exc:
+        gcc.main(["--doc", "--check"])
+    assert exc.value.code == 2
+    assert "--doc" in capsys.readouterr().err

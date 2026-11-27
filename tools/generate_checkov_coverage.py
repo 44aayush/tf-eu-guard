@@ -23,6 +23,7 @@ the catalogue, so regenerate the doc in the same change:
 Exit codes: 0 = generated / in sync, 1 = out of sync or a registry/triage problem.
 """
 
+import argparse
 import re
 import sys
 from pathlib import Path
@@ -216,13 +217,12 @@ def _shown(path: Path) -> str:
 
 
 def main(argv: list[str]) -> int:
-    check = "--check" in argv
-    doc_path = DOC_PATH
-    if "--doc" in argv:
-        position = argv.index("--doc") + 1
-        if position >= len(argv):
-            raise SystemExit("--doc needs a FILE argument")
-        doc_path = Path(argv[position])
+    parser = argparse.ArgumentParser(description="Generate or check the Checkov coverage doc.")
+    parser.add_argument("--check", action="store_true", help="exit 1 when the doc is stale")
+    parser.add_argument("--doc", type=Path, default=DOC_PATH, metavar="PATH", help="doc file")
+    args = parser.parse_args(argv)
+    check: bool = args.check
+    doc_path: Path = args.doc
     from checkov.version import version
 
     mapped_ids = set(load_registry(REPO_ROOT / "tf_eu_guard" / "mapping"))

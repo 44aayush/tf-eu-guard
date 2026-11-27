@@ -100,12 +100,14 @@ release point.
   `--fail-on-severity MEDIUM`, `LOW` or `INFO` and `--fail-on-any` now fail. `--framework nis2` or `gdpr` drops it (it
   carries a POLICY article). Existing `--baseline` files do not contain it, so a MEDIUM-or-lower gate with a baseline
   fails once on upgrade until you re-baseline or waive it. Plan scans are unchanged (TEG-05).
-- `EUGUARD_POLICY_005` no longer treats a module named `aws_bridge` (or `google_*`) as an AWS (or GCP) resource: only the
-  resource-type segment is matched, so a GCP-only stack that wraps resources in such a module gets neither the finding
-  nor the AWS warning. With `--download-external-modules` the finding is anchored in a root-module file when one
-  exists, not in `.external_modules/`.
-- `tools/generate_checkov_coverage.py --doc` as the last argument now exits with a clear message instead of an
-  `IndexError`; the `--counts-file` help lists `baselined_unmapped`.
+- The AWS and GCP stderr-warning pattern, which `EUGUARD_POLICY_005` and `EUGUARD_POLICY_006` reuse, matches only the
+  resource-type segment: a module named `aws_bridge` (or `google_*`) is not counted as an AWS (or GCP) resource, so a
+  stack that wraps resources of the other cloud in such a module gets neither that cloud's finding nor its warning.
+  With `--download-external-modules` the finding is anchored in a root-module file when one exists, not in
+  `.external_modules/`.
+- The `--counts-file` help text lists `baselined_unmapped`.
+- `tools/generate_checkov_coverage.py` parses its arguments with `argparse`: `--doc` followed by another flag, or given
+  as the last argument, is now a usage error instead of an `IndexError` or a path.
 - `--baseline` now matches unmapped Checkov findings (check ID, resource, file path) against the baseline's
   `unmapped[]` and `baselined_unmapped[]` (entries flagged `suppressed` and array-format baselines give none). Known
   unmapped findings move out of `unmapped` into the new JSON object array `baselined_unmapped` (same entry shape;

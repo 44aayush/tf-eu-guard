@@ -194,9 +194,9 @@ def _region_unset_finding(
 ) -> dict[str, Any] | None:
     """Return a failed-check dict for *check_id* exactly when the matching warning fires.
 
-    The finding is anchored at the first matching resource by sorted (file path, line),
-    root-module files before downloaded ``.external_modules`` ones, because the missing
-    provider region has no source location of its own.
+    The missing provider region has no source location of its own, so the finding is
+    anchored at the first matching resource, sorted by file path and line, with
+    root-module files before downloaded ``.external_modules`` ones.
     """
     resources = _unset_region_resources(
         checkov_output,

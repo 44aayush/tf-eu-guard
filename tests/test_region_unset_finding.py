@@ -254,7 +254,10 @@ def test_no_region_finding_waivable_and_baselined(monkeypatch, tmp_path, capsys)
     assert all(f["check_id"] != "EUGUARD_POLICY_005" for f in report["findings"])
 
     baseline = tmp_path / "baseline.json"
-    baseline.write_text(first)
+    # The report carries the real wall-clock timestamp; the baseline must not post-date the pinned day.
+    first_report = json.loads(first)
+    first_report["scan"]["timestamp"] = "2026-06-01T00:00:00Z"
+    baseline.write_text(json.dumps(first_report))
     code = run_cli(
         monkeypatch, tmp_path, *base, "--baseline", str(baseline), "--fail-on-severity", "MEDIUM"
     )
