@@ -92,8 +92,8 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 | CKV_AWS_293 | rds.tf | aws_db_instance | Deletion protection off | 21(2)(c) | 32(1)(c) | MEDIUM |
 | CKV_AWS_118 | rds.tf | aws_db_instance | Enhanced monitoring off | 21(2)(b) | – | MEDIUM |
 | CKV_AWS_157 | rds.tf | aws_db_instance | Multi-AZ disabled | 21(2)(c) | 32(1)(c) | MEDIUM |
-| CKV_AWS_24 | network.tf | aws_security_group | SSH (22) open to 0.0.0.0/0 | 21(2)(i) | 32(1)(b) | HIGH |
-| CKV_AWS_25 ‡ | network.tf | aws_security_group | RDP (3389) open to 0.0.0.0/0 | 21(2)(i) | 32(1)(b) | HIGH |
+| CKV_AWS_24 | network.tf | aws_security_group | SSH (22) open to 0.0.0.0/0 | 21(2)(i) | 32(1)(b) | CRITICAL |
+| CKV_AWS_25 ‡ | network.tf | aws_security_group | RDP (3389) open to 0.0.0.0/0 | 21(2)(i) | 32(1)(b) | CRITICAL |
 | CKV_AWS_260 | network.tf | aws_security_group | HTTP (80) open to 0.0.0.0/0 | 21(2)(i) | – | MEDIUM |
 | CKV_AWS_382 | network.tf | aws_security_group | Egress open to 0.0.0.0/0 | 21(2)(i) | – | MEDIUM |
 | CKV2_AWS_12 | network.tf | aws_vpc | Default SG not restricted | 21(2)(i) | – | MEDIUM |
@@ -108,8 +108,8 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 
 ### Coverage summary
 
-- By severity (original 38): 9 CRITICAL · 15 HIGH · 14 MEDIUM. With the
-  extension above (188 total: 20 CRITICAL · 73 HIGH · 69 MEDIUM · 26 LOW).
+- By severity (original 38): 11 CRITICAL · 13 HIGH · 14 MEDIUM. With the
+  extension above (188 total: 22 CRITICAL · 64 HIGH · 76 MEDIUM · 26 LOW).
 - By framework (original 38): 21 map to both NIS2 and GDPR, 11 NIS2-only, 6 GDPR-only.
 - By file: iam.tf (12), s3.tf (9), rds.tf (9), network.tf (7), main.tf (1).
 - By theme: access control / least privilege (20), public exposure (7),
@@ -171,7 +171,7 @@ remediation text lives in the registry):
 | Network segmentation | 21(2)(i) | 32(1)(b) | CKV_AWS_137, 248, 38, 39, 117, CKV2_AWS_5, 23 |
 | Terraform module pinning (cloud-agnostic) | 21(2)(d) | – | CKV_TF_1, CKV_TF_2 |
 
-Severity distribution after the extension: **20 CRITICAL · 73 HIGH · 69 MEDIUM ·
+Severity distribution after the extension: **22 CRITICAL · 64 HIGH · 76 MEDIUM ·
 26 LOW** (188 total; article refs: NIS2 178, GDPR 135). An article ref is one
 entry in a check's `articles` list in `registry-aws.yaml`, counted per framework, so a
 check citing two NIS2 letters counts twice; the 3 `POLICY` refs are not included.
@@ -198,7 +198,7 @@ on every check would claim more than the check shows.
    `examples/end2end/`); the remaining ‡ IDs are authored from the Checkov policy
    index and are dormant only because no fixture yet holds a triggering resource.
    The registry records only what has been reproduced.
-2. Severity is authored here. Checkov 3.4.5 returns `severity: null`, so the
+2. Severity is authored here (the rule for four families is in [severity-rubric.md](severity-rubric.md)). Checkov 3.4.5 returns `severity: null`, so the
    registry is the source of truth for severity (see `docs/checkov-schema.md`).
 3. Conservative dual-mapping. A check maps to both frameworks only where both
    articles apply (e.g. encryption → GDPR 32(1)(a) *and* NIS2 21(2)(h)).

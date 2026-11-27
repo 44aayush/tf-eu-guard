@@ -3,6 +3,7 @@
 import importlib.util
 import os
 import textwrap
+from pathlib import Path
 
 import pytest
 
@@ -14,12 +15,91 @@ def _articles(mapping):
     return {(a.framework.value, a.article) for a in mapping.articles}
 
 
-@pytest.mark.parametrize(
-    "cid", ["CKV_AWS_16", "CKV_AWS_96", "CKV_AWS_5", "CKV_AWS_44", "CKV_AWS_3"]
+PUBLIC_EXPOSURE_IDS = (
+    "CKV_AWS_17",
+    "CKV_AWS_20",
+    "CKV_AWS_70",
+    "CKV_AWS_87",
+    "CKV_AWS_24",
+    "CKV_AWS_25",
+    "CKV_AZURE_11",
+    "CKV_AZURE_59",
+    "CKV_GCP_11",
+    "CKV_GCP_28",
+    "CKV_GCP_88",
 )
-def test_encryption_at_rest_family_has_one_severity(registry, cid):
+GUARDRAIL_IDS = (
+    "CKV2_AWS_6",
+    "CKV_AWS_53",
+    "CKV_AWS_54",
+    "CKV_AWS_55",
+    "CKV_AWS_56",
+    "CKV_AWS_38",
+    "CKV_AZURE_139",
+    "CKV_AZURE_160",
+    "CKV_AZURE_48",
+    "CKV_AZURE_53",
+    "CKV_GCP_18",
+)
+ENCRYPTION_AT_REST_IDS = (
+    "CKV_AWS_16",
+    "CKV_AWS_3",
+    "CKV_AWS_96",
+    "CKV_AWS_5",
+    "CKV_AWS_44",
+)
+CMK_IDS = (
+    "CKV_AWS_119",
+    "CKV_AWS_147",
+    "CKV_AWS_149",
+    "CKV_AWS_186",
+    "CKV_AWS_189",
+    "CKV_AWS_191",
+    "CKV_AWS_224",
+    "CKV_AWS_247",
+    "CKV_AWS_280",
+    "CKV_AWS_327",
+    "CKV_AWS_347",
+    "CKV_AWS_35",
+)
+RUBRIC_DOC = Path(__file__).resolve().parents[1] / "docs" / "severity-rubric.md"
+
+
+@pytest.mark.parametrize("cid", PUBLIC_EXPOSURE_IDS)
+def test_public_exposure_family_is_critical(registry, cid):
+    """A world-open data store or admin port (SSH/RDP) is CRITICAL."""
+    assert registry[cid].severity == Severity.CRITICAL
+
+
+@pytest.mark.parametrize("cid", GUARDRAIL_IDS)
+def test_guardrail_family_is_high(registry, cid):
+    """Public-network guardrails (defence in depth against exposure) are HIGH."""
+    assert registry[cid].severity == Severity.HIGH
+
+
+@pytest.mark.parametrize("cid", ENCRYPTION_AT_REST_IDS)
+def test_encryption_at_rest_family_is_high(registry, cid):
     """The encryption-at-rest checks for data stores all have severity HIGH."""
     assert registry[cid].severity == Severity.HIGH
+
+
+@pytest.mark.parametrize("cid", CMK_IDS)
+def test_cmk_family_is_medium(registry, cid):
+    """A customer-managed key over a provider-managed one is key-control depth: MEDIUM."""
+    assert registry[cid].severity == Severity.MEDIUM
+
+
+def test_families_do_not_overlap():
+    families = [PUBLIC_EXPOSURE_IDS, GUARDRAIL_IDS, ENCRYPTION_AT_REST_IDS, CMK_IDS]
+    all_ids = [cid for family in families for cid in family]
+    assert len(all_ids) == len(set(all_ids))
+
+
+def test_rubric_doc_lists_every_family_id():
+    doc = RUBRIC_DOC.read_text(encoding="utf-8")
+    ids = PUBLIC_EXPOSURE_IDS + GUARDRAIL_IDS + ENCRYPTION_AT_REST_IDS + CMK_IDS
+    missing = [cid for cid in ids if f"`{cid}`" not in doc]
+    assert not missing, f"docs/severity-rubric.md does not list {missing}"
 
 
 def test_ckv_aws_288_cites_no_breach_articles(registry):

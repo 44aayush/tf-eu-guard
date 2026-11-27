@@ -60,6 +60,27 @@ release point.
   `--fail-on-severity CRITICAL` no longer fails on them. `CKV_AWS_288` no longer cites GDPR
   Art. 4(12) and Art. 33 (a finding is a possible exfiltration path, not a breach). Checkov `CKV2_AWS_27`
   (Postgres RDS cluster query logging) and `CKV2_AWS_34` (unencrypted SSM parameter) are now mapped (TEG-11).
+- Severity rubric (TEG-11), written down in `docs/severity-rubric.md` and pinned by `tests/test_registry_rubric.py`
+  for public exposure (CRITICAL), public-network guardrails (HIGH), data-store encryption at rest (HIGH) and
+  customer-managed keys (MEDIUM). Two checks are raised: `CKV_AWS_24` (SSH open to the world) and
+  `CKV_AWS_25` (RDP open to the world), HIGH to CRITICAL. Seven are lowered, HIGH to MEDIUM, because the data
+  is already encrypted with a provider-managed key and a customer-managed key (CMK) adds key-control depth that
+  GDPR Art. 32(1)(a) does not itself require: `CKV_AWS_119`, `CKV_AWS_147`, `CKV_AWS_149`, `CKV_AWS_247`,
+  `CKV_AWS_327`, `CKV_AWS_347` and `CKV_AWS_35`. A gate at `--fail-on-severity high` no longer fails on the
+  lowered seven. To restore the previous levels, use `severity_overrides` in `.tf-eu-guard.yaml`:
+
+  ```yaml
+  severity_overrides:
+    CKV_AWS_24: HIGH
+    CKV_AWS_25: HIGH
+    CKV_AWS_119: HIGH
+    CKV_AWS_147: HIGH
+    CKV_AWS_149: HIGH
+    CKV_AWS_247: HIGH
+    CKV_AWS_327: HIGH
+    CKV_AWS_347: HIGH
+    CKV_AWS_35: HIGH
+  ```
 
 ### Fixed
 

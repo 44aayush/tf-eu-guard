@@ -638,7 +638,7 @@ CKV_AWS_119:
           type = "S"
         }
       }
-  severity: HIGH
+  severity: MEDIUM
 
 CKV_AWS_28:
   check_name: "Ensure DynamoDB point in time recovery (backup) is enabled"
@@ -729,7 +729,7 @@ CKV_AWS_24:
         }
       }
     Use SSM Session Manager instead of exposing an administrative port where possible.
-  severity: HIGH
+  severity: CRITICAL
 
 CKV_AWS_25:
   check_name: "Ensure no security groups allow ingress from 0.0.0.0:0 to port 3389"
@@ -760,7 +760,7 @@ CKV_AWS_25:
         }
       }
     Use SSM Session Manager or a VPN instead of exposing RDP where possible.
-  severity: HIGH
+  severity: CRITICAL
 
 CKV_AWS_260:
   check_name: "Ensure no security groups allow ingress from 0.0.0.0:0 to port 80"
@@ -1166,7 +1166,7 @@ CKV_AWS_247:
           kms_key_id = aws_kms_key.es.arn
         }
       }
-  severity: HIGH
+  severity: MEDIUM
 
 CKV_AWS_44:
   check_name: "Ensure Neptune storage is securely encrypted"
@@ -1208,7 +1208,7 @@ CKV_AWS_347:
         storage_encrypted = true
         kms_key_arn       = aws_kms_key.neptune.arn
       }
-  severity: HIGH
+  severity: MEDIUM
 
 CKV_AWS_279:
   check_name: "Ensure Neptune snapshot is securely encrypted"
@@ -1274,7 +1274,7 @@ CKV_AWS_327:
         storage_encrypted = true
         kms_key_id        = aws_kms_key.rds.arn
       }
-  severity: HIGH
+  severity: MEDIUM
 
 CKV_AWS_136:
   check_name: "Ensure that ECR repositories are encrypted using KMS"
@@ -3363,7 +3363,7 @@ CKV_AWS_149:
       resource "aws_db_instance" "main" {
         password = jsondecode(aws_secretsmanager_secret_version.db_password.secret_string)["password"]
       }
-  severity: HIGH
+  severity: MEDIUM
 
 CKV2_AWS_57:
   check_name: "Ensure Secrets Manager secrets should have automatic rotation enabled"
@@ -3736,7 +3736,7 @@ CKV_AWS_35:
       }
       # The key policy must allow cloudtrail.amazonaws.com to
       # GenerateDataKey*/Decrypt on the key.
-  severity: HIGH
+  severity: MEDIUM
 
 CKV_AWS_252:
   check_name: "Ensure CloudTrail defines an SNS Topic"
@@ -3834,7 +3834,7 @@ CKV_AWS_147:
       resource "aws_codebuild_project" "app" {
         encryption_key = aws_kms_key.codebuild.arn
       }
-  severity: HIGH
+  severity: MEDIUM
 
 CKV_AWS_314:
   check_name: "Ensure CodeBuild project environments have a logging configuration"
