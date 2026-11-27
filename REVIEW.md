@@ -572,3 +572,15 @@ These results are from a fresh `--no-cache` build (`tf-eu-guard:ci11`) at `a5d24
 | TEG-17 code health | `resolve_json_format` moved to `tf_eu_guard/json_layout.py`, so `provenance.py` no longer imports the CLI layer. Provenance records the resolved JSON layout. One Fail line is printed when both unmapped gates trip | Fixed |
 
 Corrected during the iteration: the first unmapped-baseline design hid known unmapped findings from SARIF and the HTML reports, which would have closed still-failing code-scanning alerts. They are now kept visible.
+
+### After iteration 8 (2026-11-27, `version_0.10.0`)
+
+These results are from a fresh `--no-cache` build (`tf-eu-guard:ci12`) at `07b9de2`. 1677 tests pass (`TFEG_RUN_CHECKOV=1`), the emulator tier passes against LocalStack 4.9, the registries and docs agree on 283 mappings, the coverage docs are current, the trivy gate exits 0, and every recheck harness exits 0 with all post-fix rows FIXED.
+
+| Finding | After iteration 8 | Status |
+| --- | --- | --- |
+| TEG-05 no provider region | New `EUGUARD_POLICY_005` (MEDIUM, project policy `RESIDENCY-001`) is reported once per scan when AWS resources are scanned and no `provider "aws"` block sets a region. It is anchored at the first root-module AWS resource and never raised for plan or Kubernetes scans. The stderr warning with the plan-mode hint stays. Lab e5a now reports it. Module repositories without a provider get it too and should waive it (`check_id` plus `resource: provider.aws`); inline `checkov:skip` does not apply. The check is scan-wide, not per root module | Fixed (documented limits in `docs/limitations.md`) |
+| TEG-10 machine outputs | The counts file (`baselined_unmapped=`), the Markdown summary and a new Action output `baselined-unmapped` count known unmapped findings. `baselined` keeps its meaning | Fixed |
+| TEG-17 test hardening | The coverage table flags triage IDs that are in neither the catalogue nor a registry. 26 new report goldens cover unmapped, suppressed and baseline scenarios in every format | Done |
+
+Corrected during the iteration: the AWS and GCP resource patterns matched module names, so a GCP-only stack with a module named `aws_*` would have received the AWS finding. They now match only the resource-type segment.
