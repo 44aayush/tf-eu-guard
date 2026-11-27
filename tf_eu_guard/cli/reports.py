@@ -93,6 +93,17 @@ def _finding_entry(finding: EnrichedFinding) -> dict[str, Any]:
     }
 
 
+def _unmapped_entry(check: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "check_id": check.get("check_id"),
+        "check_name": check.get("check_name"),
+        "resource": check.get("resource"),
+        "file_path": check.get("file_path"),
+        "file_line_range": list(check.get("file_line_range") or [0, 0]),
+        "suppressed": bool(check.get("suppressed", False)),
+    }
+
+
 def build_json_object(ctx: ReportContext) -> dict[str, Any]:
     """Build the versioned object format (schema: ``tf_eu_guard/schemas/report.schema.json``).
 
@@ -109,16 +120,9 @@ def build_json_object(ctx: ReportContext) -> dict[str, Any]:
         by_severity[finding.severity.value] += 1
 
     finding_entries = [_finding_entry(finding) for finding in mapped]
-    unmapped_entries = [
-        {
-            "check_id": check.get("check_id"),
-            "check_name": check.get("check_name"),
-            "resource": check.get("resource"),
-            "file_path": check.get("file_path"),
-            "file_line_range": list(check.get("file_line_range") or [0, 0]),
-            "suppressed": bool(check.get("suppressed", False)),
-        }
-        for check in raw_unmapped
+    unmapped_entries = [_unmapped_entry(check) for check in raw_unmapped]
+    baselined_unmapped_entries = [
+        _unmapped_entry(check) for check in sort_unmapped_findings(ctx.baselined_unmapped)
     ]
     suppressed_total = sum(
         1 for entry in [*finding_entries, *unmapped_entries] if entry["suppressed"]
@@ -161,6 +165,7 @@ def build_json_object(ctx: ReportContext) -> dict[str, Any]:
             "overridden": list(ctx.registry.overridden) if ctx.registry else [],
         },
         "baselined": [_finding_entry(finding) for finding in sort_findings(ctx.baselined)],
+        "baselined_unmapped": baselined_unmapped_entries,
         "waived": [
             {
                 **_finding_entry(finding),

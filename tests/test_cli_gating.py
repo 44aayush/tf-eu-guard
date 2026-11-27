@@ -3,6 +3,7 @@
 import argparse
 import json
 
+import jsonschema
 import pytest
 from cli_helpers import FIXTURE, run_cli
 
@@ -284,6 +285,75 @@ def test_unmapped_severity_ignores_suppressed(monkeypatch, tmp_path, section, ex
         "--no-config",
     )
     assert rc == expected
+
+
+def _unmapped_scan(monkeypatch, tmp_path, name, doc, *extra):
+    path = tmp_path / "in.json"
+    path.write_text(json.dumps(doc), encoding="utf-8")
+    return run_cli(
+        monkeypatch, tmp_path, "--checkov-json", str(path), "--no-config", "--output", "json",
+        "--json-format", "object", "--output-file", str(tmp_path / name), *extra,
+    )  # fmt: skip
+
+
+_UNMAPPED_GATE = ("--fail-on-severity", "HIGH", "--unmapped-severity", "HIGH")
+
+
+def test_unmapped_severity_with_baseline_only_new_fail(monkeypatch, tmp_path, capsys):
+    doc = _unmapped_doc("failed_checks")
+    assert _unmapped_scan(monkeypatch, tmp_path, "base.json", doc) == 0
+    capsys.readouterr()
+    base = str(tmp_path / "base.json")
+    rc = _unmapped_scan(monkeypatch, tmp_path, "n.json", doc, "--baseline", base, *_UNMAPPED_GATE)
+    assert rc == 0
+    report = json.loads((tmp_path / "n.json").read_text())
+    assert any(s.endswith("1 unmapped)") for s in report["scan"]["weakening_settings"])
+    # the array format keeps stdout pure and prints the settings list on stderr
+    run_cli(
+        monkeypatch, tmp_path, "--checkov-json", str(tmp_path / "in.json"), "--no-config",
+        "--output", "json", "--json-format", "array", "--baseline", base, *_UNMAPPED_GATE,
+    )  # fmt: skip
+    assert "1 unmapped)" in capsys.readouterr().err
+    doc["results"]["failed_checks"].append(
+        dict(doc["results"]["failed_checks"][0], check_id="CKV_ZZZ_998")
+    )
+    rc = _unmapped_scan(monkeypatch, tmp_path, "n.json", doc, "--baseline", base, *_UNMAPPED_GATE)
+    assert rc == EXIT_FINDINGS
+    new = json.loads((tmp_path / "n.json").read_text())
+    assert [u["check_id"] for u in new["unmapped"]] == ["CKV_ZZZ_998"]
+    assert [u["check_id"] for u in new["baselined_unmapped"]] == ["CKV_ZZZ_999"]
+
+
+def test_baselined_unmapped_in_json_object(monkeypatch, tmp_path):
+    from tf_eu_guard import REPORT_SCHEMA_PATH
+
+    doc = _unmapped_doc("failed_checks")
+    _unmapped_scan(monkeypatch, tmp_path, "base.json", doc)
+    base = str(tmp_path / "base.json")
+    _unmapped_scan(monkeypatch, tmp_path, "n.json", doc, "--baseline", base)
+    report = json.loads((tmp_path / "n.json").read_text())
+    assert report["unmapped"] == []
+    assert [u["check_id"] for u in report["baselined_unmapped"]] == ["CKV_ZZZ_999"]
+    assert set(report["baselined_unmapped"][0]) == {
+        "check_id", "check_name", "resource", "file_path", "file_line_range", "suppressed",
+    }  # fmt: skip
+    schema = json.loads(REPORT_SCHEMA_PATH.read_text(encoding="utf-8"))
+    jsonschema.Draft202012Validator(schema).validate(report)
+
+
+def test_baseline_chain_keeps_unmapped_known(monkeypatch, tmp_path):
+    doc = _unmapped_doc("failed_checks")
+    _unmapped_scan(monkeypatch, tmp_path, "base.json", doc)
+    _unmapped_scan(
+        monkeypatch, tmp_path, "gen2.json", doc, "--baseline", str(tmp_path / "base.json")
+    )
+    rc = _unmapped_scan(
+        monkeypatch, tmp_path, "gen3.json", doc, "--baseline", str(tmp_path / "gen2.json"),
+        *_UNMAPPED_GATE,
+    )  # fmt: skip
+    assert rc == 0
+    report = json.loads((tmp_path / "gen3.json").read_text())
+    assert report["unmapped"] == [] and len(report["baselined_unmapped"]) == 1
 
 
 def test_one_fail_line_when_both_unmapped_gates_trip(capsys):

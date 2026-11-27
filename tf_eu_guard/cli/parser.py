@@ -384,9 +384,8 @@ def build_parser() -> argparse.ArgumentParser:
         "finding of this severity (CRITICAL, HIGH, MEDIUM, LOW, INFO, case-insensitive) for "
         "--fail-on-severity and --fail-on-any. Reports are unchanged: unmapped findings "
         "stay unmapped and carry no severity. Has no effect without one of those gates. "
-        "Unmapped findings are never baselined or waived, so every active unmapped finding "
-        "counts, including ones present in a --baseline file; use an inline checkov:skip "
-        "to exempt one. Default: unset. An empty value also leaves it unset.",
+        "Unmapped findings are never waived, but --baseline covers them, so only unmapped "
+        "findings new since the baseline count; use an inline checkov:skip to exempt one. Default: unset. An empty value also leaves it unset.",
     )
     parser.add_argument(
         "--show-unmapped",

@@ -46,6 +46,8 @@ class ScanFindings:
     weakening_settings: list[str] = field(default_factory=list)
     # Active mapped findings already present in the --baseline file.
     baselined: list[EnrichedFinding] = field(default_factory=list)
+    # Active unmapped findings already present in the --baseline file.
+    baselined_unmapped: list[dict[str, Any]] = field(default_factory=list)
     # Checkov's `summary` dict (counts, resource_count) for the provenance block.
     checkov_summary: dict[str, Any] = field(default_factory=dict)
     # (active + baselined, suppressed, waived) before --changed-since filtering; the
@@ -244,6 +246,7 @@ def load_scan_findings(
         )
         waiver_line = [f"waivers: {waiver_path} ({count} entries)"]
     baselined: list[EnrichedFinding] = []
+    baselined_unmapped: list[dict[str, Any]] = []
     remaining: list[EnrichedFinding] = []
     baseline_line: list[str] = []
     baseline_origin = ""
@@ -254,6 +257,13 @@ def load_scan_findings(
             is_known = finding_key(f.check_id, f.resource, f.file_path) in baseline.keys
             (baselined if is_known else remaining).append(f)
         active, known = remaining, baselined
+        new_unmapped: list[dict[str, Any]] = []
+        for check in unmapped:
+            key = finding_key(
+                check.get("check_id", ""), check.get("resource"), check.get("file_path")
+            )
+            (baselined_unmapped if key in baseline.unmapped_keys else new_unmapped).append(check)
+        unmapped = new_unmapped
         when = baseline.created.date().isoformat() if baseline.created else "unknown date"
         baseline_origin = (
             f"from {when} ({(_today() - baseline.created.date()).days} days old)"
@@ -261,7 +271,8 @@ def load_scan_findings(
             else "(date unknown)"
         )
         baseline_line = [
-            f"baseline: {baseline_path} ({when}, {len(known)} known finding(s) matched)"
+            f"baseline: {baseline_path} ({when}, {len(known)} known finding(s) matched, "
+            f"{len(baselined_unmapped)} unmapped)"
         ]
     changed_line: list[str] = []
     matrix_inputs = None
@@ -277,13 +288,15 @@ def load_scan_findings(
 
         matrix_inputs = ([*active, *baselined], suppressed, waived)
         groups = [active, suppressed, waived, baselined]
-        raw = [unmapped, suppressed_unmapped]
+        raw = [unmapped, suppressed_unmapped, baselined_unmapped]
         hidden = sum(1 for g in groups for f in g if not inside(f.file_path))
         hidden += sum(1 for g in raw for f in g if not inside(f.get("file_path")))
         active, suppressed, waived, baselined = (
             [f for f in g if inside(f.file_path)] for g in groups
         )
-        unmapped, suppressed_unmapped = ([f for f in g if inside(f.get("file_path"))] for g in raw)
+        unmapped, suppressed_unmapped, baselined_unmapped = (
+            [f for f in g if inside(f.get("file_path"))] for g in raw
+        )
         print(
             f"Reporting only findings in {len(changed)} file(s) changed since {changed_ref}; "
             f"{hidden} finding(s) in unchanged files hidden",
@@ -318,6 +331,7 @@ def load_scan_findings(
         checkov_summary=dict(checkov_output.get("summary") or {}),
         waiver_path=waiver_path,
         baseline_origin=baseline_origin,
+        baselined_unmapped=baselined_unmapped,
     )
 
 

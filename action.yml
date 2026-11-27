@@ -26,7 +26,7 @@ inputs:
     required: false
     default: 'HIGH'
   unmapped-severity:
-    description: 'Count every active Checkov finding with no EU mapping as a finding of this severity (CRITICAL, HIGH, MEDIUM, LOW, INFO) for fail-on-severity and fail-on-any; unmapped findings are never baselined or waived; empty leaves unmapped findings out of those gates (mirrors --unmapped-severity)'
+    description: 'Count every active Checkov finding with no EU mapping as a finding of this severity (CRITICAL, HIGH, MEDIUM, LOW, INFO) for fail-on-severity and fail-on-any; unmapped findings are never waived, but a baseline covers them (only new ones count); empty leaves unmapped findings out of those gates (mirrors --unmapped-severity)'
     required: false
     default: ''
   json-format:

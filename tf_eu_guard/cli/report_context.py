@@ -28,6 +28,7 @@ class ReportContext:
     suppressed_unmapped: list[dict[str, Any]] = field(default_factory=list)
     waived: list[EnrichedFinding] = field(default_factory=list)
     baselined: list[EnrichedFinding] = field(default_factory=list)
+    baselined_unmapped: list[dict[str, Any]] = field(default_factory=list)
     checkov_version: str | None = None
     requirements: list[RequirementResult] = field(default_factory=list)
     registry: LoadedRegistry | None = None
@@ -45,6 +46,7 @@ class ReportContext:
             suppressed_unmapped=result.suppressed_unmapped,
             waived=result.waived,
             baselined=result.baselined,
+            baselined_unmapped=result.baselined_unmapped,
             checkov_version=result.checkov_version,
             requirements=result.requirements,
             registry=result.registry,

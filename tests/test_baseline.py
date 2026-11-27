@@ -63,6 +63,44 @@ def test_baseline_accepts_v3_report(tmp_path):
     assert len(load_baseline(_write(tmp_path, "b.json", doc)).keys) == 1
 
 
+def test_baseline_matches_unmapped_from_v2_report(tmp_path):
+    doc = {
+        "schema_version": "2",
+        "findings": [],
+        "unmapped": [
+            {"check_id": "CKV_ZZZ_999", "resource": "aws_s3_bucket.a", "file_path": "/main.tf"}
+        ],
+    }
+    b = load_baseline(_write(tmp_path, "b.json", doc))
+    assert b.unmapped_keys == {("CKV_ZZZ_999", "aws_s3_bucket.a", "main.tf")}
+    assert b.keys == frozenset()
+
+
+def test_array_baseline_has_no_unmapped_keys(tmp_path):
+    b = load_baseline(_write(tmp_path, "b.json", [_entry()]))
+    assert b.unmapped_keys == frozenset()
+
+
+def test_suppressed_unmapped_entries_not_known(tmp_path):
+    doc = {
+        "findings": [],
+        "unmapped": [
+            _entry("CKV_ZZZ_1", suppressed=True),
+            _entry("CKV_ZZZ_2", suppressed=False),
+        ],
+        "baselined_unmapped": [_entry("CKV_ZZZ_3", suppressed=True)],
+    }
+    b = load_baseline(_write(tmp_path, "b.json", doc))
+    assert {k[0] for k in b.unmapped_keys} == {"CKV_ZZZ_2"}
+
+
+@pytest.mark.parametrize("key", ["unmapped", "baselined_unmapped"])
+def test_load_baseline_rejects_bad_unmapped_shapes(tmp_path, key):
+    for bad in (5, [{"resource": "r"}]):
+        with pytest.raises(BaselineError):
+            load_baseline(_write(tmp_path, "b.json", {"findings": [], key: bad}))
+
+
 def test_load_baseline_legacy_array(tmp_path):
     b = load_baseline(_write(tmp_path, "b.json", [_entry(), _entry("X", waived=True)]))
     assert len(b.keys) == 1

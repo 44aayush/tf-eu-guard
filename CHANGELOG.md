@@ -17,9 +17,8 @@ release point.
   credentials files pointed at `/dev/null`. The Azure/GCP region snapshot loader rejects non-list or non-string entries (T-29).
 - `--unmapped-severity SEVERITY` (config key `unmapped_severity`, Action input `unmapped-severity`) counts every
   active unmapped Checkov finding as a finding of that severity for `--fail-on-severity` and `--fail-on-any`.
-  Reports are unchanged and the default gate is unchanged (TEG-10). Unmapped findings are never baselined or waived,
-  so every active unmapped finding counts, including ones present in a `--baseline` file; use an inline
-  `checkov:skip` to exempt one.
+  Reports are unchanged and the default gate is unchanged (TEG-10). Unmapped findings are never waived;
+  `--baseline` covers them (see Changed), so only new ones count; use an inline `checkov:skip` to exempt one.
 - Action input `json-format` (`array` or `object`, default empty) passes `--json-format`, so Action users can silence the
   implicit-default deprecation warning.
 - The gate "Fail:" line names the threshold as `ANY` whenever `--fail-on-any` is set, also together with `--fail-on-severity`.
@@ -74,6 +73,13 @@ release point.
 
 ### Changed
 
+- `--baseline` now matches unmapped Checkov findings (check ID, resource, file path) against the baseline's
+  `unmapped[]` and `baselined_unmapped[]` (entries flagged `suppressed` and array-format baselines give none). Known
+  unmapped findings move out of `unmapped` into the new JSON object array `baselined_unmapped` (same entry shape;
+  required by the schema, which stays at `schema_version: "3"` because 3 is unreleased), so the gate,
+  `--fail-on-unmapped` and `--unmapped-severity` see only new unmapped findings, and `--changed-since` filters the
+  new group too. The stderr line reads `baseline: FILE (DATE, N known finding(s) matched, M unmapped)`. Other report
+  formats change only through the smaller unmapped count. Waivers still never cover unmapped findings (TEG-10).
 - When `--fail-on-unmapped` and `--unmapped-severity` both trip on the same unmapped findings, the gate prints one
   `Fail:` line (the `--fail-on-unmapped` one) instead of two.
 - `provenance.options.json_format` records the resolved layout (`array` or `object`) whenever the output is `json`,

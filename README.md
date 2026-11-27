@@ -397,9 +397,9 @@ esac
 > tf-eu-guard scan . --fail-on-severity HIGH --unmapped-severity HIGH
 > ```
 >
-> Unmapped findings are never baselined or waived, so with `--unmapped-severity`
-> every active unmapped finding counts, including ones present in a `--baseline`
-> file; use an inline `checkov:skip` to exempt one.
+> Unmapped findings are never waived, but a `--baseline` file does cover them, so with
+> `--unmapped-severity` only unmapped findings new since the baseline count; use an
+> inline `checkov:skip` to exempt one.
 
 > **Inline suppressions are reported, not gated by default.** Findings that
 > Checkov moved to `skipped_checks` because of `#checkov:skip=ID:reason`
@@ -426,9 +426,12 @@ esac
 > works with `--checkov-json`). Active mapped findings with the same check ID, resource
 > and file path (line numbers ignored) become "Known (in baseline)": listed in every
 > report (JSON `baselined[]`, SARIF `baselineState: unchanged`) but outside the
-> `--fail-on-severity` / `--fail-on-any` gate, so CI fails only on new findings. The
-> Unmapped findings are never baselined, so `--unmapped-severity` still counts every active unmapped finding, including ones present in the baseline.
-> The baseline's date and match count appear under "Scan settings that reduce findings".
+> `--fail-on-severity` / `--fail-on-any` gate, so CI fails only on new findings. Active
+> unmapped findings match the same way (check ID, resource, file path) against the baseline's
+> `unmapped[]` and `baselined_unmapped[]`; known ones move to the JSON object's
+> `baselined_unmapped[]`, so `--fail-on-unmapped` and `--unmapped-severity` see only new ones.
+> Waivers still never cover unmapped findings.
+> The baseline's date and match counts appear under "Scan settings that reduce findings".
 > `tf-eu-guard diff OLD.json NEW.json [--json]` prints new, fixed and unchanged counts
 > and lists the new and fixed findings; it exits 1 when there are new findings, 2 on
 > unreadable input. Suppressed and waived entries are not compared; baselined ones count as present (they still fail).
@@ -683,7 +686,7 @@ for finding in result.findings:
 `scan()` takes the CLI options as keywords (`iac_type`, `checkov_json`, `framework`,
 `residency_policy`, `allowed_regions`, `exclude`, `var_files`, `registry_dirs`, `waivers`,
 `baseline`, `config`, `no_config`, `no_discovery`, `secrets`, `timeout`), validates them exactly like the CLI, and returns a
-`ScanResult` with `findings`, `unmapped`, `suppressed`, `waived`, `baselined`, `requirements` and
+`ScanResult` with `findings`, `unmapped`, `suppressed`, `waived`, `baselined`, `baselined_unmapped`, `requirements` and
 `provenance`. It never prints to stdout or exits: bad arguments raise `ValueError`, other failures
 raise the exceptions the CLI maps to exit codes. Keywords left at their default yield to a config
 file (`config=`, or `.tf-eu-guard.yaml` discovered in the scan root); pass `no_config=True` to make

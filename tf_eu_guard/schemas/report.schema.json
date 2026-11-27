@@ -14,7 +14,8 @@
     "requirements",
     "registry",
     "waived",
-    "baselined"
+    "baselined",
+    "baselined_unmapped"
   ],
   "properties": {
     "schema_version": {
@@ -583,6 +584,42 @@
               "string",
               "null"
             ]
+          }
+        }
+      }
+    },
+    "baselined_unmapped": {
+      "description": "Active unmapped findings already present in the --baseline report; they do not affect the gate.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "check_id",
+          "check_name",
+          "resource",
+          "file_path",
+          "file_line_range",
+          "suppressed"
+        ],
+        "properties": {
+          "check_id": {
+            "type": "string"
+          },
+          "check_name": {
+            "type": "string"
+          },
+          "resource": {
+            "type": "string"
+          },
+          "file_path": {
+            "type": "string"
+          },
+          "file_line_range": {
+            "$ref": "#/$defs/lineRange"
+          },
+          "suppressed": {
+            "type": "boolean"
           }
         }
       }
