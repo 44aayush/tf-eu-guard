@@ -486,3 +486,20 @@ These results come from a fresh `--no-cache` build of the branch image (`tf-eu-g
 | TEG-06 base image | stale digest, no gate | digest refreshed; trivy gate in CI | Fixed |
 | TEG-07, TEG-11 (typos), TEG-12 | docs drift | corrected | Fixed |
 | TEG-04, TEG-05, TEG-08, TEG-09, TEG-13 | open | unchanged | Iteration 2 and 3 (see `TASKS.md`) |
+
+### After iteration 2 (2026-11-27, `version_0.10.0`)
+
+These results are from a fresh `--no-cache` build (`tf-eu-guard:ci4`) at `66fa0b8`. 1368 tests pass (`TFEG_RUN_CHECKOV=1`), ruff and mypy are clean, and the trivy gate exits 0.
+
+| Finding | After iteration 2 | Status |
+| --- | --- | --- |
+| TEG-01 waiver bounds | `--max-waiver-days` (CLI, config key, Action input) refuses waivers that expire too far ahead; waivers without a `file` pattern warn. Lab E2 with `--max-waiver-days 90` exits 1 | Fixed (opt-in) |
+| TEG-04 mutable image tag | The Action verifies the GHCR image's build attestation with `gh attestation verify --signer-workflow publish.yml --source-ref refs/tags/<action ref>` and runs the image by digest. Any failure falls back to a local build from the action's own source | Fixed |
+| TEG-05 blind spots | stderr warnings when AWS resources have no provider region (live scans) and when Terraform/K8s sources sit in hidden directories (editor and cache directories are ignored) | Partly fixed (warnings; Azure/GCP residency is still open) |
+| TEG-09 forged `--checkov-json` | A gated scan fails closed (exit 3) unless the file reports a positive integer `resource_count`. A missing `EUGUARD_*` result only warns, because the custom checks are AWS-only | Fixed for empty or incomplete files; a deliberately forged file can still pass (documented) |
+| TEG-13 provenance commit | The Action resolves the scanned checkout's HEAD on the host. GIT_* is cleared, `safe.bareRepository=explicit` is set, and the top level must lie inside the workspace; otherwise it falls back to `GITHUB_SHA`. The report schema is now `"3"` (adds `provenance.commit_source`) | Fixed |
+| TEG-15 Action path inputs | `path` and `checkov-json` go through `ws_rel`; the bare workspace path is accepted | Fixed |
+
+Two more problems turned up and were fixed during the iteration:
+- **Host-side `git rev-parse` could be redirected.** A first version could be pointed at another repository by a planted bare repository or by `GIT_DIR`, which would have let a PR forge `provenance.commit`.
+- **Test helpers wrote to the real repository.** The test suite's git helpers inherited an exported `GIT_DIR`. They now clear all `GIT_*` variables.
