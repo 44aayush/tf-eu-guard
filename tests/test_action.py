@@ -302,6 +302,9 @@ case "$1" in
         *:/out) out="${a%:/out}" ;;
       esac
     done
+    if [ -n "$STUB_STDOUT" ]; then
+      printf '%s\n' "$STUB_STDOUT"
+    fi
     if [ -z "$STUB_NO_FILES" ]; then
       mkdir -p "$out/.tf-eu-guard"
       printf '# tf-eu-guard summary\n' > "$out/.tf-eu-guard/summary.md"
@@ -350,7 +353,7 @@ def _run_action(tmp_path, bash, **extra):
             for n in (
                 "UPLOAD_REPORTS UPLOAD_SARIF FAIL_ON_SEVERITY FAIL_ON_ANY FAIL_ON_SUPPRESSED "
                 "RESIDENCY_POLICY ALLOWED_REGIONS TIMEOUT CHECKOV_JSON OUTPUT_DIR OUTPUT_FILE "
-                "CONFIG TRUSTED_CONFIG WAIVERS BASELINE"
+                "CONFIG TRUSTED_CONFIG WAIVERS BASELINE DISCOVER_CONFIG"
             ).split()
         },
     }
@@ -393,9 +396,53 @@ def test_action_declares_new_inputs():
     for name in ("config", "trusted-config", "waivers", "baseline"):
         assert inputs[name]["default"] == ""
     assert inputs["job-summary"]["default"] == "true"
+    assert inputs["discover-config"]["default"] == "false"
     text = ACTION.read_text(encoding="utf-8")
-    for var in ("CONFIG", "TRUSTED_CONFIG", "WAIVERS", "BASELINE", "JOB_SUMMARY"):
+    for var in (
+        "CONFIG",
+        "TRUSTED_CONFIG",
+        "WAIVERS",
+        "BASELINE",
+        "JOB_SUMMARY",
+        "DISCOVER_CONFIG",
+    ):
         assert f"INPUT_{var}: ${{{{ inputs." in text
+
+
+def test_action_passes_no_discovery_by_default(tmp_path):
+    bash = _bash_or_skip()
+    result, argv, _ = _run_action(tmp_path, bash)
+    assert result.returncode == 0, result.stderr
+    assert "--no-discovery" in argv
+
+
+def test_action_discover_config_true_omits_flag(tmp_path):
+    bash = _bash_or_skip()
+    result, argv, _ = _run_action(tmp_path, bash, INPUT_DISCOVER_CONFIG="True")
+    assert result.returncode == 0, result.stderr
+    assert "--no-discovery" not in argv
+
+
+def test_action_brackets_container_output_with_stop_commands(tmp_path):
+    bash = _bash_or_skip()
+    result, _, _ = _run_action(tmp_path, bash, STUB_STDOUT="::error::forged")
+    assert result.returncode == 0, result.stderr
+    lines = result.stdout.splitlines()
+    starts = [i for i, ln in enumerate(lines) if re.fullmatch(r"::stop-commands::[0-9a-f]{32}", ln)]
+    assert len(starts) == 1
+    token = lines[starts[0]].split("::")[2]
+    forged = lines.index("::error::forged")
+    resume = lines.index(f"::{token}::")
+    assert starts[0] < forged < resume
+
+
+def test_action_resumes_workflow_commands_after_failed_scan(tmp_path):
+    bash = _bash_or_skip()
+    result, _, _ = _run_action(tmp_path, bash, STUB_EXIT="3", STUB_STDOUT="::error::forged")
+    assert result.returncode == 3
+    lines = result.stdout.splitlines()
+    token = next(ln for ln in lines if ln.startswith("::stop-commands::")).split("::")[2]
+    assert f"::{token}::" in lines
 
 
 def test_action_writes_job_summary_and_count_outputs(tmp_path):
@@ -778,7 +825,14 @@ def test_action_refusal_message_neutralises_workflow_commands_in_filenames(tmp_p
     result, _, _ = _run_action(tmp_path, bash, INPUT_UPLOAD_REPORTS="true")
     assert result.returncode == 2
     lines = (result.stdout + result.stderr).splitlines()
-    assert not [ln for ln in lines if ln.startswith("::stop-commands::")]
+    # The Action's own bracket (32 hex digits) is expected; a filename must not add another.
+    forged = [
+        ln
+        for ln in lines
+        if ln.startswith("::stop-commands::")
+        and not re.fullmatch(r"::stop-commands::[0-9a-f]{32}", ln)
+    ]
+    assert not forged
     assert any(ln.startswith("::error::") and "%0A::stop-commands::x" in ln for ln in lines)
 
 

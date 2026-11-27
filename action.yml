@@ -93,6 +93,10 @@ inputs:
     description: 'Workspace-relative path to a baseline file, passed as --baseline'
     required: false
     default: ''
+  discover-config:
+    description: 'Read .tf-eu-guard.yaml and .tf-eu-guard-waivers.yaml from the scanned directory (true, 1 or yes, any case). Off by default because a pull request controls those files; use config or trusted-config instead'
+    required: false
+    default: 'false'
   job-summary:
     description: 'Append a Markdown summary of the scan to the job summary (true, 1 or yes, any case)'
     required: false
@@ -161,6 +165,7 @@ runs:
         INPUT_WAIVERS: ${{ inputs.waivers }}
         INPUT_BASELINE: ${{ inputs.baseline }}
         INPUT_JOB_SUMMARY: ${{ inputs.job-summary }}
+        INPUT_DISCOVER_CONFIG: ${{ inputs.discover-config }}
         ACTION_PATH: ${{ github.action_path }}
         ACTION_REF: ${{ github.action_ref }}
         RUNNER_TEMP_DIR: ${{ runner.temp }}
@@ -303,6 +308,11 @@ runs:
           echo "::error::set only one of config and trusted-config" >&2
           exit 2
         fi
+        # The scanned directory is attacker-controlled in pull requests, so
+        # its .tf-eu-guard*.yaml files are ignored unless discovery is opted in.
+        if ! is_true "$INPUT_DISCOVER_CONFIG"; then
+          args+=(--no-discovery)
+        fi
         if [ -n "$INPUT_CONFIG" ]; then
           config_path="$(ws_rel "$INPUT_CONFIG")" || exit 2
           args+=(--config "$config_path")
@@ -362,6 +372,10 @@ runs:
         # threshold, 2 = bad invocation, 3 = tool failure); let it
         # propagate.
         set +e
+        # The container output is untrusted: stop workflow-command processing
+        # until the random token is echoed back after the scan.
+        stop_token="$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+        echo "::stop-commands::$stop_token"
         # Hardening: the scanned code is untrusted and Checkov evaluates
         # Terraform expressions from it (asteval), so the container has no
         # network (Checkov runs with --skip-download), a read-only root
@@ -384,6 +398,7 @@ runs:
           -w "$GITHUB_WORKSPACE" \
           "$image" "${args[@]}"
         status=$?
+        echo "::$stop_token::"
         set -e
 
         # Publish the summary and counts. The container processed untrusted

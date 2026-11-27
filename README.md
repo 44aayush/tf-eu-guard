@@ -485,6 +485,7 @@ Action inputs mirror the scan options:
 | `trusted-config` | `--config` (absolute path outside the checkout) | empty |
 | `waivers` | `--waivers` (workspace-relative path) | empty |
 | `baseline` | `--baseline` (workspace-relative path) | empty |
+| `discover-config` | read `.tf-eu-guard.yaml` and `.tf-eu-guard-waivers.yaml` from the scanned directory (omits `--no-discovery`) | `false` |
 | `job-summary` | append the Markdown summary to the job summary | `true` |
 
 `trusted-config` exists so that a pull request cannot change the settings in the config: a `config`
@@ -499,6 +500,10 @@ still remove findings from the gate unless `fail-on-suppressed` is set.
 `trusted-config` must be outside the workspace (it is resolved with `readlink -f`), so a separate
 checkout of the protected branch does not work. Copy the base-branch config out instead.
 Set only one of `config` and `trusted-config`.
+
+Since 0.10 the Action does not auto-discover `.tf-eu-guard.yaml` or `.tf-eu-guard-waivers.yaml` in the scanned
+directory: it passes `--no-discovery` unless `discover-config` is `true`, because a pull request controls those
+files. Use `config` or `trusted-config` (and `waivers`) to supply settings explicitly.
 
 ```yaml
 - uses: actions/checkout@v4

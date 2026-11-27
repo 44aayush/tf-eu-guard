@@ -17,8 +17,16 @@ release point.
   committing them; `--config` and `--waivers` still apply and each ignored file is named on stderr
   (TEG-01).
 
+### Changed
+
+- The Action no longer auto-discovers `.tf-eu-guard.yaml` or `.tf-eu-guard-waivers.yaml` in the scanned
+  directory: it passes `--no-discovery` unless the new `discover-config` input is `true`. Use `config`
+  or `trusted-config` instead (TEG-01). Behaviour change for workflows that relied on discovery.
+
 ### Security
 
+- The Action wraps the container's output in a random `::stop-commands::` token and resumes it after
+  the scan, so output from the scanned code cannot inject workflow commands (TEG-03).
 - Terminal and stderr output escapes control characters (newline, ESC, C1, bidi overrides) in
   resource names, file paths, check text, waiver fields, weakening lines and module sources taken
   from the scanned checkout, so a crafted name can no longer forge `::error::` annotations in a
