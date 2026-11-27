@@ -1,0 +1,70 @@
+[
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_273",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user.deploy_user",
+    "severity": "HIGH",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(i)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_40",
+    "file_path": "/iam.tf",
+    "resource": "aws_iam_user_policy.deploy_user_admin",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 32(1)(a)",
+        "framework": "GDPR"
+      },
+      {
+        "article": "Art. 21(2)(h)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_145",
+    "file_path": "/storage.tf",
+    "resource": "aws_s3_bucket.data",
+    "severity": "MEDIUM",
+    "suppressed": false,
+    "suppression_reason": null,
+    "waived": false
+  },
+  {
+    "articles": [
+      {
+        "article": "Art. 21(2)(b)",
+        "framework": "NIS2"
+      }
+    ],
+    "baselined": false,
+    "check_id": "CKV_AWS_18",
+    "file_path": "/storage.tf",
+    "resource": "aws_s3_bucket.logs",
+    "severity": "MEDIUM",
+    "suppressed": true,
+    "suppression_reason": "access logging handled by the central log account",
+    "waived": false
+  }
+]

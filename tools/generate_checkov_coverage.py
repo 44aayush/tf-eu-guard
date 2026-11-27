@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Generate docs/checkov-coverage.md: which checks of the installed Checkov are mapped.
 
-Checkov ships roughly 2,000 AWS/Azure/GCP/Kubernetes/Terraform checks and the
-registries map only a deliberate subset. This table lists every check of the
+Checkov ships many hundreds of AWS/Azure/GCP/Kubernetes/Terraform checks (the
+exact count is in the generated table's summary) and the registries map only a
+deliberate subset. This table lists every check of the
 installed Checkov release as ``mapped``, ``intentionally unmapped`` (with a
 reason from ``tools/checkov_triage.yaml``) or ``untriaged`` (nobody has
 decided yet; that is a fact, not an error). The catalogue comes from Checkov's
@@ -10,8 +11,10 @@ own Python registries (Terraform resource, data, module and provider checks, the
 graph checks that carry the ``CKV2_`` IDs, and the Kubernetes checks).
 
 ``--check`` exits 1 when the committed doc is stale, when a registry ID
-with a Checkov prefix no longer exists in the installed Checkov, or when an ID
-is both mapped and listed as intentionally unmapped. A Checkov bump changes
+with a Checkov prefix no longer exists in the installed Checkov, when an ID
+is both mapped and listed as intentionally unmapped, or when a triage ID
+(``intentionally_unmapped`` or ``known_stale``) is neither in the installed
+catalogue nor in a registry. ``--doc PATH`` reads or writes another doc file. A Checkov bump changes
 the catalogue, so regenerate the doc in the same change:
 
     python3 tools/generate_checkov_coverage.py          # regenerate in place
@@ -138,6 +141,11 @@ def problems(
     for check_id in stale_ids(catalogue, mapped_ids):
         if check_id not in known_stale:
             found.append(f"{check_id}: in a registry but not in this Checkov release")
+    for name, ids in (("intentionally_unmapped", triage), ("known_stale", known_stale)):
+        for check_id in sorted(ids, key=_natural_key):
+            # A known_stale ID may still be mapped; it only has to be accounted for somewhere.
+            if check_id not in catalogue and check_id not in mapped_ids:
+                found.append(f"{check_id}: listed in {name} but not in this Checkov release")
     for check_id in sorted(set(triage) & mapped_ids, key=_natural_key):
         found.append(f"{check_id}: both mapped in a registry and listed as intentionally unmapped")
     return found
@@ -195,37 +203,42 @@ def render(rows: list[Row], checkov_version: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _load_triage() -> tuple[dict[str, str], dict[str, str]]:
-    data = yaml.safe_load(TRIAGE_PATH.read_text(encoding="utf-8")) or {}
+def load_triage(path: Path = TRIAGE_PATH) -> tuple[dict[str, str], dict[str, str]]:
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     unknown = set(data) - {"intentionally_unmapped", "known_stale"}
     if unknown:
-        raise SystemExit(f"{TRIAGE_PATH.name}: unknown key(s): {', '.join(sorted(unknown))}")
+        raise SystemExit(f"{path.name}: unknown key(s): {', '.join(sorted(unknown))}")
     return data.get("intentionally_unmapped") or {}, data.get("known_stale") or {}
+
+
+def _shown(path: Path) -> str:
+    return str(path.relative_to(REPO_ROOT)) if path.is_relative_to(REPO_ROOT) else str(path)
 
 
 def main(argv: list[str]) -> int:
     from checkov.version import version
 
     check = "--check" in argv
+    doc_path = Path(argv[argv.index("--doc") + 1]) if "--doc" in argv else DOC_PATH
     mapped_ids = set(load_registry(REPO_ROOT / "tf_eu_guard" / "mapping"))
-    triage, known_stale = _load_triage()
+    triage, known_stale = load_triage()
     cat = catalogue()
     found = problems(cat, mapped_ids, triage, known_stale)
     for line in found:
         print(f"ERROR: {line}", file=sys.stderr)
     doc = render(classify(cat, mapped_ids, triage), version)
     if check:
-        current = DOC_PATH.read_text(encoding="utf-8") if DOC_PATH.exists() else ""
+        current = doc_path.read_text(encoding="utf-8") if doc_path.exists() else ""
         if current != doc:
             print(
-                f"ERROR: {DOC_PATH.relative_to(REPO_ROOT)} is stale; run "
+                f"ERROR: {_shown(doc_path)} is stale; run "
                 "python3 tools/generate_checkov_coverage.py",
                 file=sys.stderr,
             )
             return 1
         return 1 if found else 0
-    DOC_PATH.write_text(doc, encoding="utf-8")
-    print(f"wrote {DOC_PATH.relative_to(REPO_ROOT)} ({len(cat)} checks, Checkov {version})")
+    doc_path.write_text(doc, encoding="utf-8")
+    print(f"wrote {_shown(doc_path)} ({len(cat)} checks, Checkov {version})")
     return 1 if found else 0
 
 

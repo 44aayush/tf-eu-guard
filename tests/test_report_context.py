@@ -98,6 +98,71 @@ def test_stdout_reports_are_byte_identical(monkeypatch, tmp_path, capsys, name, 
     _check_golden(f"stdout-{name}", extension, capsys.readouterr().out)
 
 
+# Second golden input: mapped and unmapped findings, inline-suppressed ones of each kind and a
+# passed EUGUARD_POLICY_001 (so no region finding is injected). The baseline lists one mapped
+# and one unmapped finding of it.
+BASELINE_INPUT = REPO_ROOT / "tests" / "fixtures" / "checkov-baseline-tf.json"
+BASELINE_FILE = REPO_ROOT / "tests" / "fixtures" / "report-baseline.json"
+SCENARIOS = [
+    ("unmapped", []),
+    ("baselined", ["--baseline", "baseline.json"]),
+]
+
+
+def _scenario_input(tmp_path: Path) -> None:
+    shutil.copy(BASELINE_INPUT, tmp_path / "scan.json")
+    shutil.copy(BASELINE_FILE, tmp_path / "baseline.json")
+
+
+@pytest.mark.parametrize(("scenario", "extra"), SCENARIOS, ids=[s[0] for s in SCENARIOS])
+@pytest.mark.parametrize(
+    ("name", "extension", "output"), FILE_CASES, ids=[c[0] for c in FILE_CASES]
+)
+def test_scenario_reports_are_byte_identical(
+    monkeypatch, tmp_path, scenario, extra, name, extension, output
+):
+    _scenario_input(tmp_path)
+    out = tmp_path / f"report.{extension}"
+    rc = run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        "scan.json",
+        "--no-config",
+        "--show-unmapped",
+        *extra,
+        *output,
+        "--output-file",
+        out.name,
+    )
+    assert rc in (0, 1)
+    _check_golden(f"{scenario}-{name}", extension, out.read_bytes().decode("utf-8"))
+
+
+@pytest.mark.parametrize(("scenario", "extra"), SCENARIOS, ids=[s[0] for s in SCENARIOS])
+@pytest.mark.parametrize(
+    ("name", "extension", "output"), STDOUT_CASES, ids=[c[0] for c in STDOUT_CASES]
+)
+def test_scenario_stdout_reports_are_byte_identical(
+    monkeypatch, tmp_path, capsys, scenario, extra, name, extension, output
+):
+    for variable in ("FORCE_COLOR", "TTY_COMPATIBLE", "TTY_INTERACTIVE"):
+        monkeypatch.delenv(variable, raising=False)
+    _scenario_input(tmp_path)
+    rc = run_cli(
+        monkeypatch,
+        tmp_path,
+        "--checkov-json",
+        "scan.json",
+        "--no-config",
+        "--show-unmapped",
+        *extra,
+        *output,
+    )
+    assert rc in (0, 1)
+    _check_golden(f"{scenario}-stdout-{name}", extension, capsys.readouterr().out)
+
+
 def test_report_context_from_result_copies_fields(registry):
     args = argparse.Namespace(path=None, checkov_json="x.json", baseline=None)
     result = ScanFindings(

@@ -1,0 +1,50 @@
+status,severity,check_id,check_name,resource,file_path,line_start,line_end,framework,article,article_title,risk,remediation,suppression_reason,waiver_owner,waiver_expires
+active,HIGH,CKV_AWS_273,Ensure access is controlled through SSO and not AWS IAM defined users,aws_iam_user.deploy_user,/iam.tf,1,3,NIS2,Art. 21(2)(i),"Human resources security, access control policies and asset management","Long-lived IAM users bypass centralized identity management and SSO, making it difficult to enforce MFA, audit access centrally, and revoke credentials quickly during an incident. NIS2 Art. 21(2)(i) requires effective access control policies.
+","Delete standing IAM users and federate access through AWS IAM Identity Center (SSO):
+  # Remove:
+  # resource ""aws_iam_user"" ""admin"" { ... }
+  # Use Identity Center permission sets + account assignments instead
+  # (managed via aws_ssoadmin_* resources or the Identity Center console).
+",,,
+active,MEDIUM,CKV_AWS_40,Ensure IAM policies are attached only to groups or roles (Reducing access management complexity),aws_iam_user_policy.deploy_user_admin,/iam.tf,5,12,NIS2,Art. 21(2)(i),"Human resources security, access control policies and asset management","Attaching policies directly to individual IAM users makes entitlements hard to review and revoke at scale, weakening the asset- and access-management discipline NIS2 Art. 21(2)(i) expects. Group/role attachment keeps privileges auditable.
+","Attach the policy to a group or role and add the user to the group:
+  resource ""aws_iam_group_policy_attachment"" ""app"" {
+    group      = aws_iam_group.app.name
+    policy_arn = aws_iam_policy.app.arn
+  }
+",,,
+active,MEDIUM,CKV_AWS_145,Ensure that S3 buckets are encrypted with KMS by default,aws_s3_bucket.data,/storage.tf,1,6,GDPR,Art. 32(1)(a),Pseudonymisation and encryption of personal data,"New objects in a bucket without default SSE-KMS are already encrypted at rest with S3-managed keys (SSE-S3). A KMS key adds key-policy, rotation and access-grant control over that data, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for buckets that hold personal data.
+","Configure default SSE-KMS on the bucket:
+  resource ""aws_s3_bucket_server_side_encryption_configuration"" ""this"" {
+    bucket = aws_s3_bucket.data.id
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm     = ""aws:kms""
+        kms_master_key_id = aws_kms_key.s3.arn
+      }
+    }
+  }
+",,,
+active,MEDIUM,CKV_AWS_145,Ensure that S3 buckets are encrypted with KMS by default,aws_s3_bucket.data,/storage.tf,1,6,NIS2,Art. 21(2)(h),Policies and procedures on the use of cryptography and encryption,"New objects in a bucket without default SSE-KMS are already encrypted at rest with S3-managed keys (SSE-S3). A KMS key adds key-policy, rotation and access-grant control over that data, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for buckets that hold personal data.
+","Configure default SSE-KMS on the bucket:
+  resource ""aws_s3_bucket_server_side_encryption_configuration"" ""this"" {
+    bucket = aws_s3_bucket.data.id
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm     = ""aws:kms""
+        kms_master_key_id = aws_kms_key.s3.arn
+      }
+    }
+  }
+",,,
+suppressed,MEDIUM,CKV_AWS_18,Ensure the S3 bucket has access logging enabled,aws_s3_bucket.logs,/storage.tf,8,12,NIS2,Art. 21(2)(b),Incident handling,"Without S3 server access logging there is no record of who read or wrote objects, so a data-access incident cannot be detected, scoped, or investigated. NIS2 Art. 21(2)(b) requires the ability to handle and analyse incidents.
+","Send access logs to a dedicated logging bucket:
+  resource ""aws_s3_bucket_logging"" ""this"" {
+    bucket        = aws_s3_bucket.data.id
+    target_bucket = aws_s3_bucket.logs.id
+    target_prefix = ""s3-access/""
+  }
+",access logging handled by the central log account,,
+unmapped,,CKV_AWS_10,Ensure IAM password policy requires minimum length of 14 or greater,aws_iam_account_password_policy.weak,/iam.tf,14,20,,,,,,,,
+unmapped,,CKV_AWS_11,Ensure IAM password policy requires at least one lowercase letter,aws_iam_account_password_policy.weak,/iam.tf,14,20,,,,,,,,
+suppressed,,CKV_AWS_12,Ensure IAM password policy expires passwords within 365 days,aws_iam_account_password_policy.weak,/iam.tf,14,20,,,,,,rotation enforced by the identity provider,,

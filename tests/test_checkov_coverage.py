@@ -55,6 +55,37 @@ def test_stale_registry_id_fails_check():
     assert gcc.problems(CATALOGUE, mapped, {}, {"CKV_AWS_999": "removed upstream"}) == []
 
 
+def test_triage_id_absent_from_catalogue_fails():
+    # Neither list may keep an ID that Checkov no longer defines, unless it is still in a registry
+    # (a known_stale entry for an ID the registry still maps stays allowed).
+    found = gcc.problems(CATALOGUE, set(), {"CKV_AWS_998": "gone"}, {"CKV_AWS_997": "gone"})
+    assert any("CKV_AWS_998" in p for p in found)
+    assert any("CKV_AWS_997" in p for p in found)
+    assert gcc.problems(CATALOGUE, {"CKV_AWS_999"}, {}, {"CKV_AWS_999": "removed upstream"}) == []
+
+
+def test_load_triage_rejects_unknown_key(tmp_path):
+    path = tmp_path / "triage.yaml"
+    path.write_text("intentionally_unmapped: {}\nknown_stal: {}\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="known_stal"):
+        gcc.load_triage(path)
+    path.write_text("intentionally_unmapped:\n  CKV_AWS_1: why\n", encoding="utf-8")
+    assert gcc.load_triage(path) == ({"CKV_AWS_1": "why"}, {})
+
+
+@pytest.mark.skipif(importlib.util.find_spec("checkov") is None, reason="needs Checkov")
+def test_check_reports_stale_doc(tmp_path, capsys):
+    doc = tmp_path / "checkov-coverage.md"
+    assert gcc.main(["--doc", str(doc)]) == 0
+    assert gcc.main(["--check", "--doc", str(doc)]) == 0
+    lines = doc.read_text(encoding="utf-8").splitlines()
+    lines[-1] += " changed"
+    doc.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    capsys.readouterr()
+    assert gcc.main(["--check", "--doc", str(doc)]) == 1
+    assert doc.name in capsys.readouterr().err
+
+
 def test_triage_and_mapping_conflict_fails():
     found = gcc.problems(CATALOGUE, {"CKV_AWS_1"}, {"CKV_AWS_1": "reason"}, {})
     assert len(found) == 1

@@ -12,6 +12,10 @@ release point.
 
 ### Added
 
+- `tools/generate_checkov_coverage.py --check` also fails on an `intentionally_unmapped` or `known_stale` triage ID that
+  Checkov no longer defines (a `known_stale` ID a registry still maps stays allowed), and takes `--doc PATH`. New report
+  goldens cover a second input (mapped, unmapped and inline-suppressed findings) with `--show-unmapped` and with an object
+  `--baseline`, in every output format (TEG-17).
 - Machine outputs count baselined unmapped findings: the `--counts-file` gains `baselined_unmapped=N` after `baselined=`, the
   Action gains the output `baselined-unmapped`, and the Markdown summary line ends with `Baselined unmapped: N`. The
   auditor report says known unmapped findings are counted, not listed, unless `--show-unmapped` is set (TEG-10).
