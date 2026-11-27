@@ -281,13 +281,7 @@ def _render(
             if waived
             else ""
         )
-        + (
-            f" <strong>{known_total}</strong> finding(s) are already known from the "
-            "baseline report; they are listed in a separate section below, do not "
-            "affect the CI gate, and are still open."
-            if known_total
-            else ""
-        )
+        + _known_sentence(len(baselined), len(known_unmapped), list_baselined_unmapped)
         + "</div>"
     )
 
@@ -371,6 +365,29 @@ def _render(
         "</head>\n<body>\n"
         f"{body}\n{footer}\n"
         "</body>\n</html>\n"
+    )
+
+
+def _known_sentence(mapped: int, unmapped: int, unmapped_listed: bool) -> str:
+    """Scope sentence for findings already known from the baseline report."""
+    total = mapped + unmapped
+    if not total:
+        return ""
+    head = f" <strong>{total}</strong> finding(s) are already known from the baseline report; "
+    if not unmapped or unmapped_listed:
+        return head + (
+            "they are listed in a separate section below, do not affect the CI gate, "
+            "and are still open."
+        )
+    tail = (
+        f"{unmapped} known unmapped finding(s) are counted, not listed "
+        "(pass <code>--show-unmapped</code> to list them)."
+    )
+    return (
+        head
+        + "they do not affect the CI gate and are still open. "
+        + (f"{mapped} mapped one(s) are listed in a separate section below; " if mapped else "")
+        + tail
     )
 
 

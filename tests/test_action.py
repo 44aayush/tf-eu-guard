@@ -329,7 +329,7 @@ case "$1" in
         ln -s "$STUB_SYMLINK" "$out/.tf-eu-guard/summary.md"
         mkdir -p "$out/reports"; ln -s "$STUB_SYMLINK" "$out/reports/link.html"
       fi
-      printf 'critical=1\nhigh=2\nbad line; rm -rf /\nhigh=x\ntotal=3\n' > "$out/.tf-eu-guard/counts.txt"
+      printf 'critical=1\nhigh=2\nbad line; rm -rf /\nhigh=x\nbaselined=2\nbaselined_unmapped=3\ntotal=3\n' > "$out/.tf-eu-guard/counts.txt"
     fi
     if [ -n "$STUB_WRITE" ]; then
       mkdir -p "$out/$(dirname "$STUB_WRITE")"
@@ -435,6 +435,16 @@ def test_action_declares_count_outputs():
     for name in COUNT_NAMES:
         assert outputs[name]["value"] == f"${{{{ steps.scan.outputs.{name} }}}}"
     assert "exit-code" in outputs
+
+
+def test_action_exposes_baselined_unmapped_output():
+    outputs = yaml.safe_load(ACTION.read_text(encoding="utf-8"))["outputs"]
+    assert outputs["baselined-unmapped"] == {
+        "description": "Number of baselined unmapped findings (baselined_unmapped)",
+        "value": "${{ steps.scan.outputs.baselined_unmapped }}",
+    }
+    readme = (ACTION.parent / "README.md").read_text(encoding="utf-8")
+    assert "`baselined-unmapped`" in readme
 
 
 def test_action_declares_new_inputs():
@@ -569,6 +579,16 @@ def test_action_writes_job_summary_and_count_outputs(tmp_path):
     assert "--counts-file" in argv
     # The scratch directory is not copied back into the workspace.
     assert not (tmp_path / "ws" / ".tf-eu-guard").exists()
+
+
+def test_action_baselined_output_unchanged(tmp_path):
+    # Both groups non-empty: `baselined` stays the mapped count, the unmapped one is separate.
+    bash = _bash_or_skip()
+    result, _, gh_output = _run_action(tmp_path, bash, STUB_EXIT="1")
+    assert result.returncode == 1, result.stderr
+    lines = gh_output.splitlines()
+    assert "baselined=2" in lines
+    assert "baselined_unmapped=3" in lines
 
 
 def test_action_job_summary_false_skips(tmp_path):

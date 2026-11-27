@@ -37,7 +37,7 @@ def test_markdown_has_severity_table_and_findings():
     assert "tf-eu-guard 1.2.3" in text
     assert "| High | 1 |" in text
     assert "| HIGH | CKV_X_1 | r | main.tf:3 |" in text
-    assert "Unmapped: 0 | Suppressed: 0 | Waived: 0 | Baselined: 0" in text
+    assert "Unmapped: 0 | Suppressed: 0 | Waived: 0 | Baselined: 0 | Baselined unmapped: 0" in text
 
 
 def test_markdown_escapes_pipes_and_html():
@@ -113,7 +113,7 @@ def test_counts_file_format(monkeypatch, tmp_path):
     keys = [line.split("=")[0] for line in lines]
     assert keys == [
         "critical", "high", "medium", "low", "info",
-        "unmapped", "suppressed", "waived", "baselined", "total",
+        "unmapped", "suppressed", "waived", "baselined", "baselined_unmapped", "total",
     ]  # fmt: skip
     assert "high=" in lines[1] and int(lines[1].split("=")[1]) >= 1
 
@@ -154,8 +154,29 @@ def test_render_counts_exact():
     text = render_counts(ScanFindings([_finding()], [{"check_id": "u"}]))
     assert text == (
         "critical=0\nhigh=1\nmedium=0\nlow=0\ninfo=0\n"
-        "unmapped=1\nsuppressed=0\nwaived=0\nbaselined=0\ntotal=2\n"
+        "unmapped=1\nsuppressed=0\nwaived=0\nbaselined=0\nbaselined_unmapped=0\ntotal=2\n"
     )
+
+
+def test_counts_include_baselined_unmapped():
+    result = ScanFindings(
+        [_finding()],
+        [],
+        baselined=[_finding("b1"), _finding("b2")],
+        baselined_unmapped=[{"check_id": "u1"}, {"check_id": "u2"}, {"check_id": "u3"}],
+    )
+    counts = dict(line.split("=") for line in render_counts(result).splitlines())
+    assert counts["baselined"] == "2"
+    assert counts["baselined_unmapped"] == "3"
+    assert counts["total"] == "1"
+    keys = list(counts)
+    assert keys.index("baselined_unmapped") == keys.index("baselined") + 1
+
+
+def test_markdown_summary_shows_baselined_unmapped():
+    result = ScanFindings([], [], baselined_unmapped=[{"check_id": "u1"}, {"check_id": "u2"}])
+    text = render_markdown(result, target="t", version="0")
+    assert "Waived: 0 | Baselined: 0 | Baselined unmapped: 2" in text
 
 
 def test_output_csv_and_markdown_files(monkeypatch, tmp_path):

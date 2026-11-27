@@ -65,4 +65,4 @@ Target: checkov-json:scan.json
 
 ... and 23 more
 
-Unmapped: 0 | Suppressed: 0 | Waived: 0 | Baselined: 0
+Unmapped: 0 | Suppressed: 0 | Waived: 0 | Baselined: 0 | Baselined unmapped: 0

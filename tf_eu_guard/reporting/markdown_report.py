@@ -71,7 +71,8 @@ def render_markdown(result: ScanFindings, *, target: str, version: str, max_rows
         lines.append("")
     lines.append(
         f"Unmapped: {unmapped} | Suppressed: {suppressed} | "
-        f"Waived: {len(result.waived)} | Baselined: {len(result.baselined)}"
+        f"Waived: {len(result.waived)} | Baselined: {len(result.baselined)} | "
+        f"Baselined unmapped: {len(result.baselined_unmapped)}"
     )
     return "\n".join(lines) + "\n"
 
@@ -83,5 +84,6 @@ def render_counts(result: ScanFindings) -> str:
     counts["suppressed"] = len(result.suppressed) + len(result.suppressed_unmapped)
     counts["waived"] = len(result.waived)
     counts["baselined"] = len(result.baselined)
+    counts["baselined_unmapped"] = len(result.baselined_unmapped)
     counts["total"] = len(result.findings) + len(result.unmapped)
     return "".join(f"{key}={value}\n" for key, value in counts.items())

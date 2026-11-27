@@ -564,7 +564,8 @@ disabled (an explicit `--config` turns it off), so the trusted config wins.
 ```
 
 Outputs: `exit-code`, plus the finding counts `critical`, `high`, `medium`, `low`,
-`info`, `unmapped`, `suppressed`, `waived`, `baselined` and `total`. They are
+`info`, `unmapped`, `suppressed`, `waived`, `baselined`, `baselined-unmapped` (known unmapped
+findings) and `total`. They are
 written even when the severity gate fails the step (the step still ends non-zero).
 
 Two optional extras:

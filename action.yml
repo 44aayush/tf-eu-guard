@@ -153,6 +153,9 @@ outputs:
   baselined:
     description: 'Number of baselined findings (baselined)'
     value: ${{ steps.scan.outputs.baselined }}
+  baselined-unmapped:
+    description: 'Number of baselined unmapped findings (baselined_unmapped)'
+    value: ${{ steps.scan.outputs.baselined_unmapped }}
   total:
     description: 'Number of total findings (all findings)'
     value: ${{ steps.scan.outputs.total }}
@@ -545,7 +548,7 @@ runs:
             head -c 1048576 "$meta/summary.md" >> "$GITHUB_STEP_SUMMARY" || true
           fi
           if [ ! -L "$meta/counts.txt" ] && [ -f "$meta/counts.txt" ]; then
-            LC_ALL=C grep -a -E '^[a-z]+=[0-9]+$' "$meta/counts.txt" >> "$GITHUB_OUTPUT" || true
+            LC_ALL=C grep -a -E '^[a-z_]+=[0-9]+$' "$meta/counts.txt" >> "$GITHUB_OUTPUT" || true
           fi
         fi
         rm -rf "$meta"
