@@ -19,7 +19,9 @@ release point.
   are unchanged.
 - A replaced `hcl2` module (another package such as python-hcl2 overwriting Checkov's bc-python-hcl2 in the
   same environment) is reported as a Checkov runtime error (exit 3) that names the cause and the fix, instead
-  of a raw `ImportError` traceback from the Checkov subprocess (TEG-14).
+  of a raw `ImportError` traceback from the Checkov subprocess (TEG-14). The probe runs inside the Checkov
+  subprocess before `checkov.main` is imported (it exits 97), so it covers every IaC type including Kubernetes
+  and sees the same `sys.path` Checkov does.
 - `--no-discovery` (and `scan(no_discovery=True)`) skips `.tf-eu-guard.yaml` and
   `.tf-eu-guard-waivers.yaml` in the scan root, so a pull request cannot weaken its own gate by
   committing them; `--config` and `--waivers` still apply and each ignored file is named on stderr
@@ -53,9 +55,9 @@ release point.
   empty file cannot pass a gate; a forged file with a positive count can still pass, since the gate is only
   as trustworthy as the file's producer. `--allow-partial` keeps the warning and ungated runs only warn
   (TEG-09). A file with no `EUGUARD_*` result only warns, since the custom checks are AWS-only.
-- Registry severity now follows one rubric: public exposure is CRITICAL and missing encryption at rest is HIGH.
-  `CKV_AWS_96` (Aurora), `CKV_AWS_5` (Elasticsearch) and `CKV_AWS_44` (Neptune) drop from CRITICAL to HIGH, so
-  `--fail-on-severity CRITICAL` no longer fails on them (`HIGH` still does). `CKV_AWS_288` no longer cites GDPR
+- The encryption-at-rest checks for data stores (`CKV_AWS_16`, `CKV_AWS_3`, `CKV_AWS_96`, `CKV_AWS_5`,
+  `CKV_AWS_44`) now all have severity HIGH; `CKV_AWS_96`, `CKV_AWS_5` and `CKV_AWS_44` were CRITICAL, so
+  `--fail-on-severity CRITICAL` no longer fails on them. `CKV_AWS_288` no longer cites GDPR
   Art. 4(12) and Art. 33 (a finding is a possible exfiltration path, not a breach). Checkov `CKV2_AWS_27`
   (Postgres RDS cluster query logging) and `CKV2_AWS_34` (unencrypted SSM parameter) are now mapped (TEG-11).
 
@@ -86,7 +88,9 @@ release point.
   (`CKV_*`, `CHECKOV_*`, `BC_*`, `PRISMA_*`, `GIT_*`, `PYTHON*`) never reach it (TEG-16).
   `CHECKOV_TERRAFORM_ALLOWED_MODULE_PREFIXES` and `VCS_ALLOWED_HOSTS` are always passed on (they only
   restrict module downloads); with `--download-external-modules` the module-download credentials
-  (`TF_REGISTRY_TOKEN`, `TFC_TOKEN`, `GITHUB_PAT`, `VCS_*`, `BITBUCKET_*`, `SSH_AUTH_SOCK`) are passed too.
+  (`TF_REGISTRY_TOKEN`, `TFC_TOKEN`, `GITHUB_PAT`, `VCS_*`, `BITBUCKET_*`, `SSH_AUTH_SOCK`, and Checkov's
+  own proxy settings `PROXY_URL`, `PROXY_CA_PATH`, `PROXY_HEADER_KEY`, `PROXY_HEADER_VALUE`) are passed too.
+  `ALL_PROXY`/`all_proxy` are always passed on, like the other proxy variables.
 - The Docker base image digest is refreshed (python:3.12-slim, fewer HIGH OS CVEs) and CI gets an
   `image-scan` job that builds the image and fails on fixable HIGH or CRITICAL vulnerabilities with a
   pinned, checksum-verified trivy; the one remaining fixable CVE is a dated exception in

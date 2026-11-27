@@ -64,7 +64,7 @@
 <header>
   <h1>tf-eu-guard &mdash; Compliance Audit Report</h1>
   <p style="margin:4px 0 8px;font-family:system-ui,sans-serif">NIS2 (Directive 2022/2555, Art. 21), GDPR (Reg. 2016/679, Art. 32 &amp; 44), and project policy</p>
-  <div class="meta"><span>Target: <code>examples/vulnerable-aws</code></span><span>Generated: 2026-11-17 14:26 UTC</span></div>
+  <div class="meta"><span>Target: <code>examples/vulnerable-aws</code></span><span>Generated: 2026-11-27 06:02 UTC</span></div>
 </header>
 <div class="scope"><strong>Scope &amp; limitations.</strong> This report lists only Checkov control failures that map to a NIS2, GDPR, or project-policy reference. It is an evidence aid for an auditor, not legal advice and is not a certification. An article not listed here was not exercised by a failing check &mdash; that is <em>not</em> evidence of compliance. Absence of a finding is not evidence of compliance.</div>
 <h2>Executive summary</h2>
@@ -73,8 +73,30 @@
 <thead><tr><th>Framework</th><th>Articles with open findings</th><th>Total findings</th></tr></thead>
 <tbody>
 <tr><td>NIS2</td><td class="num">5</td><td class="num">45</td></tr>
-<tr><td>GDPR</td><td class="num">6</td><td class="num">32</td></tr>
+<tr><td>GDPR</td><td class="num">4</td><td class="num">32</td></tr>
 <tr><td>POLICY</td><td class="num">1</td><td class="num">1</td></tr>
+</tbody>
+</table>
+<h2>Requirement evidence</h2>
+<p>Check results (resource &times; check) per requirement. Counts only: a passed check is evidence for its requirement, not a compliance score.</p>
+<table>
+<thead><tr><th>Requirement</th><th>Coverage label</th><th>Mapped checks</th><th>Ran</th><th>Passed</th><th>Failed</th><th>Suppressed</th><th>Waived</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td>NIS2 Art. 21(2)(a) &mdash; Risk analysis and information system security</td><td>manual</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td> <em>No mapped check was evaluated.</em></td></tr>
+<tr><td>NIS2 Art. 21(2)(b) &mdash; Incident handling</td><td>partial</td><td class="num">45</td><td class="num">9</td><td class="num">0</td><td class="num">9</td><td class="num">0</td><td class="num">0</td><td></td></tr>
+<tr><td>NIS2 Art. 21(2)(c) &mdash; Business continuity, backup management and disaster recovery</td><td>partial</td><td class="num">36</td><td class="num">10</td><td class="num">0</td><td class="num">10</td><td class="num">0</td><td class="num">0</td><td></td></tr>
+<tr><td>NIS2 Art. 21(2)(d) &mdash; Supply chain security</td><td>partial</td><td class="num">8</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td> <em>No mapped check was evaluated.</em></td></tr>
+<tr><td>NIS2 Art. 21(2)(e) &mdash; Security in network and information systems acquisition, development and maintenance</td><td>partial</td><td class="num">45</td><td class="num">3</td><td class="num">1</td><td class="num">2</td><td class="num">0</td><td class="num">0</td><td></td></tr>
+<tr><td>NIS2 Art. 21(2)(f) &mdash; Policies and procedures to assess the effectiveness of risk-management measures</td><td>process evidence</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td> <em>No mapped check was evaluated.</em></td></tr>
+<tr><td>NIS2 Art. 21(2)(g) &mdash; Basic cyber hygiene practices and cybersecurity training</td><td>partial</td><td class="num">14</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td> <em>No mapped check was evaluated.</em></td></tr>
+<tr><td>NIS2 Art. 21(2)(h) &mdash; Policies and procedures on the use of cryptography and encryption</td><td>partial</td><td class="num">50</td><td class="num">4</td><td class="num">1</td><td class="num">3</td><td class="num">0</td><td class="num">0</td><td></td></tr>
+<tr><td>NIS2 Art. 21(2)(i) &mdash; Human resources security, access control policies and asset management</td><td>partial</td><td class="num">66</td><td class="num">42</td><td class="num">21</td><td class="num">21</td><td class="num">0</td><td class="num">0</td><td></td></tr>
+<tr><td>NIS2 Art. 21(2)(j) &mdash; Authentication and secured communications</td><td>partial</td><td class="num">4</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td> <em>No mapped check was evaluated.</em></td></tr>
+<tr><td>GDPR Art. 32(1)(a) &mdash; Pseudonymisation and encryption of personal data</td><td>partial</td><td class="num">49</td><td class="num">4</td><td class="num">1</td><td class="num">3</td><td class="num">0</td><td class="num">0</td><td></td></tr>
+<tr><td>GDPR Art. 32(1)(b) &mdash; Confidentiality, integrity, availability and resilience of processing systems</td><td>partial</td><td class="num">142</td><td class="num">39</td><td class="num">18</td><td class="num">21</td><td class="num">0</td><td class="num">0</td><td></td></tr>
+<tr><td>GDPR Art. 32(1)(c) &mdash; Ability to restore availability and access to personal data in a timely manner</td><td>partial</td><td class="num">20</td><td class="num">7</td><td class="num">0</td><td class="num">7</td><td class="num">0</td><td class="num">0</td><td></td></tr>
+<tr><td>GDPR Art. 32(1)(d) &mdash; Regularly testing, assessing and evaluating effectiveness</td><td>process evidence</td><td class="num">2</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td> <em>No mapped check was evaluated.</em></td></tr>
+<tr><td>GDPR Art. 44 &mdash; General principle for transfers of personal data to third countries</td><td>partial</td><td class="num">2</td><td class="num">1</td><td class="num">0</td><td class="num">1</td><td class="num">0</td><td class="num">0</td><td></td></tr>
 </tbody>
 </table>
 <nav class="toc"><strong>Contents</strong>
@@ -88,11 +110,9 @@
 </ul>
 <strong>GDPR</strong>
 <ul>
-<li><a href="#gdpr-art-4-12">Art. 4(12) &mdash; Personal data breach</a> (1)</li>
 <li><a href="#gdpr-art-32-1-a">Art. 32(1)(a) &mdash; Pseudonymisation and encryption of personal data</a> (3)</li>
 <li><a href="#gdpr-art-32-1-b">Art. 32(1)(b) &mdash; Confidentiality, integrity, availability and resilience of processing systems</a> (21)</li>
 <li><a href="#gdpr-art-32-1-c">Art. 32(1)(c) &mdash; Ability to restore availability and access to personal data in a timely manner</a> (7)</li>
-<li><a href="#gdpr-art-33">Art. 33 &mdash; Notification of a personal data breach to the supervisory authority</a> (1)</li>
 <li><a href="#gdpr-art-44">Art. 44 &mdash; General principle for transfers of personal data to third countries</a> (1)</li>
 </ul>
 <strong>POLICY</strong>
@@ -118,7 +138,7 @@
 <tr><td><span class="badge sev-medium" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV_AWS_18</code><br>Ensure the S3 bucket has access logging enabled</td></tr>
 </tbody>
 </table>
-<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/nis2-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/nis2-mapping.md</code></a></p>
+<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/nis2-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/nis2-mapping.md</code></a></p>
 </div>
 <div class="article" id="nis2-art-21-2-c">
 <h3>NIS2 Art. 21(2)(c) <span class="title-note">&mdash; Business continuity, backup management and disaster recovery</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
@@ -138,7 +158,7 @@
 <tr><td><span class="badge sev-medium" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV_AWS_21</code><br>Ensure all data stored in the S3 bucket have versioning enabled</td></tr>
 </tbody>
 </table>
-<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/nis2-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/nis2-mapping.md</code></a></p>
+<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/nis2-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/nis2-mapping.md</code></a></p>
 </div>
 <div class="article" id="nis2-art-21-2-e">
 <h3>NIS2 Art. 21(2)(e) <span class="title-note">&mdash; Security in network and information systems acquisition, development and maintenance</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
@@ -150,7 +170,7 @@
 <tr><td><span class="badge sev-critical" style="background:#c0392b;color:#ffffff">CRITICAL</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>EUGUARD_NIS2_001</code><br>Ensure secrets are not hardcoded in Terraform (use variables/Secrets Manager)</td></tr>
 </tbody>
 </table>
-<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/nis2-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/nis2-mapping.md</code></a></p>
+<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/nis2-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/nis2-mapping.md</code></a></p>
 </div>
 <div class="article" id="nis2-art-21-2-h">
 <h3>NIS2 Art. 21(2)(h) <span class="title-note">&mdash; Policies and procedures on the use of cryptography and encryption</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
@@ -163,7 +183,7 @@
 <tr><td><span class="badge sev-high" style="background:#e67e22;color:#1a1a1a">HIGH</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV_AWS_145</code><br>Ensure that S3 buckets are encrypted with KMS by default</td></tr>
 </tbody>
 </table>
-<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/nis2-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/nis2-mapping.md</code></a></p>
+<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/nis2-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/nis2-mapping.md</code></a></p>
 </div>
 <div class="article" id="nis2-art-21-2-i">
 <h3>NIS2 Art. 21(2)(i) <span class="title-note">&mdash; Human resources security, access control policies and asset management</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
@@ -194,20 +214,9 @@
 <tr><td><span class="badge sev-critical" style="background:#c0392b;color:#ffffff">CRITICAL</span></td><td><code>aws_db_instance.main</code></td><td><code>/rds.tf:2-30</code></td><td><code>CKV_AWS_17</code><br>Ensure all data stored in RDS is not publicly accessible</td></tr>
 </tbody>
 </table>
-<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/nis2-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/nis2-mapping.md</code></a></p>
+<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/nis2-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/nis2-mapping.md</code></a></p>
 </div>
 <h2>GDPR controls</h2>
-<div class="article" id="gdpr-art-4-12">
-<h3>GDPR Art. 4(12) <span class="title-note">&mdash; Personal data breach</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
-<p><span class="status">OPEN &mdash; 1 finding(s)</span></p>
-<table>
-<thead><tr><th>Severity</th><th>Resource</th><th>Location</th><th>Failed control</th></tr></thead>
-<tbody>
-<tr><td><span class="badge sev-critical" style="background:#c0392b;color:#ffffff">CRITICAL</span></td><td><code>aws_iam_user_policy.app_user_policy</code></td><td><code>/iam.tf:11-29</code></td><td><code>CKV_AWS_288</code><br>Ensure IAM policies does not allow data exfiltration</td></tr>
-</tbody>
-</table>
-<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/gdpr-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/gdpr-mapping.md</code></a></p>
-</div>
 <div class="article" id="gdpr-art-32-1-a">
 <h3>GDPR Art. 32(1)(a) <span class="title-note">&mdash; Pseudonymisation and encryption of personal data</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
 <p><span class="status">OPEN &mdash; 3 finding(s)</span></p>
@@ -219,7 +228,7 @@
 <tr><td><span class="badge sev-high" style="background:#e67e22;color:#1a1a1a">HIGH</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV_AWS_145</code><br>Ensure that S3 buckets are encrypted with KMS by default</td></tr>
 </tbody>
 </table>
-<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/gdpr-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/gdpr-mapping.md</code></a></p>
+<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/gdpr-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/gdpr-mapping.md</code></a></p>
 </div>
 <div class="article" id="gdpr-art-32-1-b">
 <h3>GDPR Art. 32(1)(b) <span class="title-note">&mdash; Confidentiality, integrity, availability and resilience of processing systems</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
@@ -250,7 +259,7 @@
 <tr><td><span class="badge sev-high" style="background:#e67e22;color:#1a1a1a">HIGH</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV2_AWS_6</code><br>Ensure that S3 bucket has a Public Access block</td></tr>
 </tbody>
 </table>
-<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/gdpr-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/gdpr-mapping.md</code></a></p>
+<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/gdpr-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/gdpr-mapping.md</code></a></p>
 </div>
 <div class="article" id="gdpr-art-32-1-c">
 <h3>GDPR Art. 32(1)(c) <span class="title-note">&mdash; Ability to restore availability and access to personal data in a timely manner</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
@@ -267,18 +276,7 @@
 <tr><td><span class="badge sev-medium" style="background:#d4ac0d;color:#1a1a1a">MEDIUM</span></td><td><code>aws_s3_bucket.logs</code></td><td><code>/s3.tf:22-28</code></td><td><code>CKV_AWS_21</code><br>Ensure all data stored in the S3 bucket have versioning enabled</td></tr>
 </tbody>
 </table>
-<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/gdpr-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/gdpr-mapping.md</code></a></p>
-</div>
-<div class="article" id="gdpr-art-33">
-<h3>GDPR Art. 33 <span class="title-note">&mdash; Notification of a personal data breach to the supervisory authority</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
-<p><span class="status">OPEN &mdash; 1 finding(s)</span></p>
-<table>
-<thead><tr><th>Severity</th><th>Resource</th><th>Location</th><th>Failed control</th></tr></thead>
-<tbody>
-<tr><td><span class="badge sev-critical" style="background:#c0392b;color:#ffffff">CRITICAL</span></td><td><code>aws_iam_user_policy.app_user_policy</code></td><td><code>/iam.tf:11-29</code></td><td><code>CKV_AWS_288</code><br>Ensure IAM policies does not allow data exfiltration</td></tr>
-</tbody>
-</table>
-<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/gdpr-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/gdpr-mapping.md</code></a></p>
+<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/gdpr-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/gdpr-mapping.md</code></a></p>
 </div>
 <div class="article" id="gdpr-art-44">
 <h3>GDPR Art. 44 <span class="title-note">&mdash; General principle for transfers of personal data to third countries</span><span class="backtop"><a href="#top">&#8593; top</a></span></h3>
@@ -289,7 +287,7 @@
 <tr><td><span class="badge sev-high" style="background:#e67e22;color:#1a1a1a">HIGH</span></td><td><code>aws.default</code></td><td><code>/main.tf:11-13</code></td><td><code>EUGUARD_GDPR_002</code><br>Review AWS provider regions outside the EU/EEA for GDPR Chapter V transfer safeguards</td></tr>
 </tbody>
 </table>
-<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/gdpr-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/gdpr-mapping.md</code></a></p>
+<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/gdpr-mapping.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/gdpr-mapping.md</code></a></p>
 </div>
 <h2>POLICY controls</h2>
 <div class="article" id="policy-policy-residency-001">
@@ -301,8 +299,10 @@
 <tr><td><span class="badge sev-high" style="background:#e67e22;color:#1a1a1a">HIGH</span></td><td><code>aws.default</code></td><td><code>/main.tf:11-13</code></td><td><code>EUGUARD_POLICY_001</code><br>Ensure the AWS provider region is within the configured residency policy</td></tr>
 </tbody>
 </table>
-<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/DECISIONS.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.8.1/docs/DECISIONS.md</code></a></p>
+<p class="doclink">Mapping rationale: <a href="https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/DECISIONS.md"><code>https://github.com/44aayush/tf-eu-guard/blob/v0.9.0/docs/DECISIONS.md</code></a></p>
 </div>
-<footer>Generated by tf-eu-guard v0.8.1 on 2026-11-17 14:26 UTC.</footer>
+<h2 id="provenance">Provenance</h2>
+<table><tr><th>Tool version</th><td><code>0.9.0</code></td></tr><tr><th>Checkov version</th><td><code>3.4.5</code></td></tr><tr><th>Registry SHA-256</th><td><code>a1d4cac78089932db6ea325ca5a56afea67ce72890530d66396a6f358321bc0a</code></td></tr><tr><th>Registry files</th><td><code>registry-aws.yaml, registry-azure.yaml, registry-gcp.yaml, registry-kubernetes.yaml, registry-secrets.yaml</code></td></tr><tr><th>Commit</th><td><code>1290a02cb6513225799b4ad6b107e41cf98e9478</code></td></tr><tr><th>Resources scanned</th><td><code>17</code></td></tr><tr><th>Checks</th><td><code>passed: 39, failed: 53, skipped: 0</code></td></tr><tr><th>Options</th><td><code>{&quot;allow_partial&quot;: false, &quot;download_external_modules&quot;: false, &quot;exclude&quot;: [], &quot;fail_on_any&quot;: false, &quot;fail_on_suppressed&quot;: false, &quot;fail_on_unmapped&quot;: false, &quot;framework&quot;: &quot;all&quot;, &quot;iac_type&quot;: &quot;terraform&quot;, &quot;json_format&quot;: &quot;array&quot;, &quot;no_config&quot;: false, &quot;no_discovery&quot;: false, &quot;online&quot;: false, &quot;output&quot;: &quot;auditor&quot;, &quot;output_file&quot;: &quot;/tmp/claude-1000/-home-dev-tf-eu-guard/231e1cf5-a406-4886-872c-312b008715d1/scratchpad/venv/../out/auditor-report.html&quot;, &quot;path&quot;: &quot;examples/vulnerable-aws&quot;, &quot;registry_dirs&quot;: [], &quot;residency_policy&quot;: &quot;eu-eea&quot;, &quot;secrets&quot;: false, &quot;severity_overrides&quot;: {}, &quot;show_unmapped&quot;: false, &quot;timeout&quot;: 600, &quot;var_files&quot;: []}</code></td></tr></table>
+<footer>Generated by tf-eu-guard v0.9.0 on 2026-11-27 06:02 UTC.</footer>
 </body>
 </html>

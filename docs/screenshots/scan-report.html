@@ -83,7 +83,7 @@
 <body>
 <header>
   <h1>tf-eu-guard &mdash; Security Report</h1>
-  <div class="meta"><span>Target: <code>examples/vulnerable-aws</code></span><span>Generated: 2026-11-17 14:26 UTC</span><span>Findings: 53</span></div>
+  <div class="meta"><span>Target: <code>examples/vulnerable-aws</code></span><span>Generated: 2026-11-27 06:02 UTC</span><span>Findings: 53</span></div>
 </header>
 <section class="summary">
 <div class="stat"><div class="num">53</div><div class="label">Findings</div></div>
@@ -134,9 +134,9 @@
   <dl class="meta">
     <dt>Resource</dt><dd><code>aws_iam_user_policy.app_user_policy</code></dd>
     <dt>File</dt><dd><code>/iam.tf:11-29</code></dd>
-    <dt>Compliance</dt><dd><span class="art">GDPR Art. 32(1)(b)</span> <span class="art">GDPR Art. 33</span> <span class="art">GDPR Art. 4(12)</span> <span class="art">NIS2 Art. 21(2)(i)</span></dd>
+    <dt>Compliance</dt><dd><span class="art">GDPR Art. 32(1)(b)</span> <span class="art">NIS2 Art. 21(2)(i)</span></dd>
   </dl>
-  <p class="risk">Broad read actions on all resources (s3:GetObject, secretsmanager:GetSecretValue, rds:DownloadDBLogFilePortion on &quot;*&quot;) enable bulk exfiltration of data — if that data is personal, an exfiltration through them may constitute a personal data breach (GDPR Art. 4(12)); notification under Art. 33 depends on the risk assessment. These permissions may indicate a control gap relevant to the access control expected by NIS2 Art. 21(2)(i).
+  <p class="risk">Broad read actions on all resources (s3:GetObject, secretsmanager:GetSecretValue, rds:DownloadDBLogFilePortion on &quot;*&quot;) enable bulk exfiltration of data — if that data is personal, an exfiltration path through them could lead to a personal data breach. These permissions may weaken the confidentiality of processing expected by GDPR Art. 32(1)(b) and the access control expected by NIS2 Art. 21(2)(i).
 </p>
   <div class="remediation"><h4>Remediation</h4><pre>Constrain read actions to specific resource ARNs, never &quot;*&quot;:
   &quot;Action&quot;: [&quot;s3:GetObject&quot;]
@@ -467,7 +467,7 @@ full resource); at minimum:
     <dt>File</dt><dd><code>/s3.tf:12-19</code></dd>
     <dt>Compliance</dt><dd><span class="art">GDPR Art. 32(1)(b)</span></dd>
   </dl>
-  <p class="risk">With block_public_acls disabled, a future ACL change can silently make objects public, weakensing the confidentiality control GDPR Art. 32(1)(b) requires. The public access block is the account-level guardrail that prevents that drift.
+  <p class="risk">With block_public_acls disabled, a future ACL change can silently make objects public, weakening the confidentiality control GDPR Art. 32(1)(b) requires. The public access block is the account-level guardrail that prevents that drift.
 </p>
   <div class="remediation"><h4>Remediation</h4><pre>Enable the guardrail on the bucket&#x27;s public access block:
   resource &quot;aws_s3_bucket_public_access_block&quot; &quot;this&quot; {
@@ -755,12 +755,23 @@ both address families:
     <dt>File</dt><dd><code>/rds.tf:2-30</code></dd>
     <dt>Compliance</dt><dd><span class="art">GDPR Art. 32(1)(b)</span> <span class="art">NIS2 Art. 21(2)(b)</span></dd>
   </dl>
-  <p class="risk">Without Postgres log capture (log_connections, log_disconnections, log_statement) there is no record of who touched personal data in the database, weakensing the incident detection and analysis NIS2 Art. 21(2)(b) requires and the accountable processing security of GDPR Art. 32(1)(b).
+  <p class="risk">Without Postgres log capture (log_statement, log_min_duration_statement) there is no record of who touched personal data in the database, weakening the incident detection and analysis NIS2 Art. 21(2)(b) requires and the accountable processing security of GDPR Art. 32(1)(b).
 </p>
-  <div class="remediation"><h4>Remediation</h4><pre>Enable the logging parameters in the instance&#x27;s parameter group:
+  <div class="remediation"><h4>Remediation</h4><pre>Enable the logging parameters in a parameter group attached to the instance:
   resource &quot;aws_db_parameter_group&quot; &quot;main&quot; {
-    parameter { name = &quot;log_connections&quot;  value = &quot;1&quot; }
-    parameter { name = &quot;log_disconnections&quot; value = &quot;1&quot; }
+    family = &quot;postgres15&quot;
+    parameter {
+      name  = &quot;log_statement&quot;
+      value = &quot;all&quot;
+    }
+    parameter {
+      name  = &quot;log_min_duration_statement&quot;
+      value = &quot;1000&quot;
+    }
+  }
+  resource &quot;aws_db_instance&quot; &quot;main&quot; {
+    engine               = &quot;postgres&quot;
+    parameter_group_name = aws_db_parameter_group.main.name
   }</pre></div>
 </article>
 <article class="finding sev-medium" style="border-left-color:#d4ac0d">
@@ -1146,6 +1157,6 @@ residency policy (an in-policy region, when available):
                       events = [&quot;s3:ObjectCreated:*&quot;] }
   }</pre></div>
 </article>
-<footer>Generated by tf-eu-guard v0.8.1 on 2026-11-17 14:26 UTC. Only failed checks that map to a NIS2, GDPR, or project-policy control are shown; 0 finding(s) suppressed by inline comments are listed separately; this report is not legal advice and is not a certification; absence of a finding is not evidence of compliance.</footer>
+<footer>Generated by tf-eu-guard v0.9.0 on 2026-11-27 06:02 UTC. Only failed checks that map to a NIS2, GDPR, or project-policy control are shown; 0 finding(s) suppressed by inline comments, 0 waived and 0 known from the baseline are listed separately; this report is not legal advice and is not a certification; absence of a finding is not evidence of compliance.</footer>
 </body>
 </html>

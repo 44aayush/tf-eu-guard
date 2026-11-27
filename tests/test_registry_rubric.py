@@ -18,7 +18,7 @@ def _articles(mapping):
     "cid", ["CKV_AWS_16", "CKV_AWS_96", "CKV_AWS_5", "CKV_AWS_44", "CKV_AWS_3"]
 )
 def test_encryption_at_rest_family_has_one_severity(registry, cid):
-    """Rubric: public exposure is CRITICAL; missing encryption at rest is HIGH."""
+    """The encryption-at-rest checks for data stores all have severity HIGH."""
     assert registry[cid].severity == Severity.HIGH
 
 

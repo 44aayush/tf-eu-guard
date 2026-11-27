@@ -161,7 +161,7 @@ remediation text lives in the registry):
 
 | Theme | NIS2 | GDPR | Checks |
 |-------|------|------|--------|
-| Encryption at rest | 21(2)(h) | 32(1)(a) | CKV2_AWS_2, CKV_AWS_3, 8, 96, 5, 247, 44, 347, 279, 280, 327, 136, 189, 186, 173, 58, 7, CKV2_AWS_64 |
+| Encryption at rest | 21(2)(h) | 32(1)(a) | CKV2_AWS_2, CKV_AWS_3, 8, 96, 5, 247, 44, 347, 279, 280, 327, 136, 189, 186, 173, 58, 7, CKV2_AWS_64, CKV2_AWS_34 |
 | Encryption in transit | 21(2)(h) | 32(1)(a) | CKV_AWS_127, 376, 228, 379, CKV2_AWS_69 |
 | Logging / detection | 21(2)(b) | 32(1)(b) | CKV_AWS_101, 84, 317, 324, 325, 92, 37, 50, 126, 353, CKV2_AWS_30, CKV2_AWS_27, CKV2_AWS_62 |
 | Backup / resilience / recovery | 21(2)(c) | 32(1)(b)/(c) | CKV_AWS_144, CKV2_AWS_8, CKV_AWS_326, 361, 139, CKV2_AWS_58, 115, 116, 135, CKV2_AWS_59, 318, CKV2_AWS_61, 313, 362, CKV2_AWS_60 |

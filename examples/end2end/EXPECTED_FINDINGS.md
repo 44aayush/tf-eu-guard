@@ -507,12 +507,12 @@ literal in `db-app.tf`, so this gap adds to the hardcoded-secret finding.
 
 **CKV_AWS_96** — Ensure all data stored in the Aurora RDS cluster is securely encrypted at rest  
 **Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)  
-**Severity**: CRITICAL  
+**Severity**: HIGH  
 **Expected instances**: `rds-cluster.tf` — `aws_rds_cluster.aurora` has no `storage_encrypted`
 
 **CKV_AWS_327** — Ensure RDS cluster is encrypted by KMS using a customer-managed key (CMK)  
 **Mapped to**: NIS2 Art. 21(2)(h); GDPR Art. 32(1)(a)  
-**Severity**: MEDIUM  
+**Severity**: HIGH  
 **Expected instances**: `rds-cluster.tf` — no `kms_key_id`
 
 **CKV_AWS_313** — Ensure RDS cluster copies tags to snapshots  
