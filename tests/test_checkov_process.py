@@ -793,6 +793,59 @@ def test_checkov_environment_keeps_windows_essentials(monkeypatch):
     assert all(env.get(name) == "C:\\x" for name in essentials)
 
 
+def test_checkov_environment_keeps_module_restrictions(monkeypatch):
+    from tf_eu_guard.checkov.process import checkov_environment
+
+    monkeypatch.setenv("CHECKOV_TERRAFORM_ALLOWED_MODULE_PREFIXES", "git::https://corp/")
+    monkeypatch.setenv("VCS_ALLOWED_HOSTS", "corp")
+    env = checkov_environment(allow_module_download=False)
+    assert env["CHECKOV_TERRAFORM_ALLOWED_MODULE_PREFIXES"] == "git::https://corp/"
+    assert env["VCS_ALLOWED_HOSTS"] == "corp"
+
+
+def test_checkov_environment_module_credentials_only_when_downloading(monkeypatch):
+    from tf_eu_guard.checkov.process import CHECKOV_MODULE_DOWNLOAD_ENV, checkov_environment
+
+    for name in CHECKOV_MODULE_DOWNLOAD_ENV:
+        monkeypatch.setenv(name, "secret")
+    assert not CHECKOV_MODULE_DOWNLOAD_ENV & set(checkov_environment())
+    env = checkov_environment(allow_module_download=True)
+    assert CHECKOV_MODULE_DOWNLOAD_ENV <= set(env)
+
+
+def test_run_checkov_passes_allow_module_download(tmp_path, monkeypatch):
+    captured = _capture_cmd(monkeypatch)
+    monkeypatch.setenv("GITHUB_PAT", "secret")
+    run_checkov(_tf_dir(tmp_path))
+    assert "GITHUB_PAT" not in captured["env"]
+    run_checkov(tmp_path, download_external_modules=True)
+    assert captured["env"]["GITHUB_PAT"] == "secret"
+
+
+def test_checkov_environment_windows_matches_case_insensitively(monkeypatch):
+    from tf_eu_guard.checkov import process
+
+    monkeypatch.setattr(process.sys, "platform", "win32")
+    monkeypatch.setattr(
+        process.os, "environ", {"SystemRoot": "C:\\Windows", "lc_all": "C", "Foo": "x"}
+    )
+    env = process.checkov_environment()
+    assert env == {"SystemRoot": "C:\\Windows", "lc_all": "C"}
+
+
+def test_checkov_env_allowlist_is_exact():
+    from tf_eu_guard.checkov.process import CHECKOV_ENV_ALLOWLIST
+
+    assert CHECKOV_ENV_ALLOWLIST == {
+        "PATH", "HOME", "USER", "LOGNAME", "LANG", "LANGUAGE", "TZ", "TMPDIR", "TEMP", "TMP",
+        "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT", "USERPROFILE", "APPDATA",
+        "LOCALAPPDATA", "PROGRAMDATA", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy",
+        "https_proxy", "no_proxy", "REQUESTS_CA_BUNDLE", "SSL_CERT_FILE", "SSL_CERT_DIR",
+        "CURL_CA_BUNDLE", "XDG_CACHE_HOME", "XDG_CONFIG_HOME",
+        "CHECKOV_TERRAFORM_ALLOWED_MODULE_PREFIXES", "VCS_ALLOWED_HOSTS",
+    }  # fmt: skip
+
+
 def test_checkov_environment_applies_extra(monkeypatch):
     from tf_eu_guard.checkov.process import checkov_environment
 

@@ -60,17 +60,36 @@ CHECKOV_ENV_ALLOWLIST = frozenset(
         "CURL_CA_BUNDLE",
         "XDG_CACHE_HOME",
         "XDG_CONFIG_HOME",
+        # Only restrict where --download-external-modules may fetch from.
+        "CHECKOV_TERRAFORM_ALLOWED_MODULE_PREFIXES",
+        "VCS_ALLOWED_HOSTS",
     }
 )
-_CHECKOV_ENV_ALLOWLIST_FOLDED = frozenset(name.upper() for name in CHECKOV_ENV_ALLOWLIST)
+
+# Credentials for Checkov's module loaders; kept only with --download-external-modules.
+CHECKOV_MODULE_DOWNLOAD_ENV = frozenset(
+    {
+        "TF_REGISTRY_TOKEN",
+        "TFC_TOKEN",
+        "TF_HOST_NAME",
+        "GITHUB_PAT",
+        "VCS_TOKEN",
+        "VCS_USERNAME",
+        "VCS_BASE_URL",
+        "BITBUCKET_TOKEN",
+        "BITBUCKET_USERNAME",
+        "BITBUCKET_APP_PASSWORD",
+        "SSH_AUTH_SOCK",
+    }
+)
 
 
-def _env_allowed(name: str) -> bool:
+def _env_allowed(name: str, allowed: frozenset[str]) -> bool:
     """Return whether *name* may reach Checkov (case-insensitive on Windows)."""
     if sys.platform == "win32":
         folded = name.upper()
-        return folded in _CHECKOV_ENV_ALLOWLIST_FOLDED or folded.startswith("LC_")
-    return name in CHECKOV_ENV_ALLOWLIST or name.startswith("LC_")
+        return folded.startswith("LC_") or folded in {a.upper() for a in allowed}
+    return name in allowed or name.startswith("LC_")
 
 
 CHECKOV_BOOTSTRAP = """
@@ -116,15 +135,24 @@ def trusted_checkov_workdir(target: Path) -> Path:
     return Path(drive + os.sep)
 
 
-def checkov_environment(extra: Mapping[str, str] | None = None) -> dict[str, str]:
+def checkov_environment(
+    extra: Mapping[str, str] | None = None, *, allow_module_download: bool = False
+) -> dict[str, str]:
     """Return an allowlisted environment for the Checkov subprocess.
 
     Only :data:`CHECKOV_ENV_ALLOWLIST` and ``LC_*`` variables are copied from
     the ambient environment; everything else (Checkov configuration, platform
     keys, ``GIT_*``, ``PYTHON*``, the residency variables) is dropped. The values
-    in *extra* (the residency policy) are applied last.
+    in *extra* (the residency policy) are applied last. With
+    *allow_module_download* the module-loader credentials
+    (:data:`CHECKOV_MODULE_DOWNLOAD_ENV`) are kept too.
     """
-    environment = {k: v for k, v in os.environ.items() if _env_allowed(k)}
+    allowed = (
+        CHECKOV_ENV_ALLOWLIST | CHECKOV_MODULE_DOWNLOAD_ENV
+        if allow_module_download
+        else CHECKOV_ENV_ALLOWLIST
+    )
+    environment = {k: v for k, v in os.environ.items() if _env_allowed(k, allowed)}
     if extra:
         environment.update(extra)
     return environment
@@ -521,7 +549,7 @@ def run_checkov(
             errors="replace",
             check=False,
             cwd=trusted_checkov_workdir(target),
-            env=checkov_environment(residency_env),
+            env=checkov_environment(residency_env, allow_module_download=download_external_modules),
             timeout=timeout or None,
         )
     except subprocess.TimeoutExpired as exc:
