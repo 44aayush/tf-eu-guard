@@ -309,10 +309,11 @@ def test_unmapped_severity_with_baseline_only_new_fail(monkeypatch, tmp_path, ca
     report = json.loads((tmp_path / "n.json").read_text())
     assert any(s.endswith("1 unmapped)") for s in report["scan"]["weakening_settings"])
     # the array format keeps stdout pure and prints the settings list on stderr
-    run_cli(
+    rc = run_cli(
         monkeypatch, tmp_path, "--checkov-json", str(tmp_path / "in.json"), "--no-config",
         "--output", "json", "--json-format", "array", "--baseline", base, *_UNMAPPED_GATE,
     )  # fmt: skip
+    assert rc == 0
     assert "1 unmapped)" in capsys.readouterr().err
     doc["results"]["failed_checks"].append(
         dict(doc["results"]["failed_checks"][0], check_id="CKV_ZZZ_998")

@@ -34,6 +34,7 @@ class ReportContext:
     registry: LoadedRegistry | None = None
     weakening_settings: list[str] = field(default_factory=list)
     provenance: dict[str, Any] | None = None
+    baseline_covers_unmapped: bool = True
 
     @classmethod
     def from_result(cls, args: argparse.Namespace, result: "ScanFindings") -> "ReportContext":
@@ -52,6 +53,7 @@ class ReportContext:
             registry=result.registry,
             weakening_settings=result.weakening_settings,
             provenance=result.provenance,
+            baseline_covers_unmapped=result.baseline_covers_unmapped,
         )
 
     @property
@@ -67,8 +69,14 @@ class ReportContext:
 
     @property
     def known_unmapped(self) -> list[dict[str, Any]] | None:
-        """The baselined unmapped findings, or None when no ``--baseline`` was given."""
-        return self.baselined_unmapped if self.args.baseline else None
+        """The baselined unmapped findings.
+
+        None when no ``--baseline`` was given or when it is an array report, which cannot
+        record unmapped findings (SARIF then leaves ``baselineState`` off unmapped results).
+        """
+        if not self.args.baseline or not self.baseline_covers_unmapped:
+            return None
+        return self.baselined_unmapped
 
     @property
     def list_baselined_unmapped(self) -> bool:

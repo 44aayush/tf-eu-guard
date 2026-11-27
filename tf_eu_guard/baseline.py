@@ -31,6 +31,8 @@ class Baseline:
     created: datetime | None
     # Unmapped findings of the object format (`unmapped[]` plus `baselined_unmapped[]`).
     unmapped_keys: frozenset[Key] = frozenset()
+    # Whether the document could record unmapped findings (object reports; not the array).
+    covers_unmapped: bool = True
 
 
 def _read_document(path: Path) -> Any:
@@ -116,5 +118,8 @@ def load_baseline(path: Path) -> Baseline:
     document = _read_document(path)
     entries, created = _entries_of(document, path)
     return Baseline(
-        frozenset(entry_key(e) for e in entries), created, _unmapped_keys_of(document, path)
+        frozenset(entry_key(e) for e in entries),
+        created,
+        _unmapped_keys_of(document, path),
+        covers_unmapped=isinstance(document, dict),
     )

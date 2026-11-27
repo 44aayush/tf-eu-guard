@@ -399,7 +399,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--fail-on-unmapped",
         action="store_true",
         help="Exit with code 1 if any active (not inline-suppressed) unmapped "
-        "Checkov finding exists. Unmapped findings otherwise trip no gate unless "
+        "Checkov finding exists; with --baseline only unmapped findings not in the "
+        "baseline count. Unmapped findings otherwise trip no gate unless "
         "--unmapped-severity is set.",
     )
     return parser

@@ -371,7 +371,7 @@ tf-eu-guard scan ./terraform --waivers waivers.yaml    # accepted findings leave
 tf-eu-guard scan ./terraform --baseline old.json --fail-on-any  # only findings absent from old.json fail
 tf-eu-guard diff old.json new.json                     # new / fixed / unchanged between two JSON reports
 tf-eu-guard scan ./terraform --show-unmapped          # list unmapped Checkov findings in dev/HTML reports
-tf-eu-guard scan ./terraform --fail-on-unmapped         # exit 1 if any active unmapped finding exists
+tf-eu-guard scan ./terraform --fail-on-unmapped         # exit 1 if any active unmapped finding exists (with --baseline: not in the baseline)
 tf-eu-guard scan ./terraform --residency-policy eusc   # Sovereign Cloud only (default: eu-eea)
 tf-eu-guard scan ./terraform --residency-policy custom --allowed-regions eu-central-1,eu-west-1
 ```
@@ -431,6 +431,10 @@ esac
 > unmapped findings match the same way (check ID, resource, file path) against the baseline's
 > `unmapped[]` and `baselined_unmapped[]`; known ones move to the JSON object's
 > `baselined_unmapped[]`, so `--fail-on-unmapped` and `--unmapped-severity` see only new ones.
+> Matching ignores whether a check is mapped: a finding in either list of the baseline stays known
+> after a registry overlay or upgrade maps (or unmaps) its check. An array baseline cannot record
+> unmapped findings, so every unmapped finding counts as new (a note says so; write baselines
+> with `--json-format object`), and SARIF leaves `baselineState` off unmapped results then.
 > Waivers still never cover unmapped findings.
 > The baseline's date and match counts appear under "Scan settings that reduce findings".
 > `tf-eu-guard diff OLD.json NEW.json [--json]` prints new, fixed and unchanged counts

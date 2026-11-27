@@ -256,3 +256,33 @@ def test_changed_since_cross_file_change_keeps_finding(monkeypatch, tmp_path):
         "--fail-on-severity", "HIGH",
     )  # fmt: skip
     assert code == 1
+
+
+def test_changed_since_hides_baselined_unmapped_in_unchanged_file(monkeypatch, k8s_repo, capsys):
+    repo = k8s_repo
+    base = repo / "base.json"
+
+    def unmapped(path):
+        return _check("CKV_ZZZ_999", path, "x.y")
+
+    base.write_text(
+        json.dumps({"findings": [], "unmapped": [unmapped("/a.yaml"), unmapped("/b.yaml")]}),
+        encoding="utf-8",
+    )
+    doc = {
+        "check_type": "kubernetes",
+        "results": {
+            "failed_checks": [unmapped("/a.yaml"), unmapped("/b.yaml")],
+            "passed_checks": [],
+            "skipped_checks": [],
+        },
+    }
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", lambda *a, **k: doc)
+    code = run_cli(
+        monkeypatch, repo, str(repo), "--iac-type", "kubernetes", "--changed-since", "base",
+        "--baseline", str(base), "--output", "json", "--json-format", "object",
+    )  # fmt: skip
+    assert code == 0
+    out = json.loads(capsys.readouterr().out)
+    assert [u["file_path"] for u in out["baselined_unmapped"]] == ["/a.yaml"]
+    assert out["unmapped"] == []

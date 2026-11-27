@@ -46,7 +46,7 @@ inputs:
     required: false
     default: 'false'
   fail-on-unmapped:
-    description: 'Fail the workflow when any active Checkov finding has no EU mapping (true, 1 or yes, any case; mirrors --fail-on-unmapped)'
+    description: 'Fail the workflow when any active Checkov finding has no EU mapping; with a baseline only unmapped findings not in the baseline count (true, 1 or yes, any case; mirrors --fail-on-unmapped)'
     required: false
     default: 'false'
   residency-policy:

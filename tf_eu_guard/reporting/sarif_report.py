@@ -584,7 +584,7 @@ def build_sarif(
                 **_suppressions(bool(check.get("suppressed")), check.get("suppression_reason")),
                 **(
                     {"baselineState": "unchanged" if id(check) in known_unmapped else "new"}
-                    if baselined is not None and not check.get("suppressed")
+                    if baselined_unmapped is not None and not check.get("suppressed")
                     else {}
                 ),
                 "properties": {

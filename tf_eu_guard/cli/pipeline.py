@@ -61,6 +61,8 @@ class ScanFindings:
     # What run_scan's stderr count lines need; printed after --framework filtering.
     waiver_path: Path | None = None
     baseline_origin: str = ""  # e.g. "from 2026-01-01 (5 days old)"; "" without --baseline
+    # False when the --baseline is an array report, which cannot record unmapped findings.
+    baseline_covers_unmapped: bool = True
 
 
 def _today() -> date:
@@ -250,11 +252,23 @@ def load_scan_findings(
     remaining: list[EnrichedFinding] = []
     baseline_line: list[str] = []
     baseline_origin = ""
+    baseline_covers_unmapped = True
     baseline_path = getattr(args, "baseline", None)
     if baseline_path:
         baseline = load_baseline(baseline_path)
+        # A mapping change between scans (registry overlay or upgrade) must not make a
+        # known finding look new, so both sides match against every baseline key.
+        known_keys = baseline.keys | baseline.unmapped_keys
+        baseline_covers_unmapped = baseline.covers_unmapped
+        if not baseline_covers_unmapped:
+            print(
+                "Note: the baseline is a JSON array report, which does not record unmapped "
+                "findings; every unmapped finding counts as new. Write baselines with "
+                "--json-format object.",
+                file=sys.stderr,
+            )
         for f in active:
-            is_known = finding_key(f.check_id, f.resource, f.file_path) in baseline.keys
+            is_known = finding_key(f.check_id, f.resource, f.file_path) in known_keys
             (baselined if is_known else remaining).append(f)
         active, known = remaining, baselined
         new_unmapped: list[dict[str, Any]] = []
@@ -262,7 +276,7 @@ def load_scan_findings(
             key = finding_key(
                 check.get("check_id", ""), check.get("resource"), check.get("file_path")
             )
-            (baselined_unmapped if key in baseline.unmapped_keys else new_unmapped).append(check)
+            (baselined_unmapped if key in known_keys else new_unmapped).append(check)
         unmapped = new_unmapped
         when = baseline.created.date().isoformat() if baseline.created else "unknown date"
         baseline_origin = (
@@ -331,6 +345,7 @@ def load_scan_findings(
         checkov_summary=dict(checkov_output.get("summary") or {}),
         waiver_path=waiver_path,
         baseline_origin=baseline_origin,
+        baseline_covers_unmapped=baseline_covers_unmapped,
         baselined_unmapped=baselined_unmapped,
     )
 
