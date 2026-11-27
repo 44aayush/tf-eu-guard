@@ -47,6 +47,22 @@ def test_load_baseline_v2_object_skips_suppressed_and_waived(tmp_path):
     assert b.created is not None and b.created.date().isoformat() == "2026-05-01"
 
 
+def test_baseline_accepts_v2_report(tmp_path):
+    doc = {
+        "schema_version": "2",
+        "findings": [_entry()],
+        "waived": [],
+        "baselined": [],
+    }
+    b = load_baseline(_write(tmp_path, "b.json", doc))
+    assert b.keys == {finding_key("CKV_AWS_18", "aws_s3_bucket.logs", "/s3.tf")}
+
+
+def test_baseline_accepts_v3_report(tmp_path):
+    doc = {"schema_version": "3", "findings": [_entry()]}
+    assert len(load_baseline(_write(tmp_path, "b.json", doc)).keys) == 1
+
+
 def test_load_baseline_legacy_array(tmp_path):
     b = load_baseline(_write(tmp_path, "b.json", [_entry(), _entry("X", waived=True)]))
     assert len(b.keys) == 1

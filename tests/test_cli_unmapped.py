@@ -11,6 +11,7 @@ UNMAPPED_FIXTURE = "tests/fixtures/checkov-unmapped-tf.json"
 def _mixed_doc():
     """Return one mapped and two unmapped Checkov failures."""
     return {
+        "summary": {"resource_count": 3, "parsing_errors": 0},
         "results": {
             "failed_checks": [
                 {

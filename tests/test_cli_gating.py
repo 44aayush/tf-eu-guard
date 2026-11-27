@@ -92,6 +92,7 @@ def test_fail_on_severity_high_excludes_medium(monkeypatch, tmp_path):
         }
     }
     finding_file = tmp_path / "medium.json"
+    document["summary"] = {"resource_count": 1, "parsing_errors": 0}
     finding_file.write_text(json.dumps(document))
 
     assert (
@@ -151,6 +152,7 @@ def test_no_gate_by_default(monkeypatch, tmp_path, repo_root):
 def test_fail_on_severity_empty_findings(monkeypatch, tmp_path):
     document = {"results": {"failed_checks": []}}
     finding_file = tmp_path / "empty.json"
+    document["summary"] = {"resource_count": 1, "parsing_errors": 0}
     finding_file.write_text(json.dumps(document))
     rc = run_cli(
         monkeypatch,

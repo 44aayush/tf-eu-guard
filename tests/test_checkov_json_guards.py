@@ -27,7 +27,7 @@ EUGUARD_CHECK = {
 
 
 def _doc(*, parsing_errors=0, version=None, euguard=True, failed=None, skipped=None):
-    summary: dict = {"parsing_errors": parsing_errors}
+    summary: dict = {"parsing_errors": parsing_errors, "resource_count": 1}
     if version:
         summary["checkov_version"] = version
     results = {
@@ -200,11 +200,18 @@ def _object_report(monkeypatch, tmp_path, capsys, fixture, *extra):
     return json.loads(capsys.readouterr().out)
 
 
+def test_report_schema_version_is_3():
+    from tf_eu_guard.cli.reports import JSON_SCHEMA_VERSION
+
+    assert JSON_SCHEMA_VERSION == "3"
+    assert SCHEMA["properties"]["schema_version"] == {"const": "3"}
+
+
 @pytest.mark.parametrize("fixture", [ABS_FIXTURE, ABS_SKIPPED, ABS_UNMAPPED])
 def test_object_format_validates_against_schema(monkeypatch, tmp_path, capsys, fixture):
     report = _object_report(monkeypatch, tmp_path, capsys, fixture)
     Draft202012Validator(SCHEMA).validate(report)
-    assert report["schema_version"] == "2"
+    assert report["schema_version"] == "3"
     assert report["tool"]["name"] == "tf-eu-guard"
     assert report["scan"]["iac_type"] == "terraform"
     assert report["scan"]["target"].startswith("checkov-json:")
@@ -352,6 +359,46 @@ def test_checkov_json_gate_zero_resources_exits_3(monkeypatch, tmp_path, capsys)
     )
     assert code == EXIT_RUNTIME_FAILURE
     assert "reports 0 resources scanned" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "summary",
+    [
+        None,
+        {"parsing_errors": 0},
+        {"resource_count": "0"},
+        {"resource_count": "3"},
+        {"resource_count": True},
+        {"resource_count": 1.0},
+        {"resource_count": None},
+    ],
+    ids=["no-summary", "no-key", "str-zero", "str-three", "bool", "float", "null"],
+)
+def test_checkov_json_gate_untrustworthy_resource_count_exits_3(
+    monkeypatch, tmp_path, capsys, summary
+):
+    data = _doc(version="3.4.5")
+    data.pop("summary", None)
+    if summary is not None:
+        data["summary"] = summary
+    code = _scan(monkeypatch, tmp_path, data, "--fail-on-severity", "LOW")
+    assert code == EXIT_RUNTIME_FAILURE
+    assert "does not report a positive resource_count" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("gate", ["--fail-on-suppressed", "--fail-on-unmapped", "--fail-on-any"])
+def test_checkov_json_every_gate_triggers_strict_mode(monkeypatch, tmp_path, capsys, gate):
+    data = _doc(version="3.4.5")
+    data.pop("summary", None)
+    assert _scan(monkeypatch, tmp_path, data, gate) == EXIT_RUNTIME_FAILURE
+    assert "does not report a positive resource_count" in capsys.readouterr().err
+
+
+def test_checkov_json_untrustworthy_count_allow_partial_and_ungated(monkeypatch, tmp_path):
+    data = _doc(version="3.4.5")
+    data.pop("summary", None)
+    assert _scan(monkeypatch, tmp_path, data, "--fail-on-any", "--allow-partial") == EXIT_OK
+    assert _scan(monkeypatch, tmp_path, data) == EXIT_OK
 
 
 def test_checkov_json_gate_allow_partial_warns(monkeypatch, tmp_path, capsys):

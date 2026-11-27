@@ -31,7 +31,7 @@ from tf_eu_guard.reporting.weakening import print_weakening_to_stderr
 if TYPE_CHECKING:
     from tf_eu_guard.cli.pipeline import ScanFindings
 
-JSON_SCHEMA_VERSION = "2"
+JSON_SCHEMA_VERSION = "3"
 _SEVERITY_ORDER = ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO")
 
 

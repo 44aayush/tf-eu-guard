@@ -140,6 +140,7 @@ def _doc(failed=(), skipped=()):
         }
 
     return {
+        "summary": {"resource_count": 1, "parsing_errors": 0},
         "results": {
             "failed_checks": [check(*c) for c in failed],
             "skipped_checks": [

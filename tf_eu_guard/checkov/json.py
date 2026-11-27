@@ -240,7 +240,7 @@ def _has_custom_check(results: dict[str, Any]) -> bool:
 
 
 def _check_input_completeness(output: dict[str, Any], require_complete: bool) -> None:
-    """Warn about a file that may not be a full scan; with *require_complete* fail on 0 resources.
+    """Warn about a file that may not be a full scan; with *require_complete* fail unless it reports a positive count.
 
     Absence of ``EUGUARD_*`` results only warns: the custom checks are AWS-only and Checkov
     omits UNKNOWN results, so genuine output for non-AWS or region-less code has none.
@@ -256,13 +256,19 @@ def _check_input_completeness(output: dict[str, Any], require_complete: bool) ->
         )
     summary = output.get("summary")
     count = summary.get("resource_count") if isinstance(summary, dict) else None
-    if count == 0 and not isinstance(count, bool):
+    is_int = isinstance(count, int) and not isinstance(count, bool)
+    if is_int and count == 0:
         if strict:
             raise CheckovRuntimeError(
                 "the Checkov JSON reports 0 resources scanned; a gated scan cannot trust it. "
                 "Pass --allow-partial to accept it"
             )
         _warn("the Checkov JSON reports 0 resources scanned")
+    elif strict and not (is_int and count >= 1):
+        raise CheckovRuntimeError(
+            "the Checkov JSON does not report a positive resource_count; a gated scan cannot "
+            "trust it. Pass --allow-partial to accept it"
+        )
 
 
 #: The only fields copied from an extra (secrets) result. Checkov's secrets

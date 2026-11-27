@@ -30,13 +30,17 @@ release point.
 
 ### Changed
 
+- JSON object schema v3 (`schema_version: "3"`): adds `provenance.commit_source`. The v2 schema closed
+  `provenance`, so a v0.9 validator rejects the new key; consumers that check `schema_version` must accept
+  "3". `--baseline` and `diff` still read "1", "2" and "3" reports.
 - The Action no longer auto-discovers `.tf-eu-guard.yaml` or `.tf-eu-guard-waivers.yaml` in the scanned
   directory: it passes `--no-discovery` unless the new `discover-config` input is `true`. Use `config`
   or, on pull requests, `trusted-config` instead (TEG-01). Behaviour change for workflows that relied on discovery.
-
 - A gated `--checkov-json` scan (`--fail-on-severity`, `--fail-on-any`, `--fail-on-suppressed` or
-  `--fail-on-unmapped`) now exits 3 when the file reports `summary.resource_count` 0, so a forged or
-  empty file cannot pass every gate; `--allow-partial` keeps the warning and ungated runs only warn
+  `--fail-on-unmapped`) now exits 3 when the file is empty or incomplete (no positive integer
+  `summary.resource_count`: missing summary, missing key, a string, a boolean or 0), so a truncated or
+  empty file cannot pass a gate; a forged file with a positive count can still pass, since the gate is only
+  as trustworthy as the file's producer. `--allow-partial` keeps the warning and ungated runs only warn
   (TEG-09). A file with no `EUGUARD_*` result only warns, since the custom checks are AWS-only.
 
 ### Fixed

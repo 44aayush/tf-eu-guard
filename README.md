@@ -180,7 +180,7 @@ checkov -d ./terraform --output json --framework terraform --quiet \
 >
 > - **Parsing errors fail the scan.** If `summary.parsing_errors` is above 0 (in any element of a multi-framework array), tf-eu-guard exits with the same runtime-failure code as a source scan, because unparsed files were never checked. `--allow-partial` downgrades this to a stderr warning in both modes.
 > - **Checkov version.** If `summary.checkov_version` differs from the installed Checkov, a warning names both versions.
-> - **Custom checks and empty results.** If no `EUGUARD_*` result appears in the passed, failed or skipped lists, a warning says the residency and secret checks may not have run (their checks are AWS-only, so non-AWS or region-less input legitimately has none); regenerate the file with `checkov --external-checks-dir <tf_eu_guard>/checks` (the warning prints the path). If `summary.resource_count` is 0, a warning says nothing was scanned; when a gate is set (`--fail-on-severity`, `--fail-on-any`, `--fail-on-suppressed` or `--fail-on-unmapped`) it exits with the runtime-failure code instead, because a forged or empty file would otherwise pass, and `--allow-partial` downgrades it to the warning.
+> - **Custom checks and empty results.** If no `EUGUARD_*` result appears in the passed, failed or skipped lists, a warning says the residency and secret checks may not have run (their checks are AWS-only, so non-AWS or region-less input legitimately has none); regenerate the file with `checkov --external-checks-dir <tf_eu_guard>/checks` (the warning prints the path). If `summary.resource_count` is 0, a warning says nothing was scanned. When a gate is set (`--fail-on-severity`, `--fail-on-any`, `--fail-on-suppressed` or `--fail-on-unmapped`), an empty or incomplete Checkov JSON (no positive integer `resource_count`: missing summary, missing key, a string, a boolean or 0) fails the scan with the runtime-failure code instead, and `--allow-partial` downgrades it to the warning. A file forged with a positive `resource_count` can still pass: the gate is only as trustworthy as the producer of the JSON.
 > - The residency flags (`--residency-policy`, `--allowed-regions`) are ignored; the results reflect the policy in effect when Checkov ran.
 
 > Use `--framework terraform` in Checkov to get a single JSON object. tf-eu-guard also handles the multi-check-type array and extracts the `terraform` result automatically.
@@ -320,7 +320,7 @@ schema in the test suite (`tests/test_sarif_report.py`). Use
 `--output-file results.sarif` to write the file directly instead of stdout.
 
 `--output json` honours `--output-file` too (UTF-8). `--json-format object`
-selects a versioned document with `schema_version: "2"`, `tool`,
+selects a versioned document with `schema_version: "3"`, `tool`,
 `checkov_version`, `scan`, `summary`, `findings` (check name, line range, risk
 text, remediation, articles with titles, suppression), `unmapped`,
 `requirements` (15 rows with `--framework all`, otherwise only that framework's rows, of passed/failed/suppressed/waived check-result counts
