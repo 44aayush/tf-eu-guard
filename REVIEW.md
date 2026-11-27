@@ -115,7 +115,7 @@ $ tf-eu-guard scan . --fail-on-severity HIGH --changed-since main    -> exit 0
   "Reporting only findings in 1 file(s) changed since main; 10 finding(s) in unchanged files hidden"
 ```
 
-**Recommendations:** treat a change to any `.tf`, `.tfvars` or `.hcl` file in a directory as a change to every finding in that directory, and to every directory whose local module sources resolve to it. Simpler and safer still: let the gate always use the full finding set and have `--changed-since` filter only what is shown, or require an explicit `--changed-since-gates` opt-in with a warning.
+**Recommendations:** treat a change to any `.tf`, `.tfvars`, `.tfvars.json`, `.tf.json` or `.hcl` file in a directory (Checkov also auto-loads `terraform.tfvars.json`; the iteration 1 final review found that omitting it reopened this bypass) as a change to every finding in that directory, and to every directory whose local module sources resolve to it. Simpler and safer still: let the gate always use the full finding set and have `--changed-since` filter only what is shown, or require an explicit `--changed-since-gates` opt-in with a warning.
 
 ### TEG-03 (Medium): untrusted strings reach the terminal and CI log unsanitised
 
@@ -137,7 +137,7 @@ $ tf-eu-guard scan k8s --iac-type kubernetes --output dev
 ::stop-commands::x
 ```
 
-On a GitHub runner the first line becomes an annotation on the pull request, and `::stop-commands::x` disables workflow-command processing for the rest of the step, so the Action's own `::error::` and `::warning::` lines stop working. A second probe with `\e]8;;https://evil.example\e\\` (OSC 8 hyperlink) and `\e[2K\e[1A\e[32mALL CHECKS PASSED` produced 17 raw escape sequences in the `dev` output: a clickable link and a green line drawn over the finding. `dev` is the Action's default output and the pre-commit hook's output. The Markdown summary (newlines become spaces), CSV, JSON and SARIF outputs were not affected, and the HTML reports escaped a separate `<img onerror>` / `<script>` / attribute-breakout payload in all three formats.
+On a GitHub runner the first line becomes an annotation on the pull request, and `::stop-commands::x` disables workflow-command processing for the rest of the step, so the Action's own `::error::` and `::warning::` lines stop working. A second probe with `\e]8;;https://evil.example\e\\` (OSC 8 hyperlink) and `\e[2K\e[1A\e[32mALL CHECKS PASSED` produced 17 raw escape sequences in the `dev` output: a clickable link and a green line drawn over the finding. `dev` is the Action's default output and the pre-commit hook's output. JSON and SARIF escape these characters. **Correction (2026-11-27, iteration 1 final review):** the CSV and Markdown outputs on stdout are affected too: the CSV writer keeps the newline inside a quoted field, so `--output csv` printed 62 lines starting with `::` for the same payload, and Markdown flattens newlines but passes ESC, C1 and bidi characters through, and the HTML reports escaped a separate `<img onerror>` / `<script>` / attribute-breakout payload in all three formats.
 
 **Recommendations:**
 
