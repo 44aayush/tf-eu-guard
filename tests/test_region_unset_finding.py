@@ -5,7 +5,7 @@ import json
 import os
 
 import pytest
-from cli_helpers import PLAN_FIXTURE, run_cli
+from cli_helpers import run_cli
 
 from tf_eu_guard.residency import aws_region_unset_finding, aws_region_unset_warning
 
@@ -92,15 +92,37 @@ def _output(*, extra_passed=(), resources=("aws_s3_bucket.b",)):
     }
 
 
-def test_no_region_finding_absent_in_plan_mode(monkeypatch, tmp_path, capsys):
-    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+def _live_scan_with_fake_checkov(monkeypatch, tmp_path, capsys, iac_type):
+    """Run a live scan whose Checkov run reports AWS resources and no region result.
+
+    A live scan passes custom_checks_loaded=True, so only the iac_type guard in the pipeline
+    keeps the finding out of non-Terraform-source scans.
+    """
+    output = _output()
+    output["check_type"] = iac_type
+    output["summary"] = {"failed": 1, "passed": 1, "skipped": 0, "parsing_errors": 0}
+    output["summary"]["resource_count"] = 1
+    monkeypatch.setattr("tf_eu_guard.checkov_runner.run_checkov", lambda *a, **k: output)
+    for check in output["results"]["passed_checks"]:
+        check["check_name"] = "n"
     run_cli(
-        monkeypatch, tmp_path, "--checkov-json", os.path.join(repo, PLAN_FIXTURE),
-        "--iac-type", "terraform_plan", "--output", "json", "--json-format", "object",
+        monkeypatch, tmp_path, str(tmp_path), "--no-config", "--iac-type", iac_type,
+        "--output", "json", "--json-format", "object",
     )  # fmt: skip
-    out = capsys.readouterr().out
-    assert '"findings"' in out
-    assert "EUGUARD_POLICY_005" not in out
+    return json.loads(capsys.readouterr().out)
+
+
+def test_no_region_finding_present_for_fake_terraform_source_scan(monkeypatch, tmp_path, capsys):
+    """Positive control for the cases below: the same fake output does yield the finding."""
+    report = _live_scan_with_fake_checkov(monkeypatch, tmp_path, capsys, "terraform")
+    assert len(_policy_005(report)) == 1
+
+
+@pytest.mark.parametrize("iac_type", ["terraform_plan", "kubernetes"])
+def test_no_region_finding_absent_in_plan_mode(monkeypatch, tmp_path, capsys, iac_type):
+    report = _live_scan_with_fake_checkov(monkeypatch, tmp_path, capsys, iac_type)
+    assert report["findings"]
+    assert _policy_005(report) == []
 
 
 @pytest.mark.parametrize(
