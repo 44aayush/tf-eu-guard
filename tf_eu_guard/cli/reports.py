@@ -242,6 +242,7 @@ def sarif_document(ctx: ReportContext) -> dict[str, Any]:
         waived=ctx.waived,
         weakening_settings=ctx.weakening_settings,
         baselined=ctx.known_findings,
+        baselined_unmapped=ctx.known_unmapped,
     )
 
 
@@ -324,6 +325,8 @@ def render_html_reports(ctx: ReportContext) -> None:
             waived=ctx.waived,
             weakening_settings=ctx.weakening_settings,
             baselined=ctx.known_findings,
+            baselined_unmapped=ctx.known_unmapped,
+            list_baselined_unmapped=ctx.list_baselined_unmapped,
             **extra,
         )
         written_paths.append(output_path)
@@ -373,6 +376,8 @@ def render_scan_output(ctx: ReportContext) -> None:
             waived=ctx.waived,
             weakening_settings=ctx.weakening_settings,
             baselined=ctx.known_findings,
+            baselined_unmapped=ctx.known_unmapped,
+            list_baselined_unmapped=ctx.list_baselined_unmapped,
         )
     elif output == "json":
         render_json_report(ctx)
@@ -405,6 +410,8 @@ def write_evidence_bundle(ctx: ReportContext, result: "ScanFindings") -> None:
         "waived": ctx.waived,
         "weakening_settings": ctx.weakening_settings,
         "baselined": ctx.known_findings,
+        "baselined_unmapped": ctx.known_unmapped,
+        "list_baselined_unmapped": ctx.list_baselined_unmapped,
     }
     generate_dev_html_report(result.findings, output_path=directory / "dev.html", **common)
     generate_security_report(result.findings, output_path=directory / "security.html", **common)

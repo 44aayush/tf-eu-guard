@@ -66,6 +66,16 @@ class ReportContext:
         return self.baselined if self.args.baseline else None
 
     @property
+    def known_unmapped(self) -> list[dict[str, Any]] | None:
+        """The baselined unmapped findings, or None when no ``--baseline`` was given."""
+        return self.baselined_unmapped if self.args.baseline else None
+
+    @property
+    def list_baselined_unmapped(self) -> bool:
+        """Whether known unmapped findings are listed in full (``--show-unmapped``)."""
+        return bool(getattr(self.args, "show_unmapped", False))
+
+    @property
     def suppressed_total(self) -> int:
         """Suppressed findings, mapped and unmapped."""
         return len(self.suppressed) + len(self.suppressed_unmapped)

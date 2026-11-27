@@ -404,6 +404,7 @@ def build_sarif(
     waived: list[EnrichedFinding] | None = None,
     weakening_settings: list[str] | None = None,
     baselined: list[EnrichedFinding] | None = None,
+    baselined_unmapped: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build a SARIF 2.1.0 document from enriched (and unmapped) findings.
 
@@ -433,13 +434,18 @@ def build_sarif(
         baselined: Mapped findings already in the ``--baseline`` report
             (``baselineState: "unchanged"``). ``None`` means no baseline was
             used; otherwise active mapped results are ``baselineState: "new"``.
+        baselined_unmapped: Unmapped findings already in the baseline, handled the
+            same way (``unchanged``; other active unmapped results are ``new``).
 
     Returns:
         A SARIF 2.1.0 document as a plain dict, ready to serialize.
     """
     known = {id(f) for f in baselined or []}
     enriched = sort_findings([*enriched, *(suppressed or []), *(waived or []), *(baselined or [])])
-    unmapped = sort_unmapped_findings([*(unmapped or []), *(suppressed_unmapped or [])])
+    known_unmapped = {id(c) for c in baselined_unmapped or []}
+    unmapped = sort_unmapped_findings(
+        [*(unmapped or []), *(suppressed_unmapped or []), *(baselined_unmapped or [])]
+    )
 
     rules: list[dict[str, Any]] = []
     rule_index: dict[str, int] = {}
@@ -576,6 +582,11 @@ def build_sarif(
                     FINGERPRINT_KEY: _fingerprint(check_id, check.get("resource"), artifact_uri)
                 },
                 **_suppressions(bool(check.get("suppressed")), check.get("suppression_reason")),
+                **(
+                    {"baselineState": "unchanged" if id(check) in known_unmapped else "new"}
+                    if baselined is not None and not check.get("suppressed")
+                    else {}
+                ),
                 "properties": {
                     "mapped": False,
                     "resource": check.get("resource"),

@@ -317,3 +317,91 @@ def test_baseline_stderr_count_follows_framework(monkeypatch, tmp_path, capsys):
     assert "match the baseline" not in capsys.readouterr().err
     run_cli(monkeypatch, tmp_path, *args, "--framework", "gdpr")
     assert "1 finding(s) match the baseline" in capsys.readouterr().err
+
+
+def _only_unmapped_doc(*check_ids):
+    failed = [
+        {
+            "check_id": cid,
+            "check_name": "unmapped check",
+            "resource": "aws_x.y",
+            "file_path": "/a.tf",
+            "file_line_range": [1, 2],
+        }
+        for cid in check_ids
+    ]
+    return {
+        "check_type": "terraform",
+        "results": {"passed_checks": [], "failed_checks": failed, "skipped_checks": []},
+        "summary": {"parsing_errors": 0, "resource_count": 1},
+    }
+
+
+def _known_unmapped_scan(monkeypatch, tmp_path, capsys, *extra, new=()):
+    """Scan whose only failures are unmapped, rerun against its own object report."""
+    source = tmp_path / "in.json"
+    source.write_text(json.dumps(_only_unmapped_doc("CKV_ZZZ_999")), encoding="utf-8")
+    base = tmp_path / "base.json"
+    run_cli(monkeypatch, tmp_path, "--checkov-json", str(source), "--no-config", "--output", "json",
+            "--json-format", "object", "--output-file", str(base))  # fmt: skip
+    source.write_text(json.dumps(_only_unmapped_doc("CKV_ZZZ_999", *new)), encoding="utf-8")
+    capsys.readouterr()
+    run_cli(monkeypatch, tmp_path, "--checkov-json", str(source), "--no-config",
+            "--baseline", str(base), *extra)  # fmt: skip
+    return capsys.readouterr()
+
+
+def test_sarif_marks_baselined_unmapped_unchanged(monkeypatch, tmp_path, capsys):
+    out = _known_unmapped_scan(
+        monkeypatch, tmp_path, capsys, "--output", "sarif", new=("CKV_ZZZ_1",)
+    )
+    results = json.loads(out.out)["runs"][0]["results"]
+    states = {r["ruleId"]: r.get("baselineState") for r in results}
+    assert states == {"CKV_ZZZ_999": "unchanged", "CKV_ZZZ_1": "new"}
+
+
+def test_sarif_without_baseline_has_no_state_on_unmapped(monkeypatch, tmp_path, capsys):
+    source = tmp_path / "in.json"
+    source.write_text(json.dumps(_only_unmapped_doc("CKV_ZZZ_999")), encoding="utf-8")
+    run_cli(
+        monkeypatch, tmp_path, "--checkov-json", str(source), "--no-config", "--output", "sarif"
+    )
+    (result,) = json.loads(capsys.readouterr().out)["runs"][0]["results"]
+    assert "baselineState" not in result
+
+
+def test_dev_report_with_only_baselined_unmapped_is_not_clean(monkeypatch, tmp_path, capsys):
+    out = _known_unmapped_scan(monkeypatch, tmp_path, capsys, "--output", "dev").out
+    assert "No compliance findings" not in out
+    assert "Known unmapped (in baseline) (1)" in out
+    assert "CKV_ZZZ_999" not in out  # listed only with --show-unmapped
+    listed = _known_unmapped_scan(
+        monkeypatch, tmp_path, capsys, "--output", "dev", "--show-unmapped"
+    ).out
+    assert "CKV_ZZZ_999" in listed
+
+
+@pytest.mark.parametrize("output", ["security", "auditor"])
+def test_html_with_only_baselined_unmapped_is_not_clean(monkeypatch, tmp_path, capsys, output):
+    _known_unmapped_scan(
+        monkeypatch, tmp_path, capsys, "--output", output, "--output-dir", str(tmp_path / "r")
+    )
+    html = next((tmp_path / "r").glob("*.html")).read_text()
+    assert "No compliance findings" not in html
+    assert "Known unmapped (in baseline) (1)" in html
+    assert "CKV_ZZZ_999" not in html
+
+
+def test_dev_html_with_only_baselined_unmapped_is_not_clean():
+    from tf_eu_guard.reporting.dev_html_report import generate_dev_html_report
+
+    entry = {"check_id": "CKV_ZZZ_999", "check_name": "n", "resource": "r", "file_path": "/a.tf"}
+    html = generate_dev_html_report([], baselined_unmapped=[entry])
+    assert "No compliance findings" not in html
+    assert "1 known in baseline" in html and "Known unmapped (in baseline) (1)" in html
+
+
+def test_csv_lists_baselined_unmapped_rows(monkeypatch, tmp_path, capsys):
+    out = _known_unmapped_scan(monkeypatch, tmp_path, capsys, "--output", "csv", new=("CKV_ZZZ_1",))
+    rows = {line.split(",")[2]: line.split(",")[0] for line in out.out.splitlines()[1:]}
+    assert rows == {"CKV_ZZZ_999": "baselined", "CKV_ZZZ_1": "unmapped"}

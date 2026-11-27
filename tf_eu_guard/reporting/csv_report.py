@@ -69,6 +69,7 @@ def render_csv(result: ScanFindings) -> str:
                 writer.writerow([_cell(c) for c in [*base, *art, *tail]])
     unmapped = [("unmapped", c) for c in sort_unmapped_findings(result.unmapped)]
     unmapped += [("suppressed", c) for c in sort_unmapped_findings(result.suppressed_unmapped)]
+    unmapped += [("baselined", c) for c in sort_unmapped_findings(result.baselined_unmapped)]
     for status, check in unmapped:
         start, end = _lines(check.get("file_line_range"))
         row = [

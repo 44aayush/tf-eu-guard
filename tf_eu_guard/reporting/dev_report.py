@@ -6,7 +6,7 @@ from rich.console import Console
 from rich.markup import escape
 
 from tf_eu_guard.models import EnrichedFinding, Severity
-from tf_eu_guard.reporting.baselined import baselined_lines
+from tf_eu_guard.reporting.baselined import baselined_lines, baselined_unmapped_lines
 from tf_eu_guard.reporting.html_common import line_range, safe_guideline, unmapped_rows
 from tf_eu_guard.reporting.sorting import finding_sort_key, sort_findings, sorted_articles
 from tf_eu_guard.reporting.styles import SEVERITY_COLOR_TERMINAL, SEVERITY_ORDER
@@ -72,6 +72,8 @@ def generate_dev_report(
     unmapped: list[dict[str, Any]] | None = None,
     weakening_settings: list[str] | None = None,
     baselined: list[EnrichedFinding] | None = None,
+    baselined_unmapped: list[dict[str, Any]] | None = None,
+    list_baselined_unmapped: bool = False,
 ) -> None:
     """
     Generate and print developer-focused terminal report.
@@ -85,6 +87,8 @@ def generate_dev_report(
         suppressed_unmapped: Raw Checkov dicts for suppressed unmapped checks
         unmapped: Raw unmapped Checkov dicts; when given, listed in full
             (``--show-unmapped``)
+        baselined_unmapped: Unmapped findings already in the ``--baseline`` report;
+            counted as known, listed in full when ``list_baselined_unmapped`` is set
     """
     # soft_wrap: never let Rich re-wrap a line, which could move text to column 0;
     # emoji=False: no :code: substitution inside untrusted names
@@ -100,14 +104,17 @@ def generate_dev_report(
     suppressed_list = suppressed_items(suppressed, suppressed_unmapped)
     waived_list = waived or []
     baselined_list = baselined or []
+    known_unmapped = baselined_unmapped or []
+    known_total = len(baselined_list) + len(known_unmapped)
     extra = [
         *(_suppressed_lines(suppressed_list) if suppressed_list else []),
         *(waived_lines(waived_list) if waived_list else []),
         *(baselined_lines(baselined_list) if baselined_list else []),
+        *baselined_unmapped_lines(known_unmapped, list_baselined_unmapped),
     ]
 
     settings = weakening_rich(weakening_settings)
-    if not (findings or unmapped_count or suppressed_list or waived_list or baselined_list):
+    if not (findings or unmapped_count or suppressed_list or waived_list or known_total):
         console.print("\n[green]✓ No compliance findings![/green]\n")
         for line in settings:
             console.print(line)
@@ -124,7 +131,7 @@ def generate_dev_report(
         # Only suppressed/waived findings — not a clean bill of health.
         console.print(
             f"[yellow]No active findings; {len(suppressed_list)} suppressed by "
-            f"inline comment, {len(waived_list)} waived, {len(baselined_list)} known in "
+            f"inline comment, {len(waived_list)} waived, {known_total} known in "
             "baseline.[/yellow]"
         )
         for line in extra:
@@ -179,6 +186,11 @@ def generate_dev_report(
         console.print(
             f"  [yellow]○ Known (in baseline): {len(baselined_list)} "
             f"(not counted above — listed at the end)[/yellow]"
+        )
+    if known_unmapped:
+        console.print(
+            f"  [yellow]○ Known unmapped (in baseline): {len(known_unmapped)} "
+            f"(not counted above)[/yellow]"
         )
     print_unmapped()
     console.print()

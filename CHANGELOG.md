@@ -78,8 +78,12 @@ release point.
   unmapped findings move out of `unmapped` into the new JSON object array `baselined_unmapped` (same entry shape;
   required by the schema, which stays at `schema_version: "3"` because 3 is unreleased), so the gate,
   `--fail-on-unmapped` and `--unmapped-severity` see only new unmapped findings, and `--changed-since` filters the
-  new group too. The stderr line reads `baseline: FILE (DATE, N known finding(s) matched, M unmapped)`. Other report
-  formats change only through the smaller unmapped count. Waivers still never cover unmapped findings (TEG-10).
+  new group too. The stderr line reads `baseline: FILE (DATE, N known finding(s) matched, M unmapped)`. Known unmapped
+  findings stay visible in every report like known mapped ones: SARIF results carry `baselineState: "unchanged"` (active
+  unmapped results become `"new"` when a baseline is used), CSV rows get status `baselined`, and the dev, security,
+  developer-HTML and auditor reports show a "Known unmapped (in baseline)" count (rows with `--show-unmapped`) and no longer
+  show the clean "No compliance findings" state when only known unmapped findings remain. Waivers still never cover unmapped
+  findings (TEG-10).
 - When `--fail-on-unmapped` and `--unmapped-severity` both trip on the same unmapped findings, the gate prints one
   `Fail:` line (the `--fail-on-unmapped` one) instead of two.
 - `provenance.options.json_format` records the resolved layout (`array` or `object`) whenever the output is `json`,
