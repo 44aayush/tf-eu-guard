@@ -533,3 +533,15 @@ These results are from a fresh `--no-cache` build (`tf-eu-guard:ci8`) at `8944b2
 | Section 6 emulator tier | `tests/emulator` runs only with `TFEG_RUN_EMULATOR=1`. It covers plan-mode residency and an S3 public-access-block read-back against digest-pinned LocalStack 4.9, and has its own CI job | Done |
 
 Corrected during the iteration: the first Azure table left out `belgiumcentral` and `denmarkeast`. Both are generally available on Microsoft's region list, so leaving them out produced false policy failures. The docs no longer claim that plan mode does not cover residency.
+
+### After iteration 5 (2026-11-27, `version_0.10.0`)
+
+These results are from a fresh `--no-cache` build (`tf-eu-guard:ci9`) at `8867fdf`. 1517 tests pass (`TFEG_RUN_CHECKOV=1`), the registries and docs agree on 282 mappings, the Azure/GCP region tables match their snapshots, the trivy gate exits 0, and every recheck harness from iterations 1 to 4 exits 0. The emulator tier (`TFEG_RUN_EMULATOR=1`, LocalStack 4.9 started as the CI service is) passes both tests.
+
+| Finding | After iteration 5 | Status |
+| --- | --- | --- |
+| TEG-11 KMS-by-default family | `CKV_AWS_173`, `CKV_AWS_26`, `CKV_AWS_145`, `CKV_AWS_136` and `CKV_GCP_38` are MEDIUM in the customer-managed-key family. Each service's encrypt-at-rest-by-default claim cites the provider page (`docs/severity-rubric.md`). `CKV_AZURE_160` and `CKV_AWS_260` (port 80 open to the world) are MEDIUM in a new web-port family; admin ports stay CRITICAL | Fixed |
+| TEG-05 Azure/GCP region-table drift | `tools/check_cloud_region_tables.py` compares the tables in `tf_eu_guard/regions.py` with reviewed snapshots in `tools/region_snapshots/` and fails closed (exit 1 on drift, 2 on an unreadable snapshot). It runs in the CI `test` job | Fixed (snapshot refresh is a manual step, documented in `tools/README.md`) |
+| Section 6 emulator robustness | Apply runs inside the cleanup `try`, CI waits on a LocalStack health check, the skip count is no longer hard-coded, and ambient `AWS_*` variables are scrubbed | Done (follow-up: surface terraform stderr on failure) |
+
+Regenerated at the iteration close: the sample HTML reports, the README screenshots and the demo cast. `examples/vulnerable-aws` now gives 53 findings: 7 CRITICAL, 15 HIGH, 23 MEDIUM, 8 LOW.
