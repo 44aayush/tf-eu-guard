@@ -504,3 +504,82 @@ def test_gcp_check_name_matches_registry():
     )
     assert finding["check_name"] == registry["EUGUARD_POLICY_006"].check_name
     assert registry["EUGUARD_POLICY_006"].severity.name == "MEDIUM"
+
+
+# --- global (location-less) GCP resource types never imply an unset region ---
+
+_GLOBAL_GCP_RESOURCES = (
+    "google_service_account.sa",
+    "google_project_iam_member.m",
+    "google_project_service.s",
+    "google_storage_bucket_iam_member.m",
+    "google_compute_network.n",
+    "google_compute_firewall.f",
+    "google_compute_global_address.a",
+    "google_dns_managed_zone.z",
+    "google_organization_policy.p",
+    "google_folder_iam_binding.b",
+    "google_billing_account_iam_member.m",
+    "module.m[0].google_project_service.s",
+)
+
+
+# Types that carry an optional location, region or zone (falling back to the provider) stay counted.
+_LOCATED_GCP_RESOURCES = (
+    "google_cloud_run_v2_service_iam_member.m",
+    "google_compute_instance_iam_binding.b",
+    "google_compute_subnetwork_iam_policy.p",
+    "google_dns_outbound_endpoint.e",
+    "google_compute_instance.i",
+    "google_storage_bucket.b",
+)
+
+
+@pytest.mark.parametrize("resource", _LOCATED_GCP_RESOURCES)
+def test_gcp_types_with_a_location_argument_still_count(resource):
+    output = _gcp_resources_output(resource)
+    assert gcp_region_unset_warning(output, custom_checks_loaded=True) is not None
+    assert gcp_region_unset_finding(output, custom_checks_loaded=True) is not None
+
+
+@pytest.mark.parametrize("resource", _GLOBAL_GCP_RESOURCES)
+@pytest.mark.parametrize("loaded", [False, True])
+def test_gcp_global_only_stack_has_no_finding_and_no_warning(resource, loaded):
+    output = _gcp_resources_output(resource)
+    assert gcp_region_unset_warning(output, custom_checks_loaded=loaded) is None
+    assert gcp_region_unset_finding(output, custom_checks_loaded=loaded) is None
+
+
+def test_gcp_iam_fixture_shape_injects_no_006(monkeypatch, tmp_path, capsys):
+    output = _gcp_resources_output(
+        "google_service_account.sa", "google_project_iam_member.m", "google_project_service.s"
+    )
+    report = _live_scan_with_output(monkeypatch, tmp_path, capsys, output)
+    assert _policy_006(report) == []
+    assert not any("google_*" in warning for warning in report.get("warnings", []))
+
+
+def test_gcp_global_plus_regional_resource_anchors_at_regional(monkeypatch, tmp_path, capsys):
+    def check(resource, path, line):
+        return {
+            "check_id": "CKV_GCP_62",
+            "resource": resource,
+            "file_path": path,
+            "file_line_range": [line, line + 1],
+        }
+
+    output = {
+        "results": {
+            "passed_checks": [{"check_id": "EUGUARD_GDPR_005", "resource": "x.y"}],
+            "failed_checks": [
+                check("google_project_iam_member.m", "/stack/a_main.tf", 1),
+                check("google_storage_bucket.b", "/stack/z_main.tf", 9),
+            ],
+            "skipped_checks": [],
+        }
+    }
+    finding = gcp_region_unset_finding(output, custom_checks_loaded=True)
+    assert finding is not None
+    assert finding["file_path"] == "/stack/z_main.tf"
+    assert finding["file_line_range"] == [9, 10]
+    assert gcp_region_unset_warning(output, custom_checks_loaded=True) is not None

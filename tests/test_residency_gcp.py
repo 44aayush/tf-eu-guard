@@ -122,6 +122,41 @@ def test_gcp_google_beta_provider_region_fails_policy_end_to_end(
     assert any(f["check_id"] == "EUGUARD_POLICY_004" for f in findings)
 
 
+def test_gcp_provider_zone_checked():
+    policy = GcpProviderRegionPolicy()
+    review = GcpProviderRegionTransferReview()
+    assert policy.scan_provider_conf({"zone": ["us-central1-a"]}) == CheckResult.FAILED
+    assert review.scan_provider_conf({"zone": ["us-central1-a"]}) == CheckResult.FAILED
+    assert policy.scan_provider_conf({"zone": ["europe-west3-a"]}) == CheckResult.PASSED
+    assert review.scan_provider_conf({"zone": ["europe-west3-a"]}) == CheckResult.PASSED
+    both = {"region": ["europe-west3"], "zone": ["us-central1-a"]}
+    assert policy.scan_provider_conf(both) == CheckResult.FAILED
+
+
+def _scan_source(monkeypatch, tmp_path, capsys, provider_body):
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "main.tf").write_text(
+        f'provider "google" {{\n  {provider_body}\n}}\n'
+        'resource "google_compute_disk" "d" {\n  name = "d"\n}\n'
+    )
+    run_cli(monkeypatch, tmp_path, str(tmp_path / "src"), "--output", "json")
+    return json.loads(capsys.readouterr().out)
+
+
+def test_gcp_us_provider_zone_fails_end_to_end(monkeypatch, tmp_path, capsys):
+    findings = _scan_source(monkeypatch, tmp_path, capsys, 'zone = "us-central1-a"')
+    by_id = {f["check_id"]: f for f in findings}
+    assert by_id["EUGUARD_POLICY_004"]["severity"] == "HIGH"
+    assert "EUGUARD_GDPR_005" in by_id
+    assert "EUGUARD_POLICY_006" not in by_id
+
+
+def test_gcp_eu_provider_zone_passes_end_to_end(monkeypatch, tmp_path, capsys):
+    findings = _scan_source(monkeypatch, tmp_path, capsys, 'zone = "europe-west3-a"')
+    ids = {f["check_id"] for f in findings}
+    assert not ids & {"EUGUARD_POLICY_004", "EUGUARD_GDPR_005", "EUGUARD_POLICY_006"}
+
+
 def test_gcp_custom_policy(monkeypatch):
     monkeypatch.setenv(POLICY_ENV_VAR, "custom")
     monkeypatch.setenv(ALLOWED_REGIONS_ENV_VAR, "europe-west4,EU")

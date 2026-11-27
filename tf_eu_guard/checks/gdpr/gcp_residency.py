@@ -7,7 +7,7 @@ classes share one check ID each, because they enforce one rule at two levels:
 
 * ``EUGUARD_POLICY_004`` enforces the configured *residency policy* (see
   :mod:`tf_eu_guard.residency`) over the ``region`` of each ``provider "google"``
-  block and the ``region``, ``location`` and ``zone`` of every ``google_*`` resource.
+  block (``region`` and ``zone``) and the ``region``, ``location`` and ``zone`` of every ``google_*`` resource.
   It is fail-closed: a location off the allowlist -- including a dual-region or newer
   location not yet verified, a malformed string or an unresolved variable reference --
   fails. It is a project-policy finding, not a legal conclusion. EUSC is an AWS
@@ -41,6 +41,7 @@ REVIEW_NAME = (
     "Review GCP regions and locations outside the EU/EEA for GDPR Chapter V transfer safeguards"
 )
 _RESOURCE_KEYS = ("region", "location", "zone")
+_PROVIDER_KEYS = ("region", "zone")
 
 
 def _locations(conf, keys):
@@ -91,7 +92,7 @@ class GcpProviderRegionPolicy(BaseProviderCheck):
 
     def scan_provider_conf(self, conf):
         """PASSED for an allowlisted region, FAILED otherwise; no region is UNKNOWN."""
-        result, keys = _policy_result(_locations(conf, ("region",)))
+        result, keys = _policy_result(_locations(conf, _PROVIDER_KEYS))
         self.evaluated_keys = keys
         return result
 
@@ -109,7 +110,7 @@ class GcpProviderRegionTransferReview(BaseProviderCheck):
 
     def scan_provider_conf(self, conf):
         """FAILED only for a known third-country region; EU/EEA PASSED; else UNKNOWN."""
-        result, keys = _review_result(_locations(conf, ("region",)))
+        result, keys = _review_result(_locations(conf, _PROVIDER_KEYS))
         self.evaluated_keys = keys
         return result
 

@@ -46,7 +46,37 @@ _REGION_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 # they matched before.
 _MODULE_PREFIX = r"^(?:module\.[^.\[]+(?:\[[^\]]*\])?\.)*(?:data\.)?"
 _AWS_RESOURCE_RE = re.compile(_MODULE_PREFIX + r"aws_[a-z0-9_]+\.")
-_GCP_RESOURCE_RE = re.compile(_MODULE_PREFIX + r"google_[a-z0-9_]+\.")
+# Global GCP resource types: none of these has a region, location or zone argument, so a scan
+# with only such resources says nothing about where anything deploys. They never count as
+# evidence of an unset region (EUGUARD_POLICY_006). Each entry is a type name without the
+# `google_` prefix, matched in full. The IAM types are listed by parent family: many other
+# `google_*_iam_*` types (Cloud Run, Compute instances and subnetworks, Dataplex, ...) do take an
+# optional location, region or zone that falls back to the provider, so they stay counted. The
+# families below were checked against the provider docs for a missing location argument.
+_GCP_GLOBAL_IAM_PARENTS = (
+    "billing_account|storage_bucket|storage_managed_folder|pubsub_(?:topic|subscription|schema)"
+    "|kms_(?:key_ring|crypto_key)|secret_manager_secret|bigquery_(?:dataset|table|routine)"
+    "|bigtable_(?:instance|table)|spanner_(?:instance|database)|dns_managed_zone"
+    "|compute_(?:image|snapshot|machine_image|instance_template|backend_service|backend_bucket"
+    "|firewall_policy|network_firewall_policy)|tags_tag_(?:key|value)"
+)
+_GCP_GLOBAL_TYPES = (
+    r"project(?:_[a-z0-9_]+)?",
+    r"(?:project|folder|organization|service_account|"
+    + _GCP_GLOBAL_IAM_PARENTS
+    + r")_iam(?:_(?:member|binding|policy|audit_config))?",
+    r"service_account(?:_[a-z0-9_]+)?",
+    r"organization_[a-z0-9_]+",
+    r"folder(?:_[a-z0-9_]+)?",
+    r"billing_[a-z0-9_]+",
+    r"compute_global_[a-z0-9_]+",
+    r"compute_network",
+    r"compute_firewall",
+    r"dns_(?!outbound_endpoint\.)[a-z0-9_]+",
+)
+_GCP_RESOURCE_RE = re.compile(
+    _MODULE_PREFIX + r"google_(?!(?:" + "|".join(_GCP_GLOBAL_TYPES) + r")\.)[a-z0-9_]+\."
+)
 _CLOUDS = ("aws", "azure", "gcp")
 _EU_EEA_BY_CLOUD = {"azure": AZURE_EU_EEA_LOCATIONS, "gcp": GCP_EU_EEA_LOCATIONS}
 _POLICY_CHECK_ID = "EUGUARD_POLICY_001"
@@ -249,9 +279,8 @@ def gcp_region_unset_warning(
         message=(
             'Warning: google_* resources were scanned but no provider "google" block or '
             "resource sets a region or location, so the residency checks cannot tell where they "
-            "deploy (the region comes from the environment, for example GOOGLE_REGION, or from "
-            "the provider region at apply time). Scan a Terraform plan "
-            "(--iac-type terraform_plan) to check the real location."
+            "deploy (the region comes from the environment, for example GOOGLE_REGION, at apply "
+            "time). Scan a Terraform plan (--iac-type terraform_plan) to check the real location."
         ),
     )
 
