@@ -124,7 +124,7 @@ itself is broken.
 | `tf_eu_guard/checkov/types.py` | `CheckovRuntimeError`, `CheckovInputError` |
 | `tf_eu_guard/residency.py` | Residency policy selection (`eu-eea`, `eusc`, `custom`). The CLI passes the policy to the Checkov subprocess through two environment variables; the custom checks read it with `allowed_regions_from_env()` |
 | `tf_eu_guard/regions.py` | AWS region tables (EUSC, EU/EEA, known third-country) shared by the policy and the checks |
-| `tf_eu_guard/checks/` | Custom `EUGUARD_*` Checkov checks: `gdpr/data_residency.py` (provider-level `EUGUARD_POLICY_001`, `EUGUARD_GDPR_002`), `nis2/` (secrets in code), `k8s/` (Kubernetes secrets) |
+| `tf_eu_guard/checks/` | Custom `EUGUARD_*` Checkov checks: `gdpr/data_residency.py` (AWS: provider-level `EUGUARD_POLICY_001`, `EUGUARD_GDPR_002`, resource-level `EUGUARD_POLICY_002`, `EUGUARD_GDPR_003`), `gdpr/azure_residency.py` (Azure: `EUGUARD_POLICY_003`, `EUGUARD_GDPR_004`), `nis2/` (secrets in code), `k8s/` (Kubernetes secrets) |
 | `tf_eu_guard/checks/regions_conf.py` | Collects the regions a Terraform resource configuration names (the `region` argument, replicas, copy destinations) for the resource-level checks `EUGUARD_POLICY_002` and `EUGUARD_GDPR_003` |
 | `tf_eu_guard/checks/values.py` | Helpers for reading Checkov's nested-list attribute values |
 | `tf_eu_guard/mapping/` | Registry YAML per provider, `loader.py`, `schema.py`, `enrichment.py` (the join), `requirements.py` and `coverage.py` (requirement inventory and coverage labels) |

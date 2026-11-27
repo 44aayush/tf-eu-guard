@@ -67,7 +67,8 @@ Recurring structural blind spots (each also noted in the article docs):
   (results are pre-computed), and plan-mode and GCP residency are not
   covered. Azure residency (`EUGUARD_POLICY_003`, `EUGUARD_GDPR_004`) reads the literal `location` of
   `azurerm_*` resources against a maintained table; a newer EU location not yet in the table fails the
-  policy check until it is added, and `--residency-policy eusc` (an AWS partition) uses the Azure EU/EEA table.
+  policy check until it is added, `location = "global"` (for example on `azurerm_monitor_action_group`) also fails
+  `EUGUARD_POLICY_003` (use a regional location where the resource allows one, or add a waiver), and `--residency-policy eusc` (an AWS partition) uses the Azure EU/EEA table.
 
 ## Unmapped findings
 

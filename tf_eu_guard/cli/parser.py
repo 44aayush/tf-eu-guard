@@ -225,9 +225,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--residency-policy",
         choices=list(RESIDENCY_POLICIES),
         default=DEFAULT_POLICY,
-        help="AWS region residency policy enforced by EUGUARD_POLICY_001/002 "
-        "(default: eu-eea). 'eu-eea' allows EU/EEA commercial regions and the "
-        "AWS European Sovereign Cloud; 'eusc' allows only the Sovereign Cloud; "
+        help="Region residency policy enforced by EUGUARD_POLICY_001/002 (AWS) and "
+        "EUGUARD_POLICY_003 (Azure) (default: eu-eea). 'eu-eea' allows EU/EEA commercial "
+        "regions and the AWS European Sovereign Cloud; 'eusc' allows only the Sovereign "
+        "Cloud on AWS (Azure uses its EU/EEA table); "
         "'custom' uses --allowed-regions. Ignored with --checkov-json (results "
         "are pre-computed).",
     )

@@ -88,9 +88,19 @@ def test_allowed_regions_per_cloud():
     assert allowed_regions_from_env(eusc, "azure") == AZURE_EU_EEA_LOCATIONS
     custom = {POLICY_ENV_VAR: "custom", ALLOWED_REGIONS_ENV_VAR: "westeurope"}
     assert allowed_regions_from_env(custom, "azure") == frozenset({"westeurope"})
-    bad = {POLICY_ENV_VAR: "custom"}
-    assert allowed_regions_from_env(bad) == EUSC_REGIONS
-    assert allowed_regions_from_env(bad, "azure") == AZURE_EU_EEA_LOCATIONS
+    for bad in ({POLICY_ENV_VAR: "custom"}, {POLICY_ENV_VAR: "bogus"}):
+        assert allowed_regions_from_env(bad) == EUSC_REGIONS
+        assert allowed_regions_from_env(bad, "azure") == frozenset()
+
+
+def test_unusable_custom_allowlist_fails_azure_closed(monkeypatch):
+    monkeypatch.setenv(POLICY_ENV_VAR, "custom")
+    assert _scan("westeurope")[0] == CheckResult.FAILED
+
+
+def test_unsupported_cloud_is_rejected():
+    with pytest.raises(ValueError):
+        allowed_regions_from_env({}, "gcp")
 
 
 def test_check_identities():

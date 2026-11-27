@@ -10,8 +10,10 @@ time with :func:`allowed_regions_from_env`.
 ``eusc``    only the AWS European Sovereign Cloud (the 0.7.x behaviour)
 ``custom``  an explicit allowlist from ``--allowed-regions``
 
-EUSC is an AWS partition: for Azure, ``eusc`` (and the fail-closed fallback) uses the
-Azure EU/EEA table, and ``custom`` applies the same allowlist to every cloud.
+EUSC is an AWS partition: for Azure, ``eusc`` uses the Azure
+EU/EEA table, and ``custom`` applies the same allowlist to every cloud. Bad input (an
+unrecognised policy, or ``custom`` without usable regions) fails closed: AWS falls back to the
+EUSC-only allowlist, Azure to an empty allowlist.
 
 Direct Checkov use (no CLI) leaves both variables unset and gets ``eu-eea``.
 An unrecognised policy value, or ``custom`` with no usable regions, fails
@@ -36,6 +38,7 @@ DEFAULT_POLICY = POLICY_EU_EEA
 
 _REGION_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _AWS_RESOURCE_RE = re.compile(r"(^|\.)aws_[a-z0-9_]+\.")
+_CLOUDS = ("aws", "azure")
 _POLICY_CHECK_ID = "EUGUARD_POLICY_001"
 
 
@@ -62,19 +65,28 @@ def residency_env(policy: str, allowed_regions: tuple[str, ...] | None) -> dict[
 
 
 def allowed_regions_from_env(environ: Mapping[str, str], cloud: str = "aws") -> frozenset[str]:
-    """Resolve the active region allowlist for *cloud* from *environ* (fails closed)."""
-    eu_eea = AZURE_EU_EEA_LOCATIONS if cloud == "azure" else EU_EEA_REGIONS
-    strictest = eu_eea if cloud == "azure" else EUSC_REGIONS
+    """Resolve the active region allowlist for *cloud* from *environ* (fails closed).
+
+    Raises ``ValueError`` for a cloud other than ``aws`` or ``azure``. Bad input fails
+    closed: for AWS to the EUSC-only allowlist; for Azure, which has no sovereign
+    partition, to an empty allowlist (nothing is allowed).
+    """
+    if cloud not in _CLOUDS:
+        raise ValueError(f"unsupported cloud for a residency allowlist: {cloud!r}")
+    azure = cloud == "azure"
     policy = (environ.get(POLICY_ENV_VAR) or "").strip().lower() or DEFAULT_POLICY
     if policy == POLICY_EU_EEA:
-        return eu_eea
+        return AZURE_EU_EEA_LOCATIONS if azure else EU_EEA_REGIONS
     if policy == POLICY_CUSTOM:
         try:
             return frozenset(parse_allowed_regions(environ.get(ALLOWED_REGIONS_ENV_VAR, "")))
         except ValueError:
-            return strictest
-    # "eusc" and any unrecognised value: strictest allowlist.
-    return strictest
+            return frozenset() if azure else EUSC_REGIONS
+    if policy == POLICY_EUSC:
+        # EUSC is an AWS partition: Azure uses its EU/EEA table.
+        return AZURE_EU_EEA_LOCATIONS if azure else EUSC_REGIONS
+    # Any unrecognised value: strictest allowlist.
+    return frozenset() if azure else EUSC_REGIONS
 
 
 def aws_region_unset_warning(

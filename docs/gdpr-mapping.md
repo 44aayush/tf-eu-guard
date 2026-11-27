@@ -138,8 +138,9 @@ configurable residency *policy* from the GDPR Chapter V review signal:
 | EUGUARD_POLICY_003 | Azure `azurerm_*` resource `location` is within the configured residency policy (**project policy** custom check) |
 | EUGUARD_GDPR_004 | A known Azure `location` outside the EU/EEA (including the UK and Switzerland) receives a Chapter V review signal (**custom** check) |
 
-These are **custom tf-eu-guard checks** implemented in
-[`tf_eu_guard/checks/gdpr/data_residency.py`](../tf_eu_guard/checks/gdpr/data_residency.py).
+These are **custom tf-eu-guard checks**. The AWS ones are implemented in
+[`tf_eu_guard/checks/gdpr/data_residency.py`](../tf_eu_guard/checks/gdpr/data_residency.py), the Azure ones in
+[`tf_eu_guard/checks/gdpr/azure_residency.py`](../tf_eu_guard/checks/gdpr/azure_residency.py) (below).
 The `*_001`/`*_002` provider checks inspect each `provider "aws"` block's
 `region`. Since AWS provider 6.0 most resources also accept a top-level
 `region` argument, and replication settings place data elsewhere regardless of

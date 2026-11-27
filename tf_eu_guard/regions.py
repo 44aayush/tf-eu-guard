@@ -1,8 +1,8 @@
-"""AWS region policy tables — the single source of truth.
+"""AWS region and Azure location policy tables — the single source of truth.
 
 The residency policies (``eu-eea``, ``eusc``, ``custom``; see
 :mod:`tf_eu_guard.residency`) and the Chapter V review checks in
-``checks/gdpr/data_residency.py`` import these tables rather than defining
+``checks/gdpr/data_residency.py`` (AWS) and ``checks/gdpr/azure_residency.py`` (Azure) import these tables rather than defining
 them inline, so the policy is reviewable — and pin-able by tests — on its own.
 """
 

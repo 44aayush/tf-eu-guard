@@ -149,7 +149,7 @@ Mapped checks (2): `CKV_AZURE_103`, `CKV_AZURE_84`.
 
 ◐ **Partial**
 
-The custom EUGUARD_GDPR_002 and EUGUARD_GDPR_003 checks flag known AWS provider and resource-level regions outside the EU/EEA for Chapter V review. The adequacy/SCC analysis itself is legal, not technical. A third-country signal is a prompt for review, not a violation or definitive legal conclusion.
+The custom EUGUARD_GDPR_002 and EUGUARD_GDPR_003 checks flag known AWS provider and resource-level regions and Azure resource locations outside the EU/EEA for Chapter V review (EUGUARD_GDPR_004 covers Azure). The adequacy/SCC analysis itself is legal, not technical. A third-country signal is a prompt for review, not a violation or definitive legal conclusion.
 
 Mapped checks (3): `EUGUARD_GDPR_002`, `EUGUARD_GDPR_003`, `EUGUARD_GDPR_004`.
 
