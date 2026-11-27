@@ -376,6 +376,17 @@ def build_parser() -> argparse.ArgumentParser:
         "suppressed checks are reported but do not trip this gate.",
     )
     parser.add_argument(
+        "--unmapped-severity",
+        type=fail_on_severity_arg,
+        default=None,
+        metavar="SEVERITY",
+        help="Count every active (not inline-suppressed) unmapped Checkov finding as a "
+        "finding of this severity (CRITICAL, HIGH, MEDIUM, LOW, INFO, case-insensitive) for "
+        "--fail-on-severity and --fail-on-any. Reports are unchanged: unmapped findings "
+        "stay unmapped and carry no severity. Has no effect without one of those gates. "
+        "Default: unset. An empty value also leaves it unset.",
+    )
+    parser.add_argument(
         "--show-unmapped",
         action="store_true",
         help="List unmapped Checkov findings (check ID, name, resource, file, "

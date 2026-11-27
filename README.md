@@ -493,6 +493,7 @@ Action inputs mirror the scan options:
 | `fail-on-any` | `--fail-on-any` | `false` |
 | `fail-on-suppressed` | `--fail-on-suppressed` | `false` |
 | `fail-on-unmapped` | `--fail-on-unmapped` | `false` |
+| `unmapped-severity` | `--unmapped-severity` | empty |
 | `residency-policy` | `--residency-policy` | `eu-eea` |
 | `allowed-regions` | `--allowed-regions` | empty |
 | `checkov-json` | `--checkov-json` (workspace-relative path; same rules as `path`) | empty |

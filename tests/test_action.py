@@ -397,7 +397,7 @@ def _run_action(tmp_path, bash, no_gh=False, **extra):
         **{
             f"INPUT_{n}": ""
             for n in (
-                "UPLOAD_REPORTS UPLOAD_SARIF FAIL_ON_SEVERITY FAIL_ON_ANY FAIL_ON_SUPPRESSED FAIL_ON_UNMAPPED "
+                "UPLOAD_REPORTS UPLOAD_SARIF FAIL_ON_SEVERITY FAIL_ON_ANY FAIL_ON_SUPPRESSED FAIL_ON_UNMAPPED UNMAPPED_SEVERITY "
                 "RESIDENCY_POLICY ALLOWED_REGIONS TIMEOUT CHECKOV_JSON OUTPUT_DIR OUTPUT_FILE "
                 "CONFIG TRUSTED_CONFIG WAIVERS MAX_WAIVER_DAYS BASELINE DISCOVER_CONFIG"
             ).split()
@@ -444,6 +444,7 @@ def test_action_declares_new_inputs():
     assert inputs["job-summary"]["default"] == "true"
     assert inputs["discover-config"]["default"] == "false"
     assert inputs["fail-on-unmapped"]["default"] == "false"
+    assert inputs["unmapped-severity"]["default"] == ""
     text = ACTION.read_text(encoding="utf-8")
     for var in (
         "CONFIG",
@@ -453,6 +454,7 @@ def test_action_declares_new_inputs():
         "JOB_SUMMARY",
         "DISCOVER_CONFIG",
         "FAIL_ON_UNMAPPED",
+        "UNMAPPED_SEVERITY",
     ):
         assert f"INPUT_{var}: ${{{{ inputs." in text
 
@@ -465,6 +467,16 @@ def test_action_passes_fail_on_unmapped(tmp_path, value, passed):
     result, argv, _ = _run_action(tmp_path, bash, INPUT_FAIL_ON_UNMAPPED=value)
     assert result.returncode == 0, result.stderr
     assert ("--fail-on-unmapped" in argv) is passed
+
+
+@pytest.mark.parametrize(("value", "passed"), [("HIGH", True), ("", False)])
+def test_action_passes_unmapped_severity(tmp_path, value, passed):
+    bash = _bash_or_skip()
+    result, argv, _ = _run_action(tmp_path, bash, INPUT_UNMAPPED_SEVERITY=value)
+    assert result.returncode == 0, result.stderr
+    assert ("--unmapped-severity" in argv) is passed
+    if passed:
+        assert argv[argv.index("--unmapped-severity") + 1] == value
 
 
 def test_action_passes_no_discovery_by_default(tmp_path):

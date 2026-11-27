@@ -34,6 +34,16 @@ def find_gate_failures(
     ]
 
 
+def _unmapped_meets_gate(args: argparse.Namespace, level: str) -> bool:
+    """Return whether unmapped findings counted at ``level`` trip the severity gate."""
+    if args.fail_on_any:
+        return True
+    if not args.fail_on_severity:
+        return False
+    rank = SEVERITIES_LOW_TO_HIGH.index
+    return rank(Severity(level)) >= rank(Severity(args.fail_on_severity))
+
+
 def apply_scan_gate(
     args: argparse.Namespace,
     findings: list[EnrichedFinding],
@@ -64,6 +74,16 @@ def apply_scan_gate(
         )
         gate_failed = True
 
+    unmapped_level = getattr(args, "unmapped_severity", None)
+    if unmapped and unmapped_level and _unmapped_meets_gate(args, unmapped_level):
+        print(
+            f"Fail: {len(unmapped)} unmapped Checkov finding(s) counted as {unmapped_level} "
+            f"(--unmapped-severity) at or above threshold "
+            f"({args.fail_on_severity or 'ANY'}).",
+            file=sys.stderr,
+        )
+        gate_failed = True
+
     if getattr(args, "fail_on_unmapped", False) and unmapped:
         print(
             f"Fail: {len(unmapped)} unmapped Checkov finding(s) (--fail-on-unmapped)",
@@ -74,8 +94,9 @@ def apply_scan_gate(
     if gate_failed:
         return EXIT_FINDINGS
 
-    # Unmapped Checkov findings never affect the gate because severity is
-    # registry-authored. Surface that policy in CI output when a gate is used.
+    # Unmapped Checkov findings do not affect the gate unless --unmapped-severity
+    # counts them, because severity is registry-authored. Surface that policy in
+    # CI output when a gate is used.
     if (
         unmapped
         and (args.fail_on_any or args.fail_on_severity)

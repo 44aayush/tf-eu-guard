@@ -12,6 +12,9 @@ release point.
 
 ### Added
 
+- `--unmapped-severity SEVERITY` (config key `unmapped_severity`, Action input `unmapped-severity`) counts every
+  active unmapped Checkov finding as a finding of that severity for `--fail-on-severity` and `--fail-on-any`.
+  Reports are unchanged and the default gate is unchanged (TEG-10).
 - A Terraform scan warns on stderr when `google_*` resources were scanned but no `EUGUARD_POLICY_004` result
   appeared, because the region then comes from the environment (for example `GOOGLE_REGION`) or the provider at apply
   time; same semantics as the AWS region-unset warning.

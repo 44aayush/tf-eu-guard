@@ -35,6 +35,7 @@ root exits 2.
 | `allowed_regions` | list of strings | `--allowed-regions` |
 | `exclude` | list of strings | `--exclude` |
 | `fail_on_severity` | string | `--fail-on-severity` |
+| `unmapped_severity` | string | `--unmapped-severity` |
 | `fail_on_any`, `fail_on_suppressed`, `fail_on_unmapped` | boolean (`true`/`false`, not `"yes"`) | gate flags |
 | `timeout` | number | `--timeout` |
 | `max_waiver_days` | integer, at least 1 | `--max-waiver-days` |

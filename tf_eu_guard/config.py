@@ -23,6 +23,7 @@ _KEYS = {
     *_BOOLS,
     *_STR_LISTS,
     "fail_on_severity",
+    "unmapped_severity",
     "timeout",
     "max_waiver_days",
     "waivers",
@@ -101,14 +102,15 @@ def load_config(path: Path) -> dict[str, Any]:
                 )
             except argparse.ArgumentTypeError as error:
                 raise ConfigError(f"'allowed_regions': {error}") from error
-        if "fail_on_severity" in data:
-            value = data["fail_on_severity"]
-            if not isinstance(value, str):
-                raise ConfigError("'fail_on_severity' must be a string")
-            try:
-                out["fail_on_severity"] = fail_on_severity_arg(value)
-            except argparse.ArgumentTypeError as error:
-                raise ConfigError(f"'fail_on_severity': {error}") from error
+        for key in ("fail_on_severity", "unmapped_severity"):
+            if key in data:
+                value = data[key]
+                if not isinstance(value, str):
+                    raise ConfigError(f"'{key}' must be a string")
+                try:
+                    out[key] = fail_on_severity_arg(value)
+                except argparse.ArgumentTypeError as error:
+                    raise ConfigError(f"'{key}': {error}") from error
         if "timeout" in data:
             value = data["timeout"]
             if isinstance(value, bool) or not isinstance(value, (int, float)):

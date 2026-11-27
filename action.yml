@@ -25,6 +25,10 @@ inputs:
     description: 'Fail the workflow if findings at or above this severity exist (CRITICAL, HIGH, MEDIUM, LOW, INFO); empty disables gating'
     required: false
     default: 'HIGH'
+  unmapped-severity:
+    description: 'Count every active Checkov finding with no EU mapping as a finding of this severity (CRITICAL, HIGH, MEDIUM, LOW, INFO) for fail-on-severity and fail-on-any; empty leaves unmapped findings out of those gates (mirrors --unmapped-severity)'
+    required: false
+    default: ''
   upload-reports:
     description: 'Upload generated HTML report(s) as a workflow artifact (true, 1 or yes, any case); applies only to output security, auditor, or all (ignored for dev, json, and sarif)'
     required: false
@@ -164,6 +168,7 @@ runs:
         INPUT_FAIL_ON_ANY: ${{ inputs.fail-on-any }}
         INPUT_FAIL_ON_SUPPRESSED: ${{ inputs.fail-on-suppressed }}
         INPUT_FAIL_ON_UNMAPPED: ${{ inputs.fail-on-unmapped }}
+        INPUT_UNMAPPED_SEVERITY: ${{ inputs.unmapped-severity }}
         INPUT_RESIDENCY_POLICY: ${{ inputs.residency-policy }}
         INPUT_ALLOWED_REGIONS: ${{ inputs.allowed-regions }}
         INPUT_CHECKOV_JSON: ${{ inputs.checkov-json }}
@@ -335,6 +340,9 @@ runs:
         fi
         if is_true "$INPUT_FAIL_ON_UNMAPPED"; then
           args+=(--fail-on-unmapped)
+        fi
+        if [ -n "$INPUT_UNMAPPED_SEVERITY" ]; then
+          args+=(--unmapped-severity "$INPUT_UNMAPPED_SEVERITY")
         fi
         if [ -n "$INPUT_RESIDENCY_POLICY" ]; then
           args+=(--residency-policy "$INPUT_RESIDENCY_POLICY")

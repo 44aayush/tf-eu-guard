@@ -53,6 +53,14 @@ def test_config_sets_defaults(tmp_path):
     assert values["allowed_regions"] == ("eu-north-1", "eu-west-1")
 
 
+def test_config_unmapped_severity(tmp_path):
+    assert load_config(_cfg(tmp_path, "unmapped_severity: high\n"))["unmapped_severity"] == "HIGH"
+    with pytest.raises(ConfigError, match="unmapped_severity"):
+        load_config(_cfg(tmp_path, "unmapped_severity: SEVERE\n"))
+    with pytest.raises(ConfigError, match="unmapped_severity"):
+        load_config(_cfg(tmp_path, "unmapped_severity: 3\n"))
+
+
 def test_cli_overrides_config(monkeypatch, tmp_path, capsys):
     one = _one_finding(tmp_path)
     cfg = _cfg(tmp_path, "fail_on_severity: critical\n")
