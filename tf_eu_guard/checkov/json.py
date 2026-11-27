@@ -264,7 +264,7 @@ def _check_input_completeness(output: dict[str, Any], require_complete: bool) ->
                 "Pass --allow-partial to accept it"
             )
         _warn("the Checkov JSON reports 0 resources scanned")
-    elif strict and not (is_int and count >= 1):
+    elif strict and not (is_int and count is not None and count >= 1):
         raise CheckovRuntimeError(
             "the Checkov JSON does not report a positive resource_count; a gated scan cannot "
             "trust it. Pass --allow-partial to accept it"

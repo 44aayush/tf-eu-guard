@@ -279,7 +279,7 @@ runs:
         # workspace-relative; any other absolute path is rejected.
         out_rel() {
           local value="$1"
-          # The bare workspace itself (path: ${{ github.workspace }}) is the root.
+          # The bare workspace itself (a workflow passing the workspace path) is the root.
           if [ "$value" = "$GITHUB_WORKSPACE" ] || [ "$value" = "/workspace" ]; then
             value="."
           fi

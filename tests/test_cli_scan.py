@@ -591,7 +591,16 @@ def _aws_checkov_json(tmp_path, check_type):
     document = {
         "check_type": check_type,
         "results": {
-            "passed_checks": [],
+            "passed_checks": [
+                {
+                    "check_id": "EUGUARD_GDPR_002",
+                    "check_name": "custom check",
+                    "resource": "aws_s3_bucket.b",
+                    "file_path": "/main.tf",
+                    "file_line_range": [1, 2],
+                    "check_result": {"result": "PASSED"},
+                }
+            ],
             "failed_checks": [
                 {
                     "check_id": "CKV_AWS_18",
