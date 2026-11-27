@@ -12,6 +12,10 @@ release point.
 
 ### Added
 
+- Opt-in emulator test tier (`tests/emulator/`, `TFEG_RUN_EMULATOR=1`) and a CI job `emulator` that run real Terraform
+  against a digest-pinned LocalStack 4.9 service: an environment-supplied region is caught in plan mode
+  (`EUGUARD_POLICY_002`, `EUGUARD_GDPR_003`), and an applied S3 bucket is read back through boto3 and compared
+  with `CKV_AWS_53` to `56`. The default suite skips it.
 - GCP residency: `EUGUARD_POLICY_004` (`provider "google"` `region` and `google_*` resource `region`, `location` and
   `zone` within the configured residency policy) and `EUGUARD_GDPR_005` (known third-country location, a hedged
   Chapter V review signal). The policy check is fail-closed against a maintained EU/EEA table (zones map to their

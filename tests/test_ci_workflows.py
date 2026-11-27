@@ -4,9 +4,11 @@ These parse the files with PyYAML (and the raw text where YAML comments matter)
 so a hardening flag or a pin cannot be dropped silently.
 """
 
+import os
 import re
 import shutil
 import subprocess
+import sys
 import tomllib
 from datetime import date, timedelta
 from pathlib import Path
@@ -626,3 +628,59 @@ def test_dockerfile_stages_share_one_pinned_base():
     assert len(bases) == 2
     assert bases[0] == bases[1]
     assert re.fullmatch(r"python:3\.12-slim@sha256:[0-9a-f]{64}", bases[0])
+
+
+LOCALSTACK_IMAGE = (
+    "localstack/localstack@sha256:59373b4a27dba3ec15c4db0b7455f0cb68c8a42300e2cbbe362b440f9a131697"
+)
+
+
+def test_emulator_job_is_pinned_read_only_and_runs_the_opt_in_tier():
+    job = _ci_jobs()["emulator"]
+    assert job["runs-on"] == "ubuntu-24.04"
+    assert job["timeout-minutes"] == 20
+    assert job["needs"] == ["lint"]
+    assert "permissions" not in job  # inherits the read-only workflow default
+    service = job["services"]["localstack"]
+    assert service["image"] == LOCALSTACK_IMAGE
+    assert service["ports"] == ["4566:4566"]
+    assert service["env"] == {"SERVICES": "s3,sqs,dynamodb,sts,iam"}
+    checkout = next(s for s in job["steps"] if s.get("uses", "").startswith("actions/checkout"))
+    assert checkout["with"]["persist-credentials"] is False
+    terraform = next(
+        s for s in job["steps"] if s.get("uses", "").startswith("hashicorp/setup-terraform@")
+    )
+    assert terraform["uses"].startswith(
+        "hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e"
+    )
+    assert terraform["with"] == {"terraform_version": "1.17.2", "terraform_wrapper": False}
+    commands = _job_commands(job)
+    assert "pip install --require-hashes -r requirements.lock -r requirements-dev.lock" in commands
+    assert "pip install --no-deps -e ." in commands
+    run = next(s for s in job["steps"] if "pytest tests/emulator" in s.get("run", ""))
+    assert 'pytest tests/emulator -p no:cacheprovider -o addopts=""' in run["run"]
+    assert run["env"] == {"TFEG_RUN_EMULATOR": "1"}
+
+
+def test_emulator_tier_skips_by_default():
+    env = {k: v for k, v in os.environ.items() if k != "TFEG_RUN_EMULATOR"}
+    done = subprocess.run(
+        [sys.executable, "-m", "pytest", "tests/emulator", "-p", "no:cacheprovider"]
+        + ["-o", "addopts=", "-q", "-rs"],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "2 skipped" in done.stdout
+    assert "passed" not in done.stdout and "failed" not in done.stdout
+
+
+def test_emulator_override_is_not_inside_a_scanned_fixture():
+    assert not list((ROOT / "tests" / "emulator" / "fixtures").rglob("*override*"))
+    assert "access_key" not in "".join(
+        p.read_text(encoding="utf-8")
+        for p in (ROOT / "tests" / "emulator" / "fixtures").rglob("*.tf")
+    )

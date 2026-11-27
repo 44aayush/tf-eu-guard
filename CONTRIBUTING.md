@@ -93,6 +93,25 @@ bash install_and_test.sh
 (creates a venv, installs dev extras, runs pytest with coverage, and smoke-tests
 a scan of `examples/vulnerable-aws/`).
 
+## Emulator tests (opt-in)
+
+`tests/emulator/` runs real Terraform against a LocalStack endpoint to test plan-mode scanning with
+real plans (for example a region supplied only by `AWS_REGION`) and to compare findings with state read
+back through boto3. It is skipped unless `TFEG_RUN_EMULATOR=1` is set and `terraform` is on PATH, so the
+default suite is unchanged. To run it locally:
+
+```bash
+docker run -d --rm --name teg-emu -p 127.0.0.1:4566:4566 -e SERVICES=s3,sqs,dynamodb,sts,iam \
+  localstack/localstack@sha256:59373b4a27dba3ec15c4db0b7455f0cb68c8a42300e2cbbe362b440f9a131697
+TFEG_RUN_EMULATOR=1 pytest tests/emulator -p no:cacheprovider -o addopts=""
+docker stop teg-emu
+```
+
+`TFEG_EMULATOR_ENDPOINT` overrides the default `http://127.0.0.1:4566`. The fixture's
+`.terraform.lock.hcl` pins the AWS provider for `linux_amd64` only; set `TF_PLUGIN_CACHE_DIR` to avoid
+re-downloading it. The emulator wiring (`localstack_override.tf`) is copied into a temporary directory
+and never lives in a scanned fixture. A clean emulator run says nothing about legal compliance.
+
 ## Dependency lock and supply-chain checks
 
 Three hashed lock files are committed, and CI and the Docker image install them
