@@ -52,7 +52,7 @@ def _git(repo: Path, *argv: str) -> str:
     return done.stdout
 
 
-_TF_SUFFIXES = (".tf", ".tfvars", ".hcl")
+_TF_SUFFIXES = (".tf", ".tfvars", ".hcl", ".tfvars.json", ".tf.json")
 
 
 def in_changed_scope(path: Path, changed: set[Path], iac_type: str) -> bool:

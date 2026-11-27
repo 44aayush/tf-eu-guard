@@ -206,6 +206,13 @@ def test_changed_scope_same_directory(tmp_path):
     assert in_changed_scope(tmp_path / "rds.tf", {tmp_path / "variables.tf"}, "terraform") is True
 
 
+def test_changed_scope_tfvars_json(tmp_path):
+    root = tmp_path.resolve()
+    assert in_changed_scope(root / "main.tf", {root / "terraform.tfvars.json"}, "terraform")
+    assert in_changed_scope(root / "main.tf", {root / "x.auto.tfvars.json"}, "terraform")
+    assert in_changed_scope(root / "main.tf", {root / "m.tf.json"}, "terraform")
+
+
 def test_changed_scope_ancestor_and_descendant(tmp_path):
     nested = tmp_path / "modules/db/main.tf"
     assert in_changed_scope(nested, {tmp_path / "terraform.tfvars"}, "terraform") is True
