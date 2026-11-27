@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from tf_eu_guard import __version__
 from tf_eu_guard.cli.paths import find_repository_root, sarif_scan_root
+from tf_eu_guard.json_layout import resolve_json_format
 from tf_eu_guard.mapping.coverage import RequirementResult
 from tf_eu_guard.mapping.loader import LoadedRegistry
 from tf_eu_guard.models import EnrichedFinding
@@ -190,11 +191,6 @@ def build_json_object(
     if provenance is not None:
         document["provenance"] = provenance
     return document
-
-
-def resolve_json_format(args: argparse.Namespace) -> str:
-    """Return the effective ``--json-format``: ``"array"`` unless ``"object"`` was given."""
-    return "object" if getattr(args, "json_format", None) == "object" else "array"
 
 
 def render_json_report(

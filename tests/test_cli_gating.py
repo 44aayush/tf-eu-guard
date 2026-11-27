@@ -284,3 +284,11 @@ def test_unmapped_severity_ignores_suppressed(monkeypatch, tmp_path, section, ex
         "--no-config",
     )
     assert rc == expected
+
+
+def test_one_fail_line_when_both_unmapped_gates_trip(capsys):
+    args = _gate_args(fail_on_unmapped=True, fail_on_severity="HIGH", unmapped_severity="HIGH")
+    assert apply_scan_gate(args, [], _UNMAPPED) == EXIT_FINDINGS
+    fail_lines = [ln for ln in capsys.readouterr().err.splitlines() if ln.startswith("Fail:")]
+    assert len(fail_lines) == 1
+    assert "(--fail-on-unmapped)" in fail_lines[0]

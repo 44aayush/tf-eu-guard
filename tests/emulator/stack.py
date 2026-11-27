@@ -30,7 +30,9 @@ def require_endpoint(endpoint: str, timeout: float = 5.0) -> None:
     """Raise EmulatorUnavailable unless LocalStack answers 200 on its health URL."""
     url = f"{endpoint}/_localstack/health"
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as response:
+        # No proxy: the endpoint is local and an ambient http_proxy must not intercept it.
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(url, timeout=timeout) as response:
             status = response.status
     except Exception as exc:
         reason = f"{type(exc).__name__}: {exc}"

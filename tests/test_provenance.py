@@ -368,3 +368,16 @@ def test_commit_source_is_schema_valid(tmp_path, monkeypatch):
     prov = _provenance(tmp_path)
     prov["registry_sha256"] = "0" * 64
     jsonschema.validate(prov, SCHEMA["properties"]["provenance"])
+
+
+def test_provenance_records_resolved_json_format(tmp_path):
+    from argparse import Namespace
+    from types import SimpleNamespace
+
+    from tf_eu_guard.provenance import build_provenance
+
+    result = SimpleNamespace(registry=None, checkov_version=None)
+    args = Namespace(path=tmp_path, output="json")
+    prov = build_provenance(args, result, {})  # type: ignore[arg-type]
+    assert prov["options"]["json_format"] == "array"
+    assert not hasattr(args, "json_format")

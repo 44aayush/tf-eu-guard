@@ -26,7 +26,8 @@ sys.path.insert(0, str(REPO_ROOT))
 from tf_eu_guard import regions  # noqa: E402
 
 SNAPSHOT_DIR = REPO_ROOT / "tools" / "region_snapshots"
-REQUIRED_KEYS = ("source", "verified", "eu_eea", "third_country", "unclassified")
+LIST_KEYS = ("eu_eea", "third_country", "unclassified")
+REQUIRED_KEYS = ("source", "verified", *LIST_KEYS)
 
 # provider -> (snapshot file, EU/EEA table name, known table name) in tf_eu_guard.regions
 PROVIDERS = {
@@ -40,7 +41,7 @@ def load_snapshot(path: Path) -> dict:
     missing = [key for key in REQUIRED_KEYS if key not in document]
     if missing:
         raise ValueError(f"{path.name}: missing keys {', '.join(missing)}")
-    for key in REQUIRED_KEYS[2:]:
+    for key in LIST_KEYS:
         value = document[key]
         if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
             raise ValueError(f"{path.name}: {key} must be a list of strings")

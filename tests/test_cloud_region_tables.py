@@ -94,3 +94,7 @@ def test_snapshot_has_source_and_date(name):
     for key in ("eu_eea", "third_country", "unclassified"):
         assert isinstance(document[key], list)
         assert document[key] == sorted(document[key])
+
+
+def test_list_keys_are_explicit():
+    assert check.LIST_KEYS == ("eu_eea", "third_country", "unclassified")

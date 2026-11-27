@@ -74,6 +74,10 @@ release point.
 
 ### Changed
 
+- When `--fail-on-unmapped` and `--unmapped-severity` both trip on the same unmapped findings, the gate prints one
+  `Fail:` line (the `--fail-on-unmapped` one) instead of two.
+- `provenance.options.json_format` records the resolved layout (`array` or `object`) whenever the output is `json`,
+  also when `--json-format` was not given.
 - `--output json` without `--json-format` now prints a one-line deprecation warning on stderr (TEG-17). The layout stays the
   deprecated `array`, stdout is unchanged and still a bare JSON list, and the exit code is unaffected. Pass
   `--json-format object` (recommended) or `--json-format array` to silence it; the default changes to `object` in a

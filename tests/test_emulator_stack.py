@@ -108,3 +108,28 @@ def test_emulator_env_default_reads_os_environ(monkeypatch):
 def test_require_endpoint_unreachable():
     with pytest.raises(EmulatorUnavailable, match=r"localstack/localstack:4\.9"):
         require_endpoint("http://127.0.0.1:9", timeout=1.0)
+
+
+def test_require_endpoint_ignores_proxy_env(monkeypatch):
+    import http.server
+    import threading
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200 if self.path == "/_localstack/health" else 404)
+            self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    monkeypatch.setenv("http_proxy", "http://127.0.0.1:9")
+    monkeypatch.delenv("no_proxy", raising=False)
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    try:
+        require_endpoint(f"http://127.0.0.1:{server.server_address[1]}")
+    finally:
+        server.shutdown()
+        server.server_close()

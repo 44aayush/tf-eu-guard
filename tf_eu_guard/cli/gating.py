@@ -75,7 +75,13 @@ def apply_scan_gate(
         gate_failed = True
 
     unmapped_level = getattr(args, "unmapped_severity", None)
-    if unmapped and unmapped_level and _unmapped_meets_gate(args, unmapped_level):
+    # --fail-on-unmapped reports the same findings below; do not print two Fail lines.
+    if (
+        unmapped
+        and unmapped_level
+        and not getattr(args, "fail_on_unmapped", False)
+        and _unmapped_meets_gate(args, unmapped_level)
+    ):
         print(
             f"Fail: {len(unmapped)} unmapped Checkov finding(s) counted as {unmapped_level} "
             f"(--unmapped-severity) at or above threshold "
