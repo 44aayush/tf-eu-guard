@@ -388,7 +388,11 @@ Lab fixtures (each a small Terraform or Kubernetes directory; the snippets are i
            subprocess.run(["terraform", *args], cwd=work, env=env, check=True)
        shown = subprocess.run(
            ["terraform", "show", "-json", "tfplan"],
-           cwd=work, env=env, check=True, capture_output=True, text=True,
+           cwd=work,
+           env=env,
+           check=True,
+           capture_output=True,
+           text=True,
        )
        plan = work / "plan.json"
        plan.write_text(shown.stdout)
