@@ -342,6 +342,13 @@ jobs:
         run: |
           python tools/generate_coverage_doc.py --check
 
+      - name: Check Checkov coverage doc against the installed Checkov
+        # docs/checkov-coverage.md lists every check of the pinned Checkov as
+        # mapped / intentionally unmapped / untriaged; a Checkov bump must
+        # regenerate it. Also fails on a registry ID Checkov no longer ships.
+        run: |
+          python tools/generate_checkov_coverage.py --check
+
   emulator:
     name: emulator
     timeout-minutes: 20

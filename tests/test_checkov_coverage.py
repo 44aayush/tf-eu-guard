@@ -1,0 +1,82 @@
+"""Tests for tools/generate_checkov_coverage.py, the per-release Checkov coverage table.
+
+The unit tests use small in-memory catalogues so they need no Checkov; the
+drift test runs the real ``--check`` and only when Checkov is importable.
+"""
+
+import importlib.util
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+TOOLS_DIR = ROOT / "tools"
+if str(TOOLS_DIR) not in sys.path:
+    sys.path.insert(0, str(TOOLS_DIR))
+
+import generate_checkov_coverage as gcc  # noqa: E402
+
+CATALOGUE = {
+    "CKV_AWS_1": "one",
+    "CKV_AWS_10": "ten",
+    "CKV_AWS_2": "two",
+    "CKV2_AZURE_3": "three",
+    "CKV_K8S_4": "four",
+    "CKV_GCP_5": "five",
+    "CKV_TF_1": "tf",
+}
+
+
+def test_classify_statuses():
+    rows = gcc.classify(CATALOGUE, {"CKV_AWS_1"}, {"CKV_AWS_10": "covered by CKV_AWS_9"})
+    by_id = {row.check_id: row for row in rows}
+    assert by_id["CKV_AWS_1"].status == "mapped"
+    assert by_id["CKV_AWS_10"].status == "intentionally unmapped"
+    assert by_id["CKV_AWS_10"].reason == "covered by CKV_AWS_9"
+    assert by_id["CKV_AWS_2"].status == "untriaged"
+    assert by_id["CKV2_AZURE_3"].provider == "Azure"
+    assert by_id["CKV_K8S_4"].provider == "Kubernetes"
+    assert by_id["CKV_GCP_5"].provider == "GCP"
+    assert by_id["CKV_TF_1"].provider == "Terraform (cloud-agnostic)"
+    assert by_id["CKV_AWS_1"].name == "one"
+
+
+def test_untriaged_is_not_an_error():
+    assert gcc.problems(CATALOGUE, set(), {}, {}) == []
+
+
+def test_stale_registry_id_fails_check():
+    mapped = {"CKV_AWS_1", "CKV_AWS_999", "EUGUARD_POLICY_001", "CKV_SECRET_6"}
+    # Custom and secrets IDs are outside the Checkov catalogue prefixes.
+    assert gcc.stale_ids(CATALOGUE, mapped) == ["CKV_AWS_999"]
+    assert any("CKV_AWS_999" in p for p in gcc.problems(CATALOGUE, mapped, {}, {}))
+    assert gcc.problems(CATALOGUE, mapped, {}, {"CKV_AWS_999": "removed upstream"}) == []
+
+
+def test_triage_and_mapping_conflict_fails():
+    found = gcc.problems(CATALOGUE, {"CKV_AWS_1"}, {"CKV_AWS_1": "reason"}, {})
+    assert len(found) == 1
+    assert "CKV_AWS_1" in found[0]
+
+
+def test_render_summary_counts():
+    rows = gcc.classify(CATALOGUE, {"CKV_AWS_1"}, {"CKV_AWS_10": "why"})
+    doc = gcc.render(rows, "9.9.9")
+    assert "Checkov 9.9.9" in doc
+    assert "| AWS | 3 | 1 | 1 | 1 |" in doc
+    assert "| Azure | 1 | 0 | 0 | 1 |" in doc
+    # Sorted by ID with the number compared numerically.
+    assert doc.index("| CKV_AWS_1 |") < doc.index("| CKV_AWS_2 |") < doc.index("| CKV_AWS_10 |")
+
+
+@pytest.mark.skipif(importlib.util.find_spec("checkov") is None, reason="needs Checkov")
+def test_doc_is_current():
+    result = subprocess.run(
+        [sys.executable, str(TOOLS_DIR / "generate_checkov_coverage.py"), "--check"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

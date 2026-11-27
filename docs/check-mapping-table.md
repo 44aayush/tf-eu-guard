@@ -193,6 +193,9 @@ stack. Mapping the entire Checkov AWS catalogue (~700 checks) was rejected
 on purpose. Entries exist to explain real findings, and an article reference
 on every check would claim more than the check shows.
 
+The per-release list of every Checkov check with its status (mapped, intentionally
+unmapped or untriaged) is generated in [Checkov coverage by release](checkov-coverage.md).
+
 ---
 
 ## Methodology notes

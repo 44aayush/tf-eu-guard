@@ -249,6 +249,7 @@ To attest the bundle in CI, use GitHub artifact attestations on it, for example
 - [GDPR mapping guide](docs/gdpr-mapping.md) — Article 32 and Article 44 coverage
 - [Regulatory coverage](docs/regulatory-coverage.md) — automated, partial, manual, and out-of-scope requirements
 - [Checkov mapping table](docs/check-mapping-table.md) — registry-backed check IDs, severity, risk, and remediation
+- [Checkov coverage by release](docs/checkov-coverage.md) — every check of the pinned Checkov as mapped, intentionally unmapped, or untriaged
 - [Limitations](docs/limitations.md) — what an IaC scanner can and cannot establish
 - [Demo walkthrough](docs/DEMO.md) — reproducible vulnerable and compliant scans
 - [Changelog](CHANGELOG.md) — release history
