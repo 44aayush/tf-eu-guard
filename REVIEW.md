@@ -521,3 +521,15 @@ Found and fixed during the iteration:
 - The first `hcl2` check skipped Kubernetes, and Kubernetes scans break the same way.
 - The first allowlist dropped Checkov's module-download restrictions and proxy settings.
 - A regenerated HTML sample recorded a local scratch path. The committed plans also contained that path; it is now scrubbed from the current files.
+
+### After iteration 4 (2026-11-27, `version_0.10.0`)
+
+These results are from a fresh `--no-cache` build (`tf-eu-guard:ci8`) at `8944b2e`. 1490 tests pass (`TFEG_RUN_CHECKOV=1`), coverage is 94%, the registries and docs agree on 282 mappings, the trivy gate exits 0, and all 20 recheck rows from iterations 1 to 4 report fixed.
+
+| Finding | After iteration 4 | Status |
+| --- | --- | --- |
+| TEG-05 Azure/GCP residency | `EUGUARD_POLICY_003`/`GDPR_004` (Azure `location`) and `EUGUARD_POLICY_004`/`GDPR_005` (GCP provider/resource `region`, `location`, `zone`, including `google-beta`). The region tables cite their source and the date they were verified. Region-less GCP resources now get the same warning as AWS. Lab E5c now raises all four checks | Fixed (nested placement and dual-regions documented as gaps) |
+| TEG-11 severity rubric | `docs/severity-rubric.md` with family tests. World-open data stores, admin ports and Kubernetes control planes (`CKV_AWS_24/25/38`, `CKV_GCP_18`) are CRITICAL. Public-network guardrails (now including `CKV_AZURE_59`) are HIGH. Data-store encryption at rest is HIGH. The 12 customer-managed-key checks are MEDIUM, with hedged risk text and a `severity_overrides` example to restore the old levels | Fixed for these families (KMS-by-default family still open: T-22) |
+| Section 6 emulator tier | `tests/emulator` runs only with `TFEG_RUN_EMULATOR=1`. It covers plan-mode residency and an S3 public-access-block read-back against digest-pinned LocalStack 4.9, and has its own CI job | Done |
+
+Corrected during the iteration: the first Azure table left out `belgiumcentral` and `denmarkeast`. Both are generally available on Microsoft's region list, so leaving them out produced false policy failures. The docs no longer claim that plan mode does not cover residency.
