@@ -124,12 +124,14 @@ no "Documentation" link (the guideline URL is platform metadata); reports
 omit the link rather than failing. `--online` removes `--skip-download` and
 lets Checkov fetch that metadata (one HTTPS request per scan).
 
-Platform credentials are never forwarded. Every `BC_*` and `PRISMA_*`
-variable (for example `BC_API_KEY`, `PRISMA_API_URL`, `BC_CA_BUNDLE`) and
-every `CKV_IGNORE*` variable (`CKV_IGNORED_DIRECTORIES`,
-`CKV_IGNORE_HIDDEN_DIRECTORIES`) is removed from Checkov's environment, with
-or without `--online`, so Checkov cannot enter platform mode, upload results
-or apply suppressions configured on the platform.
+Platform credentials are never forwarded. Only an allowlist of variables
+reaches Checkov (`PATH`, `HOME`, `USER`, locale `LANG`/`LC_*`, `TZ`, temp
+directories, proxy and CA-bundle variables, the Windows essentials such as
+`SYSTEMROOT`, and the XDG cache/config directories), with or without
+`--online`. Every other variable, including `BC_API_KEY`, `PRISMA_API_URL`,
+`BC_CA_BUNDLE`, `CKV_*`, `CHECKOV_*`, `GIT_*` and `CKV_IGNORED_DIRECTORIES`, is
+dropped, so Checkov cannot enter platform mode, upload results or apply
+suppressions configured on the platform.
 
 ## Scan scope: skipped paths and `--exclude`
 

@@ -7,7 +7,6 @@ from tf_eu_guard.checkov.types import CheckovInputError, CheckovRuntimeError
 # Preserve the original module-level names for callers that imported them.
 subprocess = _checkov_process.subprocess
 _CHECKOV_BOOTSTRAP = _checkov_process.CHECKOV_BOOTSTRAP
-_CHECKOV_CONFIG_ENV_VARS = _checkov_process.CHECKOV_CONFIG_ENV_VARS
 _checkov_environment = _checkov_process.checkov_environment
 _describe_json_shape = _checkov_json.describe_json_shape
 _is_within = _checkov_process.is_within

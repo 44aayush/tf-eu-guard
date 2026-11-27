@@ -41,8 +41,9 @@ version-specific issue when possible.
 `tf-eu-guard scan` runs Checkov with `--skip-download`, so a scan makes no
 network request by default (Checkov would otherwise call the Prisma Cloud
 platform for guideline metadata). `--online` allows that request. In both
-modes every `BC_*`, `PRISMA_*` and `CKV_IGNORE*` environment variable is
-removed from Checkov's environment, so platform API keys are never used and
+modes only an allowlist of variables reaches Checkov (`PATH`, `HOME`, locale,
+proxy and CA-bundle settings, and the Windows essentials), so `BC_*`, `PRISMA_*`
+and `CKV_*` variables are never seen, platform API keys are never used and
 no results are uploaded. Scanned code is never run as a program, but Checkov
 evaluates Terraform expressions from it in a restricted interpreter (asteval),
 and remote Terraform modules are not downloaded unless

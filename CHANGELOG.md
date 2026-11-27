@@ -71,6 +71,9 @@ release point.
 
 ### Security
 
+- Checkov now runs with an allowlisted environment (`PATH`, `HOME`, locale, proxy and CA-bundle variables,
+  the Windows essentials) instead of a denylist, so configuration variables added by new Checkov releases
+  (`CKV_*`, `CHECKOV_*`, `BC_*`, `PRISMA_*`, `GIT_*`, `PYTHON*`) never reach it (TEG-16).
 - The Docker base image digest is refreshed (python:3.12-slim, fewer HIGH OS CVEs) and CI gets an
   `image-scan` job that builds the image and fails on fixable HIGH or CRITICAL vulnerabilities with a
   pinned, checksum-verified trivy; the one remaining fixable CVE is a dated exception in

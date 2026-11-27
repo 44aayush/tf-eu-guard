@@ -446,7 +446,8 @@ def test_platform_and_ignore_variables_are_scrubbed_even_online(tmp_path, monkey
         "CKV_IGNORE_HIDDEN_DIRECTORIES",
     ):
         monkeypatch.setenv(name, "x")
-    monkeypatch.setenv("UNRELATED_VAR", "kept")
+    monkeypatch.setenv("UNRELATED_VAR", "dropped")
+    monkeypatch.setenv("LANG", "C.UTF-8")
     run_checkov(_tf_dir(tmp_path), online=True)
     env = captured["env"]
     for name in (
@@ -457,7 +458,8 @@ def test_platform_and_ignore_variables_are_scrubbed_even_online(tmp_path, monkey
         "CKV_IGNORE_HIDDEN_DIRECTORIES",
     ):
         assert name not in env
-    assert env["UNRELATED_VAR"] == "kept"
+    assert "UNRELATED_VAR" not in env
+    assert env["LANG"] == "C.UTF-8"
 
 
 def test_exclude_is_passed_to_checkov_as_skip_path(tmp_path, monkeypatch):
@@ -738,6 +740,67 @@ def test_checkov_environment_drops_git_variables(monkeypatch):
 
     monkeypatch.setenv("GIT_DIR", "/elsewhere")
     assert "GIT_DIR" not in checkov_environment()
+
+
+def test_checkov_environment_drops_unknown_variables(monkeypatch):
+    from tf_eu_guard.checkov.process import checkov_environment
+
+    for name in ("CHECKOV_CREATE_GRAPH", "CKV_FRAMEWORK", "BC_API_KEY", "GIT_DIR", "FOO"):
+        monkeypatch.setenv(name, "x")
+    env = checkov_environment()
+    assert not {"CHECKOV_CREATE_GRAPH", "CKV_FRAMEWORK", "BC_API_KEY", "GIT_DIR", "FOO"} & set(env)
+
+
+def test_checkov_environment_keeps_proxy_and_locale(monkeypatch):
+    from tf_eu_guard.checkov.process import checkov_environment
+
+    kept = {
+        "HTTPS_PROXY": "http://p:3128",
+        "no_proxy": "localhost",
+        "REQUESTS_CA_BUNDLE": "/ca.pem",
+        "SSL_CERT_FILE": "/ca.pem",
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "LC_CTYPE": "C.UTF-8",
+        "TZ": "UTC",
+        "XDG_CACHE_HOME": "/cache",
+    }
+    for name, value in kept.items():
+        monkeypatch.setenv(name, value)
+    env = checkov_environment()
+    assert {k: env.get(k) for k in kept} == kept
+
+
+def test_checkov_environment_keeps_windows_essentials(monkeypatch):
+    from tf_eu_guard.checkov.process import checkov_environment
+
+    essentials = (
+        "SYSTEMROOT",
+        "SYSTEMDRIVE",
+        "WINDIR",
+        "COMSPEC",
+        "PATHEXT",
+        "USERPROFILE",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "PROGRAMDATA",
+        "TEMP",
+        "TMP",
+    )
+    for name in essentials:
+        monkeypatch.setenv(name, "C:\\x")
+    env = checkov_environment()
+    assert all(env.get(name) == "C:\\x" for name in essentials)
+
+
+def test_checkov_environment_applies_extra(monkeypatch):
+    from tf_eu_guard.checkov.process import checkov_environment
+
+    monkeypatch.setenv("FOO", "ambient")
+    env = checkov_environment({"TF_EU_GUARD_X": "1", "PATH": "/override"})
+    assert env["TF_EU_GUARD_X"] == "1"
+    assert env["PATH"] == "/override"
+    assert "FOO" not in env
 
 
 def _hidden_tree(tmp_path):
