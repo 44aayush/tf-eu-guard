@@ -217,7 +217,9 @@ def _shown(path: Path) -> str:
 
 
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description="Generate or check the Checkov coverage doc.")
+    parser = argparse.ArgumentParser(
+        description="Generate or check the Checkov coverage doc.", allow_abbrev=False
+    )
     parser.add_argument("--check", action="store_true", help="exit 1 when the doc is stale")
     parser.add_argument("--doc", type=Path, default=DOC_PATH, metavar="PATH", help="doc file")
     args = parser.parse_args(argv)

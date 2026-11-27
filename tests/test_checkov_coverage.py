@@ -120,6 +120,13 @@ def test_doc_flag_without_value_exits_with_message(capsys):
     assert "--doc" in capsys.readouterr().err
 
 
+def test_coverage_tool_rejects_abbreviations(capsys):
+    with pytest.raises(SystemExit) as exc:
+        gcc.main(["--ch"])
+    assert exc.value.code == 2
+    assert "--ch" in capsys.readouterr().err
+
+
 def test_doc_flag_followed_by_flag_is_error(capsys):
     with pytest.raises(SystemExit) as exc:
         gcc.main(["--doc", "--check"])

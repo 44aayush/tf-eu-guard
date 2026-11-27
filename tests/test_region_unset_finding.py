@@ -381,26 +381,37 @@ def _live_scan_with_output(monkeypatch, tmp_path, capsys, output, iac_type="terr
     return json.loads(capsys.readouterr().out)
 
 
+def _gcp_output_with_policy_003():
+    output = _gcp_resources_output("google_storage_bucket.b", passed=())
+    output["results"]["passed_checks"].append(
+        {"check_id": "EUGUARD_POLICY_003", "resource": "azurerm_x.y"}
+    )
+    return output
+
+
 @pytest.mark.parametrize(
-    "output,loaded",
+    "output,loaded,expected",
     [
-        (_gcp_resources_output("google_storage_bucket.b"), False),
-        (_gcp_resources_output("google_storage_bucket.b"), True),
-        (_gcp_resources_output("google_storage_bucket.b", passed=("EUGUARD_POLICY_004",)), False),
-        (_gcp_resources_output("google_storage_bucket.b", passed=("EUGUARD_POLICY_004",)), True),
-        (_gcp_resources_output("google_storage_bucket.b", passed=()), False),
-        (_gcp_resources_output("google_storage_bucket.b", passed=()), True),
-        (_gcp_resources_output("module.google_bridge.aws_s3_bucket.b"), True),
-        (_gcp_resources_output("module.aws_bridge.google_storage_bucket.b"), True),
-        (_gcp_resources_output("aws_s3_bucket.b"), True),
-        ({"results": {"failed_checks": [{"check_id": "CKV_AWS_1", "resource": "aws_x.b"}]}}, True),
-        ({"results": {}}, True),
+        (_gcp_resources_output("google_storage_bucket.b"), False, True),
+        (_gcp_resources_output("google_storage_bucket.b"), True, True),
+        (_gcp_resources_output("google_storage_bucket.b", passed=("EUGUARD_POLICY_004",)), False, False),
+        (_gcp_resources_output("google_storage_bucket.b", passed=("EUGUARD_POLICY_004",)), True, False),
+        (_gcp_resources_output("google_storage_bucket.b", passed=()), False, False),
+        (_gcp_resources_output("google_storage_bucket.b", passed=()), True, True),
+        # an EUGUARD result for another cloud (policy 003) proves the custom checks ran
+        (_gcp_output_with_policy_003(), False, True),
+        (_gcp_resources_output("module.google_bridge.aws_s3_bucket.b"), True, False),
+        (_gcp_resources_output("module.aws_bridge.google_storage_bucket.b"), True, True),
+        (_gcp_resources_output("aws_s3_bucket.b"), True, False),
+        ({"results": {"failed_checks": [{"check_id": "CKV_AWS_1", "resource": "aws_x.b"}]}}, True, False),
+        ({"results": {}}, True, False),
     ],
 )  # fmt: skip
-def test_gcp_no_region_finding_matches_warning(output, loaded):
+def test_gcp_no_region_finding_matches_warning(output, loaded, expected):
     warning = gcp_region_unset_warning(output, custom_checks_loaded=loaded)
     finding = gcp_region_unset_finding(output, custom_checks_loaded=loaded)
-    assert (finding is not None) == (warning is not None)
+    assert (warning is not None) is expected
+    assert (finding is not None) is expected
     if finding is not None:
         assert finding["check_id"] == "EUGUARD_POLICY_006"
         assert finding["resource"] == "provider.google"
@@ -506,6 +517,22 @@ def test_gcp_check_name_matches_registry():
     assert registry["EUGUARD_POLICY_006"].severity.name == "MEDIUM"
 
 
+GCP_NO_REGION_TF = (
+    'terraform {\n  required_providers {\n    google = { source = "hashicorp/google" }\n  }\n}\n'
+    'resource "google_compute_instance" "i" {\n  name         = "example"\n'
+    '  machine_type = "e2-micro"\n}\n'
+)
+
+
+@requires_checkov
+def test_gcp_no_region_finding_on_source_scan(monkeypatch, tmp_path, capsys):
+    (tmp_path / "main.tf").write_text(GCP_NO_REGION_TF)
+    _, report = _scan_json(monkeypatch, tmp_path, capsys)
+    found = _policy_006(report)
+    assert len(found) == 1
+    assert found[0]["resource"] == "provider.google"
+
+
 # --- global (location-less) GCP resource types never imply an unset region ---
 
 _GLOBAL_GCP_RESOURCES = (
@@ -538,6 +565,38 @@ _LOCATED_GCP_RESOURCES = (
 @pytest.mark.parametrize("resource", _LOCATED_GCP_RESOURCES)
 def test_gcp_types_with_a_location_argument_still_count(resource):
     output = _gcp_resources_output(resource)
+    assert gcp_region_unset_warning(output, custom_checks_loaded=True) is not None
+    assert gcp_region_unset_finding(output, custom_checks_loaded=True) is not None
+
+
+# Compute types whose provider docs (resource pages on the provider's main branch) show no top-level
+# region, location or zone argument. Not listed: google_compute_instance_template (optional region),
+# google_compute_image (storage_locations) and google_compute_snapshot (storage_locations, zone).
+_NEW_GLOBAL_GCP_TYPES = (
+    "compute_route",
+    "compute_url_map",
+    "compute_backend_service",
+    "compute_backend_bucket",
+    "compute_ssl_certificate",
+    "compute_managed_ssl_certificate",
+    "compute_health_check",
+    "compute_target_http_proxy",
+    "compute_target_https_proxy",
+    "compute_ssl_policy",
+    "compute_security_policy",
+)
+
+
+@pytest.mark.parametrize("name", _NEW_GLOBAL_GCP_TYPES)
+def test_gcp_global_types_excluded(name):
+    output = _gcp_resources_output(f"google_{name}.x")
+    assert gcp_region_unset_warning(output, custom_checks_loaded=True) is None
+    assert gcp_region_unset_finding(output, custom_checks_loaded=True) is None
+
+
+@pytest.mark.parametrize("name", ["compute_instance_template", "compute_image", "compute_snapshot"])
+def test_gcp_data_storing_compute_types_still_count(name):
+    output = _gcp_resources_output(f"google_{name}.x")
     assert gcp_region_unset_warning(output, custom_checks_loaded=True) is not None
     assert gcp_region_unset_finding(output, custom_checks_loaded=True) is not None
 

@@ -72,6 +72,9 @@ _GCP_GLOBAL_TYPES = (
     r"compute_global_[a-z0-9_]+",
     r"compute_network",
     r"compute_firewall",
+    r"compute_(?:route|url_map|backend_service|backend_bucket|ssl_certificate"
+    r"|managed_ssl_certificate|health_check|target_http_proxy|target_https_proxy|ssl_policy"
+    r"|security_policy)",
     r"dns_(?!outbound_endpoint\.)[a-z0-9_]+",
 )
 _GCP_RESOURCE_RE = re.compile(

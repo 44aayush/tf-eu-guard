@@ -173,7 +173,8 @@ finding (`provider.aws`) is reported; pin the region or scan a Terraform plan in
   `#checkov:skip=EUGUARD_POLICY_006` has no effect. GCP differences: the check is scan-wide, so one resource-level
   location result anywhere (for example a bucket with `location`) silences it for the whole scan. Global resource
   types that take no location (for example `google_project_service`, `google_project_iam_*`,
-  `google_service_account`, `google_compute_network`, `google_compute_firewall`, `google_dns_managed_zone`) do
+  `google_service_account`, `google_compute_network`, `google_compute_firewall`, `google_compute_url_map`, `google_compute_backend_service`,
+  `google_dns_managed_zone`) do
   not count, so a stack of only such resources gets neither the finding nor the warning; IAM types that do take a
   location (Cloud Run, Compute instance and subnetwork IAM, ...) still count. A module repository is not always
   flagged: modules without location attributes get it (waive check_id `EUGUARD_POLICY_006`, resource

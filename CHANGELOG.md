@@ -41,9 +41,12 @@ release point.
   appeared, because the region then comes from the environment (for example `GOOGLE_REGION`) at apply
   time; same semantics as the AWS region-unset warning. Global resource types that take no location (for example
   `google_project_service`, `google_project_iam_*`, `google_service_account`, `google_compute_network`,
-  `google_compute_firewall`, `google_dns_managed_zone`, and the IAM resources of location-less parents such as
+  `google_compute_firewall`, `google_compute_url_map`, `google_compute_backend_service`,
+  `google_compute_ssl_certificate`, `google_dns_managed_zone`, and the IAM resources of location-less parents such as
   projects and buckets) do not count, so a stack of only those gets neither this warning nor `EUGUARD_POLICY_006`. IAM
-  types that do take a location (Cloud Run, Compute instance and subnetwork IAM, ...) still count. A US provider zone
+  types that do take a location (Cloud Run, Compute instance and subnetwork IAM, ...) still count, as do data-storing
+  Compute types with a location argument (`google_compute_image`, `google_compute_snapshot`,
+  `google_compute_instance_template`). A US provider zone
   now fails the HIGH `EUGUARD_POLICY_004` like a US provider region.
 - Opt-in emulator test tier (`tests/emulator/`, `TFEG_RUN_EMULATOR=1`) and a CI job `emulator` that run real Terraform
   against a digest-pinned LocalStack 4.9 service: an environment-supplied region is caught in plan mode
