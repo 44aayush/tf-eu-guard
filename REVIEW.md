@@ -596,3 +596,15 @@ These results are from a fresh `--no-cache` build (`tf-eu-guard:ci13`) at `641fa
 | TEG-06/TEG-04 release image | The image job builds once and pushes by digest with no tag. Trivy scans that digest, and only then are the release tag (`imagetools create`) and the provenance attestation added, so the scanned bytes are the published bytes. A failed scan leaves only an untagged, unattested digest | Fixed (optional hardening: T-41) |
 
 Corrected during the iteration: the first version of `EUGUARD_POLICY_006` fired on IAM-only GCP stacks, which pinning a region could not fix. A blanket `*_iam_*` exclusion was rejected because about 90 IAM resource types do take a location.
+
+### After iteration 10 (2026-11-27, `version_0.10.0`)
+
+These results are from a fresh `--no-cache` build (`tf-eu-guard:ci14`) at `c0c58f2`. 1765 tests pass (`TFEG_RUN_CHECKOV=1`), the emulator tier passes, the registries and docs agree on 284 mappings, actionlint is clean, the trivy gate exits 0, and every recheck harness exits 0 with all post-fix rows FIXED.
+
+| Finding | After iteration 10 | Status |
+| --- | --- | --- |
+| TEG-06/TEG-04 release image | Trivy reads the pushed digest from the registry (`--image-src remote`). A step after tagging checks that the release tag resolves to the scanned digest and fails the job before attestation if it does not | Fixed |
+| TEG-05 GCP no-region finding | 16 more global Compute types (load-balancer, health-check, certificate and policy resources), each checked against the provider docs, no longer count toward `EUGUARD_POLICY_006`. Instance templates, images and snapshots still count. `storage_locations` is documented as not evaluated | Fixed |
+| Upgrade notes | The CHANGELOG now warns that the new HIGH Azure/GCP residency checks fail the Action's default HIGH gate for a variable location without a default, or for a location not yet in the tables, and lists the options | Done |
+
+**Loop status:** every REVIEW.md finding TEG-01 to TEG-17 now has a fix or a documented limit. What remains is maintainer decisions: the `--json-format` default flip, the version bump, and the `[0.10.0]` release heading.
