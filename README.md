@@ -751,7 +751,10 @@ the keywords authoritative. The package ships `py.typed`.
 > file) or scan the root module or plan; an inline `#checkov:skip=EUGUARD_POLICY_005` has no effect.
 > The same holds for GCP: a source scan of `google_*` resources where no `provider "google"` block and no resource sets a
 > region or location reports one MEDIUM `EUGUARD_POLICY_006` finding (`provider.google`), with the same gate effects,
-> baseline note and module-repository exemption (waive `EUGUARD_POLICY_006` on resource `provider.google`).
+> baseline note. A module without location attributes gets it too (waive `EUGUARD_POLICY_006` on resource
+> `provider.google`), while a module that takes the location from a variable fails `EUGUARD_POLICY_004` closed
+> instead: scan it from the root module or as a plan. Global resource types without a location (for example
+> `google_project_service`) do not count, and one resource-level location result silences the finding scan-wide.
 > `EUGUARD_GDPR_001` is a deprecated alias of `EUGUARD_POLICY_001` so 0.7.x
 > JSON still maps; it will be removed in the next release. S3 replication
 > destinations are not evaluated (bucket ARN regions are not statically known).

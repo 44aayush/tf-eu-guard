@@ -20,7 +20,7 @@ the catalogue, so regenerate the doc in the same change:
     python3 tools/generate_checkov_coverage.py          # regenerate in place
     python3 tools/generate_checkov_coverage.py --check  # CI drift check
 
-Exit codes: 0 = generated / in sync, 1 = out of sync or a registry/triage problem.
+Exit codes: 0 = generated / in sync, 1 = out of sync or a registry/triage problem, 2 = usage error.
 """
 
 import argparse

@@ -480,7 +480,7 @@ EUGUARD_POLICY_006:
   risk: >
     google_* resources were scanned but no provider "google" block or resource
     sets a region or location, so the region most likely comes from the
-    environment (for example GOOGLE_REGION) or the provider at apply time. A
+    environment (for example GOOGLE_REGION) at apply time. A
     source scan cannot see it, so the residency checks cannot tell where these
     resources deploy and the residency policy is unverified for the stack. This
     finding is a project-policy gap, not a GDPR legal conclusion.
@@ -489,11 +489,13 @@ EUGUARD_POLICY_006:
       provider "google" { region = "europe-west3" }
     Or scan a Terraform plan (--iac-type terraform_plan) to check the
     authoritative location.
-    A reusable module repository should not configure providers, so it always
-    triggers this finding. Exempt it with a waiver on check_id
-    EUGUARD_POLICY_006 and resource provider.google (no file), or scan the root
-    module or its plan instead. An inline #checkov:skip=EUGUARD_POLICY_006
-    comment has no effect: the pipeline synthesizes this finding.
+    A reusable module repository without location attributes triggers this
+    finding, since modules should not configure providers; exempt it with a
+    waiver on check_id EUGUARD_POLICY_006 and resource provider.google (no
+    file). A module that takes its location from a variable fails
+    EUGUARD_POLICY_004 closed instead; scan such a module from the root module
+    or as a plan. An inline #checkov:skip=EUGUARD_POLICY_006 comment has no
+    effect: the pipeline synthesizes this finding.
   severity: MEDIUM
 
 EUGUARD_GDPR_005:
