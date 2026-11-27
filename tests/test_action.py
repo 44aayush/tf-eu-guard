@@ -897,3 +897,11 @@ def test_action_rejects_non_numeric_max_waiver_days(tmp_path, value):
     assert result.returncode == 2
     assert "::error::" in result.stderr
     assert argv == []
+
+
+def test_action_passes_commit_env_to_container(tmp_path):
+    bash = _bash_or_skip()
+    sha = "a" * 40
+    result, argv, _ = _run_action(tmp_path, bash, GITHUB_SHA=sha)
+    assert result.returncode == 0, result.stderr
+    assert f"TF_EU_GUARD_COMMIT={sha}" in argv

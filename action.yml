@@ -413,6 +413,7 @@ runs:
           --user "$(id -u):$(id -g)" \
           -e HOME=/tmp \
           -e XDG_CACHE_HOME=/tmp/.cache \
+          -e TF_EU_GUARD_COMMIT="${GITHUB_SHA:-}" \
           -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE:ro" \
           -v "$out_host:/out" \
           ${mounts[@]+"${mounts[@]}"} \

@@ -2,6 +2,8 @@
 
 import argparse
 import hashlib
+import os
+import re
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
@@ -12,6 +14,10 @@ from tf_eu_guard.changed import GIT_TIMEOUT, safe_git_argv, safe_git_env
 
 if TYPE_CHECKING:
     from tf_eu_guard.cli.pipeline import ScanFindings
+
+# A full git object id (SHA-1 or SHA-256); the Action passes its GITHUB_SHA in this variable.
+_COMMIT_ENV = "TF_EU_GUARD_COMMIT"
+_COMMIT_RE = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?")
 
 # Arguments that are not scan options.
 _NOT_OPTIONS = {"command", "evidence_dir"}
@@ -55,6 +61,19 @@ def git_commit(path: Path) -> str | None:
         return None
 
 
+def _commit(path: Path | None) -> tuple[str | None, str | None]:
+    """(commit, source): HEAD from git, else a well-formed TF_EU_GUARD_COMMIT, else none."""
+    if not path:
+        return None, None
+    head = git_commit(path)
+    if head:
+        return head, "git"
+    value = os.environ.get(_COMMIT_ENV, "")
+    if _COMMIT_RE.fullmatch(value):
+        return value, "environment"
+    return None, None
+
+
 def needs_provenance(args: argparse.Namespace) -> bool:
     """True when a requested output embeds provenance (so git need not run otherwise)."""
     return bool(
@@ -87,12 +106,14 @@ def build_provenance(
         if key not in _NOT_OPTIONS and value is not None
     }
     summary = checkov_output_summary
+    commit, commit_source = _commit(args.path)
     return {
         "tool_version": __version__,
         "checkov_version": result.checkov_version,
         "registry_sha256": registry_digest(files),
         "registry_files": [str(p) if p in overlays else p.name for p in files],
-        "commit": git_commit(args.path) if args.path else None,
+        "commit": commit,
+        "commit_source": commit_source,
         "options": options,
         "resources_scanned": summary.get("resource_count"),
         "checks": {k: summary.get(k) for k in ("passed", "failed", "skipped")},

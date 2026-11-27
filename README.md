@@ -220,9 +220,13 @@ format), `report.sarif`, `summary.md` and `manifest.json` into a new or empty `D
 exit 2), in addition to the normal `--output`. `manifest.json` holds `created`, `provenance` and
 the SHA-256 of every other file. `provenance` (also in the JSON object and the auditor report)
 has `tool_version`, `checkov_version`, `registry_sha256` and `registry_files` (overlays by full
-path), `commit` (the HEAD sha; uncommitted changes are not detected; null outside git), the effective `options`
+path), `commit` (the HEAD sha; uncommitted changes are not detected; null outside git unless the
+`TF_EU_GUARD_COMMIT` environment variable holds a 40- or 64-character lowercase hex id),
+`commit_source` (`git`, `environment` or null), the effective `options`
 (no environment variables), `resources_scanned` and `checks` (`passed`, `failed`, `skipped`).
-The `python:3.12-slim` image the Action runs in has no git, so `provenance.commit` is null in the Action.
+The `python:3.12-slim` image the Action runs in has no git, so the Action passes `GITHUB_SHA` in
+`TF_EU_GUARD_COMMIT` and `provenance.commit` is that sha with `commit_source` `environment`. A
+`--checkov-json` run still records no commit.
 
 To attest the bundle in CI, use GitHub artifact attestations on it, for example
 `actions/attest-build-provenance` with `subject-path: evidence/*`.

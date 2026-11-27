@@ -326,6 +326,7 @@
         "registry_sha256",
         "registry_files",
         "commit",
+        "commit_source",
         "options",
         "resources_scanned",
         "checks"
@@ -336,6 +337,7 @@
         "registry_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "registry_files": {"type": "array", "items": {"type": "string"}},
         "commit": {"type": ["string", "null"]},
+        "commit_source": {"enum": ["git", "environment", null]},
         "options": {"type": "object"},
         "resources_scanned": {"type": ["integer", "null"]},
         "checks": {

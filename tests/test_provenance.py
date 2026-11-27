@@ -291,3 +291,54 @@ def test_git_commit_and_changed_files_do_not_run_filters(tmp_path):
     assert not marker.exists()
     changed_files(repo, "HEAD")
     assert not marker.exists()
+
+
+def _provenance(path):
+    from argparse import Namespace
+    from types import SimpleNamespace
+
+    from tf_eu_guard.provenance import build_provenance
+
+    result = SimpleNamespace(registry=None, checkov_version=None)
+    return build_provenance(Namespace(path=path), result, {})  # type: ignore[arg-type]
+
+
+def test_commit_falls_back_to_env(tmp_path, monkeypatch):
+    sha = "a" * 40
+    monkeypatch.setenv("TF_EU_GUARD_COMMIT", sha)
+    prov = _provenance(tmp_path)
+    assert prov["commit"] == sha and prov["commit_source"] == "environment"
+
+
+def test_commit_accepts_64_hex_sha256_object_ids(tmp_path, monkeypatch):
+    monkeypatch.setenv("TF_EU_GUARD_COMMIT", "b" * 64)
+    assert _provenance(tmp_path)["commit"] == "b" * 64
+
+
+@needs_git
+def test_commit_prefers_git_over_env(tmp_path, monkeypatch):
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid", "-C", str(tmp_path)]
+        + ["commit", "-q", "--allow-empty", "-m", "x"],
+        check=True,
+        capture_output=True,
+    )
+    monkeypatch.setenv("TF_EU_GUARD_COMMIT", "a" * 40)
+    prov = _provenance(tmp_path)
+    assert prov["commit"] == git_commit(tmp_path) != "a" * 40
+    assert prov["commit_source"] == "git"
+
+
+@pytest.mark.parametrize("value", ["abc", "A" * 40, "g" * 40, "a" * 41, "a" * 40 + "\n", ""])
+def test_commit_env_must_be_hex(tmp_path, monkeypatch, value):
+    monkeypatch.setenv("TF_EU_GUARD_COMMIT", value)
+    prov = _provenance(tmp_path)
+    assert prov["commit"] is None and prov["commit_source"] is None
+
+
+def test_commit_source_is_schema_valid(tmp_path, monkeypatch):
+    monkeypatch.setenv("TF_EU_GUARD_COMMIT", "a" * 40)
+    prov = _provenance(tmp_path)
+    prov["registry_sha256"] = "0" * 64
+    jsonschema.validate(prov, SCHEMA["properties"]["provenance"])

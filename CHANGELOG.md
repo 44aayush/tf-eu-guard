@@ -23,6 +23,10 @@ release point.
 - A Terraform scan warns on stderr when AWS resources were scanned but no `provider "aws"` block sets a
   region (the residency checks cannot tell where they deploy), and a directory scan warns when hidden
   directories such as `.prod/` hold source files that Checkov skips (TEG-05). Exit codes are unchanged.
+- `provenance.commit` is no longer null in the Action: the Action passes `GITHUB_SHA` as
+  `TF_EU_GUARD_COMMIT`, which is used when git is unavailable and the value is a 40- or 64-character
+  lowercase hex id, and the new `provenance.commit_source` (`git`, `environment` or null) says which
+  one supplied it (TEG-13).
 
 ### Changed
 
