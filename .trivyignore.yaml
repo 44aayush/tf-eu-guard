@@ -1,0 +1,6 @@
+# Bounded exceptions for the image-scan job (ci.yml). Each entry needs a
+# statement and an expiry; an expired entry fails the scan again.
+vulnerabilities:
+  - id: CVE-2026-124851
+    statement: libzstd1 fix (1.5.7+dfsg-1+deb13u1) is not in the python:3.12-slim base yet; refresh the digest when it is.
+    expired_at: 2027-01-31

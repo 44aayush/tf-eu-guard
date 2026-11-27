@@ -31,6 +31,10 @@ release point.
 
 ### Security
 
+- The Docker base image digest is refreshed (python:3.12-slim, fewer HIGH OS CVEs) and CI gets an
+  `image-scan` job that builds the image and fails on fixable HIGH or CRITICAL vulnerabilities with a
+  pinned, checksum-verified trivy; the one remaining fixable CVE is a dated exception in
+  `.trivyignore.yaml` (TEG-06).
 - The Action merges the container's stderr into stdout and wraps both in a random
   `::stop-commands::` token that is resumed after the scan, so workflow commands printed by the
   scanned code are not interpreted while the container runs (TEG-03).

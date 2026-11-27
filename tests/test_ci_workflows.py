@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import tomllib
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -591,3 +592,37 @@ def test_image_version_label_default_matches_pyproject_version():
     assert match, "final stage must declare ARG VERSION=<default> after its FROM"
     assert match.group(1) == project["version"]
     assert 'org.opencontainers.image.version="${VERSION}"' in final
+
+
+def test_image_scan_job_gates_on_fixable_high_and_critical():
+    jobs = _ci_jobs()
+    assert "image-scan" in jobs
+    commands = _job_commands(jobs["image-scan"])
+    for fragment in (
+        "--ignore-unfixed",
+        "--exit-code 1",
+        "--severity HIGH,CRITICAL",
+        "--ignorefile .trivyignore.yaml",
+        "sha256sum --check",
+    ):
+        assert fragment in commands, fragment
+
+
+def test_trivyignore_entries_have_statement_and_future_expiry():
+    data = yaml.safe_load((ROOT / ".trivyignore.yaml").read_text(encoding="utf-8"))
+    entries = data["vulnerabilities"]
+    assert entries
+    today = date.today()
+    for entry in entries:
+        assert str(entry.get("statement", "")).strip(), entry["id"]
+        expiry = entry["expired_at"]
+        assert isinstance(expiry, date), entry["id"]
+        assert today < expiry <= today + timedelta(days=120), entry["id"]
+
+
+def test_dockerfile_stages_share_one_pinned_base():
+    text = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    bases = re.findall(r"^FROM\s+(\S+)", text, flags=re.MULTILINE)
+    assert len(bases) == 2
+    assert bases[0] == bases[1]
+    assert re.fullmatch(r"python:3\.12-slim@sha256:[0-9a-f]{64}", bases[0])
