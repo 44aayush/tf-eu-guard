@@ -68,6 +68,10 @@ release point.
 - The Action validates the `path` and `checkov-json` inputs like `config`, `waivers` and `baseline`: a
   `..` segment or an absolute path outside the workspace exits 2, and workspace-relative values are
   passed to the CLI as `$GITHUB_WORKSPACE/<path>` (TEG-15).
+- The Action verifies the build-provenance attestation of the image it pulls by tag (`gh attestation
+  verify`, signed by `publish.yml`) and runs it by digest; if the pull, digest lookup or verification
+  fails it builds the image locally. New input `verify-image` (default true) turns this off; an explicit
+  `image` input is unchanged (TEG-04).
 
 ## [0.9.0] - 2026-11-18
 

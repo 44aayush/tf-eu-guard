@@ -295,6 +295,18 @@ COUNT_NAMES = (
 
 STUB_DOCKER = r"""#!/bin/sh
 case "$1" in
+  pull)
+    exit "${STUB_PULL_EXIT:-0}"
+    ;;
+  image)
+    if [ -n "${STUB_INSPECT_EXIT:-}" ]; then exit "$STUB_INSPECT_EXIT"; fi
+    printf '%s\n' "${STUB_REPODIGEST-ghcr.io/44aayush/tf-eu-guard@sha256:$(printf 'a%.0s' $(seq 64))}"
+    exit 0
+    ;;
+  build)
+    printf 'build\n' >> "$STUB_BUILD_LOG"
+    exit 0
+    ;;
   run)
     printf '%s\n' "$@" > "$STUB_LOG"
     for a in "$@"; do
@@ -329,8 +341,15 @@ exit 0
 """
 
 
-def _run_action(tmp_path, bash, **extra):
-    """Run the real scan script with a stub `docker` first on PATH."""
+STUB_GH = r"""#!/bin/sh
+printf '%s\n' "$@" > "$STUB_GH_LOG"
+printf '%s\n' "$GH_TOKEN" > "$STUB_GH_LOG.token"
+exit "${STUB_GH_EXIT:-0}"
+"""
+
+
+def _run_action(tmp_path, bash, no_gh=False, **extra):
+    """Run the real scan script with stub `docker` and `gh` first on PATH."""
     ws = tmp_path / "ws"
     ws.mkdir(exist_ok=True)
     stub_dir = tmp_path / "bin"
@@ -338,8 +357,30 @@ def _run_action(tmp_path, bash, **extra):
     stub = stub_dir / "docker"
     stub.write_text(STUB_DOCKER, encoding="utf-8")
     stub.chmod(0o755)
+    path = os.environ["PATH"]
+    if no_gh:
+        # A real gh may sit beside the coreutils, so PATH becomes symlinks to just the tools used.
+        tools_dir = tmp_path / "tools"
+        tools_dir.mkdir(exist_ok=True)
+        for (
+            tool
+        ) in "bash sh mktemp od tr head find ls cp rm id grep cat dirname seq readlink".split():
+            found = shutil.which(tool)
+            if found and not (tools_dir / tool).exists():
+                (tools_dir / tool).symlink_to(found)
+        path = str(tools_dir)
+    else:
+        gh = stub_dir / "gh"
+        gh.write_text(STUB_GH, encoding="utf-8")
+        gh.chmod(0o755)
     env = {
-        "PATH": f"{stub_dir}:{os.environ['PATH']}",
+        "PATH": f"{stub_dir}{os.pathsep}{path}",
+        "STUB_BUILD_LOG": str(tmp_path / "build"),
+        "STUB_GH_LOG": str(tmp_path / "gh_argv"),
+        "ACTION_REF": "",
+        "ACTION_TOKEN": "tok-123",
+        "ACTION_PATH": str(tmp_path),
+        "INPUT_VERIFY_IMAGE": "true",
         "GITHUB_WORKSPACE": str(ws),
         "GITHUB_OUTPUT": str(tmp_path / "gh_output"),
         "GITHUB_STEP_SUMMARY": str(tmp_path / "gh_summary"),
@@ -937,3 +978,99 @@ def test_action_passes_commit_env_to_container(tmp_path):
     result, argv, _ = _run_action(tmp_path, bash, GITHUB_SHA=sha)
     assert result.returncode == 0, result.stderr
     assert f"TF_EU_GUARD_COMMIT={sha}" in argv
+
+
+DIGEST_REF = "ghcr.io/44aayush/tf-eu-guard@sha256:" + "a" * 64
+FALLBACK_NOTICE = (
+    "::notice::could not verify the published image ghcr.io/44aayush/tf-eu-guard:v0.10.0"
+)
+
+
+def _image_run(tmp_path, bash, **extra):
+    extra.setdefault("INPUT_IMAGE", "")
+    extra.setdefault("ACTION_REF", "v0.10.0")
+    return _run_action(tmp_path, bash, **extra)
+
+
+def test_action_verified_image_runs_by_digest(tmp_path):
+    bash = _bash_or_skip()
+    result, argv, _ = _image_run(tmp_path, bash)
+    assert result.returncode == 0, result.stderr
+    assert DIGEST_REF in argv
+    assert "ghcr.io/44aayush/tf-eu-guard:v0.10.0" not in argv
+    assert not (tmp_path / "build").exists()
+    gh_argv = (tmp_path / "gh_argv").read_text(encoding="utf-8").splitlines()
+    assert gh_argv[:3] == ["attestation", "verify", f"oci://{DIGEST_REF}"]
+    assert gh_argv[gh_argv.index("--repo") + 1] == "44aayush/tf-eu-guard"
+    assert (
+        gh_argv[gh_argv.index("--signer-workflow") + 1]
+        == "44aayush/tf-eu-guard/.github/workflows/publish.yml"
+    )
+    assert (tmp_path / "gh_argv.token").read_text(encoding="utf-8").strip() == "tok-123"
+    assert "could not verify" not in result.stdout
+
+
+def test_action_unverified_image_falls_back_to_local_build(tmp_path):
+    bash = _bash_or_skip()
+    result, argv, _ = _image_run(tmp_path, bash, STUB_GH_EXIT="1")
+    assert result.returncode == 0, result.stderr
+    assert FALLBACK_NOTICE in result.stdout
+    assert (tmp_path / "build").read_text(encoding="utf-8") == "build\n"
+    assert any(a.startswith("tf-eu-guard:action-") for a in argv)
+    assert DIGEST_REF not in argv
+
+
+def test_action_missing_gh_falls_back(tmp_path):
+    bash = _bash_or_skip()
+    result, argv, _ = _image_run(tmp_path, bash, no_gh=True)
+    assert result.returncode == 0, result.stderr
+    assert FALLBACK_NOTICE in result.stdout
+    assert (tmp_path / "build").exists()
+    assert DIGEST_REF not in argv
+
+
+def test_action_verify_image_false_uses_tag(tmp_path):
+    bash = _bash_or_skip()
+    result, argv, _ = _image_run(tmp_path, bash, INPUT_VERIFY_IMAGE="false", STUB_GH_EXIT="1")
+    assert result.returncode == 0, result.stderr
+    assert "ghcr.io/44aayush/tf-eu-guard:v0.10.0" in argv
+    assert not (tmp_path / "gh_argv").exists()
+    assert not (tmp_path / "build").exists()
+
+
+def test_action_explicit_image_skips_verification(tmp_path):
+    bash = _bash_or_skip()
+    result, argv, _ = _run_action(
+        tmp_path, bash, INPUT_IMAGE="img:test", ACTION_REF="v0.10.0", STUB_GH_EXIT="1"
+    )
+    assert result.returncode == 0, result.stderr
+    assert "img:test" in argv
+    assert not (tmp_path / "gh_argv").exists()
+    assert not (tmp_path / "build").exists()
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"STUB_REPODIGEST": "ghcr.io/other/image@sha256:" + "a" * 64},
+        {"STUB_REPODIGEST": "ghcr.io/44aayush/tf-eu-guard@sha256:" + "A" * 64},
+        {"STUB_REPODIGEST": "ghcr.io/44aayush/tf-eu-guard@sha256:abc"},
+        {"STUB_REPODIGEST": ""},
+        {"STUB_INSPECT_EXIT": "1"},
+        {"STUB_PULL_EXIT": "1"},
+    ],
+)
+def test_action_bad_digest_shape_falls_back(tmp_path, extra):
+    bash = _bash_or_skip()
+    result, argv, _ = _image_run(tmp_path, bash, **extra)
+    assert result.returncode == 0, result.stderr
+    assert FALLBACK_NOTICE in result.stdout
+    assert (tmp_path / "build").exists()
+    assert not (tmp_path / "gh_argv").exists()
+
+
+def test_action_declares_verify_image_input_and_token_env():
+    text = ACTION.read_text(encoding="utf-8")
+    assert _inputs()["verify-image"]["default"] == "true"
+    assert "INPUT_VERIFY_IMAGE: ${{ inputs.verify-image }}" in text
+    assert "ACTION_TOKEN: ${{ github.token }}" in text

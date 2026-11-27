@@ -77,6 +77,10 @@ inputs:
     description: 'Optional container image to run instead of the default ghcr.io/44aayush/tf-eu-guard:<action ref>. Pin by digest for a verifiable supply chain (ghcr.io/44aayush/tf-eu-guard@sha256:...). When set, a failed pull fails the step; there is no fallback to a local build'
     required: false
     default: ''
+  verify-image:
+    description: 'Verify the build-provenance attestation of the published image (gh attestation verify, signed by publish.yml) before running it, then run it by digest; if verification is not possible the image is built locally instead (true, 1 or yes, any case). Set false to run the tag as pulled. Ignored when image is set'
+    required: false
+    default: 'true'
   config:
     description: 'Workspace-relative path to a tf-eu-guard config file, passed as --config. It lives in the scanned checkout, so a pull request can change it; use trusted-config to prevent that. Cannot be combined with trusted-config'
     required: false
@@ -161,6 +165,7 @@ runs:
         INPUT_OUTPUT_DIR: ${{ inputs.output-dir }}
         INPUT_OUTPUT_FILE: ${{ inputs.output-file }}
         INPUT_IMAGE: ${{ inputs.image }}
+        INPUT_VERIFY_IMAGE: ${{ inputs.verify-image }}
         INPUT_TIMEOUT: ${{ inputs.timeout }}
         INPUT_UPLOAD_REPORTS: ${{ inputs.upload-reports }}
         INPUT_UPLOAD_SARIF: ${{ inputs.upload-sarif }}
@@ -173,6 +178,7 @@ runs:
         INPUT_DISCOVER_CONFIG: ${{ inputs.discover-config }}
         ACTION_PATH: ${{ github.action_path }}
         ACTION_REF: ${{ github.action_ref }}
+        ACTION_TOKEN: ${{ github.token }}
         RUNNER_TEMP_DIR: ${{ runner.temp }}
       run: |
         set -euo pipefail
@@ -194,11 +200,14 @@ runs:
         if is_true "$INPUT_UPLOAD_REPORTS"; then upload_reports=true; fi
         if is_true "$INPUT_UPLOAD_SARIF"; then upload_sarif=true; fi
 
-        # Prefer the release image published to GHCR by release-image.yml
-        # (tagged with the action ref, e.g. v0.9.0). If the pull fails (ref is
-        # a branch or SHA, image not published yet, registry unreachable) fall
-        # back to building the image from the action's own source. An explicit
-        # `image` input (for example a @sha256 digest) never falls back.
+        # Prefer the release image published to GHCR by publish.yml (tagged
+        # with the action ref, e.g. v0.10.0). The tag is mutable, so the pulled
+        # digest must carry a build-provenance attestation from that workflow
+        # (gh attestation verify) and the scan then runs by digest. If the pull,
+        # the digest lookup or the verification fails (ref is a branch or SHA,
+        # image not published yet, no gh, registry unreachable) fall back to
+        # building the image from the action's own source. An explicit `image`
+        # input (for example a @sha256 digest) is used as given and never falls back.
         local_image="tf-eu-guard:action-${GITHUB_RUN_ID:-local}"
         if [ -n "$INPUT_IMAGE" ]; then
           docker pull --quiet "$INPUT_IMAGE" >/dev/null
@@ -207,10 +216,22 @@ runs:
           image=""
           if [ -n "$ACTION_REF" ]; then
             candidate="ghcr.io/44aayush/tf-eu-guard:${ACTION_REF}"
-            if docker pull --quiet "$candidate" >/dev/null 2>&1; then
-              image="$candidate"
-            else
-              echo "::notice::could not pull $candidate; building the image locally"
+            digest_re='^ghcr\.io/44aayush/tf-eu-guard@sha256:[0-9a-f]{64}$'
+            ref=""
+            if docker pull --quiet "$candidate" >/dev/null 2>&1 \
+              && ref="$(docker image inspect --format '{{index .RepoDigests 0}}' "$candidate" 2>/dev/null)" \
+              && [[ "$ref" =~ $digest_re ]]; then
+              if ! is_true "$INPUT_VERIFY_IMAGE"; then
+                image="$candidate"
+              elif command -v gh >/dev/null 2>&1 \
+                && GH_TOKEN="$ACTION_TOKEN" gh attestation verify "oci://$ref" \
+                  --repo 44aayush/tf-eu-guard \
+                  --signer-workflow 44aayush/tf-eu-guard/.github/workflows/publish.yml >/dev/null 2>&1; then
+                image="$ref"
+              fi
+            fi
+            if [ -z "$image" ]; then
+              echo "::notice::could not verify the published image $candidate; building the image locally"
             fi
           fi
           if [ -z "$image" ]; then
