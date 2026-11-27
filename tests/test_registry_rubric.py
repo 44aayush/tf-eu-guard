@@ -46,7 +46,6 @@ ENCRYPTION_AT_REST_IDS = (
     "CKV_AWS_96",
     "CKV_AWS_5",
     "CKV_AWS_44",
-    "CKV_AWS_26",
 )
 CMK_IDS = (
     "CKV_AWS_119",
@@ -61,6 +60,7 @@ CMK_IDS = (
     "CKV_AWS_327",
     "CKV_AWS_347",
     "CKV_AWS_35",
+    "CKV_AWS_26",
     "CKV_AWS_173",
     "CKV_AWS_145",
     "CKV_AWS_136",

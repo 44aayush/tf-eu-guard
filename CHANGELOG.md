@@ -110,17 +110,16 @@ release point.
   `CKV_AWS_38`, and the same control on two clouds belongs to the same severity-rubric family. Gate effect:
   `--fail-on-severity critical` now also fails on `CKV_GCP_18`; restore the old level with
   `severity_overrides: {CKV_GCP_18: HIGH}`. The `CKV_AWS_173` risk text is hedged like the other CMK-family checks
-  (the variables are already encrypted with a provider-managed key); its severity is unchanged.
+  (the variables are already encrypted with a provider-managed key); see the follow-up entry below for its severity.
 - Severity-rubric follow-up (TEG-11). `CKV_AWS_173` (Lambda environment variables), `CKV_AWS_145` (S3 default
-  encryption), `CKV_AWS_136` (ECR) and `CKV_GCP_38` (Compute Engine disks) move from HIGH to MEDIUM: the provider
-  documentation states each service encrypts at rest by default with a provider-managed key, so they join the
-  customer-managed-key family and their risk texts are hedged (`CKV_AWS_173`'s was already). `CKV_AWS_26` (SNS topic)
-  stays HIGH and joins the data-store encryption-at-rest family: the SNS documentation does not state that topics are
-  encrypted by default, so its risk text no longer claims an AWS-owned key. A new family, web port open to the
+  encryption), `CKV_AWS_136` (ECR), `CKV_GCP_38` (Compute Engine disks) and `CKV_AWS_26` (SNS topic) move from HIGH to MEDIUM: the provider
+  documentation states each service encrypts at rest by default (for SNS: "By default, Amazon SNS stores messages and
+  files using disk encryption"), so they join the customer-managed-key family and their risk texts are hedged
+  (`CKV_AWS_173`'s was already). A new family, web port open to the
   internet (MEDIUM), holds `CKV_AWS_260` (already MEDIUM) and `CKV_AZURE_160` (HIGH to MEDIUM): a public web tier
   on port 80 is often intended, and the admin ports are already CRITICAL. Gate effect:
-  `--fail-on-severity high` no longer fails on `CKV_AWS_173`, `CKV_AWS_145`, `CKV_AWS_136`, `CKV_GCP_38` and
-  `CKV_AZURE_160`. To restore the previous levels, use `severity_overrides` in `.tf-eu-guard.yaml`:
+  `--fail-on-severity high` no longer fails on `CKV_AWS_173`, `CKV_AWS_145`, `CKV_AWS_136`, `CKV_GCP_38`,
+  `CKV_AWS_26` and `CKV_AZURE_160`. To restore the previous levels, use `severity_overrides` in `.tf-eu-guard.yaml`:
 
   ```yaml
   severity_overrides:
@@ -128,6 +127,7 @@ release point.
     CKV_AWS_145: HIGH
     CKV_AWS_136: HIGH
     CKV_GCP_38: HIGH
+    CKV_AWS_26: HIGH
     CKV_AZURE_160: HIGH
   ```
 

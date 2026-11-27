@@ -281,8 +281,8 @@ CKV_AWS_145:
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
   risk: >
-    A bucket without default SSE-KMS is already encrypted at rest with S3-managed keys
-    (SSE-S3). A KMS key adds key-policy, rotation and access-grant control over that
+    New objects in a bucket without default SSE-KMS are already encrypted at rest with
+    S3-managed keys (SSE-S3). A KMS key adds key-policy, rotation and access-grant control over that
     data, which can support demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for
     buckets that hold personal data.
   remediation: |
@@ -3312,17 +3312,18 @@ CKV_AWS_26:
       article: "Art. 32(1)(a)"
       title: "Pseudonymisation and encryption of personal data"
   risk: >
-    A topic without server-side encryption (no KMS key set) stores message bodies
-    unencrypted at rest. Notification payloads routinely carry personal data (order
-    events, user activity, case updates), which may weaken the encryption safeguard of
-    GDPR Art. 32(1)(a) and the cryptography policy of NIS2 Art. 21(2)(h).
+    A topic without a KMS key already has its messages stored with SNS disk
+    encryption. Server-side encryption with a KMS key encrypts message bodies before
+    storage and adds key-policy, rotation and revocation control, which can support
+    demonstrating NIS2 Art. 21(2)(h) and GDPR Art. 32(1)(a) for notification payloads
+    that carry personal data (order events, user activity, case updates).
   remediation: |
-    Enable server-side encryption on the topic with a KMS key:
+    Optionally add server-side encryption with a customer-managed KMS key:
       resource "aws_sns_topic" "app_notifications" {
         name              = "app-notifications"
         kms_master_key_id = aws_kms_key.sns.arn
       }
-  severity: HIGH
+  severity: MEDIUM
 
 
 # -----------------------------------------------------------------------------
