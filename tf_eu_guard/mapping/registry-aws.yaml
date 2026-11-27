@@ -1357,9 +1357,10 @@ CKV_AWS_173:
       title: "Pseudonymisation and encryption of personal data"
   risk: >
     Lambda environment variables frequently carry connection strings, tokens, and
-    personal-data processing flags; without envelope encryption via a customer-managed
-    key they are protected only by default AWS keys. NIS2 Art. 21(2)(h) and GDPR
-    Art. 32(1)(a) expect governed encryption of that material.
+    personal-data processing flags. Without a customer-managed key they are already
+    encrypted with a provider-managed key; a customer-managed key adds key-policy,
+    rotation and grant-revocation control, which can support demonstrating NIS2
+    Art. 21(2)(h) and GDPR Art. 32(1)(a) for that material.
   remediation: |
     Set a KMS key for the function's environment variables:
       resource "aws_lambda_function" "app" {

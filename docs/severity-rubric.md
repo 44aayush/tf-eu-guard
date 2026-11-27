@@ -16,19 +16,20 @@ hedged pointer to a possible relevance, not a verdict.
 The configuration makes a data store or an administrative port reachable by anyone on the internet, so
 a single misconfiguration is enough for exposure.
 
-`CKV_AWS_17`, `CKV_AWS_20`, `CKV_AWS_70`, `CKV_AWS_87`, `CKV_AWS_24`, `CKV_AWS_25`, `CKV_AWS_38`, `CKV_AZURE_11`, `CKV_GCP_11`, `CKV_GCP_28`, `CKV_GCP_88`
+`CKV_AWS_17`, `CKV_AWS_20`, `CKV_AWS_70`, `CKV_AWS_87`, `CKV_AWS_24`, `CKV_AWS_25`, `CKV_AWS_38`, `CKV_AZURE_11`, `CKV_GCP_11`, `CKV_GCP_18`, `CKV_GCP_28`, `CKV_GCP_88`
 
-`CKV_AWS_24` (SSH), `CKV_AWS_25` (RDP) and `CKV_AWS_38` (EKS public endpoint open to 0.0.0.0/0) are CRITICAL
-because a world-open admin port or endpoint is directly exposed. They were HIGH before this rubric.
+`CKV_AWS_24` (SSH), `CKV_AWS_25` (RDP), `CKV_AWS_38` (EKS public endpoint open to 0.0.0.0/0) and
+`CKV_GCP_18` (GKE control plane reachable from 0.0.0.0/0) are CRITICAL because a world-open admin port or
+endpoint is directly exposed. They were HIGH before this rubric. The same control on two clouds belongs to the
+same family.
 
 ### Public-network guardrails: HIGH
 
-Controls that defend in depth against exposure (public-access blocks, private endpoints, restricted
-control planes). A failing guardrail does not by itself expose data, but removes a layer that would
+Controls that defend in depth against exposure (public-access blocks, private endpoints). A failing guardrail does not by itself expose data, but removes a layer that would
 contain a mistake elsewhere. `CKV_AZURE_59` (the storage-account public-access switch) is the Azure counterpart
 of the S3 block-public settings and is HIGH for that reason; it was CRITICAL before this rubric.
 
-`CKV2_AWS_6`, `CKV_AWS_53`, `CKV_AWS_54`, `CKV_AWS_55`, `CKV_AWS_56`, `CKV_AZURE_59`, `CKV_AZURE_139`, `CKV_AZURE_160`, `CKV_AZURE_48`, `CKV_AZURE_53`, `CKV_GCP_18`
+`CKV2_AWS_6`, `CKV_AWS_53`, `CKV_AWS_54`, `CKV_AWS_55`, `CKV_AWS_56`, `CKV_AZURE_59`, `CKV_AZURE_139`, `CKV_AZURE_160`, `CKV_AZURE_48`, `CKV_AZURE_53`
 
 ### Data-store encryption at rest: HIGH
 

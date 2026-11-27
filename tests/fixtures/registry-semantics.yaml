@@ -484,7 +484,7 @@ CKV_GCP_18:
   articles:
     - [NIS2, "Art. 21(2)(g)"]
     - [GDPR, "Art. 32(1)(b)"]
-  severity: HIGH
+  severity: CRITICAL
   remediation_contains: [master_authorized_networks_config, 10.0.0.0/8]
   fail_conf:
     master_authorized_networks_config:

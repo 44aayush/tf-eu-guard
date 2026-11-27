@@ -226,7 +226,7 @@ CKV_GCP_18:
         }
       }
     }
-  severity: HIGH
+  severity: CRITICAL
 
 CKV_GCP_25:
   check_name: "Ensure Kubernetes Cluster is created with Private cluster enabled"

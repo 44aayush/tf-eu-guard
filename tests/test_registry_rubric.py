@@ -25,6 +25,7 @@ PUBLIC_EXPOSURE_IDS = (
     "CKV_AWS_38",
     "CKV_AZURE_11",
     "CKV_GCP_11",
+    "CKV_GCP_18",
     "CKV_GCP_28",
     "CKV_GCP_88",
 )
@@ -39,7 +40,6 @@ GUARDRAIL_IDS = (
     "CKV_AZURE_160",
     "CKV_AZURE_48",
     "CKV_AZURE_53",
-    "CKV_GCP_18",
 )
 ENCRYPTION_AT_REST_IDS = (
     "CKV_AWS_16",
