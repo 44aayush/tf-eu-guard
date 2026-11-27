@@ -27,6 +27,12 @@ release point.
   directory: it passes `--no-discovery` unless the new `discover-config` input is `true`. Use `config`
   or, on pull requests, `trusted-config` instead (TEG-01). Behaviour change for workflows that relied on discovery.
 
+- A gated `--checkov-json` scan (`--fail-on-severity`, `--fail-on-any`, `--fail-on-suppressed` or
+  `--fail-on-unmapped`) now exits 3 when the file contains no `EUGUARD_*` check or reports
+  `summary.resource_count` 0, so a forged or empty file cannot pass every gate; `--allow-partial`
+  keeps the warning, and ungated runs only warn (TEG-09). Behaviour change for gated pipelines
+  that feed Checkov JSON generated without `--external-checks-dir`.
+
 ### Fixed
 
 - `--changed-since` keeps Terraform findings in the module directory, parent directories and

@@ -137,9 +137,17 @@ def decode_json_bytes(raw: bytes, source: str = "input") -> str:
 
 
 def load_checkov_json(
-    json_source: Path, iac_type: str = "terraform", extra_check_types: Sequence[str] = ()
+    json_source: Path,
+    iac_type: str = "terraform",
+    extra_check_types: Sequence[str] = (),
+    require_complete: bool = False,
 ) -> dict[str, Any]:
-    """Load and normalize a pre-generated Checkov JSON result."""
+    """Load and normalize a pre-generated Checkov JSON result.
+
+    With *require_complete* (a gate is set) an input without any ``EUGUARD_*`` check or
+    with ``summary.resource_count`` 0 raises instead of warning, unless
+    ``--allow-partial`` is in effect: a forged or empty file would otherwise pass every gate.
+    """
     if str(json_source) == "-":
         buffer = getattr(sys.stdin, "buffer", None)
         text = decode_json_bytes(buffer.read(), "from stdin") if buffer else sys.stdin.read()
@@ -158,7 +166,7 @@ def load_checkov_json(
     _check_parsing_errors(data)
     output = normalize_checkov_output(data, iac_type, extra_check_types)
     _warn_installed_version_mismatch(output)
-    _warn_missing_custom_checks(output)
+    _check_input_completeness(output, require_complete)
     return output
 
 
@@ -222,21 +230,41 @@ def _warn_installed_version_mismatch(output: dict[str, Any]) -> None:
         )
 
 
-def _warn_missing_custom_checks(output: dict[str, Any]) -> None:
-    results = output.get("results")
-    if not isinstance(results, dict):
-        return
+def _has_custom_check(results: dict[str, Any]) -> bool:
     for section in ("passed_checks", "failed_checks", "skipped_checks"):
         for check in results.get(section) or []:
             check_id = check.get("check_id") if isinstance(check, dict) else None
             if isinstance(check_id, str) and check_id.startswith(CUSTOM_CHECK_PREFIX):
-                return
-    _warn(
-        "no EUGUARD_* check appears in the Checkov JSON, so the tf-eu-guard custom checks "
-        "were not loaded: the data-residency and secret-in-code checks are absent and a "
-        "clean result does not cover them. Regenerate the file with "
-        f"--external-checks-dir {CUSTOM_CHECKS_DIR}"
-    )
+                return True
+    return False
+
+
+def _check_input_completeness(output: dict[str, Any], require_complete: bool) -> None:
+    """Warn, or with *require_complete* fail, on a file that cannot be a full scan."""
+    strict = require_complete and not _ALLOW_PARTIAL.get()
+    results = output.get("results")
+    if isinstance(results, dict) and not _has_custom_check(results):
+        if strict:
+            raise CheckovRuntimeError(
+                "the Checkov JSON contains no EUGUARD_* check, so the tf-eu-guard custom "
+                "checks were not run; a gated scan cannot trust it. Regenerate it with "
+                f"--external-checks-dir {CUSTOM_CHECKS_DIR}, or pass --allow-partial"
+            )
+        _warn(
+            "no EUGUARD_* check appears in the Checkov JSON, so the tf-eu-guard custom checks "
+            "were not loaded: the data-residency and secret-in-code checks are absent and a "
+            "clean result does not cover them. Regenerate the file with "
+            f"--external-checks-dir {CUSTOM_CHECKS_DIR}"
+        )
+    summary = output.get("summary")
+    count = summary.get("resource_count") if isinstance(summary, dict) else None
+    if count == 0 and not isinstance(count, bool):
+        if strict:
+            raise CheckovRuntimeError(
+                "the Checkov JSON reports 0 resources scanned; a gated scan cannot trust it. "
+                "Pass --allow-partial to accept it"
+            )
+        _warn("the Checkov JSON reports 0 resources scanned")
 
 
 #: The only fields copied from an extra (secrets) result. Checkov's secrets

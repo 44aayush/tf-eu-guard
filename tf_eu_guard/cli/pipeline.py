@@ -183,7 +183,15 @@ def load_scan_findings(
     with allow_partial_results(getattr(args, "allow_partial", False)):
         if args.checkov_json:
             checkov_output = checkov_runner.load_checkov_json(
-                args.checkov_json, args.iac_type, extra_types
+                args.checkov_json,
+                args.iac_type,
+                extra_types,
+                require_complete=bool(
+                    getattr(args, "fail_on_severity", None)
+                    or getattr(args, "fail_on_any", False)
+                    or getattr(args, "fail_on_suppressed", False)
+                    or getattr(args, "fail_on_unmapped", False)
+                ),
             )
         else:
             checkov_output = checkov_runner.run_checkov(

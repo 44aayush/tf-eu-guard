@@ -138,7 +138,7 @@ def test_allow_partial_in_source_mode(monkeypatch, tmp_path, capsys):
 
 
 def test_existing_fixture_still_scans(monkeypatch, tmp_path, capsys):
-    code = run_cli(monkeypatch, tmp_path, "--checkov-json", ABS_FIXTURE)
+    code = _scan(monkeypatch, tmp_path, _doc(euguard=False))
     assert code == EXIT_OK
     assert "custom checks were not loaded" in capsys.readouterr().err
 
@@ -269,3 +269,69 @@ def test_schema_rejects_bad_documents():
     validator = Draft202012Validator(SCHEMA)
     assert list(validator.iter_errors([]))
     assert list(validator.iter_errors({"schema_version": "1"}))
+
+
+# --- Strict input when a gate is set (T-10, TEG-09) ---------------------------------
+
+#: The shape of the forged file from REVIEW.md E13: no checks at all, zero resources.
+FORGED = {
+    "check_type": "terraform",
+    "results": {
+        "failed_checks": [],
+        "passed_checks": [],
+        "skipped_checks": [],
+        "parsing_errors": [],
+    },
+    "summary": {
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0,
+        "parsing_errors": 0,
+        "resource_count": 0,
+        "checkov_version": "3.4.5",
+    },
+}
+COMPLETE_FIXTURE = str(Path("tests/fixtures/checkov-gdpr001-alias.json").resolve())
+
+
+def test_checkov_json_gate_without_custom_checks_exits_3(monkeypatch, tmp_path, capsys):
+    code = _scan(monkeypatch, tmp_path, FORGED, "--fail-on-severity", "LOW")
+    assert code == EXIT_RUNTIME_FAILURE
+    err = capsys.readouterr().err
+    assert "contains no EUGUARD_* check" in err
+    assert "a gated scan cannot trust it" in err
+
+
+def test_checkov_json_gate_zero_resources_exits_3(monkeypatch, tmp_path, capsys):
+    code = _scan(
+        monkeypatch,
+        tmp_path,
+        _doc(version="3.4.5") | {"summary": {"parsing_errors": 0, "resource_count": 0}},
+        "--fail-on-any",
+    )
+    assert code == EXIT_RUNTIME_FAILURE
+    assert "reports 0 resources scanned" in capsys.readouterr().err
+
+
+def test_checkov_json_gate_allow_partial_warns(monkeypatch, tmp_path, capsys):
+    code = _scan(monkeypatch, tmp_path, FORGED, "--fail-on-severity", "LOW", "--allow-partial")
+    assert code == EXIT_OK
+    err = capsys.readouterr().err
+    assert "no EUGUARD_* check appears" in err
+    assert "Warning: the Checkov JSON reports 0 resources scanned" in err
+
+
+def test_checkov_json_without_gate_only_warns(monkeypatch, tmp_path, capsys):
+    code = _scan(monkeypatch, tmp_path, FORGED)
+    assert code == EXIT_OK
+    err = capsys.readouterr().err
+    assert "no EUGUARD_* check appears" in err
+    assert "Warning: the Checkov JSON reports 0 resources scanned" in err
+
+
+def test_checkov_json_gate_complete_input_passes(monkeypatch, tmp_path, capsys):
+    code = run_cli(
+        monkeypatch, tmp_path, "--checkov-json", COMPLETE_FIXTURE, "--fail-on-severity", "CRITICAL"
+    )
+    assert code in (EXIT_OK, 1)  # a finding may trip the gate; the input itself is accepted
+    assert "cannot trust it" not in capsys.readouterr().err
