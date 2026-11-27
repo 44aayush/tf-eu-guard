@@ -1,7 +1,12 @@
 """Registry severity rubric and the T-15 / TEG-11 mapping fixes."""
 
+import importlib.util
+import os
+import textwrap
+
 import pytest
 
+from tf_eu_guard.checkov_runner import run_checkov
 from tf_eu_guard.models import Severity
 
 
@@ -36,3 +41,25 @@ def test_new_mappings_present(registry):
     assert _articles(ssm) == {("NIS2", "Art. 21(2)(h)"), ("GDPR", "Art. 32(1)(a)")}
     assert "SecureString" in ssm.remediation
     assert "key_id" in ssm.remediation
+
+
+@pytest.mark.parametrize("cid", ["CKV2_AWS_27", "CKV2_AWS_30"])
+def test_query_logging_remediations_name_checkov_parameters(registry, cid):
+    remediation = registry[cid].remediation
+    assert "log_statement" in remediation
+    assert "log_min_duration_statement" in remediation
+
+
+@pytest.mark.skipif(
+    not os.environ.get("TFEG_RUN_CHECKOV") or importlib.util.find_spec("checkov") is None,
+    reason="live Checkov test: set TFEG_RUN_CHECKOV=1 with Checkov installed in this Python environment",
+)
+@pytest.mark.parametrize("cid", ["CKV2_AWS_27", "CKV2_AWS_30"])
+def test_query_logging_remediations_clear_checkov(registry, tmp_path, cid):
+    """The remediation text, written to a .tf file, must pass the check it is attached to."""
+    lines = registry[cid].remediation.splitlines()[1:]  # first line is prose
+    (tmp_path / "main.tf").write_text(textwrap.dedent("\n".join(lines)) + "\n", encoding="utf-8")
+    data = run_checkov(tmp_path)
+    passed = {c["check_id"] for c in data["results"]["passed_checks"]}
+    failed = {c["check_id"] for c in data["results"]["failed_checks"]}
+    assert cid in passed, f"{cid} did not pass (failed: {sorted(failed)})"
