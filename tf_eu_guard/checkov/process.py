@@ -13,6 +13,7 @@ from typing import Any
 from tf_eu_guard.checkov.json import validate_scan_output
 from tf_eu_guard.checkov.types import CheckovRuntimeError
 from tf_eu_guard.constants import DEFAULT_CHECKOV_TIMEOUT, SUPPORTED_IAC_TYPES
+from tf_eu_guard.reporting.untrusted import sanitize
 from tf_eu_guard.residency import RESIDENCY_ENV_VARS
 
 
@@ -282,7 +283,8 @@ def find_remote_modules(target: Path, excludes: Sequence[str] = ()) -> list[tupl
 def remote_modules_warning(modules: Sequence[tuple[Path, str, str]], limit: int = 10) -> str:
     """Format the stderr warning for :func:`find_remote_modules` results."""
     listed = "; ".join(
-        f"module.{name} ({source}) in {path}" for path, name, source in modules[:limit]
+        f"module.{sanitize(name)} ({sanitize(source)}) in {sanitize(path)}"
+        for path, name, source in modules[:limit]
     )
     if len(modules) > limit:
         listed += f"; ... and {len(modules) - limit} more"
@@ -355,7 +357,7 @@ def run_checkov(
                 f"iac_type '{iac_type}' scans a directory, but '{target}' is not a directory"
             )
         for warning in validate_scan_root_symlinks(target, iac_type, exclude):
-            print(f"Warning: {warning}", file=sys.stderr)
+            print(f"Warning: {sanitize(warning)}", file=sys.stderr)
         reject_unsupported_source_files(target, iac_type, exclude)
         target_flag = ["-d", str(target)]
 

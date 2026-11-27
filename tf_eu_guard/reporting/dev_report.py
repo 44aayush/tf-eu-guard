@@ -11,6 +11,7 @@ from tf_eu_guard.reporting.html_common import line_range, safe_guideline, unmapp
 from tf_eu_guard.reporting.sorting import finding_sort_key, sort_findings, sorted_articles
 from tf_eu_guard.reporting.styles import SEVERITY_COLOR_TERMINAL, SEVERITY_ORDER
 from tf_eu_guard.reporting.suppressed import SuppressedItem, suppressed_items
+from tf_eu_guard.reporting.untrusted import sanitize
 from tf_eu_guard.reporting.waived import waived_lines
 from tf_eu_guard.reporting.weakening import weakening_rich
 
@@ -51,12 +52,12 @@ def _suppressed_lines(items: list[SuppressedItem]) -> list[str]:
     ]
     for item in items:
         lines.append(
-            f"\n  [yellow]○[/yellow] [bold]{escape(item.check_id)}[/bold]: "
-            f"{escape(item.check_name)}"
+            f"\n  [yellow]○[/yellow] [bold]{escape(sanitize(item.check_id))}[/bold]: "
+            f"{escape(sanitize(item.check_name))}"
         )
-        lines.append(f"    [dim]Resource:[/dim] {escape(item.resource)}")
-        lines.append(f"    [dim]File:[/dim] {escape(item.location)}")
-        lines.append(f"    [dim]Reason:[/dim] {escape(item.reason_text)}")
+        lines.append(f"    [dim]Resource:[/dim] {escape(sanitize(item.resource))}")
+        lines.append(f"    [dim]File:[/dim] {escape(sanitize(item.location))}")
+        lines.append(f"    [dim]Reason:[/dim] {escape(sanitize(item.reason_text))}")
         if not item.mapped:
             lines.append("    [dim]No current EU regulatory mapping[/dim]")
     return lines
@@ -90,8 +91,8 @@ def generate_dev_report(
     def print_unmapped() -> None:
         for cid, name, res, path, lines in unmapped_rows(unmapped or []):
             console.print(
-                f"  [dim]- {escape(cid)} {escape(name)} | {escape(res)} | "
-                f"{escape(path)}:{escape(lines)}[/dim]"
+                f"  [dim]- {escape(sanitize(cid))} {escape(sanitize(name))} | {escape(sanitize(res))} | "
+                f"{escape(sanitize(path))}:{escape(sanitize(lines))}[/dim]"
             )
 
     suppressed_list = suppressed_items(suppressed, suppressed_unmapped)
@@ -184,7 +185,7 @@ def generate_dev_report(
 
     # Display findings
     for file_path, file_findings in sorted(findings_by_file.items()):
-        console.print(f"\n[bold cyan]File: {escape(str(file_path))}[/bold cyan]")
+        console.print(f"\n[bold cyan]File: {escape(sanitize(file_path))}[/bold cyan]")
 
         sorted_findings = _sort_findings_within_file(file_findings)
 
@@ -194,13 +195,13 @@ def generate_dev_report(
 
             console.print(
                 f"\n  [{severity_color}]●[/{severity_color}] [bold]"
-                f"{escape(str(finding.check_id))}[/bold]: "
-                f"{escape(str(finding.check_name))}"
+                f"{escape(sanitize(finding.check_id))}[/bold]: "
+                f"{escape(sanitize(finding.check_name))}"
             )
-            console.print(f"    [dim]Resource:[/dim] {escape(str(finding.resource))}")
+            console.print(f"    [dim]Resource:[/dim] {escape(sanitize(finding.resource))}")
             line_ref = line_range(finding)
             if line_ref:
-                console.print(f"    [dim]Lines:[/dim] {escape(str(line_ref))}")
+                console.print(f"    [dim]Lines:[/dim] {escape(sanitize(line_ref))}")
             console.print(
                 f"    [dim]Severity:[/dim] [{severity_color}]"
                 f"{escape(finding.severity.value)}[/{severity_color}]"

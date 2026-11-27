@@ -20,6 +20,7 @@ from tf_eu_guard.mapping.loader import (
     split_findings,
 )
 from tf_eu_guard.models import EnrichedFinding, Framework, Severity
+from tf_eu_guard.reporting.untrusted import sanitize
 from tf_eu_guard.residency import DEFAULT_POLICY, residency_env
 from tf_eu_guard.waivers import WAIVER_FILENAME, apply_waivers, load_waivers
 
@@ -86,13 +87,13 @@ def _apply_waiver_file(
     result = apply_waivers([*active, *suppressed], waivers, _today())
     for w in result.expired:
         print(
-            f"Waiver expired on {w.expires.isoformat()}: {w.check_id} {w.resource} "
-            f"(owner {w.owner})",
+            f"Waiver expired on {w.expires.isoformat()}: "
+            f"{sanitize(w.check_id)} {sanitize(w.resource)} (owner {sanitize(w.owner)})",
             file=sys.stderr,
         )
     if result.unused:
-        listed = ", ".join(f"{w.check_id} {w.resource}" for w in result.unused)
-        print(f"Warning: waiver(s) in {path} matched nothing: {listed}", file=sys.stderr)
+        listed = ", ".join(f"{sanitize(w.check_id)} {sanitize(w.resource)}" for w in result.unused)
+        print(f"Warning: waiver(s) in {sanitize(path)} matched nothing: {listed}", file=sys.stderr)
     return (
         [f for f in result.active if not f.suppressed],
         [f for f in result.active if f.suppressed],
@@ -112,7 +113,7 @@ def _apply_severity_overrides(
         mapping = loaded.mappings.get(check_id)
         if mapping is None:
             print(
-                f"Warning: severity override for {check_id} ignored: not in the registry",
+                f"Warning: severity override for {sanitize(check_id)} ignored: not in the registry",
                 file=sys.stderr,
             )
             continue

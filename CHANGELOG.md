@@ -10,6 +10,13 @@ release point.
 
 ## [Unreleased]
 
+### Security
+
+- Terminal and stderr output escapes control characters (newline, ESC, C1, bidi overrides) in
+  resource names, file paths, check text, waiver fields, weakening lines and module sources taken
+  from the scanned checkout, so a crafted name can no longer forge `::error::` annotations in a
+  GitHub Actions log or repaint the terminal (TEG-03). Values are escaped, never dropped.
+
 ## [0.9.0] - 2026-11-18
 
 ### Added

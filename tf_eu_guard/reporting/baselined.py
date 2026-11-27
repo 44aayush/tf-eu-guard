@@ -9,6 +9,7 @@ from rich.markup import escape
 from tf_eu_guard.models import EnrichedFinding
 from tf_eu_guard.reporting.html_common import esc
 from tf_eu_guard.reporting.sorting import sort_findings
+from tf_eu_guard.reporting.untrusted import sanitize
 from tf_eu_guard.reporting.waived import _location
 
 TITLE = "Known (in baseline)"
@@ -48,9 +49,9 @@ def baselined_lines(baselined: list[EnrichedFinding]) -> list[str]:
     ]
     for f in sort_findings(baselined):
         lines.append(
-            f"\n  [yellow]○[/yellow] [bold]{escape(f.check_id)}[/bold]: {escape(f.check_name)}"
+            f"\n  [yellow]○[/yellow] [bold]{escape(sanitize(f.check_id))}[/bold]: {escape(sanitize(f.check_name))}"
         )
-        lines.append(f"    [dim]Resource:[/dim] {escape(f.resource)}")
-        lines.append(f"    [dim]File:[/dim] {escape(_location(f))}")
+        lines.append(f"    [dim]Resource:[/dim] {escape(sanitize(f.resource))}")
+        lines.append(f"    [dim]File:[/dim] {escape(sanitize(_location(f)))}")
         lines.append(f"    [dim]Severity:[/dim] {escape(f.severity.value)}")
     return lines
