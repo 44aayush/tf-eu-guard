@@ -743,7 +743,12 @@ the keywords authoritative. The package ships `py.typed`.
 > flags are ignored (results are pre-computed) and a warning is printed.
 > A source scan of AWS resources where no `provider "aws"` block sets a region reports one MEDIUM
 > `EUGUARD_POLICY_005` finding (`provider.aws`), because the region then comes from the environment at
-> apply time; pin the region or scan a plan (`--iac-type terraform_plan`).
+> apply time; pin the region or scan a plan (`--iac-type terraform_plan`). `--checkov-json` input that carries
+> tf-eu-guard custom-check results gets it too. It fails `--fail-on-severity MEDIUM`, `LOW` and `INFO` and
+> `--fail-on-any`, is dropped by `--framework nis2|gdpr`, and is absent from older `--baseline` files, so those gates
+> fail once after upgrading until you re-baseline or waive it. Reusable module repositories (resources, no provider
+> block) always get it and should not configure providers: waive `EUGUARD_POLICY_005` on resource `provider.aws` (no
+> file) or scan the root module or plan; an inline `#checkov:skip=EUGUARD_POLICY_005` has no effect.
 > `EUGUARD_GDPR_001` is a deprecated alias of `EUGUARD_POLICY_001` so 0.7.x
 > JSON still maps; it will be removed in the next release. S3 replication
 > destinations are not evaluated (bucket ARN regions are not statically known).

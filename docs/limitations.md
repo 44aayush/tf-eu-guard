@@ -154,7 +154,17 @@ Checkov does not read hidden entries (names starting with `.`),
 directory (other than tooling ones such as `.git` or `.github`) holds source files; pass it as the
 scan path to scan it. Likewise, when AWS resources are scanned but no `provider "aws"` block sets a
 region, a warning says the residency checks could not evaluate a region and one MEDIUM `EUGUARD_POLICY_005`
-finding (`provider.aws`) is reported; pin the region or scan a Terraform plan instead. The pre-scan guards (symlink
+finding (`provider.aws`) is reported; pin the region or scan a Terraform plan instead. Notes on that finding:
+
+- Reusable module repositories (resources, no provider block) always get it, and an inline
+  `#checkov:skip=EUGUARD_POLICY_005` has no effect because the pipeline synthesizes it. Modules should not configure
+  providers: waive check_id `EUGUARD_POLICY_005` with resource `provider.aws` (no file), or scan the root module or plan.
+- It is anchored at the first AWS resource by sorted file path (root-module files before `.external_modules/`), so its
+  baseline key changes when an earlier-sorting file gains an AWS resource; re-baseline, or use the file-less waiver.
+- The check is scan-wide, not per root module: a scan root holding one pinned and one unpinned root directory reports
+  nothing, because some provider region was evaluated.
+
+The pre-scan guards (symlink
 containment and the `*.tf.json` rejection) skip the same entries, so a
 virtual environment's `bin/python` link or a Terraform plugin cache does not
 abort a scan. Elsewhere, a symlink that leaves the scan root or is broken

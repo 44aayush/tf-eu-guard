@@ -102,7 +102,7 @@ resource yet). **§** custom tf-eu-guard check (not a stock Checkov policy; load
 | EUGUARD_POLICY_001 § | main.tf | aws provider | Provider region outside the configured residency policy | – | Policy RESIDENCY-001 | HIGH |
 | EUGUARD_GDPR_001 § | main.tf | aws provider | Deprecated alias of EUGUARD_POLICY_001 (removed next release) | – | Policy RESIDENCY-001 | HIGH |
 | EUGUARD_POLICY_002 § | main.tf | aws_* resources | Resource `region`, replica or copy-destination outside the residency policy | – | Policy RESIDENCY-001 | HIGH |
-| EUGUARD_POLICY_005 § | main.tf | aws_* resources | No `provider "aws"` block sets a region (source scans only; injected by the pipeline) | – | Policy RESIDENCY-001 | MEDIUM |
+| EUGUARD_POLICY_005 § | main.tf | aws provider | No `provider "aws"` block sets a region (source scans only; injected by the pipeline) | – | Policy RESIDENCY-001 | MEDIUM |
 | EUGUARD_GDPR_002 § | main.tf | aws provider | Known provider region outside the EU/EEA requires Chapter V review | – | 44 | HIGH |
 | EUGUARD_GDPR_003 § | main.tf | aws_* resources | Known resource-level region outside the EU/EEA requires Chapter V review | – | 44 | HIGH |
 | EUGUARD_POLICY_003 § | main.tf | azurerm_* resources | Resource `location` outside the residency policy | – | Policy RESIDENCY-001 | HIGH |
