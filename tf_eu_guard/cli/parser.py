@@ -122,7 +122,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="FILE",
         help="Also write key=value counts (critical, high, medium, low, info, "
-        "unmapped, suppressed, waived, baselined, total), one per line in "
+        "unmapped, suppressed, waived, baselined, baselined_unmapped, total), one per line in "
         "GitHub $GITHUB_OUTPUT format.",
     )
     parser.add_argument(

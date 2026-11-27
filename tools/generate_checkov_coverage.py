@@ -216,10 +216,15 @@ def _shown(path: Path) -> str:
 
 
 def main(argv: list[str]) -> int:
+    check = "--check" in argv
+    doc_path = DOC_PATH
+    if "--doc" in argv:
+        position = argv.index("--doc") + 1
+        if position >= len(argv):
+            raise SystemExit("--doc needs a FILE argument")
+        doc_path = Path(argv[position])
     from checkov.version import version
 
-    check = "--check" in argv
-    doc_path = Path(argv[argv.index("--doc") + 1]) if "--doc" in argv else DOC_PATH
     mapped_ids = set(load_registry(REPO_ROOT / "tf_eu_guard" / "mapping"))
     triage, known_stale = load_triage()
     cat = catalogue()

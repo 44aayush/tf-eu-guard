@@ -41,8 +41,12 @@ RESIDENCY_POLICIES = (POLICY_EU_EEA, POLICY_EUSC, POLICY_CUSTOM)
 DEFAULT_POLICY = POLICY_EU_EEA
 
 _REGION_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
-_AWS_RESOURCE_RE = re.compile(r"(^|\.)aws_[a-z0-9_]+\.")
-_GCP_RESOURCE_RE = re.compile(r"(^|\.)google_[a-z0-9_]+\.")
+# Only the resource-type segment counts: leading `module.<name>[index].` hops are skipped so a
+# module called aws_bridge does not look like an AWS resource. `data.` sources are kept, as
+# they matched before.
+_MODULE_PREFIX = r"^(?:module\.[^.\[]+(?:\[[^\]]*\])?\.)*(?:data\.)?"
+_AWS_RESOURCE_RE = re.compile(_MODULE_PREFIX + r"aws_[a-z0-9_]+\.")
+_GCP_RESOURCE_RE = re.compile(_MODULE_PREFIX + r"google_[a-z0-9_]+\.")
 _CLOUDS = ("aws", "azure", "gcp")
 _EU_EEA_BY_CLOUD = {"azure": AZURE_EU_EEA_LOCATIONS, "gcp": GCP_EU_EEA_LOCATIONS}
 _POLICY_CHECK_ID = "EUGUARD_POLICY_001"
@@ -168,10 +172,13 @@ def aws_region_unset_warning(
     )
 
 
-def _location_key(check: dict[str, Any]) -> tuple[str, int]:
+def _location_key(check: dict[str, Any]) -> tuple[bool, str, int]:
+    """Sort key: root-module files first, then downloaded external modules, by path and line."""
     line_range = check.get("file_line_range")
     line = line_range[0] if isinstance(line_range, list) and line_range else 0
-    return (str(check.get("file_path") or ""), line if isinstance(line, int) else 0)
+    path = str(check.get("file_path") or "")
+    external = ".external_modules" in path.replace("\\", "/").split("/")
+    return (external, path, line if isinstance(line, int) else 0)
 
 
 def aws_region_unset_finding(
@@ -179,7 +186,8 @@ def aws_region_unset_finding(
 ) -> dict[str, Any] | None:
     """Return a failed-check dict for ``EUGUARD_POLICY_005`` exactly when the warning fires.
 
-    The finding is anchored at the first AWS resource by sorted (file path, line), because the
+    The finding is anchored at the first AWS resource by sorted (file path, line), root-module files before downloaded
+    ``.external_modules`` ones, because the
     missing provider region has no source location of its own.
     """
     resources = _unset_region_resources(

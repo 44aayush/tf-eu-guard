@@ -111,3 +111,9 @@ def test_doc_is_current():
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_doc_flag_without_value_exits_with_message():
+    with pytest.raises(SystemExit) as exc:
+        gcc.main(["--check", "--doc"])
+    assert "--doc" in str(exc.value)

@@ -964,6 +964,11 @@ EUGUARD_POLICY_005:
       provider "aws" { region = "eu-central-1" }
     Or scan a Terraform plan (--iac-type terraform_plan) to check the
     authoritative region.
+    A reusable module repository should not configure providers, so it always
+    triggers this finding. Exempt it with a waiver on check_id
+    EUGUARD_POLICY_005 and resource provider.aws (no file), or scan the root
+    module or its plan instead. An inline #checkov:skip=EUGUARD_POLICY_005
+    comment has no effect: the pipeline synthesizes this finding.
   severity: MEDIUM
 
 EUGUARD_GDPR_002:

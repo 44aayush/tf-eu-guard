@@ -3,11 +3,18 @@
 import importlib.util
 import json
 import os
+from datetime import date
+from pathlib import Path
 
 import pytest
 from cli_helpers import run_cli
 
-from tf_eu_guard.residency import aws_region_unset_finding, aws_region_unset_warning
+from tf_eu_guard.mapping.loader import load_registry
+from tf_eu_guard.residency import (
+    aws_region_unset_finding,
+    aws_region_unset_warning,
+    gcp_region_unset_warning,
+)
 
 requires_checkov = pytest.mark.skipif(
     not os.environ.get("TFEG_RUN_CHECKOV") or importlib.util.find_spec("checkov") is None,
@@ -162,11 +169,11 @@ def test_no_region_finding_anchors_at_first_resource_by_location():
     assert finding["file_line_range"] == [9, 10]
 
 
-def test_no_region_finding_respects_skip_check():
+def test_no_region_finding_suppressed_by_existing_policy_001_result():
     """A Checkov JSON that already carries a policy-001 result (or skip) yields no finding.
 
-    tf-eu-guard exposes no --check/--skip-check of its own: Checkov runs with a fixed check
-    selection, so the finding follows the same predicate as the warning.
+    The finding follows the same predicate as the warning: an existing EUGUARD_POLICY_001
+    result, even a skipped one, means a region was evaluated, so nothing is injected.
     """
     output = _output()
     output["results"]["skipped_checks"].append(
@@ -215,6 +222,7 @@ def _checkov_json(tmp_path):
 
 
 def test_no_region_finding_waivable_and_baselined(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr("tf_eu_guard.cli.pipeline._today", lambda: date(2026, 6, 1))
     document = _checkov_json(tmp_path)
     base = [
         "--checkov-json",
@@ -252,3 +260,79 @@ def test_no_region_finding_waivable_and_baselined(monkeypatch, tmp_path, capsys)
     report = json.loads(capsys.readouterr().out)
     assert code == 0
     assert "EUGUARD_POLICY_005" in [f["check_id"] for f in report["baselined"]]
+
+
+def _resources_output(*resources, passed=("EUGUARD_GDPR_002",)):
+    return {
+        "results": {
+            "passed_checks": [{"check_id": c, "resource": "x.y"} for c in passed],
+            "failed_checks": [
+                {
+                    "check_id": "CKV_X_1",
+                    "resource": r,
+                    "file_path": "/a.tf",
+                    "file_line_range": [1, 2],
+                }
+                for r in resources
+            ],
+            "skipped_checks": [],
+        }
+    }
+
+
+def test_module_named_aws_bridge_wrapping_gcp_has_no_aws_finding():
+    # Only the resource-type segment counts: a module called aws_bridge is not an AWS resource.
+    output = _resources_output("module.aws_bridge.google_storage_bucket.b")
+    assert aws_region_unset_finding(output, custom_checks_loaded=True) is None
+    assert aws_region_unset_warning(output, custom_checks_loaded=True) is None
+
+
+def test_gcp_warning_ignores_module_named_google_wrapping_aws():
+    output = _resources_output("module.google_bridge.aws_s3_bucket.b")
+    assert gcp_region_unset_warning(output, custom_checks_loaded=True) is None
+    assert aws_region_unset_finding(output, custom_checks_loaded=True) is not None
+
+
+@pytest.mark.parametrize(
+    "resource",
+    [
+        "aws_s3_bucket.b",
+        "module.x.aws_s3_bucket.b",
+        'module.x["k"].aws_s3_bucket.b',
+        "module.x[0].module.y.aws_s3_bucket.b",
+        "data.aws_iam_policy_document.d",  # data sources counted before, kept consistent
+    ],
+)
+def test_aws_resource_shapes_still_count(resource):
+    output = _resources_output(resource)
+    assert aws_region_unset_finding(output, custom_checks_loaded=True) is not None
+    assert aws_region_unset_warning(output, custom_checks_loaded=True) is not None
+
+
+def test_anchor_prefers_root_module_over_external_modules():
+    def check(path, line):
+        return {
+            "check_id": "CKV_AWS_18",
+            "resource": "aws_s3_bucket.b",
+            "file_path": path,
+            "file_line_range": [line, line + 1],
+        }
+
+    output = {
+        "results": {
+            "passed_checks": [{"check_id": "EUGUARD_GDPR_002", "resource": "x.y"}],
+            "failed_checks": [
+                check("/.external_modules/github.com/o/m/main.tf", 1),
+                check("/stack/z_main.tf", 7),
+            ],
+            "skipped_checks": [],
+        }
+    }
+    finding = aws_region_unset_finding(output, custom_checks_loaded=True)
+    assert finding["file_path"] == "/stack/z_main.tf"
+
+
+def test_check_name_matches_registry():
+    registry = load_registry(Path(__file__).resolve().parents[1] / "tf_eu_guard" / "mapping")
+    finding = aws_region_unset_finding(_output(), custom_checks_loaded=True)
+    assert finding["check_name"] == registry["EUGUARD_POLICY_005"].check_name
