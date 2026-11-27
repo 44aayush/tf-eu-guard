@@ -198,8 +198,9 @@ jobs:
           load: true
           tags: tf-eu-guard:release-scan
       - name: Install trivy (pinned release, sha256-verified)
-        # Same trust model as actionlint above: update the version and the
-        # checksum together from the release's checksums file.
+        # Version and checksum must stay equal to ci.yml's image-scan job
+        # (enforced by test_publish_trivy_pin_matches_ci); update both together
+        # from the release's checksums file.
         env:
           TRIVY_VERSION: "0.76.2"
           TRIVY_SHA256: "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf"
