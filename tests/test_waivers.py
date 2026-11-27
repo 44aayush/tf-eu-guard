@@ -146,7 +146,7 @@ def _doc(failed=(), skipped=()):
             "skipped_checks": [
                 {**check(*c), "check_result": {"result": "SKIPPED"}} for c in skipped
             ],
-        }
+        },
     }
 
 
@@ -402,6 +402,24 @@ def test_waiver_beyond_max_days_is_not_applied():
     result = apply_waivers([_finding()], [waiver], TODAY, max_days=365)
     assert len(result.active) == 1 and not result.waived
     assert result.too_long == [waiver]
+
+
+def test_too_long_waiver_not_listed_when_another_waiver_applies():
+    short = _waiver(expires=TODAY + timedelta(days=30))
+    long = _waiver(expires=TODAY + timedelta(days=400))
+    result = apply_waivers([_finding()], [long, short], TODAY, max_days=365)
+    assert len(result.waived) == 1 and not result.active
+    assert result.waived[0].waiver == short
+    assert result.too_long == []
+    assert result.unused == []
+
+
+def test_too_long_waiver_listed_when_it_decides_the_outcome():
+    long = _waiver(expires=TODAY + timedelta(days=400))
+    other = _waiver(check_id="CKV_OTHER_1", expires=TODAY + timedelta(days=30))
+    result = apply_waivers([_finding()], [long, other], TODAY, max_days=365)
+    assert len(result.active) == 1
+    assert result.too_long == [long]
 
 
 def test_waiver_within_max_days_applies():

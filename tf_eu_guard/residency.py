@@ -76,8 +76,9 @@ def aws_region_unset_warning(checkov_output: dict[str, Any]) -> str | None:
     """Return a warning when AWS resources were scanned but no region was ever evaluated.
 
     EUGUARD_POLICY_001 produces a result only for a ``provider "aws"`` block that sets a
-    region. AWS resources without any such result mean the region comes from the
-    environment at apply time, which a source scan cannot see.
+    region. AWS resources without any such result, while other EUGUARD_* checks did run, mean
+    the region comes from the environment at apply time, which a source scan cannot see. With no
+    EUGUARD_* result at all the custom checks did not run and the claim cannot be made.
     """
     results = checkov_output.get("results") or {}
     checks = [
@@ -85,7 +86,12 @@ def aws_region_unset_warning(checkov_output: dict[str, Any]) -> str | None:
         for key in ("passed_checks", "failed_checks", "skipped_checks")
         for check in results.get(key) or []
     ]
-    if any(check.get("check_id") == _POLICY_CHECK_ID for check in checks):
+    ids = {str(check.get("check_id") or "") for check in checks}
+    if _POLICY_CHECK_ID in ids:
+        return None
+    if not any(check_id.startswith("EUGUARD_") for check_id in ids):
+        # The custom checks did not run (or were not part of this file): the absence of a
+        # policy result says nothing about the region.
         return None
     if not any(_AWS_RESOURCE_RE.search(str(check.get("resource") or "")) for check in checks):
         return None

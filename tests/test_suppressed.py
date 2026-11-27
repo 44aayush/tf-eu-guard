@@ -181,7 +181,14 @@ def test_dev_report_is_not_clean_when_only_suppressed(
 
 def test_dev_report_clean_message_kept_without_suppressions(monkeypatch, tmp_path, capsys):
     path = tmp_path / "empty.json"
-    path.write_text(json.dumps({"results": {"failed_checks": []}, "summary": {"resource_count": 1, "parsing_errors": 0}}))
+    path.write_text(
+        json.dumps(
+            {
+                "results": {"failed_checks": []},
+                "summary": {"resource_count": 1, "parsing_errors": 0},
+            }
+        )
+    )
     run_cli(monkeypatch, tmp_path, "--checkov-json", str(path))
     assert "No compliance findings" in capsys.readouterr().out
 
@@ -365,7 +372,14 @@ def test_fail_on_suppressed_off_by_default_and_without_suppressions(
         == EXIT_OK
     )
     clean = tmp_path / "clean.json"
-    clean.write_text(json.dumps({"results": {"failed_checks": []}, "summary": {"resource_count": 1, "parsing_errors": 0}}))
+    clean.write_text(
+        json.dumps(
+            {
+                "results": {"failed_checks": []},
+                "summary": {"resource_count": 1, "parsing_errors": 0},
+            }
+        )
+    )
     assert (
         run_cli(
             monkeypatch,

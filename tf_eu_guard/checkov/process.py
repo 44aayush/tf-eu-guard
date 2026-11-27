@@ -167,17 +167,26 @@ _TOOLING_DIRECTORIES = frozenset(
         ".idea",
         ".devcontainer",
         ".husky",
+        ".terragrunt-cache",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".circleci",
     }
 )
 
 
-def _has_source_file(directory: Path, suffixes: tuple[str, ...]) -> bool:
+def _has_source_file(
+    directory: Path, suffixes: tuple[str, ...], excludes: Sequence[str] = ()
+) -> bool:
     """Return whether *directory* holds a source file, pruned like Checkov's own walk."""
-    for _current, dirs, files in os.walk(directory):
+    for current, dirs, files in os.walk(directory):
         dirs[:] = [
             d
             for d in dirs
-            if d not in CHECKOV_IGNORED_DIRECTORIES and d not in _TOOLING_DIRECTORIES
+            if d not in CHECKOV_IGNORED_DIRECTORIES
+            and d not in _TOOLING_DIRECTORIES
+            and not _is_excluded(current, d, excludes)
         ]
         if any(f.lower().endswith(suffixes) for f in files):
             return True
@@ -197,8 +206,9 @@ def hidden_source_dirs(root: Path, iac_type: str, excludes: Sequence[str] = ()) 
                 path = Path(current) / name
                 if (
                     name not in _TOOLING_DIRECTORIES
+                    and not path.is_symlink()
                     and not _is_excluded(current, name, excludes)
-                    and _has_source_file(path, suffixes)
+                    and _has_source_file(path, suffixes, excludes)
                 ):
                     found.append(path)
             elif not _is_skipped(current, name, excludes):

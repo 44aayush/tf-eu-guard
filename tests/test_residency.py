@@ -319,7 +319,7 @@ def test_eu_isoe_is_unclassified_not_third_country():
 def _aws_output(*extra_checks):
     return {
         "results": {
-            "passed_checks": [],
+            "passed_checks": [{"check_id": "EUGUARD_GDPR_002", "resource": "aws_s3_bucket.b"}],
             "failed_checks": [{"check_id": "CKV_AWS_18", "resource": "aws_s3_bucket.b"}],
             "skipped_checks": list(extra_checks),
         }
@@ -337,6 +337,17 @@ def test_aws_region_unset_warning_fires_without_provider_result():
 def test_aws_region_unset_warning_silent_when_policy_001_ran(bucket):
     output = _aws_output()
     output["results"][bucket].append({"check_id": "EUGUARD_POLICY_001", "resource": "aws.default"})
+    assert aws_region_unset_warning(output) is None
+
+
+def test_aws_region_unset_warning_silent_when_no_euguard_check_ran():
+    output = _aws_output()
+    output["results"]["passed_checks"] = []
+    assert aws_region_unset_warning(output) is None
+
+
+def test_aws_region_unset_warning_silent_when_policy_001_is_skipped():
+    output = _aws_output({"check_id": "EUGUARD_POLICY_001", "resource": "aws.default"})
     assert aws_region_unset_warning(output) is None
 
 

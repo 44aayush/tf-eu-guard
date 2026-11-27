@@ -793,6 +793,35 @@ def test_hidden_dir_with_only_plugin_cache_is_ignored(tmp_path):
     assert hidden_source_dirs(tmp_path, "terraform") == []
 
 
+def test_hidden_source_dirs_does_not_follow_symlinked_hidden_dir(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "main.tf").write_text("# elsewhere\n")
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "main.tf").write_text("# root\n")
+    (root / ".ext").symlink_to(Path("..") / "outside", target_is_directory=True)
+    assert hidden_source_dirs(root, "terraform") == []
+
+
+@pytest.mark.parametrize(
+    "name", [".terragrunt-cache", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".circleci"]
+)
+def test_hidden_dir_warning_ignores_more_tooling_dirs(tmp_path, name):
+    (tmp_path / name).mkdir()
+    (tmp_path / name / "x.tf").write_text("# x\n")
+    (tmp_path / name / "k.yaml").write_text("kind: Pod\n")
+    assert hidden_source_dirs(tmp_path, "terraform") == []
+    assert hidden_source_dirs(tmp_path, "kubernetes") == []
+
+
+def test_hidden_source_dirs_exclude_applies_to_the_inner_walk(tmp_path):
+    (tmp_path / ".prod" / "vendor").mkdir(parents=True)
+    (tmp_path / ".prod" / "vendor" / "main.tf").write_text("# vendored\n")
+    assert hidden_source_dirs(tmp_path, "terraform") == [tmp_path / ".prod"]
+    assert hidden_source_dirs(tmp_path, "terraform", ["vendor"]) == []
+
+
 def test_run_checkov_prints_hidden_dir_warning(tmp_path, capsys, monkeypatch):
     _capture_cmd(monkeypatch)
     _tf_dir(tmp_path, "# root\n")

@@ -46,6 +46,13 @@ release point.
 
 ### Fixed
 
+- The unset-AWS-region warning is no longer printed when the Checkov output holds no `EUGUARD_*` result at
+  all (the custom checks did not run, so the claim cannot be made) (TEG-05).
+- The hidden-directory warning no longer follows symlinked hidden directories, also ignores
+  `.terragrunt-cache`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache` and `.circleci`, and applies
+  `--exclude` inside the hidden directory too (TEG-05).
+- `--max-waiver-days` lists a too-long waiver as "not applied" only when it decided the outcome: a finding
+  that another in-range waiver covers no longer produces the warning (TEG-01).
 - The Action accepts `path: ${{ github.workspace }}` (the bare workspace, no trailing slash) and the same
   value for its other workspace inputs; it was rejected as an absolute path outside the workspace.
 - `--changed-since` keeps Terraform findings in the module directory, parent directories and

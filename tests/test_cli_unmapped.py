@@ -39,7 +39,7 @@ def _mixed_doc():
                     "guideline": None,
                 },
             ]
-        }
+        },
     }
 
 

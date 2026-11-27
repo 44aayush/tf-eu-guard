@@ -139,6 +139,7 @@ def apply_waivers(
             pass  # the limit lies beyond every representable date: nothing is too long
     result = WaiverResult([], [])
     matched: set[Waiver] = set()
+    too_long: set[Waiver] = set()
     for finding in findings:
         hits = [w for w in waivers if _matches(w, finding)]
         matched.update(hits)
@@ -147,7 +148,9 @@ def apply_waivers(
             result.waived.append(replace(finding, waiver=valid))
         else:
             result.active.append(finding)
+            # Only a waiver that decided the outcome (nothing else in range applied) counts.
+            too_long.update(w for w in hits if w.expires > limit)
     result.expired = [w for w in waivers if w.expires < today]
-    result.too_long = [w for w in waivers if w in matched and w.expires > limit]
+    result.too_long = [w for w in waivers if w in too_long]
     result.unused = [w for w in waivers if w not in matched and w.expires >= today]
     return result
