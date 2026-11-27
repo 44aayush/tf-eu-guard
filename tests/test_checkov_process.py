@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+from tf_eu_guard.checkov.process import hidden_dirs_warning, hidden_source_dirs
 from tf_eu_guard.checkov_runner import (
     CheckovRuntimeError,
     extract_failed_checks,
@@ -732,3 +733,43 @@ def test_checkov_environment_drops_git_variables(monkeypatch):
 
     monkeypatch.setenv("GIT_DIR", "/elsewhere")
     assert "GIT_DIR" not in checkov_environment()
+
+
+def _hidden_tree(tmp_path):
+    (tmp_path / "main.tf").write_text("# root\n")
+    (tmp_path / ".prod" / "env").mkdir(parents=True)
+    (tmp_path / ".prod" / "env" / "main.tf").write_text("# prod\n")
+    return tmp_path
+
+
+def test_hidden_source_dirs_finds_dot_prod(tmp_path):
+    root = _hidden_tree(tmp_path)
+    found = hidden_source_dirs(root, "terraform")
+    assert found == [root / ".prod"]
+    warning = hidden_dirs_warning(found, "terraform")
+    assert "1 hidden directory contains .tf, .tfvars, .hcl files" in warning
+    assert str(root / ".prod") in warning
+
+
+def test_hidden_dir_warning_ignores_tooling_dirs(tmp_path):
+    for name in (".git", ".github", ".terraform", ".venv", ".tox", ".cache"):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "x.tf").write_text("# x\n")
+    (tmp_path / ".empty").mkdir()
+    (tmp_path / ".docs").mkdir()
+    (tmp_path / ".docs" / "readme.md").write_text("x\n")
+    assert hidden_source_dirs(tmp_path, "terraform") == []
+
+
+def test_hidden_source_dirs_honours_exclude(tmp_path):
+    root = _hidden_tree(tmp_path)
+    assert hidden_source_dirs(root, "terraform", [".prod"]) == []
+
+
+def test_hidden_source_dirs_kubernetes_yaml(tmp_path):
+    (tmp_path / "app").mkdir()
+    (tmp_path / "app" / ".overlays").mkdir()
+    (tmp_path / "app" / ".overlays" / "deploy.yaml").write_text("kind: Pod\n")
+    assert hidden_source_dirs(tmp_path, "kubernetes") == [tmp_path / "app" / ".overlays"]
+    assert hidden_source_dirs(tmp_path, "terraform") == []
+    assert "directories contain" in hidden_dirs_warning([Path("a"), Path("b")], "kubernetes")

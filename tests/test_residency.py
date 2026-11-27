@@ -18,6 +18,7 @@ from tf_eu_guard.residency import (
     ALLOWED_REGIONS_ENV_VAR,
     POLICY_ENV_VAR,
     allowed_regions_from_env,
+    aws_region_unset_warning,
     parse_allowed_regions,
     residency_env,
 )
@@ -313,3 +314,37 @@ def test_eu_isoe_is_unclassified_not_third_country():
     assert _gdpr3("aws_s3_bucket", {"region": [region]}) == CheckResult.UNKNOWN
     assert _provider(region) == CheckResult.FAILED
     assert _policy2("aws_s3_bucket", {"region": [region]})[0] == CheckResult.FAILED
+
+
+def _aws_output(*extra_checks):
+    return {
+        "results": {
+            "passed_checks": [],
+            "failed_checks": [{"check_id": "CKV_AWS_18", "resource": "aws_s3_bucket.b"}],
+            "skipped_checks": list(extra_checks),
+        }
+    }
+
+
+def test_aws_region_unset_warning_fires_without_provider_result():
+    warning = aws_region_unset_warning(_aws_output())
+    assert warning is not None
+    assert 'no provider "aws" block sets a region' in warning
+    assert "--iac-type terraform_plan" in warning
+
+
+@pytest.mark.parametrize("bucket", ["passed_checks", "failed_checks"])
+def test_aws_region_unset_warning_silent_when_policy_001_ran(bucket):
+    output = _aws_output()
+    output["results"][bucket].append({"check_id": "EUGUARD_POLICY_001", "resource": "aws.default"})
+    assert aws_region_unset_warning(output) is None
+
+
+def test_aws_region_unset_warning_silent_without_aws_resources():
+    output = {
+        "results": {
+            "failed_checks": [{"check_id": "CKV_GCP_1", "resource": "google_storage_bucket.b"}]
+        }
+    }
+    assert aws_region_unset_warning(output) is None
+    assert aws_region_unset_warning({"results": {}}) is None

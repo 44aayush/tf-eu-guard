@@ -136,15 +136,62 @@ def _compile_exclude_patterns(excludes: Sequence[str]) -> list[re.Pattern[str]]:
     return compiled
 
 
-def _is_skipped(directory: str, name: str, excludes: Sequence[str]) -> bool:
-    """Return whether Checkov would skip entry *name* of *directory*."""
-    if name in CHECKOV_IGNORED_DIRECTORIES or name.startswith("."):
-        return True
+def _is_excluded(directory: str, name: str, excludes: Sequence[str]) -> bool:
+    """Return whether an ``--exclude`` pattern matches entry *name* of *directory*."""
     if not excludes:
         return False
     full_path = os.path.join(directory, name)
     return any(p.search(full_path) for p in _compile_exclude_patterns(excludes)) or any(
         p in full_path for p in excludes
+    )
+
+
+def _is_skipped(directory: str, name: str, excludes: Sequence[str]) -> bool:
+    """Return whether Checkov would skip entry *name* of *directory*."""
+    if name in CHECKOV_IGNORED_DIRECTORIES or name.startswith("."):
+        return True
+    return _is_excluded(directory, name, excludes)
+
+
+# Hidden directories that hold tooling, not infrastructure source.
+_TOOLING_DIRECTORIES = frozenset(
+    {".git", ".github", ".gitlab", ".terraform", ".venv", ".tox", ".cache"}
+)
+
+
+def hidden_source_dirs(root: Path, iac_type: str, excludes: Sequence[str] = ()) -> list[Path]:
+    """Return top-most hidden directories under *root* that hold files Checkov skips."""
+    suffixes = SOURCE_SUFFIXES.get(iac_type, ())
+    if not suffixes:
+        return []
+    found: list[Path] = []
+    for current, dirs, _files in os.walk(root):
+        keep: list[str] = []
+        for name in sorted(dirs):
+            if name.startswith("."):
+                path = Path(current) / name
+                if (
+                    name not in _TOOLING_DIRECTORIES
+                    and not _is_excluded(current, name, excludes)
+                    and any(f.lower().endswith(suffixes) for _, _, fs in os.walk(path) for f in fs)
+                ):
+                    found.append(path)
+            elif not _is_skipped(current, name, excludes):
+                keep.append(name)
+        dirs[:] = keep
+    return sorted(found)
+
+
+def hidden_dirs_warning(found: Sequence[Path], iac_type: str, limit: int = 5) -> str:
+    """Format the stderr warning for :func:`hidden_source_dirs` results."""
+    suffixes = ", ".join(SOURCE_SUFFIXES[iac_type])
+    listed = ", ".join(sanitize(path) for path in found[:limit])
+    if len(found) > limit:
+        listed += f", ... and {len(found) - limit} more"
+    noun = "directory contains" if len(found) == 1 else "directories contain"
+    return (
+        f"Warning: not scanned: {len(found)} hidden {noun} {suffixes} files that Checkov "
+        f"skips: {listed}. Pass such a directory as the scan path to scan it."
     )
 
 
@@ -427,4 +474,8 @@ def run_checkov(
         remote = find_remote_modules(target, exclude)
         if remote:
             print(remote_modules_warning(remote), file=sys.stderr)
+    if iac_type in ("terraform", "kubernetes"):
+        hidden = hidden_source_dirs(target, iac_type, exclude)
+        if hidden:
+            print(hidden_dirs_warning(hidden, iac_type), file=sys.stderr)
     return validated

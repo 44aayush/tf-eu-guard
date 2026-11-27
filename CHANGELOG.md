@@ -20,6 +20,9 @@ release point.
   refuses waivers that expire more than N days ahead, so their findings stay active, and a waiver without a
   `file` pattern now warns that it matches the resource in every file (TEG-01). Opt-in; exit codes are
   unchanged unless the option is set.
+- A Terraform scan warns on stderr when AWS resources were scanned but no `provider "aws"` block sets a
+  region (the residency checks cannot tell where they deploy), and a directory scan warns when hidden
+  directories such as `.prod/` hold source files that Checkov skips (TEG-05). Exit codes are unchanged.
 
 ### Changed
 

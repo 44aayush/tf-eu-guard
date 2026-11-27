@@ -17,6 +17,7 @@ closed to the EUSC-only allowlist rather than silently widening the policy.
 
 import re
 from collections.abc import Mapping
+from typing import Any
 
 from tf_eu_guard.regions import EU_EEA_REGIONS, EUSC_REGIONS
 
@@ -31,6 +32,8 @@ RESIDENCY_POLICIES = (POLICY_EU_EEA, POLICY_EUSC, POLICY_CUSTOM)
 DEFAULT_POLICY = POLICY_EU_EEA
 
 _REGION_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+_AWS_RESOURCE_RE = re.compile(r"(^|\.)aws_[a-z0-9_]+\.")
+_POLICY_CHECK_ID = "EUGUARD_POLICY_001"
 
 
 def parse_allowed_regions(text: str) -> tuple[str, ...]:
@@ -67,3 +70,27 @@ def allowed_regions_from_env(environ: Mapping[str, str]) -> frozenset[str]:
             return EUSC_REGIONS
     # "eusc" and any unrecognised value: strictest allowlist.
     return EUSC_REGIONS
+
+
+def aws_region_unset_warning(checkov_output: dict[str, Any]) -> str | None:
+    """Return a warning when AWS resources were scanned but no region was ever evaluated.
+
+    EUGUARD_POLICY_001 produces a result only for a ``provider "aws"`` block that sets a
+    region. AWS resources without any such result mean the region comes from the
+    environment at apply time, which a source scan cannot see.
+    """
+    results = checkov_output.get("results") or {}
+    checks = [
+        check
+        for key in ("passed_checks", "failed_checks", "skipped_checks")
+        for check in results.get(key) or []
+    ]
+    if any(check.get("check_id") == _POLICY_CHECK_ID for check in checks):
+        return None
+    if not any(_AWS_RESOURCE_RE.search(str(check.get("resource") or "")) for check in checks):
+        return None
+    return (
+        'Warning: AWS resources were scanned but no provider "aws" block sets a region, so the '
+        "residency checks cannot tell where they deploy (the region comes from the environment "
+        "at apply time). Scan a Terraform plan (--iac-type terraform_plan) to check the real region."
+    )
