@@ -584,3 +584,15 @@ These results are from a fresh `--no-cache` build (`tf-eu-guard:ci12`) at `07b9d
 | TEG-17 test hardening | The coverage table flags triage IDs that are in neither the catalogue nor a registry. 26 new report goldens cover unmapped, suppressed and baseline scenarios in every format | Done |
 
 Corrected during the iteration: the AWS and GCP resource patterns matched module names, so a GCP-only stack with a module named `aws_*` would have received the AWS finding. They now match only the resource-type segment.
+
+### After iteration 9 (2026-11-27, `version_0.10.0`)
+
+These results are from a fresh `--no-cache` build (`tf-eu-guard:ci13`) at `641fab1`. 1738 tests pass (`TFEG_RUN_CHECKOV=1`), the emulator tier passes against LocalStack 4.9, the registries and docs agree on 284 mappings, actionlint 1.7.12 is clean on both workflows, the trivy gate exits 0, and every recheck harness exits 0 with all post-fix rows FIXED.
+
+| Finding | After iteration 9 | Status |
+| --- | --- | --- |
+| TEG-05 GCP no region | New `EUGUARD_POLICY_006` (MEDIUM, project policy) is the GCP counterpart of `EUGUARD_POLICY_005`. It shares one predicate with the stderr warning and ignores global, location-less types such as projects, service accounts and most IAM bindings; the list was checked against the provider docs. The provider `zone` now counts like `region` for `EUGUARD_POLICY_004` and `EUGUARD_GDPR_005`, so a US provider zone fails the HIGH policy check | Fixed (documented limits: scan-wide check, partial global-type list) |
+| TEG-05 plan mode | A plan fixture test pins Azure (`EUGUARD_POLICY_003`, `EUGUARD_GDPR_004`) and GCP (`EUGUARD_POLICY_004`, `EUGUARD_GDPR_005`) resource-level residency in `--iac-type terraform_plan`, including Azure `location = "global"` | Fixed |
+| TEG-06/TEG-04 release image | The image job builds once and pushes by digest with no tag. Trivy scans that digest, and only then are the release tag (`imagetools create`) and the provenance attestation added, so the scanned bytes are the published bytes. A failed scan leaves only an untagged, unattested digest | Fixed (optional hardening: T-41) |
+
+Corrected during the iteration: the first version of `EUGUARD_POLICY_006` fired on IAM-only GCP stacks, which pinning a region could not fix. A blanket `*_iam_*` exclusion was rejected because about 90 IAM resource types do take a location.
